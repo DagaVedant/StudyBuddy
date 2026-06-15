@@ -101,6 +101,31 @@ export async function classifyQuestion(
 
   const result = await provider.classifyTopic(question.promptText, candidates)
 
+  return applyClassification(db, question, candidates, result)
+}
+
+/**
+ * Validates and persists one classification result.
+ *
+ * Split from classifyQuestion so the GPU worker path can reuse it: there the
+ * model call happens on the operator's machine, but validation and persistence
+ * must stay server-side — the worker's output is never trusted raw (spec §8).
+ */
+export async function applyClassification(
+  db: Db,
+  question: { id: string; promptText: string; userId: string },
+  candidates: TopicCandidate[],
+  result: {
+    topic_slug: string | null
+    confidence: number
+    abstain: boolean
+    suggested_name: string | null
+  },
+): Promise<ClassifyOutcome> {
+  if (candidates.length === 0) {
+    return { topicId: null, coarse: false, proposalId: null, confidence: 0 }
+  }
+
   const chosen =
     result.topic_slug && !result.abstain
       ? candidates.find((candidate) => candidate.slug === result.topic_slug)

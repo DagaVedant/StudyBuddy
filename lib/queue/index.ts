@@ -70,7 +70,11 @@ export async function claimJob(
   workerId: string | null = null,
   now: Date = new Date(),
 ): Promise<ClaimedJob | null> {
-  const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS)
+  // ISO strings, not Date objects: raw sql`` fragments bypass the column
+  // mappers, and postgres.js refuses to serialize a bare Date there (PGlite's
+  // driver accepts them, which is why tests alone didn't catch this).
+  const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS).toISOString()
+  const claimedAt = now.toISOString()
 
   const result = await db.execute(sql`
     with next_job as (
@@ -82,7 +86,7 @@ export async function claimJob(
           ${processingJobs.status} = 'pending'
           or (
             ${processingJobs.status} in ('claimed', 'running')
-            and ${processingJobs.claimedAt} < ${staleBefore}
+            and ${processingJobs.claimedAt} < ${staleBefore}::timestamptz
           )
         )
       order by
@@ -98,7 +102,7 @@ export async function claimJob(
     update ${processingJobs} as j
     set status = 'claimed',
         claimed_by = ${workerId},
-        claimed_at = ${now},
+        claimed_at = ${claimedAt}::timestamptz,
         attempt_count = j.attempt_count + 1
     from next_job
     where j.id = next_job.id

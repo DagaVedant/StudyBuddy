@@ -1,15 +1,32 @@
-import * as pdfjs from 'pdfjs-dist'
+import type * as PdfjsModule from 'pdfjs-dist'
 import type { TextItem } from 'pdfjs-dist/types/src/display/api'
 
 import type { TextLine } from '@/lib/db/schema'
 import { RASTER_DPI, RASTER_MAX_EDGE } from '@/lib/upload/limits'
 
-// pdf.js ships its worker as a separate module; Turbopack resolves this to a
-// bundled asset URL.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString()
+/**
+ * pdf.js is deliberately NOT bundled. Both files are served from /public,
+ * copied there by scripts/copy-pdf-worker.mjs. Two verified failures forced
+ * this (see that script's header): Turbopack can't resolve the worker URL
+ * specifier, and its re-bundled main module hangs forever inside
+ * `page.render()` against the stock worker. The unbundled pair works.
+ *
+ * The `new Function` indirection stops the bundler from statically analyzing
+ * the import and pulling the module into its graph.
+ */
+const runtimeImport = new Function('url', 'return import(url)') as (
+  url: string,
+) => Promise<typeof PdfjsModule>
+
+let pdfjsPromise: Promise<typeof PdfjsModule> | null = null
+
+async function getPdfjs(): Promise<typeof PdfjsModule> {
+  pdfjsPromise ??= runtimeImport('/pdf.min.mjs').then((mod) => {
+    mod.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+    return mod
+  })
+  return pdfjsPromise
+}
 
 /** pdf.js viewports are in CSS points, 72 to the inch. */
 const PDF_POINTS_PER_INCH = 72
@@ -31,8 +48,9 @@ export interface RasterPage {
  * ordered left to right.
  */
 function toTextLines(
+  pdfjs: typeof PdfjsModule,
   items: TextItem[],
-  viewport: pdfjs.PageViewport,
+  viewport: PdfjsModule.PageViewport,
   scale: number,
 ): TextLine[] {
   interface Fragment {
@@ -134,7 +152,9 @@ export async function rasterizePdf(
   file: File,
   onProgress?: (progress: RasterProgress) => void,
 ): Promise<RasterPage[]> {
+  const pdfjs = await getPdfjs()
   const data = await file.arrayBuffer()
+
   // v6 hangs teardown off the loading task, not the document proxy.
   const loadingTask = pdfjs.getDocument({ data })
   const pdf = await loadingTask.promise
@@ -157,7 +177,11 @@ export async function rasterizePdf(
       canvas.width = Math.floor(viewport.width)
       canvas.height = Math.floor(viewport.height)
 
-      await page.render({ canvas, viewport }).promise
+      // `intent: 'print'` is load-bearing: the default display intent chunks
+      // its work on requestAnimationFrame, which Chrome suspends entirely in
+      // hidden tabs — so rendering stalls the moment the student switches
+      // tabs mid-upload. Print intent renders without rAF scheduling.
+      await page.render({ canvas, viewport, intent: 'print' }).promise
 
       const [blob, textContent] = await Promise.all([
         canvasToBlob(canvas),
@@ -168,7 +192,7 @@ export async function rasterizePdf(
         (item): item is TextItem => 'str' in item,
       )
 
-      const embeddedLines = toTextLines(textItems, viewport, scale)
+      const embeddedLines = toTextLines(pdfjs, textItems, viewport, scale)
       const embeddedText = embeddedLines.map((line) => line.text).join('\n')
 
       pages.push({
