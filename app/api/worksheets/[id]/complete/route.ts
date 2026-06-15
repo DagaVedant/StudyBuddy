@@ -50,9 +50,13 @@ export async function POST(_request: Request, { params }: Params) {
     })
   }
 
-  /* Tier 0 — operator GPU. Quota is charged here, server-side, at enqueue. */
+  /* Tier 0 — operator GPU. Quota is charged here, server-side, at enqueue.
+     Admins are exempt (spec §2.1): it's the operator's own hardware. */
   if (executor === 'operator_gpu') {
-    const charge = await consumeTrial(client, guard.userId, 'pages', pageCount)
+    const charge =
+      guard.role === 'admin'
+        ? ({ ok: true, remaining: Number.POSITIVE_INFINITY } as const)
+        : await consumeTrial(client, guard.userId, 'pages', pageCount)
 
     if (!charge.ok) {
       // Out of trial: fall back to the manual editor rather than dead-ending.
@@ -91,7 +95,7 @@ export async function POST(_request: Request, { params }: Params) {
       tier: 'trial',
       mode: 'queued',
       workerOnline: worker.online,
-      trialPagesRemaining: charge.remaining,
+      trialPagesRemaining: Number.isFinite(charge.remaining) ? charge.remaining : null,
       next: `/worksheets/${worksheetId}/status`,
     })
   }

@@ -36,7 +36,7 @@ export async function resolveProvider(
   userId: string,
 ): Promise<ResolvedProvider> {
   const [user] = await db
-    .select({ trialPagesUsed: users.trialPagesUsed })
+    .select({ trialPagesUsed: users.trialPagesUsed, role: users.role })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
@@ -87,6 +87,16 @@ export async function resolveProvider(
       }),
       tier: 'ollama',
       executor: 'browser',
+    }
+  }
+
+  // Admins always route to the operator GPU with no quota (spec §2.1) —
+  // it's the operator's own hardware.
+  if (user?.role === 'admin') {
+    return {
+      provider: mockEnabled() ? new MockProvider() : new NullProvider(),
+      tier: 'trial',
+      executor: 'operator_gpu',
     }
   }
 
