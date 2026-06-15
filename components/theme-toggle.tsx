@@ -1,0 +1,99 @@
+'use client'
+
+import { useSyncExternalStore } from 'react'
+
+type Theme = 'light' | 'dark'
+
+export const THEME_STORAGE_KEY = 'studybuddy-theme'
+
+/**
+ * Runs before first paint to stop a flash of the wrong theme. Inlined into
+ * <head> by the root layout — it must stay dependency-free and synchronous.
+ */
+export const themeInitScript = `
+(function () {
+  try {
+    var stored = localStorage.getItem('${THEME_STORAGE_KEY}');
+    if (stored === 'light' || stored === 'dark') {
+      document.documentElement.setAttribute('data-theme', stored);
+    }
+  } catch (e) {}
+})();
+`.trim()
+
+function resolveTheme(): Theme {
+  const explicit = document.documentElement.getAttribute('data-theme')
+  if (explicit === 'light' || explicit === 'dark') return explicit
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+/**
+ * The theme lives in the DOM (a data attribute) and in the OS preference, both
+ * of which are external stores — so it's read with useSyncExternalStore rather
+ * than mirrored into component state.
+ */
+function subscribe(onChange: () => void): () => void {
+  const media = window.matchMedia('(prefers-color-scheme: dark)')
+  media.addEventListener('change', onChange)
+
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme'],
+  })
+
+  return () => {
+    media.removeEventListener('change', onChange)
+    observer.disconnect()
+  }
+}
+
+export default function ThemeToggle() {
+  // The server can't know the theme. Only aria-checked depends on this value;
+  // the switch's appearance is driven by CSS, so nothing visibly moves when
+  // the real value arrives.
+  const theme = useSyncExternalStore<Theme>(subscribe, resolveTheme, () => 'light')
+  const isDark = theme === 'dark'
+
+  function toggle() {
+    const next: Theme = resolveTheme() === 'dark' ? 'light' : 'dark'
+    document.documentElement.setAttribute('data-theme', next)
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, next)
+    } catch {
+      // Private mode; the choice just won't persist.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      aria-label="Dark mode"
+      onClick={toggle}
+      className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer touch-manipulation items-center rounded-full border border-border bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+    >
+      <span
+        aria-hidden="true"
+        className="theme-knob pointer-events-none absolute inset-y-0.5 left-0.5 grid size-5 place-items-center rounded-full bg-accent text-accent-fg shadow-sm"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="theme-sun absolute size-3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        >
+          <circle cx="12" cy="12" r="4.5" />
+          <path d="M12 1.5v2M12 20.5v2M22.5 12h-2M3.5 12h-2M19.4 4.6l-1.4 1.4M6 18l-1.4 1.4M19.4 19.4L18 18M6 6L4.6 4.6" />
+        </svg>
+
+        <svg viewBox="0 0 24 24" className="theme-moon absolute size-3" fill="currentColor">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+        </svg>
+      </span>
+    </button>
+  )
+}
