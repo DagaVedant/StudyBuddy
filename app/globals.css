@@ -1,26 +1,167 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Deliberately small palette: one neutral ramp, one accent, one danger.
+ * Anything that needs more than this should earn it.
+ *
+ * Values live on :root so the dark scheme can override them; `@theme inline`
+ * then points Tailwind's tokens at those variables rather than copying the
+ * light values (Tailwind 4 does not allow `@theme` inside a media query).
+ */
+/*
+ * Theme resolution order:
+ *   1. an explicit data-theme on <html> (the toggle) always wins
+ *   2. otherwise follow the OS preference
+ *
+ * `color-scheme` is set alongside so the UA themes scrollbars, form controls,
+ * and the caret to match whichever won.
+ */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: oklch(99% 0.002 250);
+  --surface: oklch(100% 0 0);
+  --border: oklch(90% 0.005 250);
+  --fg: oklch(22% 0.012 250);
+  --muted: oklch(52% 0.012 250);
+  --accent: oklch(48% 0.13 250);
+  --accent-fg: oklch(99% 0.002 250);
+  --danger: oklch(52% 0.18 25);
+  --success: oklch(50% 0.13 155);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg: oklch(17% 0.008 250);
+    --surface: oklch(21% 0.01 250);
+    --border: oklch(31% 0.012 250);
+    --fg: oklch(95% 0.004 250);
+    --muted: oklch(68% 0.012 250);
+    --accent: oklch(72% 0.12 250);
+    --accent-fg: oklch(17% 0.008 250);
+    --danger: oklch(70% 0.15 25);
+    --success: oklch(72% 0.14 155);
   }
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: oklch(17% 0.008 250);
+  --surface: oklch(21% 0.01 250);
+  --border: oklch(31% 0.012 250);
+  --fg: oklch(95% 0.004 250);
+  --muted: oklch(68% 0.012 250);
+  --accent: oklch(72% 0.12 250);
+  --accent-fg: oklch(17% 0.008 250);
+  --danger: oklch(70% 0.15 25);
+  --success: oklch(72% 0.14 155);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * `@apply` in Tailwind 4 only expands real utilities, so these classes are
+ * composed at the call site (`class="btn btn-primary"`) rather than by
+ * @apply-ing one another.
+ */
+@layer components {
+  .field {
+    @apply w-full rounded border border-border bg-surface px-3 py-2 text-fg
+      outline-none placeholder:text-muted focus-visible:border-accent
+      focus-visible:ring-2 focus-visible:ring-accent/30;
+  }
+
+  .btn {
+    @apply inline-flex w-full items-center justify-center rounded px-4 py-2
+      font-medium transition-colors focus-visible:outline-2
+      focus-visible:outline-offset-2 focus-visible:outline-accent
+      disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-accent-fg hover:opacity-90;
+  }
+
+  .btn-secondary {
+    @apply border border-border bg-surface text-fg hover:border-accent;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-fg;
+  }
+
+  .hint {
+    @apply mt-1.5 text-sm text-muted;
+  }
+}
+
+/*
+ * The theme switch is painted from the resolved theme rather than from React
+ * state, so it is already in the right position on first paint and never jumps
+ * once hydration runs.
+ */
+.theme-knob {
+  transform: translateX(0);
+}
+.theme-sun {
+  opacity: 1;
+}
+.theme-moon {
+  opacity: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-knob {
+    transform: translateX(1.25rem);
+  }
+  :root:not([data-theme='light']) .theme-sun {
+    opacity: 0;
+  }
+  :root:not([data-theme='light']) .theme-moon {
+    opacity: 1;
+  }
+}
+
+:root[data-theme='dark'] .theme-knob {
+  transform: translateX(1.25rem);
+}
+:root[data-theme='dark'] .theme-sun {
+  opacity: 0;
+}
+:root[data-theme='dark'] .theme-moon {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .theme-knob {
+    transition: transform 200ms ease-out;
+  }
+  .theme-sun,
+  .theme-moon {
+    transition: opacity 150ms ease-out;
+  }
 }

@@ -30,8 +30,18 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — .env.example IS committed; real secrets are not
 .env*
+!.env.example
+
+# locally stored page images (used when BLOB_READ_WRITE_TOKEN is unset)
+/.uploads
+
+# playwright
+/test-results
+/playwright-report
+/blob-report
+/.cache
 
 # vercel
 .vercel
