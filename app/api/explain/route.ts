@@ -79,7 +79,8 @@ export async function POST(request: Request) {
 
   const { provider, tier } = await resolveProvider(client, userId)
 
-  if (tier === 'trial') {
+  // Admins are exempt from the trial allowance (spec §2.1).
+  if (tier === 'trial' && session.user.role !== 'admin') {
     const charge = await consumeTrial(client, userId, 'explanations', 1)
     if (!charge.ok) {
       return NextResponse.json({ error: charge.reason }, { status: 402 })
