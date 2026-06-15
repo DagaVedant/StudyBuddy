@@ -69,13 +69,14 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
     (incoming: FileList | null) => {
       if (!incoming?.length) return
       setError(null)
-      setFiles((current) => {
-        const next = [...current, ...Array.from(incoming)]
-        if (!titleTouched) setTitle(defaultTitle(next))
-        return next
-      })
+      // Built outside the updater: calling setTitle inside setFiles' updater
+      // is a side effect React is free to drop, and does — the default title
+      // silently never applied.
+      const next = [...files, ...Array.from(incoming)]
+      setFiles(next)
+      if (!titleTouched) setTitle(defaultTitle(next))
     },
-    [titleTouched],
+    [files, titleTouched],
   )
 
   function removeFile(index: number) {

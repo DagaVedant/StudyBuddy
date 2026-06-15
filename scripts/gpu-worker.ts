@@ -2,6 +2,8 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
+import sharp from 'sharp'
+
 import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
 
@@ -82,12 +84,83 @@ async function postJob(jobId: string, body: unknown): Promise<void> {
   }
 }
 
+/**
+ * Ollama's image decoder does not accept WebP, and the pipeline stores page
+ * images as WebP. Transcode to PNG on the worker rather than changing the
+ * storage format — WebP stays the right choice for storage and for the cloud
+ * providers, which accept it.
+ */
+async function toOllamaImage(
+  bytes: Uint8Array,
+  mediaType: string,
+): Promise<{ image: Uint8Array; mediaType: string }> {
+  if (mediaType === 'image/png' || mediaType === 'image/jpeg') {
+    return { image: bytes, mediaType }
+  }
+  const png = await sharp(Buffer.from(bytes)).png().toBuffer()
+  return { image: new Uint8Array(png), mediaType: 'image/png' }
+}
+
+interface ClassifyBatchEntry {
+  questionId: string
+  promptText: string
+  candidates: { slug: string; name: string; path: string }[]
+}
+
+/**
+ * Auto-classification for Tier 0 (spec §7.2). The server hands over candidate
+ * shortlists, this machine runs the model, and the server validates every
+ * returned slug against its own shortlist before writing anything.
+ */
+async function classifyWorksheet(worksheetId: string): Promise<void> {
+  const batchResponse = await api(`/api/worker/classify/${worksheetId}`)
+  if (!batchResponse.ok) {
+    log(`  classify: could not fetch batch (${batchResponse.status}); skipping`)
+    return
+  }
+
+  const { batch } = (await batchResponse.json()) as { batch: ClassifyBatchEntry[] }
+  if (batch.length === 0) return
+
+  const results = []
+  for (const entry of batch) {
+    if (shuttingDown) return
+    try {
+      const classification = await provider.classifyTopic(
+        entry.promptText,
+        entry.candidates,
+      )
+      results.push({ questionId: entry.questionId, classification })
+    } catch (error) {
+      log(`  classify: "${entry.promptText.slice(0, 40)}" failed — ${(error as Error).message}`)
+    }
+  }
+
+  if (results.length === 0) return
+
+  const post = await api(`/api/worker/classify/${worksheetId}`, {
+    method: 'POST',
+    body: JSON.stringify({ results }),
+  })
+
+  if (post.ok) {
+    const summary = (await post.json()) as { applied: number; coarse: number }
+    log(`  classified ${summary.applied}/${batch.length} (${summary.coarse} coarse)`)
+  } else {
+    log(`  classify: server rejected results (${post.status})`)
+  }
+}
+
 async function processJob(claim: ClaimResponse): Promise<void> {
   const job = claim.job!
   const pages = claim.pages ?? []
   const resumeAfter = job.checkpoint?.lastPageNumber ?? 0
 
   log(`claimed ${job.id} — ${pages.length} pages (attempt ${job.attemptCount})`)
+
+  let attempted = 0
+  let pageFailures = 0
+  let lastError = ''
 
   try {
     for (const page of pages) {
@@ -104,22 +177,31 @@ async function processJob(claim: ClaimResponse): Promise<void> {
         throw new Error(`Could not fetch page ${page.pageNumber} (${imageResponse.status})`)
       }
 
-      const image = new Uint8Array(await imageResponse.arrayBuffer())
+      const raw = new Uint8Array(await imageResponse.arrayBuffer())
+      const { image, mediaType } = await toOllamaImage(
+        raw,
+        imageResponse.headers.get('content-type') ?? 'image/webp',
+      )
+
       const started = Date.now()
+      attempted += 1
 
       let questions: ExtractedQuestion[] = []
       try {
         questions = await provider.extractQuestions({
           image,
-          mediaType: imageResponse.headers.get('content-type') ?? 'image/webp',
+          mediaType,
           text: page.ocrText ?? '',
           width: page.width ?? 0,
           height: page.height ?? 0,
           pageNumber: page.pageNumber,
         })
       } catch (error) {
-        // A single unparseable page shouldn't kill a 40-page worksheet.
-        log(`  page ${page.pageNumber}: extraction failed — ${(error as Error).message}`)
+        // A single unparseable page shouldn't kill a 40-page worksheet —
+        // but it is counted, and all-pages-failed fails the job below.
+        pageFailures += 1
+        lastError = (error as Error).message
+        log(`  page ${page.pageNumber}: extraction failed — ${lastError}`)
       }
 
       await postJob(job.id, {
@@ -135,6 +217,15 @@ async function processJob(claim: ClaimResponse): Promise<void> {
           `(${((Date.now() - started) / 1000).toFixed(1)}s)`,
       )
     }
+
+    // Every attempted page failing is a job failure, not a completion — the
+    // student must not spend trial pages on a run that produced nothing, and
+    // the fail path is what triggers the refund (spec §12 assumption 9).
+    if (attempted > 0 && pageFailures === attempted) {
+      throw new Error(`Extraction failed on all ${attempted} pages. Last error: ${lastError}`)
+    }
+
+    await classifyWorksheet(job.worksheetId)
 
     await postJob(job.id, { action: 'complete' })
     log(`completed ${job.id}`)

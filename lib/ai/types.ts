@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { normalizeChoiceLabel } from '@/lib/questions/shape'
+
 /**
  * The provider contract (spec §3.5). One interface, five implementations.
  *
@@ -26,7 +28,8 @@ export const extractedQuestionSchema = z.object({
   choices: z
     .array(
       z.object({
-        label: z.string().min(1).max(8),
+        // Models echo the page's own punctuation ("A.", "(B)"); store bare.
+        label: z.string().min(1).max(8).transform(normalizeChoiceLabel),
         text: z.string().max(2000),
       }),
     )

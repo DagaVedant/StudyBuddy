@@ -2,8 +2,18 @@ import { z } from 'zod'
 
 export const bboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()])
 
+/**
+ * Vision models return labels as "A.", "A)", "(A)" depending on the page's own
+ * formatting. Stored labels are bare ("A") — the UI adds its own punctuation,
+ * and "A.." was what shipped without this.
+ */
+export function normalizeChoiceLabel(label: string): string {
+  const cleaned = label.trim().replace(/^[([]+/, '').replace(/[.)\]\s]+$/, '')
+  return (cleaned || label.trim()).slice(0, 8)
+}
+
 export const choiceSchema = z.object({
-  label: z.string().trim().min(1).max(8),
+  label: z.string().trim().min(1).max(8).transform(normalizeChoiceLabel),
   text: z.string().trim().max(2000),
   isCorrect: z.boolean().default(false),
 })
