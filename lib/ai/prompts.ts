@@ -54,7 +54,16 @@ export function extractionUserText(page: PageInput): string {
     page.text.slice(0, 20_000),
     '</page_text>',
     '',
-    'Extract the questions. Return an empty list if this page has none.',
+    /*
+     * Do not append a permission to return nothing here.
+     *
+     * "Return an empty list if this page has none." on this line took the
+     * benchmark page from 5/5 to 0/5 and produced 0 questions across 67 pages
+     * of a real test. As the last thing in the turn it reads as the preferred
+     * answer, and the model takes it every time. The same idea sits safely in
+     * the system prompt, where it does not compete with the actual request.
+     */
+    'Extract the questions.',
   ].join('\n')
 }
 
