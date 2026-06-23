@@ -75,20 +75,17 @@ export async function resolveProvider(
     }
   }
 
-  const ollama = credentials.find((row) => row.provider === 'ollama' && row.ollamaBaseUrl)
-  if (ollama) {
-    // Reported so the UI can say "Tier C", but the work happens client-side.
-    return {
-      provider: new OllamaProvider({
-        baseUrl: ollama.ollamaBaseUrl!,
-        visionModel: ollama.visionModelName ?? 'qwen2.5vl:7b',
-        textModel: ollama.modelName ?? 'qwen2.5vl:7b',
-        executionSite: 'browser',
-      }),
-      tier: 'ollama',
-      executor: 'browser',
-    }
-  }
+  /*
+   * Tier C is NOT resolved here on purpose.
+   *
+   * Browser-driven Ollama extraction is not built yet. Returning
+   * `executor: 'browser'` for it made `complete` mark the worksheet
+   * awaiting_review and enqueue nothing — a 112-page upload silently
+   * produced zero questions and still reported success. Until the client
+   * loop exists, an Ollama credential must not shadow a path that works,
+   * so it falls through to the operator GPU below and is only reported
+   * as the account's tier once it can actually do the work.
+   */
 
   // Admins always route to the operator GPU with no quota (spec §2.1) —
   // it's the operator's own hardware.

@@ -34,8 +34,13 @@ export async function POST(_request: Request, { params }: Params) {
   const pageCount = worksheet?.pageCount ?? 0
   const { tier, executor } = await resolveProvider(client, guard.userId)
 
-  /* Tier A — no AI at all; straight to the manual editor. */
-  if (executor === 'none' || executor === 'browser') {
+  /* Tier A — no AI at all; straight to the manual editor.
+   *
+   * `browser` deliberately has no branch here. When it did, an unbuilt Tier C
+   * silently marked worksheets awaiting_review with nothing extracted. If an
+   * executor ever reaches here that cannot actually do work, the honest
+   * outcome is the manual editor, not a success message. */
+  if (executor === 'none') {
     await db
       .update(worksheets)
       .set({ status: 'awaiting_review', tierUsed: tier })
@@ -44,8 +49,7 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({
       ok: true,
       tier,
-      // Tier C drives extraction from the browser (spec §3.4).
-      mode: executor === 'browser' ? 'client_ai' : 'manual',
+      mode: 'manual',
       next: `/worksheets/${worksheetId}/review`,
     })
   }
