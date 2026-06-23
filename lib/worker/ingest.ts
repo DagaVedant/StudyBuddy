@@ -95,7 +95,14 @@ export async function runExtraction(
   return { pagesProcessed: processed, questionsCreated: created }
 }
 
-async function persistQuestions(
+/**
+ * Writes one page's extracted questions.
+ *
+ * Shared by both executors — the Tier 0 GPU worker posts results to the worker
+ * API, the Tier B path calls it directly — so dedup and ordinal continuity
+ * behave the same either way. They diverged once and only one side got fixed.
+ */
+export async function persistQuestions(
   db: Db,
   job: { worksheetId: string; userId: string },
   pageId: string,
@@ -105,11 +112,22 @@ async function persistQuestions(
 
   // Ordinals continue across pages rather than restarting at 1 per page.
   const existing = await db
-    .select({ ordinal: questions.ordinal })
+    .select({ ordinal: questions.ordinal, contentHash: questions.contentHash })
     .from(questions)
     .where(eq(questions.worksheetId, job.worksheetId))
 
   let nextOrdinal = existing.reduce((max, row) => Math.max(max, row.ordinal), 0) + 1
+
+  /*
+   * A local model can stutter, repeating the same question several times in one
+   * reply — a real reading page emitted the same question four times. Two
+   * questions with identical wording *and* identical options are not two
+   * questions on a practice test, so the hash the schema already keeps for
+   * dedup is applied at insert instead of after the fact.
+   */
+  const seen = new Set(
+    existing.map((row) => row.contentHash).filter((hash): hash is string => !!hash),
+  )
 
   let created = 0
 
@@ -117,6 +135,9 @@ async function persistQuestions(
     const contentHash = createHash('sha256')
       .update(contentHashSource(question.prompt_text, question.choices))
       .digest('hex')
+
+    if (seen.has(contentHash)) continue
+    seen.add(contentHash)
 
     const [row] = await db
       .insert(questions)
