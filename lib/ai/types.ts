@@ -22,7 +22,16 @@ export const questionTypeSchema = z.enum([
 ])
 
 export const extractedQuestionSchema = z.object({
-  ordinal: z.number().int().min(1),
+  /**
+   * Advisory only — the server renumbers questions sequentially per worksheet,
+   * so this never reaches the database. Models number from 0 about half the
+   * time, and requiring >= 1 here silently discarded whole pages of otherwise
+   * perfect extraction. Normalize instead of rejecting.
+   */
+  ordinal: z.coerce
+    .number()
+    .catch(1)
+    .transform((value) => (Number.isFinite(value) ? Math.max(1, Math.trunc(value)) : 1)),
   prompt_text: z.string().min(1).max(8000),
   question_type: questionTypeSchema,
   choices: z
@@ -45,6 +54,35 @@ export const extractionResultSchema = z.object({
 })
 
 export type ExtractedQuestion = z.infer<typeof extractedQuestionSchema>
+
+/**
+ * Validates a page's extraction question-by-question and keeps what survives.
+ *
+ * Whole-object parsing meant a single malformed question discarded every other
+ * question on the page. On a 112-page test that is catastrophic and invisible:
+ * the page simply reports zero questions and the run still "succeeds".
+ */
+export function parseExtraction(raw: unknown): {
+  questions: ExtractedQuestion[]
+  rejected: number
+} {
+  const outer = z
+    .object({ questions: z.array(z.unknown()).max(200) })
+    .safeParse(raw)
+
+  if (!outer.success) return { questions: [], rejected: 0 }
+
+  const questions: ExtractedQuestion[] = []
+  let rejected = 0
+
+  for (const item of outer.data.questions) {
+    const parsed = extractedQuestionSchema.safeParse(item)
+    if (parsed.success) questions.push(parsed.data)
+    else rejected += 1
+  }
+
+  return { questions, rejected }
+}
 
 /**
  * Models emit confidence as a probability (0.95) or a percentage (95)

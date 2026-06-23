@@ -13,6 +13,7 @@ import {
   ProviderUnavailable,
   classificationSchema,
   extractionResultSchema,
+  parseExtraction,
   type PageInput,
   type TopicCandidate,
 } from '@/lib/ai/types'
@@ -111,6 +112,63 @@ describe('output schemas', () => {
       ],
     })
     expect(result.success).toBe(false)
+  })
+
+  it('keep a page when the model numbers questions from zero', () => {
+    // Real Qwen output on the SHSAT form. Requiring ordinal >= 1 here silently
+    // discarded 5 of 12 pages — the field is advisory, the server renumbers.
+    const { questions, rejected } = parseExtraction({
+      questions: [
+        {
+          ordinal: 0,
+          prompt_text: 'Which expression is equivalent to 3(x + 4)?',
+          question_type: 'multiple_choice',
+          choices: [{ label: 'A', text: '3x + 12' }],
+          bbox: null,
+          has_figure: false,
+        },
+      ],
+    })
+
+    expect(rejected).toBe(0)
+    expect(questions).toHaveLength(1)
+    expect(questions[0].ordinal).toBeGreaterThanOrEqual(1)
+  })
+
+  it('keep the good questions when one on the page is malformed', () => {
+    // One bad item must not discard the rest of the page.
+    const { questions, rejected } = parseExtraction({
+      questions: [
+        {
+          ordinal: 1,
+          prompt_text: 'Valid question',
+          question_type: 'multiple_choice',
+          choices: [],
+          bbox: null,
+          has_figure: false,
+        },
+        { ordinal: 2, prompt_text: '', question_type: 'essay', choices: [] },
+        {
+          ordinal: 3,
+          prompt_text: 'Another valid question',
+          question_type: 'free_response',
+          choices: [],
+          bbox: null,
+          has_figure: false,
+        },
+      ],
+    })
+
+    expect(questions.map((q) => q.prompt_text)).toEqual([
+      'Valid question',
+      'Another valid question',
+    ])
+    expect(rejected).toBe(1)
+  })
+
+  it('return nothing rather than throwing on a shapeless reply', () => {
+    expect(parseExtraction({ nope: true }).questions).toEqual([])
+    expect(parseExtraction(null).questions).toEqual([])
   })
 
   it('accept an abstention', () => {
