@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto'
-
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -8,16 +6,10 @@ import { refundTrial } from '@/lib/ai/quota'
 import { extractedQuestionSchema } from '@/lib/ai/types'
 import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
-import {
-  answerChoices,
-  processingJobs,
-  questions,
-  worksheetPages,
-  worksheets,
-} from '@/lib/db/schema'
-import { contentHashSource } from '@/lib/questions/shape'
+import { processingJobs, worksheetPages, worksheets } from '@/lib/db/schema'
 import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
+import { persistQuestions } from '@/lib/worker/ingest'
 
 type Params = { params: Promise<{ jobId: string }> }
 
@@ -112,51 +104,15 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Page does not belong to this job' }, { status: 400 })
   }
 
-  const existing = await db
-    .select({ ordinal: questions.ordinal })
-    .from(questions)
-    .where(eq(questions.worksheetId, job.worksheetId))
-
-  let ordinal = existing.reduce((max, row) => Math.max(max, row.ordinal), 0) + 1
-
-  for (const question of body.questions) {
-    const contentHash = createHash('sha256')
-      .update(contentHashSource(question.prompt_text, question.choices))
-      .digest('hex')
-
-    const [row] = await db
-      .insert(questions)
-      .values({
-        userId: job.userId,
-        worksheetId: job.worksheetId,
-        pageId: page.id,
-        ordinal,
-        promptText: question.prompt_text,
-        questionType: question.question_type,
-        bbox: question.bbox,
-        userVerified: false,
-        answerSource: 'none',
-        contentHash,
-      })
-      .returning({ id: questions.id })
-
-    if (question.choices.length > 0) {
-      await db.insert(answerChoices).values(
-        question.choices.map((choice) => ({
-          questionId: row.id,
-          label: choice.label,
-          text: choice.text,
-          isCorrect: false,
-        })),
-      )
-    }
-
-    ordinal += 1
-  }
+  const created = await persistQuestions(client, job, page.id, body.questions)
 
   await checkpointJob(client, jobId, body.pageNumber / body.totalPages, {
     lastPageNumber: body.pageNumber,
   })
 
-  return NextResponse.json({ ok: true, created: body.questions.length })
+  return NextResponse.json({
+    ok: true,
+    created,
+    duplicates: body.questions.length - created,
+  })
 }
