@@ -77,11 +77,38 @@ export function parseExtraction(raw: unknown): {
 
   for (const item of outer.data.questions) {
     const parsed = extractedQuestionSchema.safeParse(item)
-    if (parsed.success) questions.push(parsed.data)
-    else rejected += 1
+    if (!parsed.success) {
+      rejected += 1
+      continue
+    }
+
+    if (isRestatement(parsed.data.prompt_text)) {
+      rejected += 1
+      continue
+    }
+
+    questions.push(parsed.data)
   }
 
   return { questions, rejected }
+}
+
+/**
+ * An answer-explanation restates the question it is about before analysing the
+ * options — "The question asks which revision of sentence 2 uses the most
+ * precise language." A vision model reads that as a question, and no prompt
+ * wording changes its mind: naming the pattern, leading with it, and
+ * describing the page layout were each tested against real explanation pages
+ * and every one still returned the restatements verbatim.
+ *
+ * So it is filtered here, where the behaviour is deterministic and testable,
+ * rather than hoped for. What makes this safe is that a question never opens
+ * by describing itself in the third person — it just asks.
+ */
+const RESTATEMENT = /^\s*(the\s+)?question\s+(asks|is\s+asking|requires|wants)\b/i
+
+function isRestatement(promptText: string): boolean {
+  return RESTATEMENT.test(promptText)
 }
 
 /**
