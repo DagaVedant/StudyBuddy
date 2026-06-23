@@ -12,7 +12,7 @@ import {
 import {
   classificationSchema,
   explanationSchema,
-  extractionResultSchema,
+  parseExtraction,
   type AIProvider,
   type Classification,
   type ExecutionSite,
@@ -34,6 +34,9 @@ export interface OllamaOptions {
   executionSite?: ExecutionSite
   fetchImpl?: typeof fetch
   timeoutMs?: number
+  /** Ollama's 4096 default truncates dense pages mid-JSON. */
+  contextTokens?: number
+  maxOutputTokens?: number
 }
 
 /**
@@ -51,6 +54,8 @@ export class OllamaProvider implements AIProvider {
   private readonly textModel: string
   private readonly fetchImpl: typeof fetch
   private readonly timeoutMs: number
+  private readonly contextTokens: number
+  private readonly maxOutputTokens: number
 
   constructor(options: OllamaOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '')
@@ -59,6 +64,8 @@ export class OllamaProvider implements AIProvider {
     this.executionSite = options.executionSite ?? 'browser'
     this.fetchImpl = options.fetchImpl ?? fetch
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
+    this.contextTokens = options.contextTokens ?? 16_384
+    this.maxOutputTokens = options.maxOutputTokens ?? 4_096
   }
 
   /** Ollama's /api/chat with `format` set to a JSON Schema constrains decoding. */
@@ -81,7 +88,18 @@ export class OllamaProvider implements AIProvider {
           model,
           stream: false,
           format: schema,
-          options: { temperature: 0 },
+          options: {
+            temperature: 0,
+            /*
+             * Ollama defaults num_ctx to 4096, which a dense exam page blows
+             * through: image tokens plus page text plus a long JSON array of
+             * questions. Generation then stops mid-string and the reply fails
+             * to parse ("Unterminated string in JSON"), losing the whole page.
+             * qwen2.5vl handles 32k, so give it real headroom.
+             */
+            num_ctx: this.contextTokens,
+            num_predict: this.maxOutputTokens,
+          },
           messages: [
             { role: 'system', content: system },
             images?.length
@@ -116,7 +134,7 @@ export class OllamaProvider implements AIProvider {
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return extractionResultSchema.parse(raw).questions
+    return parseExtraction(raw).questions
   }
 
   async classifyTopic(

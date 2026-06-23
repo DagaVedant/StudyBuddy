@@ -12,7 +12,7 @@ import {
 import {
   classificationSchema,
   explanationSchema,
-  extractionResultSchema,
+  parseExtraction,
   type AIProvider,
   type Classification,
   type ExplainInput,
@@ -93,7 +93,7 @@ export class OpenAIProvider implements AIProvider {
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return extractionResultSchema.parse(raw).questions
+    return parseExtraction(raw).questions
   }
 
   async classifyTopic(
