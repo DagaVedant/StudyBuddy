@@ -25,13 +25,6 @@ export async function POST(_request: Request, { params }: Params) {
 
   const client = db as unknown as Db
 
-  const [worksheet] = await db
-    .select({ pageCount: worksheets.pageCount })
-    .from(worksheets)
-    .where(eq(worksheets.id, worksheetId))
-    .limit(1)
-
-  const pageCount = worksheet?.pageCount ?? 0
   const { tier, executor } = await resolveProvider(client, guard.userId)
 
   /* Tier A — no AI at all; straight to the manual editor.
@@ -57,10 +50,11 @@ export async function POST(_request: Request, { params }: Params) {
   /* Tier 0 — operator GPU. Quota is charged here, server-side, at enqueue.
      Admins are exempt (spec §2.1): it's the operator's own hardware. */
   if (executor === 'operator_gpu') {
+    // One worksheet, regardless of how many pages are in it.
     const charge =
       guard.role === 'admin'
         ? ({ ok: true, remaining: Number.POSITIVE_INFINITY } as const)
-        : await consumeTrial(client, guard.userId, 'pages', pageCount)
+        : await consumeTrial(client, guard.userId, 'worksheets', 1)
 
     if (!charge.ok) {
       // Out of trial: fall back to the manual editor rather than dead-ending.
@@ -99,7 +93,9 @@ export async function POST(_request: Request, { params }: Params) {
       tier: 'trial',
       mode: 'queued',
       workerOnline: worker.online,
-      trialPagesRemaining: Number.isFinite(charge.remaining) ? charge.remaining : null,
+      trialWorksheetsRemaining: Number.isFinite(charge.remaining)
+        ? charge.remaining
+        : null,
       next: `/worksheets/${worksheetId}/status`,
     })
   }

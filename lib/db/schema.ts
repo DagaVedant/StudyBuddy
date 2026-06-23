@@ -145,7 +145,15 @@ export const users = pgTable('users', {
 
   aiTier: aiTier('ai_tier').default('trial').notNull(),
 
-  /** Lifetime trial allowance (spec §3.1), not monthly. */
+  /**
+   * Lifetime trial allowance (spec §3.1), not monthly.
+   *
+   * Metered in worksheets, not pages: real practice tests are 100+ pages, so a
+   * page budget was consumed by a fraction of one upload and never showed the
+   * product working. `trialPagesUsed` is retained for existing rows and is no
+   * longer read.
+   */
+  trialWorksheetsUsed: integer('trial_worksheets_used').default(0).notNull(),
   trialPagesUsed: integer('trial_pages_used').default(0).notNull(),
   trialExplanationsUsed: integer('trial_explanations_used').default(0).notNull(),
 

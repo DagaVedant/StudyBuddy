@@ -1,9 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { TRIAL_WORKSHEET_LIMIT } from '../lib/ai/limits'
+
 import {
   closeDbClient,
   registerAndSignIn,
-  setTrialPagesUsed,
+  setTrialWorksheetsUsed,
   uploadWorksheet,
 } from './support/helpers'
 
@@ -26,7 +28,7 @@ test.beforeAll(async ({ browser }) => {
 
   // Burn the trial so the account is Tier A and lands in the manual editor
   // rather than queueing for a GPU worker that isn't running in tests.
-  await setTrialPagesUsed(email, 10)
+  await setTrialWorksheetsUsed(email, TRIAL_WORKSHEET_LIMIT)
 })
 
 test.afterAll(async () => {

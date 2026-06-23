@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/limits'
 
 export default async function HomePage() {
   const session = await auth()
@@ -26,7 +27,8 @@ export default async function HomePage() {
       </div>
 
       <p className="hint mt-6">
-        Free to start: 10 pages of AI processing, no card and no setup.
+        Free to start: {TRIAL_WORKSHEET_LIMIT} full worksheets processed by AI,
+        no card and no setup.
       </p>
     </main>
   )

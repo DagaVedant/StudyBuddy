@@ -115,6 +115,12 @@ export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Pr
   await page.waitForURL(/\/worksheets\/[^/]+\/(review|status)/, { timeout: 90_000 })
 }
 
-export async function setTrialPagesUsed(email: string, used: number): Promise<void> {
-  await query('update users set trial_pages_used = $1 where email = $2', [used, email])
+export async function setTrialWorksheetsUsed(
+  email: string,
+  used: number,
+): Promise<void> {
+  await query('update users set trial_worksheets_used = $1 where email = $2', [
+    used,
+    email,
+  ])
 }

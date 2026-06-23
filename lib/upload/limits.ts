@@ -6,7 +6,12 @@
  * them buys nothing and risks the GPU worker.
  */
 
-export const MAX_PAGES_PER_UPLOAD = 40
+/**
+ * A real practice test runs past 100 pages, so a low cap rejects exactly the
+ * material this is for. 75 covers a full SHSAT/SAT form; anything larger is
+ * split, which is also better for the queue.
+ */
+export const MAX_PAGES_PER_UPLOAD = 75
 
 /** Rasterization target. High enough for OCR, low enough to stay small. */
 export const RASTER_DPI = 150

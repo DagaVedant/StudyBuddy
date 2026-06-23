@@ -12,7 +12,7 @@ interface Credential {
 
 interface Props {
   credentials: Credential[]
-  trial: { pagesRemaining: number; explanationsRemaining: number }
+  trial: { worksheetsRemaining: number; explanationsRemaining: number }
   workerOnline: boolean
   appUrl: string
 }
@@ -95,9 +95,11 @@ export default function SettingsClient({
           Free trial
         </h2>
         <p className="hint text-pretty">
-          <span className="tabular-nums">{trial.pagesRemaining}</span> pages and{' '}
+          <span className="tabular-nums">{trial.worksheetsRemaining}</span>{' '}
+          {trial.worksheetsRemaining === 1 ? 'worksheet' : 'worksheets'} and{' '}
           <span className="tabular-nums">{trial.explanationsRemaining}</span>{' '}
-          explanations left. This is a one-time allowance, not monthly.
+          explanations left. This is a one-time allowance, not monthly. A
+          worksheet counts once no matter how many pages are in it.
         </p>
         <p className="hint text-pretty">
           Trial uploads are processed on hardware we operate. Pages are sent

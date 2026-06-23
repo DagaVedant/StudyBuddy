@@ -92,20 +92,22 @@ This produces **four operating tiers**, and the entire app must work in all of t
 | Can close the tab | ✅ queued | ❌ | ✅ queued | ❌ must stay open |
 | Works when operator PC is off | ⚠️ queues | ✅ | ✅ | ✅ |
 | Setup effort | none | none | paste a key | install + CORS config |
-| Limit | 10 pages / 20 explanations, **lifetime** | none | their wallet | none |
+| Limit | 3 worksheets / 20 explanations, **lifetime** | none | their wallet | none |
 | Where AI runs | operator GPU worker | nowhere | server | browser |
 
 **The bolded rows are the product.** Review, the dashboard, and attempt history are identical on every tier. AI only affects *how questions get in* and *whether explanations exist*. A Tier A user who hand-enters 200 questions gets the complete experience — which is what makes the free tier a real product rather than a paywall.
 
-Trial output is permanent: pages spent on Tier 0 leave behind questions, topics, and explanations that persist forever, long after the allowance is gone.
+Trial output is permanent: worksheets spent on Tier 0 leave behind questions, topics, and explanations that persist forever, long after the allowance is gone.
 
 Topic-proposal embeddings are the exception to the whole tier system — they run **in the student's browser on every tier** (§7.3), so they work when the operator GPU is offline *and* the user has no key.
 
 ### 3.1 Tier 0 — the trial, on operator hardware
 
-Every new account gets **10 pages of real AI extraction, once — a lifetime allowance, not monthly.** The point is that a student sees the entire loop work (extract → mark → explain → review → dashboard) before being asked to set up a key or install Ollama. It is the single biggest conversion lever in the funnel.
+Every new account gets **3 worksheets of real AI extraction, once — a lifetime allowance, not monthly.** The point is that a student sees the entire loop work (extract → mark → explain → review → dashboard) before being asked to set up a key or install Ollama. It is the single biggest conversion lever in the funnel.
 
-- **Allowance:** 10 pages of extraction + classification, plus **20 AI explanations**, per account, ever.
+**The unit is a worksheet, not a page.** This was originally metered in pages, at 10. That was wrong for the actual material: a real SHSAT or SAT practice form is over 100 pages, so a page allowance was exhausted inside a fraction of one upload and the student never reached the part of the product that sells it. A worksheet costs one unit whether it has 1 page or 75, and the per-upload page cap (§4) is what bounds the operator's exposure instead.
+
+- **Allowance:** 3 worksheets of extraction + classification, plus **20 AI explanations**, per account, ever.
 - Consumed content is permanent: extracted questions, assigned topics, and generated explanations all persist after the trial is exhausted. Review and the dashboard keep working forever with no AI at all.
 - When exhausted, the account drops to Tier A until they configure a key or Ollama.
 - Counted in `usage_events` and enforced server-side at job creation, never client-side.
@@ -225,7 +227,7 @@ All tiers share stages 1–2. Stages 3+ diverge by tier.
 
 **Stage 1 — Ingest & rasterize (browser, all tiers)**
 PDF or image in → pdf.js rasterizes to page PNGs at ~150 DPI → upload page images to Vercel Blob → create `worksheet` + `worksheet_pages` rows.
-Per-upload cap: **40 pages**. Rejected above that with a clear message.
+Per-upload cap: **75 pages** — enough for a full practice form, since that is the material this exists for. Rejected above that with a clear message; anything larger gets split, which is also better for the queue. Admins exempt (§2.1).
 
 **Stage 2 — Text layer (all tiers)**
 - Born-digital PDF: extract the embedded text layer (free, exact).
@@ -332,9 +334,9 @@ Tiers 0 and B share one queue with an `executor` discriminator; the operator wor
 ## 5. Screens & flows
 
 ### 5.1 Onboarding
-Signup → age gate → straight into the **trial**. No AI configuration is asked for up front — the fastest path to a first upload is the point of Tier 0. The account starts on Tier 0 with 10 pages available.
+Signup → age gate → straight into the **trial**. No AI configuration is asked for up front — the fastest path to a first upload is the point of Tier 0. The account starts on Tier 0 with 3 worksheets available.
 
-AI setup ("Choose how StudyBuddy thinks" — Cloud key / Ollama / stay free) surfaces at two moments instead: when the trial runs low (2 pages left), and any time from settings. Each option carries an honest description of what works and what doesn't, with a live connection test.
+AI setup ("Choose how StudyBuddy thinks" — Cloud key / Ollama / stay free) surfaces at two moments instead: when the trial runs low (1 worksheet left), and any time from settings. Each option carries an honest description of what works and what doesn't, with a live connection test.
 
 ### 5.2 Upload — full walkthrough
 
@@ -342,7 +344,7 @@ Mobile-first; phone photos are a primary input.
 
 **Step 1 — Pick files.** Camera capture on mobile, drag-drop on desktop, multi-page batching. Optional subject hint ("SAT Math") that narrows the classifier's candidate shortlist later.
 
-**Step 2 — Browser rasterizes.** `pdf.js` converts each page to a ~150 DPI PNG, client-side, on every tier. This is a security decision as much as a performance one: **the server and the GPU worker never touch a raw PDF**, which removes the entire PDF-parser attack surface from the operator's home machine. Cap: 40 pages per upload (admins exempt, §2.1).
+**Step 2 — Browser rasterizes.** `pdf.js` converts each page to a ~150 DPI PNG, client-side, on every tier. This is a security decision as much as a performance one: **the server and the GPU worker never touch a raw PDF**, which removes the entire PDF-parser attack surface from the operator's home machine. Cap: 75 pages per upload (admins exempt, §2.1).
 
 **Step 3 — Page images upload** to blob storage via signed URLs. `worksheet` + `worksheet_pages` rows created.
 
@@ -433,8 +435,10 @@ Instead: **every question is stored and topic-tagged; an `attempt` row records t
 
 ```
 users                 id, email, name, image, dob, ai_tier, created_at,
-                      role('student'|'admin'), trial_pages_used,
+                      role('student'|'admin'), trial_worksheets_used,
                       trial_explanations_used
+                      (trial_pages_used survives from the page-metered
+                       design and is no longer read)
 accounts/sessions     (Auth.js standard)
 
 user_ai_credentials   user_id, provider('anthropic'|'openai'|'ollama'),
@@ -663,12 +667,12 @@ The single most important property: **users never control the prompt.** They upl
 1. **Mobile-first** design, since phone photos are a primary input.
 2. Dedup is **within a single user's data only** — no cross-user question pooling (avoids a copyright and privacy surface).
 3. `Unsure` is a first-class outcome distinct from correct/wrong, feeding both dashboard and scheduling.
-4. Per-upload cap of **40 pages**.
+4. Per-upload cap of **75 pages** — a full practice form fits in one upload.
 5. The admin topic-proposal queue is **you**, via a simple internal page — not a public moderation system.
 6. Answer-key extraction from inside a PDF requires an AI tier; Tier A users must type keys manually or skip them.
-7. **The trial bundles 20 AI explanations alongside the 10 pages.** You specified "10 pages once" — but extraction alone doesn't show the payoff, and explanations are the thing that sells the product. Adjust the number if you disagree.
+7. **The trial bundles 20 AI explanations alongside the 3 worksheets.** You specified "10 pages once" — but extraction alone doesn't show the payoff, and explanations are the thing that sells the product. Adjust the number if you disagree.
 8. The trial is a **lifetime** allowance, not monthly — otherwise it's a free tier with a rate limit, and your GPU carries the product forever.
-9. Trial pages are consumed at **enqueue**, not on success. Failed jobs are refunded automatically; this prevents quota-farming via deliberate failures.
+9. Trial worksheets are consumed at **enqueue**, not on success. Failed jobs are refunded automatically; this prevents quota-farming via deliberate failures.
 10. Completion notifications are **in-app + email**. Email needs a transactional provider (Resend) — small addition, not previously discussed.
 11. **I need Vedant's and Avya's actual email addresses** to populate `ADMIN_EMAILS`. Spec'd as config so this doesn't block anything — placeholders for now.
 12. "Unlimited upload length" for admins bypasses the **page-count cap only** — per-page size and dimension caps still apply, since those are crash guards rather than quotas.

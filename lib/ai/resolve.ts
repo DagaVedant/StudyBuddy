@@ -8,6 +8,7 @@ import { openApiKey } from './crypto'
 import { MockProvider, NullProvider } from './mock'
 import { OllamaProvider } from './ollama'
 import { OpenAIProvider } from './openai'
+import { TRIAL_WORKSHEET_LIMIT } from './limits'
 import type { AIProvider } from './types'
 
 export type Tier = 'trial' | 'free' | 'cloud' | 'ollama'
@@ -36,7 +37,7 @@ export async function resolveProvider(
   userId: string,
 ): Promise<ResolvedProvider> {
   const [user] = await db
-    .select({ trialPagesUsed: users.trialPagesUsed, role: users.role })
+    .select({ trialWorksheetsUsed: users.trialWorksheetsUsed, role: users.role })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
@@ -98,8 +99,8 @@ export async function resolveProvider(
   }
 
   // Trial: work is done by the operator's GPU worker, not here.
-  const pagesUsed = user?.trialPagesUsed ?? 0
-  if (pagesUsed < 10) {
+  const worksheetsUsed = user?.trialWorksheetsUsed ?? 0
+  if (worksheetsUsed < TRIAL_WORKSHEET_LIMIT) {
     return {
       provider: mockEnabled() ? new MockProvider() : new NullProvider(),
       tier: 'trial',

@@ -177,8 +177,8 @@ real users.
 
 ## 8. Your GPU (optional — powers the free trial)
 
-This is what makes Tier 0 work: new accounts get 10 pages of real AI extraction
-without any setup on their side.
+This is what makes Tier 0 work: new accounts get 3 full worksheets of real AI
+extraction without any setup on their side.
 
 ```bash
 ollama pull qwen2.5vl:7b

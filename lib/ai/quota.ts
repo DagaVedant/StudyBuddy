@@ -3,22 +3,26 @@ import { and, eq, sql } from 'drizzle-orm'
 import type { Db } from '@/lib/dashboard/queries'
 import { usageEvents, users } from '@/lib/db/schema'
 
+import { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT } from './limits'
+
 /**
  * Tier 0 trial accounting (spec §3.1).
  *
  * A **lifetime** allowance, not monthly — otherwise the free tier is just a
  * rate-limited free tier and the operator's GPU carries the product forever.
  * Enforced server-side at enqueue; a client cannot mint free GPU jobs.
+ *
+ * The numbers live in `./limits` so client components can quote them without
+ * pulling the schema into the browser bundle.
  */
 
-export const TRIAL_PAGE_LIMIT = 10
-export const TRIAL_EXPLANATION_LIMIT = 20
+export { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT }
 
-export type TrialKind = 'pages' | 'explanations'
+export type TrialKind = 'worksheets' | 'explanations'
 
 export interface TrialState {
-  pagesUsed: number
-  pagesRemaining: number
+  worksheetsUsed: number
+  worksheetsRemaining: number
   explanationsUsed: number
   explanationsRemaining: number
   exhausted: boolean
@@ -27,34 +31,46 @@ export interface TrialState {
 export async function getTrialState(db: Db, userId: string): Promise<TrialState> {
   const [row] = await db
     .select({
-      pagesUsed: users.trialPagesUsed,
+      worksheetsUsed: users.trialWorksheetsUsed,
       explanationsUsed: users.trialExplanationsUsed,
     })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
 
-  const pagesUsed = row?.pagesUsed ?? 0
+  const worksheetsUsed = row?.worksheetsUsed ?? 0
   const explanationsUsed = row?.explanationsUsed ?? 0
 
-  const pagesRemaining = Math.max(0, TRIAL_PAGE_LIMIT - pagesUsed)
+  const worksheetsRemaining = Math.max(0, TRIAL_WORKSHEET_LIMIT - worksheetsUsed)
   const explanationsRemaining = Math.max(
     0,
     TRIAL_EXPLANATION_LIMIT - explanationsUsed,
   )
 
   return {
-    pagesUsed,
-    pagesRemaining,
+    worksheetsUsed,
+    worksheetsRemaining,
     explanationsUsed,
     explanationsRemaining,
-    exhausted: pagesRemaining === 0 && explanationsRemaining === 0,
+    exhausted: worksheetsRemaining === 0 && explanationsRemaining === 0,
   }
 }
 
 export type ConsumeResult =
   | { ok: true; remaining: number }
   | { ok: false; remaining: number; reason: string }
+
+function columnFor(kind: TrialKind) {
+  return kind === 'worksheets' ? users.trialWorksheetsUsed : users.trialExplanationsUsed
+}
+
+function fieldFor(kind: TrialKind) {
+  return kind === 'worksheets' ? 'trialWorksheetsUsed' : 'trialExplanationsUsed'
+}
+
+function limitFor(kind: TrialKind) {
+  return kind === 'worksheets' ? TRIAL_WORKSHEET_LIMIT : TRIAL_EXPLANATION_LIMIT
+}
 
 /**
  * Consumes allowance up front, at enqueue rather than on success — otherwise a
@@ -72,37 +88,39 @@ export async function consumeTrial(
 ): Promise<ConsumeResult> {
   if (amount <= 0) return { ok: true, remaining: 0 }
 
-  const isPages = kind === 'pages'
-  const column = isPages ? users.trialPagesUsed : users.trialExplanationsUsed
-  const limit = isPages ? TRIAL_PAGE_LIMIT : TRIAL_EXPLANATION_LIMIT
+  const column = columnFor(kind)
+  const limit = limitFor(kind)
 
   const updated = await db
     .update(users)
-    .set({ [isPages ? 'trialPagesUsed' : 'trialExplanationsUsed']: sql`${column} + ${amount}` })
+    .set({ [fieldFor(kind)]: sql`${column} + ${amount}` })
     .where(and(eq(users.id, userId), sql`${column} + ${amount} <= ${limit}`))
     .returning({
-      pagesUsed: users.trialPagesUsed,
+      worksheetsUsed: users.trialWorksheetsUsed,
       explanationsUsed: users.trialExplanationsUsed,
     })
 
   if (updated.length === 0) {
     const state = await getTrialState(db, userId)
-    const remaining = isPages ? state.pagesRemaining : state.explanationsRemaining
+    const remaining =
+      kind === 'worksheets' ? state.worksheetsRemaining : state.explanationsRemaining
 
     return {
       ok: false,
       remaining,
-      reason: isPages
-        ? `Your free trial covers ${TRIAL_PAGE_LIMIT} pages and you have ${remaining} left. Add an API key or connect Ollama in settings to keep going.`
-        : `Your free trial covers ${TRIAL_EXPLANATION_LIMIT} explanations and you have ${remaining} left. Add an API key or connect Ollama in settings to keep going.`,
+      reason:
+        kind === 'worksheets'
+          ? `Your free trial covers ${TRIAL_WORKSHEET_LIMIT} worksheets and you have ${remaining} left. Add an API key or connect Ollama in settings to keep going.`
+          : `Your free trial covers ${TRIAL_EXPLANATION_LIMIT} explanations and you have ${remaining} left. Add an API key or connect Ollama in settings to keep going.`,
     }
   }
 
-  const used = isPages ? updated[0].pagesUsed : updated[0].explanationsUsed
+  const used =
+    kind === 'worksheets' ? updated[0].worksheetsUsed : updated[0].explanationsUsed
 
   await db.insert(usageEvents).values({
     userId,
-    kind: isPages ? 'extract_page' : 'explain',
+    kind: kind === 'worksheets' ? 'extract_page' : 'explain',
     tierUsed: 'trial',
     quantity: amount,
   })
@@ -123,14 +141,11 @@ export async function refundTrial(
 ): Promise<void> {
   if (amount <= 0) return
 
-  const isPages = kind === 'pages'
-  const column = isPages ? users.trialPagesUsed : users.trialExplanationsUsed
+  const column = columnFor(kind)
 
   await db
     .update(users)
-    .set({
-      [isPages ? 'trialPagesUsed' : 'trialExplanationsUsed']: sql`greatest(${column} - ${amount}, 0)`,
-    })
+    .set({ [fieldFor(kind)]: sql`greatest(${column} - ${amount}, 0)` })
     .where(eq(users.id, userId))
 
   await db

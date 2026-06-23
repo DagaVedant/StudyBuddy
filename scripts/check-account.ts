@@ -9,7 +9,7 @@ async function main() {
 
   const rows = await sql`
     select email, role, email_verified is not null as verified,
-           trial_pages_used, trial_explanations_used
+           trial_worksheets_used, trial_explanations_used
     from users
   `
   for (const row of rows) {
