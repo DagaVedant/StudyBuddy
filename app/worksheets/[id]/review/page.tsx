@@ -119,12 +119,14 @@ export default async function ReviewPage({
       </nav>
 
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        Review Questions
+        {initialQuestions.length > 0 ? 'Check What We Found' : 'Add Your Questions'}
       </h1>
+      {/* The AI already extracted on any AI tier — lead with checking, not
+          drawing. Boxing by hand is the correction tool and the no-AI path. */}
       <p className="hint mb-6 text-pretty">
-        Drag a box around each question on the page. The text fills in
-        automatically — fix anything that came out wrong. Nothing is saved to
-        your progress until you confirm at the end.
+        {initialQuestions.length > 0
+          ? `We pulled ${initialQuestions.length} ${initialQuestions.length === 1 ? 'question' : 'questions'} off the page automatically. Compare them against the original — fix anything that came out wrong, and drag a box on the page if one was missed. Nothing counts toward your stats until you confirm.`
+          : 'Drag a box around each question on the page. The text fills in automatically from what we could read — fix anything that came out wrong. Nothing counts toward your stats until you confirm.'}
       </p>
 
       <ReviewClient
