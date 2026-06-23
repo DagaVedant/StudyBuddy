@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import { AccuracyLabel, Meter } from '@/components/meter'
 import { db } from '@/lib/db'
 import {
   getAccuracyTrend,
@@ -52,21 +53,8 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-4 text-sm text-muted">{children}</p>
 }
 
-/** Accuracy bar. Neutral below the evidence floor — never green, never red. */
-function AccuracyBar({ accuracy, ranked }: { accuracy: number; ranked: boolean }) {
-  return (
-    <div
-      className="h-1.5 w-full overflow-hidden rounded bg-border"
-      role="img"
-      aria-label={ranked ? `${PERCENT.format(accuracy)} correct` : 'Not enough data yet'}
-    >
-      <div
-        className={`h-full ${ranked ? 'bg-accent' : 'bg-muted/40'}`}
-        style={{ width: `${Math.round(accuracy * 100)}%` }}
-      />
-    </div>
-  )
-}
+/* Accuracy is a single ratio against a limit, so it renders as a meter — see
+   components/meter.tsx for why that beats a two-slice donut. */
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -164,23 +152,30 @@ export default async function DashboardPage() {
               ) : (
                 <ul className="divide-y divide-border">
                   {weakest.map((topic) => (
-                    <li key={topic.topicId} className="py-3">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                          {topic.topicName}
-                        </span>
-                        <span className="shrink-0 text-sm tabular-nums">
-                          {PERCENT.format(topic.accuracy)}
-                        </span>
-                      </div>
-                      <p className="truncate text-xs text-muted">{topic.topicPath}</p>
-                      <div className="mt-2">
-                        <AccuracyBar accuracy={topic.accuracy} ranked />
-                      </div>
-                      <p className="mt-1 text-xs text-muted tabular-nums">
-                        {topic.wrong} missed of {topic.attempts}
-                        {topic.unsure > 0 && ` · ${topic.unsure} unsure`}
-                      </p>
+                    <li key={topic.topicId}>
+                      <Link
+                        href={`/topics/${topic.topicId}`}
+                        className="block py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      >
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                            {topic.topicName}
+                          </span>
+                          <AccuracyLabel
+                            accuracy={topic.accuracy}
+                            ranked
+                            attempts={topic.attempts}
+                          />
+                        </div>
+                        <p className="truncate text-xs text-muted">{topic.topicPath}</p>
+                        <div className="mt-2">
+                          <Meter accuracy={topic.accuracy} label={topic.topicName} />
+                        </div>
+                        <p className="mt-1 text-xs tabular-nums text-muted">
+                          {topic.wrong} missed of {topic.attempts}
+                          {topic.unsure > 0 && ` · ${topic.unsure} unsure`}
+                        </p>
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -207,9 +202,10 @@ export default async function DashboardPage() {
                       </span>
                     </div>
                     <div className="mt-1.5">
-                      <AccuracyBar
+                      <Meter
                         accuracy={subject.accuracy}
                         ranked={subject.ranked}
+                        label={subject.topicName}
                       />
                     </div>
                   </li>

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 
@@ -41,6 +41,7 @@ export const config = {
     '/dashboard/:path*',
     '/upload/:path*',
     '/worksheets/:path*',
+    '/topics/:path*',
     '/review/:path*',
     '/settings/:path*',
     '/admin/:path*',

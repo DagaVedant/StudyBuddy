@@ -3,6 +3,16 @@ import { z } from 'zod'
 export const bboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()])
 
 /**
+ * Models return choice labels inconsistently — "A", "A.", "A)", "(A)". The UI
+ * supplies its own separator, so trailing punctuation has to come off or it
+ * renders as "A..". Applied at render too, so rows stored before this
+ * normalisation existed still display correctly.
+ */
+export function choiceLabel(raw: string): string {
+  return raw.trim().replace(/^\(|[).\s]+$/g, '') || raw.trim()
+}
+
+/**
  * Vision models return labels as "A.", "A)", "(A)" depending on the page's own
  * formatting. Stored labels are bare ("A") — the UI adds its own punctuation,
  * and "A.." was what shipped without this.

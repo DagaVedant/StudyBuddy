@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
 
-import AppHeader from '@/components/app-header'
+import AppSidebar from '@/components/app-sidebar'
 import { themeInitScript } from '@/components/theme-toggle'
 
 import './globals.css'
@@ -49,9 +49,11 @@ export default function RootLayout({
           Skip to content
         </a>
         <SessionProvider>
-          <AppHeader />
-          <div id="main" className="flex flex-1 flex-col">
-            {children}
+          <div className="flex min-h-dvh flex-col lg:flex-row">
+            <AppSidebar />
+            <div id="main" className="flex min-w-0 flex-1 flex-col">
+              {children}
+            </div>
           </div>
         </SessionProvider>
       </body>
