@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
   TRIAL_EXPLANATION_LIMIT,
-  TRIAL_PAGE_LIMIT,
+  TRIAL_WORKSHEET_LIMIT,
   consumeTrial,
   getTrialState,
   refundTrial,
@@ -30,7 +30,7 @@ afterAll(async () => {
 describe('consumeTrial', () => {
   it('starts a new account with the full allowance', async () => {
     const state = await getTrialState(db as Db, await makeUser(db))
-    expect(state.pagesRemaining).toBe(TRIAL_PAGE_LIMIT)
+    expect(state.worksheetsRemaining).toBe(TRIAL_WORKSHEET_LIMIT)
     expect(state.explanationsRemaining).toBe(TRIAL_EXPLANATION_LIMIT)
     expect(state.exhausted).toBe(false)
   })
@@ -38,38 +38,50 @@ describe('consumeTrial', () => {
   it('draws down the allowance', async () => {
     const userId = await makeUser(db)
 
-    const result = await consumeTrial(db as Db, userId, 'pages', 4)
+    const result = await consumeTrial(db as Db, userId, 'worksheets', 1)
     expect(result.ok).toBe(true)
-    expect(result.remaining).toBe(TRIAL_PAGE_LIMIT - 4)
+    expect(result.remaining).toBe(TRIAL_WORKSHEET_LIMIT - 1)
+  })
+
+  it('charges one worksheet no matter how many pages it has', async () => {
+    const userId = await makeUser(db)
+
+    // The whole point of the worksheet unit: a 112-page practice test costs
+    // the same as a one-page quiz.
+    await consumeTrial(db as Db, userId, 'worksheets', 1)
+
+    expect((await getTrialState(db as Db, userId)).worksheetsRemaining).toBe(
+      TRIAL_WORKSHEET_LIMIT - 1,
+    )
   })
 
   it('refuses a request that would exceed the limit, all-or-nothing', async () => {
     const userId = await makeUser(db)
 
-    expect((await consumeTrial(db as Db, userId, 'pages', 8)).ok).toBe(true)
+    expect((await consumeTrial(db as Db, userId, 'explanations', 18)).ok).toBe(true)
 
-    // A 5-page upload with 2 left must not partially consume.
-    const overflow = await consumeTrial(db as Db, userId, 'pages', 5)
+    // Five explanations with two left must not partially consume.
+    const overflow = await consumeTrial(db as Db, userId, 'explanations', 5)
     expect(overflow.ok).toBe(false)
     expect(overflow.remaining).toBe(2)
 
-    expect((await getTrialState(db as Db, userId)).pagesUsed).toBe(8)
+    expect((await getTrialState(db as Db, userId)).explanationsUsed).toBe(18)
   })
 
   it('explains what to do next when it refuses', async () => {
     const userId = await makeUser(db)
-    await consumeTrial(db as Db, userId, 'pages', TRIAL_PAGE_LIMIT)
+    await consumeTrial(db as Db, userId, 'worksheets', TRIAL_WORKSHEET_LIMIT)
 
-    const refused = await consumeTrial(db as Db, userId, 'pages', 1)
+    const refused = await consumeTrial(db as Db, userId, 'worksheets', 1)
     expect(refused.ok).toBe(false)
     if (!refused.ok) {
       expect(refused.reason).toMatch(/API key|Ollama/i)
     }
   })
 
-  it('tracks pages and explanations independently', async () => {
+  it('tracks worksheets and explanations independently', async () => {
     const userId = await makeUser(db)
-    await consumeTrial(db as Db, userId, 'pages', TRIAL_PAGE_LIMIT)
+    await consumeTrial(db as Db, userId, 'worksheets', TRIAL_WORKSHEET_LIMIT)
 
     expect((await consumeTrial(db as Db, userId, 'explanations', 1)).ok).toBe(true)
   })
@@ -80,16 +92,20 @@ describe('consumeTrial', () => {
     // The guard is in the UPDATE's WHERE clause, so concurrent callers can't
     // both pass a read-then-write check.
     const results = await Promise.all(
-      Array.from({ length: 20 }, () => consumeTrial(db as Db, userId, 'pages', 1)),
+      Array.from({ length: 20 }, () =>
+        consumeTrial(db as Db, userId, 'worksheets', 1),
+      ),
     )
 
-    expect(results.filter((result) => result.ok)).toHaveLength(TRIAL_PAGE_LIMIT)
-    expect((await getTrialState(db as Db, userId)).pagesUsed).toBe(TRIAL_PAGE_LIMIT)
+    expect(results.filter((result) => result.ok)).toHaveLength(TRIAL_WORKSHEET_LIMIT)
+    expect((await getTrialState(db as Db, userId)).worksheetsUsed).toBe(
+      TRIAL_WORKSHEET_LIMIT,
+    )
   })
 
   it('records a usage event so spend is auditable', async () => {
     const userId = await makeUser(db)
-    await consumeTrial(db as Db, userId, 'pages', 3)
+    await consumeTrial(db as Db, userId, 'worksheets', 1)
 
     const events = await db
       .select()
@@ -97,35 +113,35 @@ describe('consumeTrial', () => {
       .where(eq(usageEvents.userId, userId))
 
     expect(events).toHaveLength(1)
-    expect(events[0].quantity).toBe(3)
+    expect(events[0].quantity).toBe(1)
     expect(events[0].tierUsed).toBe('trial')
   })
 
   it('ignores a zero or negative amount', async () => {
     const userId = await makeUser(db)
-    expect((await consumeTrial(db as Db, userId, 'pages', 0)).ok).toBe(true)
-    expect((await getTrialState(db as Db, userId)).pagesUsed).toBe(0)
+    expect((await consumeTrial(db as Db, userId, 'worksheets', 0)).ok).toBe(true)
+    expect((await getTrialState(db as Db, userId)).worksheetsUsed).toBe(0)
   })
 })
 
 describe('refundTrial', () => {
   it('gives the allowance back after a permanent failure', async () => {
     const userId = await makeUser(db)
-    await consumeTrial(db as Db, userId, 'pages', 5)
+    await consumeTrial(db as Db, userId, 'worksheets', 2)
 
-    await refundTrial(db as Db, userId, 'pages', 5)
+    await refundTrial(db as Db, userId, 'worksheets', 2)
 
-    expect((await getTrialState(db as Db, userId)).pagesRemaining).toBe(
-      TRIAL_PAGE_LIMIT,
+    expect((await getTrialState(db as Db, userId)).worksheetsRemaining).toBe(
+      TRIAL_WORKSHEET_LIMIT,
     )
   })
 
   it('never refunds below zero', async () => {
     const userId = await makeUser(db)
-    await refundTrial(db as Db, userId, 'pages', 99)
+    await refundTrial(db as Db, userId, 'worksheets', 99)
 
     const [row] = await db
-      .select({ used: users.trialPagesUsed })
+      .select({ used: users.trialWorksheetsUsed })
       .from(users)
       .where(eq(users.id, userId))
 
@@ -134,8 +150,8 @@ describe('refundTrial', () => {
 
   it('marks the usage event refunded', async () => {
     const userId = await makeUser(db)
-    await consumeTrial(db as Db, userId, 'pages', 2)
-    await refundTrial(db as Db, userId, 'pages', 2)
+    await consumeTrial(db as Db, userId, 'worksheets', 2)
+    await refundTrial(db as Db, userId, 'worksheets', 2)
 
     const events = await db
       .select()

@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+import { TRIAL_WORKSHEET_LIMIT } from '../lib/ai/limits'
+
 import {
   closeDbClient,
   registerAndSignIn,
-  setTrialPagesUsed,
+  setTrialWorksheetsUsed,
   uploadWorksheet,
 } from './support/helpers'
 
@@ -28,7 +30,7 @@ test('an exhausted trial falls through to the manual editor, not a dead end', as
   page,
 }) => {
   const email = await registerAndSignIn(page)
-  await setTrialPagesUsed(email, 10)
+  await setTrialWorksheetsUsed(email, TRIAL_WORKSHEET_LIMIT)
 
   await uploadWorksheet(page, 'After Trial')
 
@@ -36,7 +38,7 @@ test('an exhausted trial falls through to the manual editor, not a dead end', as
   await expect(page.getByRole('heading', { name: 'Review Questions' })).toBeVisible()
 })
 
-test('settings offers both upgrade paths and states where trial pages go', async ({
+test('settings offers both upgrade paths and states where trial work runs', async ({
   page,
 }) => {
   await registerAndSignIn(page)

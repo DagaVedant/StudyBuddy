@@ -77,7 +77,7 @@ export async function POST(request: Request, { params }: Params) {
 
       // A job that died for good must not have cost the student their trial.
       if (worksheet?.tierUsed === 'trial') {
-        await refundTrial(client, job.userId, 'pages', worksheet.pageCount)
+        await refundTrial(client, job.userId, 'worksheets', 1)
       }
 
       await db

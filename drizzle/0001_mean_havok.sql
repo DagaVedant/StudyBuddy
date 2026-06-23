@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "trial_worksheets_used" integer DEFAULT 0 NOT NULL;

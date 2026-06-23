@@ -53,7 +53,7 @@ The tier only changes how questions get off the page.
 
 | Tier | Requires | Extraction | Explanations |
 |---|---|---|---|
-| **0 — Trial** | nothing | operator GPU, 10 pages lifetime | 20 |
+| **0 — Trial** | nothing | operator GPU, 3 worksheets lifetime | 20 |
 | **A — Free** | nothing | manual editor + browser OCR | — |
 | **B — Cloud key** | Anthropic/OpenAI key | server-side vision model | unlimited |
 | **C — Ollama** | Ollama running | student's own GPU, in-browser | unlimited |

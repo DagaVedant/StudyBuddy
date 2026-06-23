@@ -67,8 +67,8 @@ export default async function StatusPage({
       {failed ? (
         <>
           <p className="mt-6 rounded border border-danger/40 px-3 py-2 text-sm text-danger">
-            {job?.error ?? 'Processing failed.'} Your trial pages have been
-            returned.
+            {job?.error ?? 'Processing failed.'} This worksheet was not counted
+            against your trial.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link

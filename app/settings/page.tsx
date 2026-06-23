@@ -42,7 +42,7 @@ export default async function SettingsPage() {
           visionModelName: row.visionModelName,
         }))}
         trial={{
-          pagesRemaining: trial.pagesRemaining,
+          worksheetsRemaining: trial.worksheetsRemaining,
           explanationsRemaining: trial.explanationsRemaining,
         }}
         workerOnline={worker.online}
