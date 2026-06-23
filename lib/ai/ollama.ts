@@ -9,6 +9,7 @@ import {
   explainUserText,
   extractionUserText,
 } from './prompts'
+import { parseModelJson } from './json'
 import {
   classificationSchema,
   explanationSchema,
@@ -64,8 +65,10 @@ export class OllamaProvider implements AIProvider {
     this.executionSite = options.executionSite ?? 'browser'
     this.fetchImpl = options.fetchImpl ?? fetch
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
-    this.contextTokens = options.contextTokens ?? 16_384
-    this.maxOutputTokens = options.maxOutputTokens ?? 4_096
+    // A dense SHSAT page with reading passages emitted >14k chars of JSON and
+    // still got cut off at a 4k output cap. qwen2.5vl handles 32k total.
+    this.contextTokens = options.contextTokens ?? 32_768
+    this.maxOutputTokens = options.maxOutputTokens ?? 8_192
   }
 
   /** Ollama's /api/chat with `format` set to a JSON Schema constrains decoding. */
@@ -119,7 +122,16 @@ export class OllamaProvider implements AIProvider {
       const content = body.message?.content
       if (!content) throw new Error('Ollama returned an empty response.')
 
-      return JSON.parse(content)
+      // A local model can stop mid-string at its output cap; keep whatever
+      // complete entries it managed rather than losing the page.
+      const { value, truncated } = parseModelJson(content)
+      if (truncated) {
+        console.warn(
+          `[ollama] reply truncated at ${content.length} chars — salvaged the complete entries`,
+        )
+      }
+
+      return value
     } finally {
       clearTimeout(timer)
     }
