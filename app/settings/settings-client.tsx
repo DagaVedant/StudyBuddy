@@ -187,12 +187,16 @@ export default function SettingsClient({
         className="rounded border border-border bg-surface p-4"
       >
         <h2 id="ollama-heading" className="text-sm font-medium">
-          Your own GPU (Ollama)
+          Your own GPU (Ollama){' '}
+          <span className="ml-1 rounded border border-border px-1.5 py-0.5 text-xs font-normal text-muted">
+            Not ready yet
+          </span>
         </h2>
         <p className="hint text-pretty">
-          Free and private — pages never leave your machine. Two things to know:
-          our server cannot reach your computer, so this runs in your browser and
-          the tab has to stay open while a worksheet processes.
+          Free and private — pages would never leave your machine. Our server
+          cannot reach your computer, so this has to run in your browser, and
+          that part is still being built. You can save your settings now;
+          uploads keep using the options above until it ships.
         </p>
 
         {ollama ? (
