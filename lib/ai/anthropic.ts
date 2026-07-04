@@ -88,7 +88,7 @@ export class AnthropicProvider implements AIProvider {
             data: Buffer.from(page.image).toString('base64'),
           },
         },
-        { type: 'text', text: extractionUserText(page) },
+        { type: 'text', text: extractionUserText(page, page.expect ?? []) },
       ],
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
     )

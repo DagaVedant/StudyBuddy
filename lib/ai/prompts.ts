@@ -45,7 +45,25 @@ Rules:
 - bbox is [x0, y0, x1, y1] in pixels of the supplied image, or null if unsure.
 - Set has_figure when the question depends on a diagram, graph, or table.`
 
-export function extractionUserText(page: PageInput): string {
+/**
+ * The retry pass names the questions a page is known to be missing.
+ *
+ * This is not a reworded version of the same request — it supplies information
+ * the first pass did not have. Rewording alone has twice been measured to
+ * change nothing about this model's output, so a retry that only says "try
+ * harder" would be wasted GPU time.
+ */
+export function extractionUserText(page: PageInput, expect: number[] = []): string {
+  const target =
+    expect.length > 0
+      ? [
+          '',
+          `This page should contain ${expect.length === 1 ? 'question' : 'questions'} ` +
+            `${expect.join(', ')}. A previous read of it missed ${expect.length === 1 ? 'that one' : 'those'}. ` +
+            'Find them, and return every other question on the page as well.',
+        ]
+      : []
+
   return [
     `Page ${page.pageNumber}, ${page.width}x${page.height} pixels.`,
     '',
@@ -53,6 +71,7 @@ export function extractionUserText(page: PageInput): string {
     '<page_text>',
     page.text.slice(0, 20_000),
     '</page_text>',
+    ...target,
     '',
     /*
      * Do not append a permission to return nothing here.

@@ -157,6 +157,14 @@ export interface PageInput {
   width: number
   height: number
   pageNumber: number
+  /**
+   * Printed question numbers a previous pass missed on this page.
+   *
+   * Set only on the audit's retry pass (lib/worker/audit.ts). It rides on the
+   * page rather than a second argument so every provider gets it without an
+   * interface change.
+   */
+  expect?: number[]
 }
 
 export interface TopicCandidate {

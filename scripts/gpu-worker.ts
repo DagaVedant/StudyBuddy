@@ -6,6 +6,7 @@ import sharp from 'sharp'
 
 import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
+import { auditExtraction } from '../lib/worker/audit'
 
 /**
  * The operator GPU pull-worker (spec §3.3).
@@ -105,6 +106,85 @@ interface ClassifyBatchEntry {
   questionId: string
   promptText: string
   candidates: { slug: string; name: string; path: string }[]
+}
+
+/**
+ * Second pass over only the pages that are demonstrably missing questions.
+ *
+ * Runs before the job reports complete, so the student never sees the
+ * incomplete result — the worksheet simply arrives with its questions in it.
+ *
+ * The retry is worth doing because it carries information the first pass did
+ * not have: the numbers to look for. Re-asking with the same prompt would be
+ * pointless; rewording alone has twice been measured to change nothing about
+ * this model's output.
+ */
+async function recoverMissingQuestions(
+  job: { id: string; worksheetId: string },
+  pages: WorkerPage[],
+): Promise<void> {
+  const response = await api(`/api/worker/coverage/${job.worksheetId}`)
+  if (!response.ok) return
+
+  const coverage = (await response.json()) as {
+    pages: { pageNumber: number; printed: number[] }[]
+    expectedTotal: number | null
+  }
+
+  const audit = auditExtraction(coverage.pages, coverage.expectedTotal)
+  if (audit.retry.length === 0) return
+
+  log(
+    `  audit: ${audit.found} found` +
+      `${audit.expected ? ` of ${audit.expected}` : ''}, ` +
+      `missing ${audit.missing.join(', ')} — re-reading ${audit.retry.length} page(s)`,
+  )
+
+  const byNumber = new Map(pages.map((page) => [page.pageNumber, page]))
+
+  for (const target of audit.retry) {
+    if (shuttingDown) return
+
+    const page = byNumber.get(target.pageNumber)
+    if (!page) continue
+
+    try {
+      const imageResponse = await api(`/api/worker/pages/${page.id}`)
+      if (!imageResponse.ok) continue
+
+      const raw = new Uint8Array(await imageResponse.arrayBuffer())
+      const { image, mediaType } = await toOllamaImage(
+        raw,
+        imageResponse.headers.get('content-type') ?? 'image/webp',
+      )
+
+      const questions = await provider.extractQuestions({
+        image,
+        mediaType,
+        text: page.ocrText ?? '',
+        width: page.width ?? 0,
+        height: page.height ?? 0,
+        pageNumber: page.pageNumber,
+        expect: target.expect,
+      })
+
+      // Ingest dedups by printed number, so re-sending a page's questions
+      // adds only what was missing and leaves the rest untouched.
+      await postJob(job.id, {
+        action: 'page_result',
+        pageId: page.id,
+        pageNumber: page.pageNumber,
+        totalPages: pages.length,
+        questions,
+      })
+
+      log(`  audit: page ${page.pageNumber} re-read for ${target.expect.join(', ')}`)
+    } catch (error) {
+      // A failed retry leaves the first pass's questions in place. Missing a
+      // question is worse than the alternative, but not worth failing the job.
+      log(`  audit: page ${page.pageNumber} retry failed — ${(error as Error).message}`)
+    }
+  }
 }
 
 /**
@@ -225,6 +305,7 @@ async function processJob(claim: ClaimResponse): Promise<void> {
       throw new Error(`Extraction failed on all ${attempted} pages. Last error: ${lastError}`)
     }
 
+    await recoverMissingQuestions(job, pages)
     await classifyWorksheet(job.worksheetId)
 
     await postJob(job.id, { action: 'complete' })

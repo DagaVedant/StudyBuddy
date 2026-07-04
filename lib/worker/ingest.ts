@@ -195,6 +195,7 @@ export async function persistQuestions(
         worksheetId: job.worksheetId,
         pageId,
         ordinal: nextOrdinal,
+        printedNumber: question.ordinal >= 1 ? question.ordinal : null,
         promptText: question.prompt_text,
         questionType: question.question_type,
         bbox: question.bbox,

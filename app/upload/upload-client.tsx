@@ -48,6 +48,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
   const cameraId = useId()
   const pageFromId = useId()
   const pageToId = useId()
+  const countId = useId()
 
   const [files, setFiles] = useState<File[]>([])
   const [title, setTitle] = useState('')
@@ -55,6 +56,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
   const [subject, setSubject] = useState('')
   const [pageFrom, setPageFrom] = useState('')
   const [pageTo, setPageTo] = useState('')
+  const [questionCount, setQuestionCount] = useState('')
   const [dragging, setDragging] = useState(false)
   const [progress, setProgress] = useState<IngestProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -106,6 +108,9 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         title: title.trim() || 'Untitled worksheet',
         subjectHint: subject || null,
         pageRange: parsed.range,
+        expectedQuestionCount: questionCount.trim()
+          ? Number(questionCount.trim())
+          : null,
         onProgress: setProgress,
         signal: controller.signal,
       })
@@ -326,6 +331,29 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             uploaded, or read.
           </p>
         </fieldset>
+
+        <div>
+          <label className="label" htmlFor={countId}>
+            How many questions?{' '}
+            <span className="font-normal text-muted">(optional)</span>
+          </label>
+          <input
+            id={countId}
+            name="question-count"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            placeholder="114"
+            className="field w-32 tabular-nums"
+            disabled={busy}
+            value={questionCount}
+            onChange={(event) => setQuestionCount(event.target.value)}
+          />
+          <p className="hint text-pretty">
+            If the paper says how many it has, telling us lets StudyBuddy check
+            its own work and go back over anything it missed.
+          </p>
+        </div>
       </section>
 
       {error && (

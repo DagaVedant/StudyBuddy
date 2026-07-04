@@ -15,6 +15,13 @@
       "when": 1785637026252,
       "tag": "0001_mean_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785688814894,
+      "tag": "0002_watery_jocasta",
+      "breakpoints": true
     }
   ]
 }
