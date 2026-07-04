@@ -132,7 +132,14 @@ describe('output schemas', () => {
 
     expect(rejected).toBe(0)
     expect(questions).toHaveLength(1)
-    expect(questions[0].ordinal).toBeGreaterThanOrEqual(1)
+
+    /*
+     * 0 is preserved rather than clamped to 1. It means "no printed number",
+     * and ingest merges a page's entries by printed number — clamping would
+     * make every unnumbered question on a page look like question 1 and
+     * collapse them into one. The stored ordinal is assigned by the server.
+     */
+    expect(questions[0].ordinal).toBe(0)
   })
 
   it('keep the good questions when one on the page is malformed', () => {

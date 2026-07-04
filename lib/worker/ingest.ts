@@ -103,24 +103,33 @@ export async function runExtraction(
  * behave the same either way. They diverged once and only one side got fixed.
  */
 /**
- * Folds a page's repeated stems back into single questions.
+ * Folds a page's repeated questions back into one entry each.
  *
- * A vision model can split one multiple-choice question into one entry per
- * option — the same stem four times, each carrying a different subset of the
- * choices. Hash dedup cannot see it, because prompt+choices genuinely differ.
- * One page of a real SHSAT form turned 3 questions into 6 this way.
+ * A vision model splits a multiple-choice question when every option is itself
+ * a block of text — a page of long quotations came back as the same stem four
+ * times, each carrying one option. Hash dedup cannot see that, because
+ * prompt+choices genuinely differ.
  *
- * Two entries on the same page with character-identical prompts are one
- * question whose options got scattered, so the options are unioned back
- * together. Reading sections do reuse stems like "Which quotation best
- * supports...", but always with a different idea named in the stem itself,
- * which is why this compares the full prompt rather than a prefix.
+ * Telling the model not to does nothing. Instructing it that each question
+ * appears exactly once, that a multi-line option is still an option, and that
+ * repeating a stem means it should extend the previous entry produced output
+ * byte-identical to the unmodified prompt across three pages.
+ *
+ * It does not need telling, though: it already labels every copy with the
+ * question's printed number. That page came back as ordinals
+ * [27, 28, 29, 29, 29, 29] — it knew the last four were one question. So the
+ * printed number is the key, and the text is only a fallback for genuinely
+ * unnumbered questions, where 0 means "no number on the page".
  */
 function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[] {
   const byPrompt = new Map<string, ExtractedQuestion>()
 
   for (const question of extracted) {
-    const key = normalizeForCompare(question.prompt_text)
+    const key =
+      question.ordinal >= 1
+        ? `#${question.ordinal}`
+        : normalizeForCompare(question.prompt_text)
+
     const seen = byPrompt.get(key)
 
     if (!seen) {

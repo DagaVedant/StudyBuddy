@@ -28,10 +28,16 @@ export const extractedQuestionSchema = z.object({
    * time, and requiring >= 1 here silently discarded whole pages of otherwise
    * perfect extraction. Normalize instead of rejecting.
    */
+  /*
+   * 0 means "this question has no printed number", and must survive as its own
+   * value rather than being clamped up to 1. Ingest merges a page's entries by
+   * printed number, so if every unnumbered question arrived as 1 they would all
+   * collapse into a single question.
+   */
   ordinal: z.coerce
     .number()
-    .catch(1)
-    .transform((value) => (Number.isFinite(value) ? Math.max(1, Math.trunc(value)) : 1)),
+    .catch(0)
+    .transform((value) => (Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0)),
   prompt_text: z.string().min(1).max(8000),
   question_type: questionTypeSchema,
   choices: z
