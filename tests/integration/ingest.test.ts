@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { ExtractedQuestion } from '@/lib/ai/types'
 import type { Db } from '@/lib/dashboard/queries'
-import { questions, worksheetPages } from '@/lib/db/schema'
+import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import { persistQuestions } from '@/lib/worker/ingest'
 
 import { createTestDb, type TestDb } from '../helpers/db'
@@ -82,6 +82,40 @@ describe('persistQuestions', () => {
     expect(rows).toHaveLength(1)
   })
 
+  /*
+   * The model can split one multiple-choice question into one entry per
+   * option — same stem, a different slice of the choices each time. Hash dedup
+   * cannot see that, because prompt+choices really do differ.
+   */
+  it('folds a question the model split across its own options', async () => {
+    const { job, pageId } = await setup()
+
+    const stem = 'Which quotation best supports the idea that The People feel a connection?'
+
+    const created = await persistQuestions(db as Db, job, pageId, [
+      question(stem, [{ label: 'A', text: 'The hunters rode up.' }]),
+      question(stem, [{ label: 'B', text: 'They paraded around.' }]),
+      question(stem, [{ label: 'C', text: 'Gentle arms lifted her.' }]),
+      question(stem, [{ label: 'D', text: 'The women brought food.' }]),
+    ])
+
+    expect(created).toBe(1)
+
+    const [row] = await db
+      .select({ id: questions.id })
+      .from(questions)
+      .where(eq(questions.worksheetId, job.worksheetId))
+
+    // The scattered options belong to that one question.
+    const choices = await db
+      .select()
+      .from(answerChoices)
+      .where(eq(answerChoices.questionId, row.id))
+
+    expect(choices).toHaveLength(4)
+    expect(choices.map((c) => c.label).sort()).toEqual(['A', 'B', 'C', 'D'])
+  })
+
   it('drops a repeat that arrives on a later page', async () => {
     const { job, pageId } = await setup()
     const second = await makePage(job.worksheetId, 2)
@@ -92,21 +126,26 @@ describe('persistQuestions', () => {
     expect(await persistQuestions(db as Db, job, second, [shared])).toBe(0)
   })
 
-  // Dedup keys on prompt *and* options together. Reading sections reuse stems
-  // like "Which quotation best supports..." across different questions, and
-  // those are genuinely different questions.
-  it('keeps a shared stem when the options differ', async () => {
+  /*
+   * Reading sections reuse the opening of a stem across several questions, so
+   * merging must compare the whole prompt. In the real material the idea being
+   * asked about is always named inside the stem, which is what keeps these
+   * apart — an earlier version of this test asserted that two *character-
+   * identical* stems stayed separate, a case the source material never
+   * actually produces.
+   */
+  it('keeps questions whose stems share an opening but name different ideas', async () => {
     const { job, pageId } = await setup()
 
     const created = await persistQuestions(db as Db, job, pageId, [
-      question('Which quotation best supports the idea?', [
-        { label: 'A', text: 'The hunters rode up.' },
-        { label: 'B', text: 'They paraded around.' },
-      ]),
-      question('Which quotation best supports the idea?', [
-        { label: 'A', text: 'Gentle arms lifted her.' },
-        { label: 'B', text: 'The women brought food.' },
-      ]),
+      question(
+        'Which quotation best supports the idea that The People feel a connection?',
+        [{ label: 'A', text: 'The hunters rode up.' }],
+      ),
+      question(
+        'Which quotation best supports the idea that the journey was difficult?',
+        [{ label: 'A', text: 'Gentle arms lifted her.' }],
+      ),
     ])
 
     expect(created).toBe(2)

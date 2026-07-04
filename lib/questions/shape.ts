@@ -52,14 +52,18 @@ export type QuestionInput = z.infer<typeof questionInputSchema>
  * Punctuation and spacing vary between OCR passes of the same question, so
  * they're stripped before hashing.
  */
-export function contentHashSource(promptText: string, choices: { text: string }[]): string {
-  const normalize = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, ' ')
-      .trim()
+export function normalizeForCompare(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+}
 
-  return [normalize(promptText), ...choices.map((choice) => normalize(choice.text))]
+export function contentHashSource(promptText: string, choices: { text: string }[]): string {
+  return [
+    normalizeForCompare(promptText),
+    ...choices.map((choice) => normalizeForCompare(choice.text)),
+  ]
     .filter(Boolean)
     .join('|')
 }
