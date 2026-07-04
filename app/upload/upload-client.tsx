@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { ingestWorksheet, type IngestProgress } from '@/lib/client/ingest'
 import { MAX_PAGES_PER_UPLOAD } from '@/lib/upload/limits'
+import { parsePageRange } from '@/lib/upload/page-range'
 
 export interface SubjectGroup {
   label: string
@@ -45,11 +46,15 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
   const subjectId = useId()
   const filesId = useId()
   const cameraId = useId()
+  const pageFromId = useId()
+  const pageToId = useId()
 
   const [files, setFiles] = useState<File[]>([])
   const [title, setTitle] = useState('')
   const [titleTouched, setTitleTouched] = useState(false)
   const [subject, setSubject] = useState('')
+  const [pageFrom, setPageFrom] = useState('')
+  const [pageTo, setPageTo] = useState('')
   const [dragging, setDragging] = useState(false)
   const [progress, setProgress] = useState<IngestProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -85,6 +90,13 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
 
   async function start() {
     setError(null)
+
+    const parsed = parsePageRange(pageFrom, pageTo)
+    if (!parsed.ok) {
+      setError(parsed.message)
+      return
+    }
+
     const controller = new AbortController()
     abortRef.current = controller
 
@@ -93,6 +105,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         files,
         title: title.trim() || 'Untitled worksheet',
         subjectHint: subject || null,
+        pageRange: parsed.range,
         onProgress: setProgress,
         signal: controller.signal,
       })
@@ -268,6 +281,51 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           </select>
           <p className="hint">Helps sort the questions into the right topics later.</p>
         </div>
+
+        <fieldset>
+          <legend className="label">
+            Pages <span className="font-normal text-muted">(optional)</span>
+          </legend>
+
+          <div className="flex items-center gap-2">
+            <input
+              id={pageFromId}
+              name="page-from"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              placeholder="1"
+              className="field w-24 tabular-nums"
+              disabled={busy}
+              value={pageFrom}
+              aria-label="First page"
+              onChange={(event) => setPageFrom(event.target.value)}
+            />
+            <span aria-hidden="true" className="text-muted">
+              to
+            </span>
+            <input
+              id={pageToId}
+              name="page-to"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              placeholder="end"
+              className="field w-24 tabular-nums"
+              disabled={busy}
+              value={pageTo}
+              aria-label="Last page"
+              onChange={(event) => setPageTo(event.target.value)}
+            />
+          </div>
+
+          <p className="hint text-pretty">
+            Leave blank for the whole file. Worth setting when a practice test
+            is followed by an answer key or explanations — those pages aren&rsquo;t
+            questions, and skipping them means they are never rendered,
+            uploaded, or read.
+          </p>
+        </fieldset>
       </section>
 
       {error && (

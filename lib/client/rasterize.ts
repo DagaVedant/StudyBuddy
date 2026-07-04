@@ -3,6 +3,7 @@ import type { TextItem } from 'pdfjs-dist/types/src/display/api'
 
 import type { TextLine } from '@/lib/db/schema'
 import { RASTER_DPI, RASTER_MAX_EDGE } from '@/lib/upload/limits'
+import { pageInRange, type PageRange } from '@/lib/upload/page-range'
 
 /**
  * pdf.js is deliberately NOT bundled. Both files are served from /public,
@@ -128,6 +129,18 @@ export interface RasterProgress {
   total: number
 }
 
+export interface RasterizeOptions {
+  /** Pages already contributed by earlier files, so the range is document-wide. */
+  offset?: number
+  range?: PageRange | null
+}
+
+export interface RasterizedPdf {
+  pages: RasterPage[]
+  /** Every page in the file, including the ones the range skipped. */
+  totalPages: number
+}
+
 async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   // WebP is dramatically smaller than PNG on scanned text and loses nothing
   // OCR or a vision model cares about at this quality.
@@ -151,7 +164,10 @@ async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 export async function rasterizePdf(
   file: File,
   onProgress?: (progress: RasterProgress) => void,
-): Promise<RasterPage[]> {
+  options: RasterizeOptions = {},
+): Promise<RasterizedPdf> {
+  const { offset = 0, range = null } = options
+
   const pdfjs = await getPdfjs()
   const data = await file.arrayBuffer()
 
@@ -161,8 +177,25 @@ export async function rasterizePdf(
 
   const pages: RasterPage[] = []
 
+  // The bar counts pages that will actually be rendered, not pages in the
+  // file — a 112-page PDF trimmed to 59 is 59 units of work, and a bar that
+  // stops at 59/112 looks like a failure.
+  let plannedTotal = 0
+  for (let n = 1; n <= pdf.numPages; n += 1) {
+    if (pageInRange(offset + n, range)) plannedTotal += 1
+  }
+
+  let rendered = 0
+
   try {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      /*
+       * Skipped before getPage, so an excluded page is never decoded, never
+       * rendered to a canvas, and never encoded. That is the entire point of
+       * putting the range here rather than filtering later.
+       */
+      if (!pageInRange(offset + pageNumber, range)) continue
+
       const page = await pdf.getPage(pageNumber)
 
       let scale = RASTER_DPI / PDF_POINTS_PER_INCH
@@ -196,7 +229,10 @@ export async function rasterizePdf(
       const embeddedText = embeddedLines.map((line) => line.text).join('\n')
 
       pages.push({
-        pageNumber,
+        // The page's number in its own document, not its position in what was
+        // kept. A student who extracts pages 60-112 should see "page 60", not
+        // "page 1" — and nothing downstream requires these to start at 1.
+        pageNumber: offset + pageNumber,
         blob,
         width: canvas.width,
         height: canvas.height,
@@ -209,13 +245,14 @@ export async function rasterizePdf(
       canvas.height = 0
 
       page.cleanup()
-      onProgress?.({ page: pageNumber, total: pdf.numPages })
+      rendered += 1
+      onProgress?.({ page: rendered, total: plannedTotal })
     }
   } finally {
     await loadingTask.destroy()
   }
 
-  return pages
+  return { pages, totalPages: pdf.numPages }
 }
 
 /** Normalizes a photo or image upload into the same shape as a PDF page. */
