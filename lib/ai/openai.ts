@@ -87,7 +87,7 @@ export class OpenAIProvider implements AIProvider {
       EXTRACTION_SYSTEM,
       [
         { type: 'image_url', image_url: { url: dataUrl } },
-        { type: 'text', text: extractionUserText(page) },
+        { type: 'text', text: extractionUserText(page, page.expect ?? []) },
       ],
       'extraction',
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,

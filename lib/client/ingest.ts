@@ -34,6 +34,8 @@ export interface IngestOptions {
   subjectHint?: string | null
   /** Restricts which pages are rendered at all. null means every page. */
   pageRange?: PageRange | null
+  /** Lets extraction check its own coverage and re-read pages it missed. */
+  expectedQuestionCount?: number | null
   onProgress: (progress: IngestProgress) => void
   signal?: AbortSignal
 }
@@ -69,6 +71,7 @@ export async function ingestWorksheet({
   title,
   subjectHint,
   pageRange = null,
+  expectedQuestionCount = null,
   onProgress,
   signal,
 }: IngestOptions): Promise<IngestResult> {
@@ -163,6 +166,7 @@ export async function ingestWorksheet({
         sourceType,
         subjectHint: subjectHint || null,
         pageCount: pages.length,
+        expectedQuestionCount,
       }),
       signal,
     }),

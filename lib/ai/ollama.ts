@@ -141,7 +141,7 @@ export class OllamaProvider implements AIProvider {
     const raw = await this.chat(
       this.visionModel,
       EXTRACTION_SYSTEM,
-      extractionUserText(page),
+      extractionUserText(page, page.expect ?? []),
       [Buffer.from(page.image).toString('base64')],
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
     )

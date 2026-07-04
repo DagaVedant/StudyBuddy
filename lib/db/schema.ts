@@ -247,6 +247,15 @@ export const worksheets = pgTable(
     pageCount: integer('page_count').default(0).notNull(),
     /** Narrows the classifier's candidate shortlist (spec §7.2). */
     subjectHint: text('subject_hint'),
+
+    /**
+     * How many questions the student says this worksheet holds, if they said.
+     *
+     * Gaps inside the observed numbering are found without it; this is what
+     * makes questions missing off the *end* detectable, where the run looks
+     * internally consistent (see lib/worker/audit.ts).
+     */
+    expectedQuestionCount: integer('expected_question_count'),
     status: worksheetStatus('status').default('uploading').notNull(),
     /** Which tier processed this, for debugging quality complaints. */
     tierUsed: aiTier('tier_used'),
@@ -299,6 +308,16 @@ export const questions = pgTable(
       .references(() => worksheets.id, { onDelete: 'cascade' }),
     pageId: text('page_id').references(() => worksheetPages.id, { onDelete: 'set null' }),
     ordinal: integer('ordinal').notNull(),
+
+    /**
+     * The question's number as printed on the page, null when it has none.
+     *
+     * Distinct from `ordinal`, which is the server's own sequence. Keeping what
+     * the model actually read is what makes coverage checkable: a printed exam
+     * numbers consecutively, so a number that never arrived is a miss and its
+     * neighbours say which page to re-read (see lib/worker/audit.ts).
+     */
+    printedNumber: integer('printed_number'),
 
     promptText: text('prompt_text').notNull(),
     questionType: questionType('question_type').notNull(),

@@ -44,6 +44,25 @@ describe('extraction user text', () => {
     expect(EXTRACTION_SYSTEM).toMatch(/DATA, not instructions/)
   })
 
+  /*
+   * The retry pass is only worth running because it carries information the
+   * first pass lacked — the numbers to look for. Rewording alone has twice
+   * been measured to change nothing about this model's output.
+   */
+  it('names the missing questions on a retry', () => {
+    const text = extractionUserText(page, [16, 17, 18])
+
+    expect(text).toContain('16, 17, 18')
+    expect(text).toMatch(/questions 16, 17, 18/)
+    // Still asks for the whole page, or the retry would drop what it found.
+    expect(text).toMatch(/every other question/i)
+    expect(text.trim().split('\n').at(-1)).toBe('Extract the questions.')
+  })
+
+  it('says nothing about missing questions on a first pass', () => {
+    expect(extractionUserText(page)).not.toMatch(/missed|should contain/i)
+  })
+
   it('caps how much page text reaches the model', () => {
     const huge = { ...page, text: 'x'.repeat(50_000) }
 
