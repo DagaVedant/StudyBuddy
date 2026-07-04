@@ -358,7 +358,75 @@ const precalculus = n(
   n('Limits', n('Limits graphically and numerically'), n('Limit laws'), n('Continuity')),
 )
 
-const highSchoolMath = n('High School Math', algebra1, geometry, algebra2, precalculus)
+/*
+ * Arithmetic and number theory.
+ *
+ * Added after a real SHSAT form left a third of its maths untagged: mixed
+ * number division, ordering negative rationals, "the least positive integer
+ * divisible by the first six", successive percent change, remainders over an
+ * 86-day span. Percentages and unit conversion existed only under SAT Math,
+ * so a question about a 12% discount on a homework sheet had nowhere to go.
+ *
+ * This is the floor the rest of the tree assumed and never covered.
+ */
+const numberSense = n(
+  'Number sense',
+  n(
+    'Fractions and decimals',
+    n('Fraction operations'),
+    n('Mixed numbers'),
+    n('Complex fractions'),
+    n('Fraction, decimal, and percent conversion'),
+    n('Repeating decimals'),
+  ),
+  n(
+    'Integers and the number line',
+    n('Operations with negative numbers'),
+    n('Absolute value'),
+    n('Ordering rational numbers'),
+    n('Reading a number line'),
+  ),
+  n(
+    'Number theory',
+    n('Factors and multiples'),
+    n('Least common multiple'),
+    n('Greatest common divisor'),
+    n('Primes and divisibility'),
+    n('Remainders and repeating patterns'),
+  ),
+  n(
+    'Powers and roots',
+    n('Squares and square roots'),
+    n('Cubes and cube roots'),
+    n('Order of magnitude and scientific notation'),
+  ),
+  n(
+    'Percent and proportional reasoning',
+    n('Percent of a number'),
+    n('Percent increase and decrease'),
+    n('Successive percent change'),
+    n('Discount, markup, and tax'),
+    n('Working backwards from a percent'),
+    n('Ratios and rates'),
+    n('Three-part ratios'),
+    n('Unit conversion'),
+  ),
+  n(
+    'Counting and chance',
+    n('Fundamental counting principle'),
+    n('Probability without replacement'),
+    n('Comparing probabilities'),
+  ),
+)
+
+const highSchoolMath = n(
+  'High School Math',
+  numberSense,
+  algebra1,
+  geometry,
+  algebra2,
+  precalculus,
+)
 
 /* -------------------------------------------------------------------------- */
 /* ELA                                                                         */
@@ -392,6 +460,30 @@ const ela = n(
     n('Comparing texts'),
     n('Summarizing'),
     n('Vocabulary in context'),
+    /* Real question stems the tree had no home for: "how the use of
+       problem-solution in paragraph 2 contributes to the development of
+       ideas", "how the graph supports the ideas in paragraph 8". */
+    n('Organizational patterns'),
+    n('Development of ideas'),
+    n('Function of a sentence or paragraph'),
+    n('Evidence from a graph, map, or table'),
+  ),
+
+  /*
+   * Poetry.
+   *
+   * Eight questions on one form asked about stanzas, lines, and a speaker, and
+   * the classifier proposed "Poetry Analysis" itself. Prose comprehension does
+   * not cover it — a question about where a line breaks has no equivalent in
+   * an essay.
+   */
+  n(
+    'Poetry',
+    n('Stanza and line structure'),
+    n('Speaker and voice'),
+    n('Sound, rhythm, and repetition'),
+    n('Imagery and personification'),
+    n('Theme in poetry'),
   ),
   n(
     'Rhetoric and argument',
@@ -422,6 +514,15 @@ const ela = n(
     n('Concision'),
     n('Sentence variety'),
     n('Integrating sources'),
+    /* The recurring revising/editing question types, taken from the wording
+       exams actually use — each was a distinct stem the tree flattened into
+       "Organization and coherence". */
+    n('Combining sentences'),
+    n('Precise language'),
+    n('Adding a supporting sentence'),
+    n('Removing an irrelevant sentence'),
+    n('Placing a sentence'),
+    n('Concluding sentence'),
   ),
 )
 
