@@ -22,12 +22,14 @@ afterAll(async () => {
   await close()
 })
 
+/** ordinal 0 is "unnumbered on the page", which is the safe default here. */
 function question(
   promptText: string,
   choices: { label: string; text: string }[] = [],
+  ordinal = 0,
 ): ExtractedQuestion {
   return {
-    ordinal: 1,
+    ordinal,
     prompt_text: promptText,
     question_type: choices.length ? 'multiple_choice' : 'free_response',
     choices: choices.map((choice) => ({ ...choice, isCorrect: false })),
@@ -92,11 +94,13 @@ describe('persistQuestions', () => {
 
     const stem = 'Which quotation best supports the idea that The People feel a connection?'
 
+    // The model labels every copy with the question's real printed number —
+    // the page this came from returned [27, 28, 29, 29, 29, 29].
     const created = await persistQuestions(db as Db, job, pageId, [
-      question(stem, [{ label: 'A', text: 'The hunters rode up.' }]),
-      question(stem, [{ label: 'B', text: 'They paraded around.' }]),
-      question(stem, [{ label: 'C', text: 'Gentle arms lifted her.' }]),
-      question(stem, [{ label: 'D', text: 'The women brought food.' }]),
+      question(stem, [{ label: 'A', text: 'The hunters rode up.' }], 29),
+      question(stem, [{ label: 'B', text: 'They paraded around.' }], 29),
+      question(stem, [{ label: 'C', text: 'Gentle arms lifted her.' }], 29),
+      question(stem, [{ label: 'D', text: 'The women brought food.' }], 29),
     ])
 
     expect(created).toBe(1)
@@ -141,14 +145,34 @@ describe('persistQuestions', () => {
       question(
         'Which quotation best supports the idea that The People feel a connection?',
         [{ label: 'A', text: 'The hunters rode up.' }],
+        30,
       ),
       question(
         'Which quotation best supports the idea that the journey was difficult?',
         [{ label: 'A', text: 'Gentle arms lifted her.' }],
+        31,
       ),
     ])
 
     expect(created).toBe(2)
+  })
+
+  /*
+   * The failure mode this nearly introduced: `ordinal` used to be clamped to a
+   * minimum of 1, so on a worksheet with no printed numbers every question
+   * arrived as 1 and merging by number would have collapsed the whole page
+   * into one. Unnumbered questions carry 0 and fall back to comparing text.
+   */
+  it('keeps distinct unnumbered questions apart', async () => {
+    const { job, pageId } = await setup()
+
+    const created = await persistQuestions(db as Db, job, pageId, [
+      question('Solve for x: 3x + 7 = 25'),
+      question('Factor completely: x^2 - 49'),
+      question('Explain why the exterior angle equals the remote interior angles.'),
+    ])
+
+    expect(created).toBe(3)
   })
 
   it('numbers questions continuously across pages', async () => {
