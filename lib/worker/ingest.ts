@@ -10,7 +10,7 @@ import {
   worksheetPages,
   worksheets,
 } from '@/lib/db/schema'
-import { contentHashSource } from '@/lib/questions/shape'
+import { contentHashSource, normalizeForCompare } from '@/lib/questions/shape'
 import { checkpointJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
 
@@ -102,12 +102,52 @@ export async function runExtraction(
  * API, the Tier B path calls it directly — so dedup and ordinal continuity
  * behave the same either way. They diverged once and only one side got fixed.
  */
+/**
+ * Folds a page's repeated stems back into single questions.
+ *
+ * A vision model can split one multiple-choice question into one entry per
+ * option — the same stem four times, each carrying a different subset of the
+ * choices. Hash dedup cannot see it, because prompt+choices genuinely differ.
+ * One page of a real SHSAT form turned 3 questions into 6 this way.
+ *
+ * Two entries on the same page with character-identical prompts are one
+ * question whose options got scattered, so the options are unioned back
+ * together. Reading sections do reuse stems like "Which quotation best
+ * supports...", but always with a different idea named in the stem itself,
+ * which is why this compares the full prompt rather than a prefix.
+ */
+function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[] {
+  const byPrompt = new Map<string, ExtractedQuestion>()
+
+  for (const question of extracted) {
+    const key = normalizeForCompare(question.prompt_text)
+    const seen = byPrompt.get(key)
+
+    if (!seen) {
+      byPrompt.set(key, { ...question, choices: [...question.choices] })
+      continue
+    }
+
+    for (const choice of question.choices) {
+      const duplicate = seen.choices.some(
+        (existing) =>
+          normalizeForCompare(existing.label) === normalizeForCompare(choice.label) ||
+          normalizeForCompare(existing.text) === normalizeForCompare(choice.text),
+      )
+      if (!duplicate) seen.choices.push(choice)
+    }
+  }
+
+  return [...byPrompt.values()]
+}
+
 export async function persistQuestions(
   db: Db,
   job: { worksheetId: string; userId: string },
   pageId: string,
-  extracted: ExtractedQuestion[],
+  raw: ExtractedQuestion[],
 ): Promise<number> {
+  const extracted = mergeSplitQuestions(raw)
   if (extracted.length === 0) return 0
 
   // Ordinals continue across pages rather than restarting at 1 per page.
