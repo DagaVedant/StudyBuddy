@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist } from 'next/font/google'
+import { Archivo, Geist } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
 
-import AppSidebar from '@/components/app-sidebar'
+import AppTopbar from '@/components/app-topbar'
 import { themeInitScript } from '@/components/theme-toggle'
 
 import './globals.css'
@@ -10,6 +10,17 @@ import './globals.css'
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
+})
+
+/**
+ * Headline face. Archivo is a grotesque with real weight at 800 and flat,
+ * squared terminals, which is what gives the blocky look — it stays solid set
+ * large and uppercase where a lighter face would go spindly.
+ */
+const archivo = Archivo({
+  variable: '--font-archivo',
+  subsets: ['latin'],
+  weight: ['700', '800', '900'],
 })
 
 export const metadata: Metadata = {
@@ -33,7 +44,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} h-full`}
+      className={`${geistSans.variable} ${archivo.variable} h-full`}
       suppressHydrationWarning
     >
       <head>
@@ -48,12 +59,15 @@ export default function RootLayout({
         >
           Skip to content
         </a>
+        {/*
+          A plain column with no scroll container of its own — the topbar is
+          `sticky`, and any ancestor that scrolls or clips would pin it to that
+          box instead of the viewport.
+        */}
         <SessionProvider>
-          <div className="flex min-h-dvh flex-col lg:flex-row">
-            <AppSidebar />
-            <div id="main" className="flex min-w-0 flex-1 flex-col">
-              {children}
-            </div>
+          <AppTopbar />
+          <div id="main" className="flex min-w-0 flex-1 flex-col">
+            {children}
           </div>
         </SessionProvider>
       </body>

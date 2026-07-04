@@ -9,19 +9,31 @@ export default async function HomePage() {
   if (session?.user) redirect('/dashboard')
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-center px-6 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">StudyBuddy</h1>
-      <p className="mt-3 text-muted">
+    <main className="mx-auto w-full max-w-6xl px-6 py-16 sm:py-24">
+      <p className="eyebrow">Practice, measured</p>
+
+      {/*
+       * Sized in vw between two rems so the headline fills the measure at any
+       * width instead of stepping between breakpoints — the whole effect of
+       * type this heavy is that it runs edge to edge.
+       */}
+      <h1 className="display mt-4 text-[clamp(2.75rem,11vw,7.5rem)]">
+        Know what
+        <br />
+        you don&rsquo;t know
+      </h1>
+
+      <p className="mt-8 max-w-xl text-lg text-pretty text-muted">
         Upload the worksheets you have already done. StudyBuddy pulls out every
         question, tracks which ones you got wrong, and tells you what to study
         next — with a review schedule that actually sticks.
       </p>
 
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <Link href="/signup" className="btn btn-primary sm:w-auto sm:px-6">
+      <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+        <Link href="/signup" className="btn btn-primary sm:w-auto sm:px-8">
           Get started
         </Link>
-        <Link href="/signin" className="btn btn-secondary sm:w-auto sm:px-6">
+        <Link href="/signin" className="btn btn-secondary sm:w-auto sm:px-8">
           Sign in
         </Link>
       </div>
@@ -30,6 +42,31 @@ export default async function HomePage() {
         Free to start: {TRIAL_WORKSHEET_LIMIT} full worksheets processed by AI,
         no card and no setup.
       </p>
+
+      <dl className="mt-20 grid gap-px overflow-hidden rounded border border-border bg-border sm:grid-cols-3">
+        {[
+          {
+            term: 'Every question',
+            detail:
+              'Not just the ones you got wrong. A weak topic means nothing without knowing how many you saw.',
+          },
+          {
+            term: 'Sorted by topic',
+            detail:
+              'Questions land in a subject tree, so the dashboard points at a skill rather than a worksheet.',
+          },
+          {
+            term: 'Scheduled to stick',
+            detail:
+              'Spaced repetition brings a question back exactly when you are about to forget it.',
+          },
+        ].map((item) => (
+          <div key={item.term} className="bg-surface p-6">
+            <dt className="font-semibold tracking-tight">{item.term}</dt>
+            <dd className="mt-2 text-sm text-pretty text-muted">{item.detail}</dd>
+          </div>
+        ))}
+      </dl>
     </main>
   )
 }
