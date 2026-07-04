@@ -11,7 +11,15 @@ import { normalizeChoiceLabel } from '@/lib/questions/shape'
  */
 
 export type ExecutionSite = 'server' | 'browser' | 'operator_gpu'
-export type ProviderName = 'anthropic' | 'openai' | 'ollama' | 'operator_gpu' | 'mock' | 'null'
+export type ProviderName =
+  | 'anthropic'
+  | 'openai'
+  | 'openrouter'
+  | 'google'
+  | 'ollama'
+  | 'operator_gpu'
+  | 'mock'
+  | 'null'
 
 export const questionTypeSchema = z.enum([
   'multiple_choice',

@@ -5,11 +5,21 @@ import { userAiCredentials, users } from '@/lib/db/schema'
 
 import { AnthropicProvider } from './anthropic'
 import { openApiKey } from './crypto'
+import { GeminiProvider } from './gemini'
+import { TRIAL_WORKSHEET_LIMIT } from './limits'
 import { MockProvider, NullProvider } from './mock'
 import { OllamaProvider } from './ollama'
 import { OpenAIProvider } from './openai'
-import { TRIAL_WORKSHEET_LIMIT } from './limits'
+import { OpenRouterProvider } from './openrouter'
+import {
+  CLOUD_PROVIDERS,
+  DEFAULT_CLOUD_MODEL,
+  isCloudProvider,
+  type CloudProvider,
+} from './providers'
 import type { AIProvider } from './types'
+
+export { CLOUD_PROVIDERS, DEFAULT_CLOUD_MODEL, type CloudProvider }
 
 export type Tier = 'trial' | 'free' | 'cloud' | 'ollama'
 
@@ -49,10 +59,7 @@ export async function resolveProvider(
 
   const cloud = credentials.find(
     (row) =>
-      (row.provider === 'anthropic' || row.provider === 'openai') &&
-      row.encryptedKey &&
-      row.keyIv &&
-      row.keyAuthTag,
+      isCloudProvider(row.provider) && row.encryptedKey && row.keyIv && row.keyAuthTag,
   )
 
   if (cloud) {
@@ -67,10 +74,11 @@ export async function resolveProvider(
     })
 
     return {
-      provider:
-        cloud.provider === 'anthropic'
-          ? new AnthropicProvider(apiKey, cloud.visionModelName ?? undefined)
-          : new OpenAIProvider(apiKey, cloud.modelName ?? undefined),
+      provider: cloudProvider(
+        cloud.provider as CloudProvider,
+        apiKey,
+        cloud.visionModelName ?? cloud.modelName ?? undefined,
+      ),
       tier: 'cloud',
       executor: 'server',
     }
@@ -111,6 +119,32 @@ export async function resolveProvider(
   return { provider: new NullProvider(), tier: 'free', executor: 'none' }
 }
 
+/**
+ * Builds the client for a student-supplied key.
+ *
+ * The model is theirs to choose — OpenRouter in particular is only worth
+ * having because one key reaches many models — so a stored name always wins
+ * over the default.
+ */
+export function cloudProvider(
+  provider: CloudProvider,
+  apiKey: string,
+  model?: string,
+): AIProvider {
+  const chosen = model || DEFAULT_CLOUD_MODEL[provider]
+
+  switch (provider) {
+    case 'anthropic':
+      return new AnthropicProvider(apiKey, chosen)
+    case 'openai':
+      return new OpenAIProvider(apiKey, chosen)
+    case 'openrouter':
+      return new OpenRouterProvider(apiKey, chosen)
+    case 'google':
+      return new GeminiProvider(apiKey, chosen)
+  }
+}
+
 /** The provider the operator's GPU worker itself runs (spec §3.3). */
 export function operatorProvider(): AIProvider {
   if (mockEnabled() && !process.env.WORKER_FORCE_REAL) {
@@ -145,7 +179,7 @@ export async function getCredentialSummary(db: Db, userId: string) {
 export async function deleteCredential(
   db: Db,
   userId: string,
-  provider: 'anthropic' | 'openai' | 'ollama',
+  provider: CloudProvider | 'ollama',
 ): Promise<void> {
   await db
     .delete(userAiCredentials)

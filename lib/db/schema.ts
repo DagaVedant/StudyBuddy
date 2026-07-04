@@ -39,7 +39,13 @@ export const userRole = pgEnum('user_role', ['student', 'admin'])
 /** Which AI path the account is currently on (spec §3). */
 export const aiTier = pgEnum('ai_tier', ['trial', 'free', 'cloud', 'ollama'])
 
-export const aiProvider = pgEnum('ai_provider', ['anthropic', 'openai', 'ollama'])
+export const aiProvider = pgEnum('ai_provider', [
+  'anthropic',
+  'openai',
+  'openrouter',
+  'google',
+  'ollama',
+])
 
 export const sourceType = pgEnum('source_type', [
   'pdf_digital',

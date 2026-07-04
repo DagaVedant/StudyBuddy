@@ -3,13 +3,13 @@ import { z } from 'zod'
 
 import { auth } from '@/auth'
 import { isAllowedOllamaUrl, sealApiKey } from '@/lib/ai/crypto'
-import { deleteCredential, getCredentialSummary } from '@/lib/ai/resolve'
+import { CLOUD_PROVIDERS, deleteCredential, getCredentialSummary } from '@/lib/ai/resolve'
 import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { userAiCredentials } from '@/lib/db/schema'
 
 const cloudSchema = z.object({
-  provider: z.enum(['anthropic', 'openai']),
+  provider: z.enum(CLOUD_PROVIDERS),
   apiKey: z.string().trim().min(10).max(400),
   model: z.string().trim().max(120).nullish(),
 })
@@ -114,6 +114,9 @@ export async function POST(request: Request) {
         keyAuthTag: sealed.authTag,
         keyLast4: sealed.last4,
         modelName: input.model ?? null,
+        // Also cleared on update, or switching model would leave the old
+        // vision name behind — and that is the one extraction actually uses.
+        visionModelName: input.model ?? null,
         updatedAt: new Date(),
       },
     })
@@ -128,12 +131,13 @@ export async function DELETE(request: Request) {
   }
 
   const provider = new URL(request.url).searchParams.get('provider')
-  if (provider !== 'anthropic' && provider !== 'openai' && provider !== 'ollama') {
+  const deletable = z.enum([...CLOUD_PROVIDERS, 'ollama']).safeParse(provider)
+  if (!deletable.success) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
 
   // Revoking wipes the ciphertext row entirely (spec §3.6).
-  await deleteCredential(db as unknown as Db, session.user.id, provider)
+  await deleteCredential(db as unknown as Db, session.user.id, deletable.data)
 
   return NextResponse.json({ ok: true })
 }

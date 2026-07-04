@@ -1,3 +1,4 @@
+import { parseModelJson } from './json'
 import {
   CLASSIFY_JSON_SCHEMA,
   CLASSIFY_SYSTEM,
@@ -22,23 +23,53 @@ import {
   type TopicCandidate,
 } from './types'
 
+export interface ChatCompletionsOptions {
+  /** Defaults to OpenAI. OpenRouter serves the same protocol elsewhere. */
+  endpoint?: string
+  /** Used in error messages so a failure names the service the user chose. */
+  label?: string
+  headers?: Record<string, string>
+  fetchImpl?: typeof fetch
+  name?: AIProvider['name']
+}
+
 /**
- * Tier B, OpenAI. Uses the Chat Completions API over plain fetch rather than
- * pulling in a second vendor SDK for three calls.
+ * Tier B over the Chat Completions protocol, via plain fetch rather than a
+ * vendor SDK for three calls.
+ *
+ * OpenAI defined this shape and OpenRouter implements it, so both run through
+ * this one client with a different endpoint — see OpenRouterProvider. Gemini
+ * is not here: its structured output is a first-class request field rather
+ * than a compatibility shim, so it gets its own client (./gemini).
  */
 export class OpenAIProvider implements AIProvider {
-  readonly name = 'openai' as const
+  readonly name: AIProvider['name']
   readonly supportsVision = true
   readonly executionSite = 'server' as const
 
   private readonly apiKey: string
   private readonly model: string
   private readonly fetchImpl: typeof fetch
+  private readonly endpoint: string
+  private readonly label: string
+  private readonly headers: Record<string, string>
 
-  constructor(apiKey: string, model = 'gpt-4.1', fetchImpl: typeof fetch = fetch) {
+  constructor(
+    apiKey: string,
+    model = 'gpt-4.1',
+    options: ChatCompletionsOptions | typeof fetch = {},
+  ) {
+    // The third argument used to be a bare fetch; keep that call shape working.
+    const resolved: ChatCompletionsOptions =
+      typeof options === 'function' ? { fetchImpl: options } : options
+
     this.apiKey = apiKey
     this.model = model
-    this.fetchImpl = fetchImpl
+    this.fetchImpl = resolved.fetchImpl ?? fetch
+    this.endpoint = resolved.endpoint ?? 'https://api.openai.com/v1/chat/completions'
+    this.label = resolved.label ?? 'OpenAI'
+    this.headers = resolved.headers ?? {}
+    this.name = resolved.name ?? 'openai'
   }
 
   private async chat(
@@ -47,11 +78,12 @@ export class OpenAIProvider implements AIProvider {
     schemaName: string,
     schema: Record<string, unknown>,
   ): Promise<unknown> {
-    const response = await this.fetchImpl('https://api.openai.com/v1/chat/completions', {
+    const response = await this.fetchImpl(this.endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
+        ...this.headers,
       },
       body: JSON.stringify({
         model: this.model,
@@ -67,7 +99,7 @@ export class OpenAIProvider implements AIProvider {
     })
 
     if (!response.ok) {
-      throw new Error(`OpenAI responded ${response.status}: ${await response.text()}`)
+      throw new Error(`${this.label} responded ${response.status}: ${await response.text()}`)
     }
 
     const body = (await response.json()) as {
@@ -75,9 +107,11 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const text = body.choices?.[0]?.message?.content
-    if (!text) throw new Error('OpenAI returned an empty response.')
+    if (!text) throw new Error(`${this.label} returned an empty response.`)
 
-    return JSON.parse(text)
+    // A hosted model can still stop mid-string at its output cap; keep the
+    // complete entries rather than losing the page.
+    return parseModelJson(text).value
   }
 
   async extractQuestions(page: PageInput): Promise<ExtractedQuestion[]> {
