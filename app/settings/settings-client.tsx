@@ -3,6 +3,13 @@
 import { useRouter } from 'next/navigation'
 import { useId, useState } from 'react'
 
+import {
+  CLOUD_PROVIDERS,
+  DEFAULT_CLOUD_MODEL,
+  PROVIDER_COPY,
+  type CloudProvider,
+} from '@/lib/ai/providers'
+
 interface Credential {
   provider: string
   keyLast4: string | null
@@ -27,16 +34,18 @@ export default function SettingsClient({
   const cloudId = useId()
   const providerId = useId()
   const ollamaId = useId()
+  const modelId = useId()
 
-  const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic')
+  const [provider, setProvider] = useState<CloudProvider>('anthropic')
   const [apiKey, setApiKey] = useState('')
+  const [model, setModel] = useState('')
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const cloud = credentials.find(
-    (row) => row.provider === 'anthropic' || row.provider === 'openai',
+  const cloud = credentials.find((row) =>
+    (CLOUD_PROVIDERS as readonly string[]).includes(row.provider),
   )
   const ollama = credentials.find((row) => row.provider === 'ollama')
 
@@ -146,13 +155,22 @@ export default function SettingsClient({
                 id={providerId}
                 className="field bg-surface text-fg"
                 value={provider}
-                onChange={(event) =>
-                  setProvider(event.target.value as 'anthropic' | 'openai')
-                }
+                onChange={(event) => {
+                  setProvider(event.target.value as CloudProvider)
+                  // The old provider's model name means nothing to the new one.
+                  setModel('')
+                }}
               >
-                <option value="anthropic">Anthropic</option>
-                <option value="openai">OpenAI</option>
+                {CLOUD_PROVIDERS.map((option) => (
+                  <option key={option} value={option}>
+                    {PROVIDER_COPY[option].label}
+                  </option>
+                ))}
               </select>
+              <p className="hint text-pretty">
+                {PROVIDER_COPY[provider].note} Keys from{' '}
+                {PROVIDER_COPY[provider].keysAt}.
+              </p>
             </div>
 
             <div>
@@ -164,18 +182,40 @@ export default function SettingsClient({
                 type="password"
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="sk-…"
+                placeholder={PROVIDER_COPY[provider].keyPlaceholder}
                 className="field"
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
               />
             </div>
 
+            <div>
+              <label className="label" htmlFor={modelId}>
+                Model <span className="font-normal text-muted">(optional)</span>
+              </label>
+              <input
+                id={modelId}
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={DEFAULT_CLOUD_MODEL[provider]}
+                className="field"
+                value={model}
+                onChange={(event) => setModel(event.target.value)}
+              />
+              <p className="hint text-pretty">
+                Leave blank for {DEFAULT_CLOUD_MODEL[provider]}. It has to be a
+                model that can read images, or extraction will fail.
+              </p>
+            </div>
+
             <button
               type="button"
               className="btn btn-primary sm:w-auto sm:px-6"
               disabled={busy || apiKey.trim().length < 10}
-              onClick={() => void save({ provider, apiKey })}
+              onClick={() =>
+                void save({ provider, apiKey, model: model.trim() || null })
+              }
             >
               {busy ? 'Saving…' : 'Save Key'}
             </button>
