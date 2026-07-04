@@ -7,6 +7,11 @@ import {
 } from './rasterize'
 
 import { MAX_SOURCE_BYTES } from '@/lib/upload/limits'
+import {
+  describePageRange,
+  pageInRange,
+  type PageRange,
+} from '@/lib/upload/page-range'
 
 export type IngestStage =
   | 'reading'
@@ -27,6 +32,8 @@ export interface IngestOptions {
   files: File[]
   title: string
   subjectHint?: string | null
+  /** Restricts which pages are rendered at all. null means every page. */
+  pageRange?: PageRange | null
   onProgress: (progress: IngestProgress) => void
   signal?: AbortSignal
 }
@@ -61,6 +68,7 @@ export async function ingestWorksheet({
   files,
   title,
   subjectHint,
+  pageRange = null,
   onProgress,
   signal,
 }: IngestOptions): Promise<IngestResult> {
@@ -81,34 +89,56 @@ export async function ingestWorksheet({
   const pages: RasterPage[] = []
   let sawPdf = false
 
+  /*
+   * Page numbers run across the whole upload, so a range means the same thing
+   * whether the student picked one PDF or several files. `offset` tracks every
+   * page seen — including ones the range skipped — otherwise the numbering
+   * would shift under the range and "pages 60-112" would select the wrong ones.
+   */
+  let offset = 0
+
   for (const file of pdfs) {
     assertNotAborted(signal)
     sawPdf = true
-    const rendered = await rasterizePdf(file, ({ page, total }) => {
-      onProgress({
-        stage: 'rasterizing',
-        completed: page,
-        total,
-        detail: `Rendering ${file.name}`,
-      })
-    })
-    for (const page of rendered) {
-      pages.push({ ...page, pageNumber: pages.length + 1 })
-    }
+
+    const rendered = await rasterizePdf(
+      file,
+      ({ page, total }) => {
+        onProgress({
+          stage: 'rasterizing',
+          completed: page,
+          total,
+          detail: `Rendering ${file.name}`,
+        })
+      },
+      { offset, range: pageRange },
+    )
+
+    pages.push(...rendered.pages)
+    offset += rendered.totalPages
   }
 
-  for (const [index, file] of images.entries()) {
+  for (const file of images) {
     assertNotAborted(signal)
+    offset += 1
+    if (!pageInRange(offset, pageRange)) continue
+
     onProgress({
       stage: 'rasterizing',
-      completed: index + 1,
-      total: images.length,
+      completed: pages.length + 1,
+      total: pages.length + 1,
       detail: `Processing ${file.name}`,
     })
-    pages.push(await rasterizeImage(file, pages.length + 1))
+    pages.push(await rasterizeImage(file, offset))
   }
 
-  if (pages.length === 0) throw new IngestError('Nothing readable in those files.')
+  if (pages.length === 0) {
+    throw new IngestError(
+      pageRange
+        ? `No pages in ${describePageRange(pageRange)}. That upload has ${offset} ${offset === 1 ? 'page' : 'pages'}.`
+        : 'Nothing readable in those files.',
+    )
+  }
 
   const digital = sawPdf && hasUsableTextLayer(pages)
   const sourceType = sawPdf

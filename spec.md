@@ -346,6 +346,8 @@ Mobile-first; phone photos are a primary input.
 
 **Step 2 — Browser rasterizes.** `pdf.js` converts each page to a ~150 DPI PNG, client-side, on every tier. This is a security decision as much as a performance one: **the server and the GPU worker never touch a raw PDF**, which removes the entire PDF-parser attack surface from the operator's home machine. Cap: 75 pages per upload (admins exempt, §2.1).
 
+**Optional page range.** The upload screen takes an optional first/last page. Practice material routinely bundles a test with its answer key and a full explanations section — one real SHSAT form is 59 pages of test followed by 53 pages of rationales, and extracting all 112 produced 81 items that were not questions. Filtering afterwards cannot recover that cost, since the pages have already been rendered, uploaded, read, and sent to the GPU. So the range is applied **before rasterization**: an excluded page is never decoded, never drawn to a canvas, never encoded, never uploaded, and never processed. Page numbers are document-wide, so a range means the same thing whether the student picked one PDF or several files, and pages keep their **original** numbering — extracting pages 60–112 stores them as 60–112, not 1–53.
+
 **Step 3 — Page images upload** to blob storage via signed URLs. `worksheet` + `worksheet_pages` rows created.
 
 **Step 4 — Text layer.** Born-digital → embedded text extraction (exact, free). Scan/photo → `tesseract.js` in-browser OCR. On vision tiers the OCR text is kept as a cheap prior while the model reads the image directly.
