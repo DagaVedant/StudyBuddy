@@ -30,6 +30,24 @@ const client =
     max: Number(process.env.DATABASE_POOL_MAX ?? 5),
     // Transaction-mode poolers (Neon, pgBouncer) don't support prepared statements.
     prepare: false,
+
+    /*
+     * Retire connections before the server does.
+     *
+     * Neon closes idle connections from its side. Left to itself postgres.js
+     * keeps them indefinitely and eventually hands out a dead socket, so the
+     * next query fails with ECONNRESET — seen live as a 500 from the worker's
+     * heartbeat after it had been idle 57 minutes. Any endpoint that goes
+     * quiet then wakes up hits this, not just the worker.
+     *
+     * Reconnecting costs a few tens of milliseconds and only on the first
+     * query after a lull, which is far cheaper than a failed request.
+     * Settable to 0 for the E2E socket harness, which does not survive its
+     * one connection being recycled underneath it.
+     */
+    idle_timeout: Number(process.env.DATABASE_IDLE_TIMEOUT ?? 30),
+    max_lifetime: Number(process.env.DATABASE_MAX_LIFETIME ?? 60 * 30),
+    connect_timeout: 15,
   })
 
 if (process.env.NODE_ENV !== 'production') {

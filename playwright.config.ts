@@ -40,6 +40,11 @@ export default defineConfig({
       DATABASE_URL: E2E_DATABASE_URL,
       // PGlite's socket server serves one connection reliably.
       DATABASE_POOL_MAX: '1',
+      // ...and does not survive that one connection being recycled beneath it,
+      // so the idle/lifetime recycling that keeps Neon connections fresh is
+      // switched off here.
+      DATABASE_IDLE_TIMEOUT: '0',
+      DATABASE_MAX_LIFETIME: '0',
       AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-abcd=',
       CREDENTIALS_ENC_KEY: Buffer.alloc(32, 7).toString('base64'),
       ADMIN_EMAILS: 'admin@studybuddy.test',
