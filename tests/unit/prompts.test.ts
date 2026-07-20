@@ -12,16 +12,6 @@ const page = {
 }
 
 describe('extraction user text', () => {
-  /*
-   * This encodes a failure that cost a full 112-page run.
-   *
-   * Appending "Return an empty list if this page has none." to the user turn
-   * took the benchmark page from 5/5 to 0/5 and produced zero questions across
-   * 67 real pages before it was caught. As the closing line of the turn it
-   * reads as the preferred answer rather than a permission. Nothing in the
-   * user turn may offer "return nothing" as an option — that belongs in the
-   * system prompt, where it doesn't compete with the request itself.
-   */
   it('does not offer an empty result as an option', () => {
     const text = extractionUserText(page)
 
@@ -44,17 +34,11 @@ describe('extraction user text', () => {
     expect(EXTRACTION_SYSTEM).toMatch(/DATA, not instructions/)
   })
 
-  /*
-   * The retry pass is only worth running because it carries information the
-   * first pass lacked — the numbers to look for. Rewording alone has twice
-   * been measured to change nothing about this model's output.
-   */
   it('names the missing questions on a retry', () => {
     const text = extractionUserText(page, [16, 17, 18])
 
     expect(text).toContain('16, 17, 18')
     expect(text).toMatch(/questions 16, 17, 18/)
-    // Still asks for the whole page, or the retry would drop what it found.
     expect(text).toMatch(/every other question/i)
     expect(text.trim().split('\n').at(-1)).toBe('Extract the questions.')
   })
@@ -71,16 +55,12 @@ describe('extraction user text', () => {
 })
 
 describe('extraction system prompt', () => {
-  // A test bundled with its own answer key restates every question, and a
-  // reading passage's numbered paragraphs look like numbered questions. Both
-  // were extracted as questions until the prompt named them.
   it('names the things that are not questions', () => {
     expect(EXTRACTION_SYSTEM).toMatch(/passage/i)
     expect(EXTRACTION_SYSTEM).toMatch(/answer key/i)
     expect(EXTRACTION_SYSTEM).toMatch(/explanation/i)
   })
 
-  // Tightening the above must not cost the SHSAT grid-in items.
   it('keeps write-in questions that have no options', () => {
     expect(EXTRACTION_SYSTEM).toMatch(/no options/i)
   })

@@ -51,7 +51,6 @@ test('signup does not reveal whether an email is already registered', async ({
   const first = await signUp()
   const second = await signUp()
 
-  // Identical responses — this endpoint must not work as an account oracle.
   expect(second).toBe(first)
 })
 
@@ -98,8 +97,6 @@ test('the admin console is hidden from students', async ({ page }) => {
 
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0)
 
-  // Rewritten to not-found, not 403 — the console should not be discoverable
-  // by probing (spec §2.1).
   await page.goto('/admin/topics')
   await expect(page.getByRole('heading', { name: 'Admin' })).toHaveCount(0)
 })

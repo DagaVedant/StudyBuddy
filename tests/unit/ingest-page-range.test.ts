@@ -3,15 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RasterPage } from '@/lib/client/rasterize'
 import { pageInRange } from '@/lib/upload/page-range'
 
-/**
- * Covers which pages an upload actually selects.
- *
- * The arithmetic that decides this spans two modules — rasterizePdf skips by
- * document-wide number, ingestWorksheet accumulates the offset across files —
- * and neither half is meaningful alone. pdf.js and canvas can't run here, so
- * rasterization is mocked and only the selection is under test.
- */
-
 const rendered: number[] = []
 
 function fakePage(pageNumber: number): RasterPage {
@@ -20,7 +11,6 @@ function fakePage(pageNumber: number): RasterPage {
     blob: new Blob(['x']),
     width: 100,
     height: 100,
-    // Enough to read as born-digital so OCR is skipped.
     embeddedText: 'x'.repeat(200),
     embeddedLines: [],
   }
@@ -39,7 +29,6 @@ vi.mock('@/lib/client/rasterize', async (importOriginal) => {
         options: { offset?: number; range?: { from: number; to: number | null } | null } = {},
       ) => {
         const { offset = 0, range = null } = options
-        // Page count is encoded in the fixture's name.
         const totalPages = Number(file.name.match(/(\d+)p/)?.[1] ?? 1)
         const pages: RasterPage[] = []
 

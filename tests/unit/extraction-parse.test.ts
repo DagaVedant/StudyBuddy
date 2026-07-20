@@ -20,14 +20,6 @@ function reply(...prompts: string[]) {
 }
 
 describe('parseExtraction', () => {
-  /*
-   * Documents bundle a test with its answer explanations, and each explanation
-   * restates the question it discusses before analysing the options. The vision
-   * model reads that restatement as a question. Three prompt phrasings were
-   * tested against real explanation pages — naming the pattern, leading with
-   * it, describing the page layout — and every one still returned them, so it
-   * is filtered here instead.
-   */
   it('drops an explanation restating the question it is about', () => {
     const result = parseExtraction(
       reply(
@@ -41,8 +33,6 @@ describe('parseExtraction', () => {
     expect(result.rejected).toBe(3)
   })
 
-  // A question never opens by describing itself in the third person, which is
-  // what keeps the filter from touching real ones.
   it('keeps questions that merely mention the word question', () => {
     const result = parseExtraction(
       reply(

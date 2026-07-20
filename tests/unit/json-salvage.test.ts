@@ -17,7 +17,6 @@ function question(n: number, text = `Question ${n}`) {
 describe('salvageTruncatedJson', () => {
   it('keeps the complete entries when the reply stops mid-object', () => {
     const full = JSON.stringify({ questions: [question(1), question(2), question(3)] })
-    // Cut inside the third entry, the way an output-token cap does.
     const cut = full.slice(0, full.indexOf('Question 3') + 4)
 
     const salvaged = salvageTruncatedJson(cut) as { questions: unknown[] }
@@ -70,7 +69,6 @@ describe('parseModelJson', () => {
   })
 
   it('salvaged output still satisfies the extraction schema', () => {
-    // The end-to-end path: truncated reply -> salvage -> per-question parse.
     const full = JSON.stringify({
       questions: [question(1), question(2), question(3)],
     })

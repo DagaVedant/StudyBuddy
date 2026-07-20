@@ -24,7 +24,6 @@ describe('cosineSimilarity', () => {
   })
 })
 
-// Downloads ~23MB on first run, then reads from the local cache.
 describe('embed (real MiniLM model)', () => {
   it(
     'produces normalized 384-dimension vectors',
@@ -42,8 +41,6 @@ describe('embed (real MiniLM model)', () => {
   it(
     'places related topics closer than unrelated ones',
     async () => {
-      // This is the property the classifier shortlist depends on: if it fails,
-      // vector search returns nonsense candidates and classification degrades.
       const [triangles, angles, grammar] = await Promise.all([
         embed('Geometry › Triangles › Triangle angle sum'),
         embed('What is the measure of the third angle in a triangle?'),

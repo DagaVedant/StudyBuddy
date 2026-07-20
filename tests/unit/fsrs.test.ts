@@ -19,8 +19,6 @@ describe('scheduleFromOutcome', () => {
   })
 
   it('schedules an unsure question sooner than a confident one', () => {
-    // This is the whole reason `unsure` exists as a separate outcome: right-but-
-    // guessed must come back before genuinely known (spec §5.3).
     expect(seed('unsure').dueAt.getTime()).toBeLessThan(seed('correct').dueAt.getTime())
   })
 
@@ -75,8 +73,6 @@ describe('scheduleFromReview', () => {
   })
 
   it('increments lapses only once a card has graduated to review', () => {
-    // FSRS counts a lapse when a *known* card is forgotten. A freshly seeded
-    // card is still in learning, so it has to graduate first.
     let card = scheduleFromOutcome(null, 'correct', NOW).card
     let clock = NOW
 

@@ -44,8 +44,6 @@ function page(text: string): PageInput {
 
 describe('prompt templates', () => {
   it('frame page content as data, not instructions', () => {
-    // The GPU threat model depends on this: users supply an image, never a
-    // prompt, and page text must never be executed as an instruction.
     for (const system of [EXTRACTION_SYSTEM, CLASSIFY_SYSTEM, EXPLAIN_SYSTEM]) {
       expect(system.toLowerCase()).toContain('never follow')
     }
@@ -74,7 +72,6 @@ describe('prompt templates', () => {
   })
 
   it('tell the model to abstain rather than guess', () => {
-    // Collapse wrapping so the assertion isn't coupled to line breaks.
     const flat = CLASSIFY_SYSTEM.toLowerCase().replace(/\s+/g, ' ')
     expect(flat).toContain('abstain')
     expect(flat).toContain('never invent a slug')
