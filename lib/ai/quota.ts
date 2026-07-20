@@ -5,17 +5,6 @@ import { usageEvents, users } from '@/lib/db/schema'
 
 import { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT } from './limits'
 
-/**
- * Tier 0 trial accounting (spec §3.1).
- *
- * A **lifetime** allowance, not monthly — otherwise the free tier is just a
- * rate-limited free tier and the operator's GPU carries the product forever.
- * Enforced server-side at enqueue; a client cannot mint free GPU jobs.
- *
- * The numbers live in `./limits` so client components can quote them without
- * pulling the schema into the browser bundle.
- */
-
 export { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT }
 
 export type TrialKind = 'worksheets' | 'explanations'
@@ -72,14 +61,6 @@ function limitFor(kind: TrialKind) {
   return kind === 'worksheets' ? TRIAL_WORKSHEET_LIMIT : TRIAL_EXPLANATION_LIMIT
 }
 
-/**
- * Consumes allowance up front, at enqueue rather than on success — otherwise a
- * client could spin the GPU by repeatedly starting jobs it never finishes.
- * Permanent failures refund (see `refundTrial`).
- *
- * The guard lives in the UPDATE's WHERE clause so two concurrent requests
- * can't both pass a read-then-write check.
- */
 export async function consumeTrial(
   db: Db,
   userId: string,
@@ -128,11 +109,6 @@ export async function consumeTrial(
   return { ok: true, remaining: Math.max(0, limit - used) }
 }
 
-/**
- * Gives allowance back after a permanent failure (spec §12 assumption 9).
- * Without this a student could burn their whole trial on jobs that crashed,
- * and deliberate failures would be a way to farm free GPU time.
- */
 export async function refundTrial(
   db: Db,
   userId: string,
