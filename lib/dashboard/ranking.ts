@@ -1,19 +1,5 @@
-/**
- * Weakness ranking (spec §5.5).
- *
- * Ranking topics by raw error rate is the obvious approach and it is wrong:
- * "1 wrong out of 1" beats "12 wrong out of 40" and the dashboard confidently
- * sends the student to study something they have seen once. Two guards fix it:
- *
- *   1. a topic needs MIN_ATTEMPTS before it can be called a weakness at all
- *   2. ranking uses the Wilson score lower bound of the error rate, which
- *      penalises small samples on its own
- */
-
-/** Below this, a topic renders as "not enough data yet" — never red, never green. */
 export const MIN_ATTEMPTS = 5
 
-/** 1.96 ≈ 95% confidence. */
 const Z = 1.96
 
 export interface TopicStats {
@@ -28,20 +14,13 @@ export interface TopicStats {
 
 export interface RankedTopic extends TopicStats {
   attempts: number
-  /** Share of attempts answered correctly and confidently. */
   accuracy: number
   errorRate: number
   unsureRate: number
-  /** Ranking key: pessimistic estimate of the true error rate. */
   score: number
-  /** False when the topic is below MIN_ATTEMPTS. */
   ranked: boolean
 }
 
-/**
- * Wilson score lower bound for a binomial proportion. With few observations it
- * sits far below the naive rate, which is exactly the behaviour we want.
- */
 export function wilsonLowerBound(successes: number, total: number, z: number = Z): number {
   if (total <= 0) return 0
 
@@ -61,8 +40,6 @@ export function summarize(stats: TopicStats): RankedTopic {
   return {
     ...stats,
     attempts,
-    // `unsure` counts as neither right nor wrong for accuracy — it gets its own
-    // signal, because a high unsure rate means fragile knowledge, not strength.
     accuracy: attempts > 0 ? stats.correct / attempts : 0,
     errorRate: attempts > 0 ? errors / attempts : 0,
     unsureRate: attempts > 0 ? stats.unsure / attempts : 0,
@@ -71,10 +48,6 @@ export function summarize(stats: TopicStats): RankedTopic {
   }
 }
 
-/**
- * Weakest first. Topics under the attempt floor are excluded entirely — they
- * are surfaced separately as "needs more data" rather than mixed into advice.
- */
 export function rankWeaknesses(stats: TopicStats[]): RankedTopic[] {
   return stats
     .map(summarize)
@@ -88,11 +61,6 @@ export function rankWeaknesses(stats: TopicStats[]): RankedTopic[] {
     )
 }
 
-/**
- * Right-but-guessed. High accuracy with a high unsure rate reads as strength
- * on any normal dashboard and is actually the most fragile state a topic can
- * be in, so it gets its own list.
- */
 export function rankFragile(stats: TopicStats[]): RankedTopic[] {
   return stats
     .map(summarize)
@@ -105,7 +73,6 @@ export function rankFragile(stats: TopicStats[]): RankedTopic[] {
     )
 }
 
-/** Rolls leaf-level stats up to any ancestor depth for the drilldown. */
 export function rollUp(
   stats: TopicStats[],
   keyOf: (stats: TopicStats) => string,
