@@ -8,13 +8,6 @@ import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ pageId: string }> }
 
-/**
- * Serves one page image to the GPU worker.
- *
- * Scoped to pages whose worksheet currently has a claimed operator_gpu job —
- * so the worker credential can't be used to enumerate the whole corpus, only
- * to read what it is actively working on (spec §8).
- */
 export async function GET(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {

@@ -7,11 +7,6 @@ import { guardWorksheet } from '@/lib/upload/guard'
 
 type Params = { params: Promise<{ id: string }> }
 
-/**
- * Closes extraction review (spec §4 stage 5). Nothing counts as a real
- * question until the student confirms here — this is the gate that keeps bad
- * extraction out of the dashboard.
- */
 export async function POST(_request: Request, { params }: Params) {
   const { id: worksheetId } = await params
 

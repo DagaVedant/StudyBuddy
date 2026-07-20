@@ -10,7 +10,6 @@ import { MAX_PAGE_BYTES, MAX_PAGE_DIMENSION } from '@/lib/upload/limits'
 
 type Params = { params: Promise<{ id: string }> }
 
-/** Accepts one rasterized page image from the browser. */
 export async function POST(request: Request, { params }: Params) {
   const { id: worksheetId } = await params
 
@@ -32,7 +31,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Invalid page number' }, { status: 400 })
   }
 
-  // Size and dimension caps are crash guards, so they apply to admins too.
   if (file.size > MAX_PAGE_BYTES) {
     return NextResponse.json({ error: 'Page image is too large' }, { status: 413 })
   }
@@ -81,7 +79,6 @@ const ocrSchema = z.object({
     .optional(),
 })
 
-/** Stores the text layer once the browser has OCR'd (or extracted) the page. */
 export async function PATCH(request: Request, { params }: Params) {
   const { id: worksheetId } = await params
 

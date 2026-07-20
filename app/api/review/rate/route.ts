@@ -12,13 +12,6 @@ const rateSchema = z.object({
   rating: z.enum(['again', 'hard', 'good', 'easy']),
 })
 
-/**
- * Records a recall rating and reschedules the card (spec §5.4).
- *
- * A review also writes an attempt so the dashboard reflects the fact that the
- * student got it right (or not) this time — otherwise accuracy would freeze at
- * whatever the original worksheet said.
- */
 export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -72,7 +65,6 @@ export async function POST(request: Request) {
     await tx.insert(attempts).values({
       userId,
       questionId: card.questionId,
-      // "Again" is a miss; "Hard" is right-but-shaky, which is what unsure means.
       outcome: rating === 'again' ? 'wrong' : rating === 'hard' ? 'unsure' : 'correct',
       source: 'review',
     })

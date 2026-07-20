@@ -25,12 +25,6 @@ const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('fail'), message: z.string().max(2000) }),
 ])
 
-/**
- * Where the worker writes results back (spec §3.3).
- *
- * Output is schema-validated here, not just on the worker — a compromised or
- * buggy worker cannot write arbitrary rows.
- */
 export async function POST(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
@@ -67,7 +61,6 @@ export async function POST(request: Request, { params }: Params) {
         .where(eq(worksheets.id, job.worksheetId))
         .limit(1)
 
-      // A job that died for good must not have cost the student their trial.
       if (worksheet?.tierUsed === 'trial') {
         await refundTrial(client, job.userId, 'worksheets', 1)
       }
@@ -91,7 +84,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ ok: true })
   }
 
-  /* page_result -------------------------------------------------------- */
 
   const [page] = await db
     .select({ id: worksheetPages.id, worksheetId: worksheetPages.worksheetId })
@@ -99,7 +91,6 @@ export async function POST(request: Request, { params }: Params) {
     .where(eq(worksheetPages.id, body.pageId))
     .limit(1)
 
-  // The page must belong to the worksheet this job actually claimed.
   if (!page || page.worksheetId !== job.worksheetId) {
     return NextResponse.json({ error: 'Page does not belong to this job' }, { status: 400 })
   }

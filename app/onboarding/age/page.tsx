@@ -11,23 +11,10 @@ export default function AgeGatePage() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
-  /*
-   * Submitting is handled here rather than through useActionState + an effect.
-   * The effect version keyed off the action's result message, which broke three
-   * ways: a second attempt returned the same "Saved." so the dependency never
-   * changed and the button went inert; a rejected session update left the
-   * .then() unreached, so nothing navigated and nothing said why; and the
-   * effect re-ran whenever useSession handed back a new `update` identity.
-   *
-   * One handler means the Enter key and the Continue button take the exact
-   * same path — a form with a submit button submits on Enter — and every
-   * outcome either navigates or explains itself.
-   */
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (pending) return
 
-    // Read synchronously: currentTarget is gone by the first await.
     const formData = new FormData(event.currentTarget)
 
     setError(null)
@@ -42,12 +29,8 @@ export default function AgeGatePage() {
         return
       }
 
-      // The proxy reads hasDob off the session token, so the token has to be
-      // reissued before navigating or it sends us straight back here.
       await update()
 
-      // A full load rather than router.replace, so the proxy re-evaluates
-      // against the freshly written cookie with no client cache in between.
       window.location.assign('/dashboard')
     } catch {
       setError(

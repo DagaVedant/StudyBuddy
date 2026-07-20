@@ -6,11 +6,6 @@ import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { storage } from '@/lib/storage'
 
-/**
- * Every page image and figure crop is served through here so ownership is
- * checked on each read (spec §8). Storage keys are namespaced by worksheet,
- * which is what makes the check a single lookup.
- */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ key: string[] }> },
@@ -33,7 +28,6 @@ export async function GET(
     .where(eq(worksheets.id, worksheetId))
     .limit(1)
 
-  // 404 rather than 403: don't confirm that someone else's worksheet exists.
   if (!worksheet || worksheet.userId !== session.user.id) {
     return new NextResponse('Not found', { status: 404 })
   }

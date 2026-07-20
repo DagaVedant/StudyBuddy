@@ -12,12 +12,6 @@ import { answerChoices, attempts, explanations, questions } from '@/lib/db/schem
 
 const schema = z.object({ questionId: z.string().min(1) })
 
-/**
- * Generates an explanation on demand and caches it forever (spec §4 call 4).
- *
- * Grounded in the answer the student actually gave, so it addresses their
- * mistake rather than re-solving the problem from scratch.
- */
 export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -44,8 +38,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  // Cached forever — regenerating would cost money and change the wording a
-  // student may already have learned from.
   const [cached] = await db
     .select()
     .from(explanations)
@@ -79,7 +71,6 @@ export async function POST(request: Request) {
 
   const { provider, tier } = await resolveProvider(client, userId)
 
-  // Admins are exempt from the trial allowance (spec §2.1).
   if (tier === 'trial' && session.user.role !== 'admin') {
     const charge = await consumeTrial(client, userId, 'explanations', 1)
     if (!charge.ok) {

@@ -33,12 +33,6 @@ const OUTCOME_LABEL: Record<string, string> = {
   correct: 'Got it',
 }
 
-/**
- * Drill-down for one topic (spec §5.5, panel 2).
- *
- * The vault below is the actual study tool: every question in this topic the
- * student has ever missed or guessed, newest first.
- */
 export default async function TopicPage({
   params,
 }: {
@@ -75,7 +69,6 @@ export default async function TopicPage({
     wrong: Number(tally?.wrong ?? 0),
   })
 
-  // The vault: everything missed or guessed in this topic.
   const vault = await db
     .select({
       questionId: questions.id,

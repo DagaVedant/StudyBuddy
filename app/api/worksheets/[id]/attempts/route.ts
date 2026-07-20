@@ -29,13 +29,6 @@ const markSchema = z.object({
     .max(500),
 })
 
-/**
- * Records the markup pass (spec §5.3) and seeds the review schedule.
- *
- * Every marked question gets an attempt and a card — not just the wrong ones —
- * because the dashboard needs a denominator to say anything meaningful about
- * a topic (spec §6.1).
- */
 export async function POST(request: Request, { params }: Params) {
   const { id: worksheetId } = await params
 
@@ -52,7 +45,6 @@ export async function POST(request: Request, { params }: Params) {
   const { marks } = parsed.data
   const questionIds = marks.map((mark) => mark.questionId)
 
-  // Only accept marks for questions that belong to this worksheet.
   const owned = await db
     .select({ id: questions.id })
     .from(questions)
@@ -70,7 +62,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'No matching questions' }, { status: 400 })
   }
 
-  // A selected choice must belong to the question it was submitted against.
   const validChoices = await db
     .select({ id: answerChoices.id, questionId: answerChoices.questionId })
     .from(answerChoices)

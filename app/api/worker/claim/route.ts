@@ -12,12 +12,6 @@ const claimSchema = z.object({
   modelName: z.string().trim().max(200).nullish(),
 })
 
-/**
- * The operator GPU worker's poll endpoint (spec §3.3).
- *
- * Outbound-only: the worker dials us, we never dial it. Nothing here needs a
- * public endpoint on the operator's network.
- */
 export async function POST(request: Request) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
