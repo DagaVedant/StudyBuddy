@@ -1,11 +1,3 @@
-/**
- * Transactional email. Used for account verification and, later, GPU job
- * completion notices (spec §12 assumption 10).
- *
- * With no RESEND_API_KEY configured the message is logged instead of sent, so
- * local development works without an email provider.
- */
-
 interface SendArgs {
   to: string
   subject: string

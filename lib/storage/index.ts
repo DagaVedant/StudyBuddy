@@ -3,16 +3,6 @@ import { dirname, join, normalize, sep } from 'node:path'
 
 import { del, head, put } from '@vercel/blob'
 
-/**
- * Page images are a student's own schoolwork, so nothing here returns a public
- * URL. Callers get back an opaque key; reads go through /api/files, which
- * checks ownership before streaming (spec §8).
- *
- * Vercel Blob has no signed-URL API — its privacy model is an unguessable
- * public URL — which is why authorization lives in our route rather than in
- * the storage layer.
- */
-
 export interface StorageDriver {
   readonly name: 'vercel-blob' | 'local'
   put(key: string, body: Buffer, contentType: string): Promise<void>
@@ -24,7 +14,6 @@ export interface StorageDriver {
 
 const LOCAL_ROOT = join(process.cwd(), '.uploads')
 
-/** Rejects traversal and absolute paths before a key ever reaches the disk. */
 function safeLocalPath(key: string): string {
   const cleaned = normalize(key).replace(/^([.]{2}([/\\]|$))+/, '')
   const full = join(LOCAL_ROOT, cleaned)
@@ -69,8 +58,6 @@ const blobDriver: StorageDriver = {
   name: 'vercel-blob',
 
   async put(key, body, contentType) {
-    // addRandomSuffix would make the pathname unpredictable, and we need the
-    // key we stored to be the key we can read back.
     await put(key, body, {
       access: 'public',
       contentType,
@@ -98,7 +85,6 @@ const blobDriver: StorageDriver = {
       const meta = await head(key)
       await del(meta.url)
     } catch {
-      // Already gone.
     }
   },
 }

@@ -7,11 +7,6 @@ import {
   type Grade,
 } from 'ts-fsrs'
 
-/**
- * FSRS scheduling (spec §5.4). The DB stores card state as flat columns rather
- * than a blob so the review queue can be a plain indexed `due_at` query.
- */
-
 const scheduler = fsrs()
 
 export type Outcome = 'correct' | 'unsure' | 'wrong'
@@ -19,17 +14,12 @@ export type CardStateName = 'new' | 'learning' | 'review' | 'relearning'
 
 const STATE_NAMES: CardStateName[] = ['new', 'learning', 'review', 'relearning']
 
-/**
- * `unsure` maps to Hard rather than Good on purpose: a right-but-guessed
- * answer should come back sooner than one the student actually knew.
- */
 const GRADE_BY_OUTCOME: Record<Outcome, Grade> = {
   wrong: Rating.Again,
   unsure: Rating.Hard,
   correct: Rating.Good,
 }
 
-/** Review-session ratings map straight through to FSRS grades. */
 export const REVIEW_GRADES = {
   again: Rating.Again,
   hard: Rating.Hard,
@@ -121,7 +111,6 @@ function schedule(
   }
 }
 
-/** First scheduling, driven by how the student did on the worksheet itself. */
 export function scheduleFromOutcome(
   stored: StoredCard | null,
   outcome: Outcome,
@@ -130,7 +119,6 @@ export function scheduleFromOutcome(
   return schedule(stored, GRADE_BY_OUTCOME[outcome], now)
 }
 
-/** Subsequent scheduling, driven by the student's recall rating in review. */
 export function scheduleFromReview(
   stored: StoredCard,
   rating: ReviewRating,
@@ -139,7 +127,6 @@ export function scheduleFromReview(
   return schedule(stored, REVIEW_GRADES[rating], now)
 }
 
-/** Preview of the next interval per rating, for labelling the review buttons. */
 export function previewIntervals(
   stored: StoredCard,
   now: Date = new Date(),

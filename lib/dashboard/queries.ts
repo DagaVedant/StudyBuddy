@@ -13,22 +13,13 @@ import {
 
 import type { TopicStats } from './ranking'
 
-/** Structural type so these run against postgres.js and PGlite alike. */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>
 
-/** Drizzle returns `{ rows }` on pglite and a bare array on postgres.js. */
 function rows<T>(result: unknown): T[] {
   if (Array.isArray(result)) return result as T[]
   return ((result as { rows?: T[] }).rows ?? []) as T[]
 }
 
-/**
- * Per-topic tallies across every attempt the student has made.
- *
- * All attempts count, not just the first pass over a worksheet: getting a
- * question right on the third review genuinely is evidence the topic is
- * improving, and the accuracy trend should reflect that.
- */
 export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[]> {
   const result = await db
     .select({
@@ -55,7 +46,6 @@ export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[
   return result.map((row) => ({
     topicId: row.topicId,
     topicName: row.topicName,
-    // Replaced with the readable path by the caller, which has the taxonomy.
     topicPath: row.slug,
     subjectRoot: row.subjectRoot,
     correct: Number(row.correct),

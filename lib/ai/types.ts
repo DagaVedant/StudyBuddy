@@ -2,14 +2,6 @@ import { z } from 'zod'
 
 import { normalizeChoiceLabel } from '@/lib/questions/shape'
 
-/**
- * The provider contract (spec §3.5). One interface, five implementations.
- *
- * Every method's output is schema-validated before it reaches the database.
- * Page content is data, never instructions — the prompt templates are fixed
- * and users never supply them (spec §8 threat model).
- */
-
 export type ExecutionSite = 'server' | 'browser' | 'operator_gpu'
 export type ProviderName =
   | 'anthropic'
@@ -30,18 +22,6 @@ export const questionTypeSchema = z.enum([
 ])
 
 export const extractedQuestionSchema = z.object({
-  /**
-   * Advisory only — the server renumbers questions sequentially per worksheet,
-   * so this never reaches the database. Models number from 0 about half the
-   * time, and requiring >= 1 here silently discarded whole pages of otherwise
-   * perfect extraction. Normalize instead of rejecting.
-   */
-  /*
-   * 0 means "this question has no printed number", and must survive as its own
-   * value rather than being clamped up to 1. Ingest merges a page's entries by
-   * printed number, so if every unnumbered question arrived as 1 they would all
-   * collapse into a single question.
-   */
   ordinal: z.coerce
     .number()
     .catch(0)
@@ -51,14 +31,12 @@ export const extractedQuestionSchema = z.object({
   choices: z
     .array(
       z.object({
-        // Models echo the page's own punctuation ("A.", "(B)"); store bare.
         label: z.string().min(1).max(8).transform(normalizeChoiceLabel),
         text: z.string().max(2000),
       }),
     )
     .max(12)
     .default([]),
-  /** [x0, y0, x1, y1] in page-image pixels; null when the model can't place it. */
   bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable().default(null),
   has_figure: z.boolean().default(false),
 })

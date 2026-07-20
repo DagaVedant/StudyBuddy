@@ -1,13 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 
-/**
- * Encryption for user-supplied API keys (spec §3.6).
- *
- * Background jobs need the key server-side, so client-only storage isn't
- * viable. Keys are stored as AES-256-GCM ciphertext under a master key held in
- * the environment, with a per-row IV and auth tag.
- */
-
 const ALGORITHM = 'aes-256-gcm'
 const IV_BYTES = 12
 
@@ -51,7 +43,6 @@ export function sealApiKey(plaintext: string): SealedKey {
     ciphertext: ciphertext.toString('base64'),
     iv: iv.toString('base64'),
     authTag: cipher.getAuthTag().toString('base64'),
-    // Display-only suffix so settings can show "…4f2a" without decrypting.
     last4: trimmed.slice(-4),
   }
 }
@@ -70,12 +61,6 @@ export function openApiKey(sealed: Omit<SealedKey, 'last4'>): string {
   ]).toString('utf8')
 }
 
-/**
- * Ollama base URLs are not secrets, but they are user-supplied, so they're
- * pinned to loopback. Ollama calls run in the browser (spec §3.4) — the server
- * never dials them, and this stops the field being used as an SSRF lever if
- * that ever changes.
- */
 export function isAllowedOllamaUrl(value: string): boolean {
   let url: URL
   try {

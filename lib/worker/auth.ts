@@ -1,17 +1,8 @@
 import { timingSafeEqual } from 'node:crypto'
 
-/**
- * Worker credential check (spec §8 threat model).
- *
- * The credential is scoped to claim-job + write-result only, and can be pinned
- * to the VPS exit node's IP (§3.3.1) so a stolen token is useless from
- * anywhere else.
- */
-
 function safeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a)
   const right = Buffer.from(b)
-  // timingSafeEqual throws on length mismatch, which would itself leak length.
   if (left.length !== right.length) return false
   return timingSafeEqual(left, right)
 }
@@ -39,7 +30,6 @@ export function authenticateWorker(request: Request): WorkerAuth {
     return { ok: false, status: 401, message: 'Bad worker credential.' }
   }
 
-  // Optional IP pin. Empty means unrestricted, which is the local-dev default.
   const allowed = (process.env.WORKER_ALLOWED_IPS ?? '')
     .split(',')
     .map((ip) => ip.trim())

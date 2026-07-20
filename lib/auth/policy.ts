@@ -1,16 +1,5 @@
-/**
- * Account policy helpers (spec §2, §2.1).
- *
- * Kept free of DB and framework imports so they can be unit-tested and reused
- * from server actions, the auth callbacks, and API route guards alike.
- */
-
 export const MIN_AGE_YEARS = 13
 
-/**
- * Admin is derived from ADMIN_EMAILS at login and is never settable through
- * the UI (spec §2.1). Removing an email demotes the account on next login.
- */
 export function adminEmails(): string[] {
   return (process.env.ADMIN_EMAILS ?? '')
     .split(',')
@@ -23,7 +12,6 @@ export function isAdminEmail(email: string | null | undefined): boolean {
   return adminEmails().includes(email.toLowerCase())
 }
 
-/** Whole years elapsed, calendar-correct (no 365.25 drift). */
 export function ageInYears(dob: Date, now: Date = new Date()): number {
   let age = now.getUTCFullYear() - dob.getUTCFullYear()
   const monthDelta = now.getUTCMonth() - dob.getUTCMonth()
@@ -33,7 +21,6 @@ export function ageInYears(dob: Date, now: Date = new Date()): number {
   return age
 }
 
-/** The 13+ gate that keeps us out of COPPA entirely (spec §2). */
 export function meetsAgeRequirement(dob: Date, now: Date = new Date()): boolean {
   return ageInYears(dob, now) >= MIN_AGE_YEARS
 }

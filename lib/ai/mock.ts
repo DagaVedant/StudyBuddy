@@ -9,19 +9,12 @@ import {
   type TopicCandidate,
 } from './types'
 
-/**
- * Deterministic stand-in provider (ENABLE_MOCK_AI). Makes every tier clickable
- * without a key, a GPU, or a worker running, and is what the automated tests
- * exercise so the pipeline can be verified without network access.
- */
 export class MockProvider implements AIProvider {
   readonly name = 'mock' as const
   readonly supportsVision = true
   readonly executionSite = 'server' as const
 
   async extractQuestions(page: PageInput): Promise<ExtractedQuestion[]> {
-    // Derive from the page text so tests can assert on real inputs rather than
-    // on a fixed fixture that would pass even if nothing was wired up.
     const lines = page.text
       .split('\n')
       .map((line) => line.trim())
@@ -72,8 +65,6 @@ export class MockProvider implements AIProvider {
       }
     }
 
-    // Crude word-overlap match — deterministic, and good enough that tests can
-    // assert the *right* candidate comes back rather than just any candidate.
     const words = new Set(
       promptText
         .toLowerCase()
@@ -125,14 +116,11 @@ export class MockProvider implements AIProvider {
   }
 }
 
-/** Tier A. Every method throws so callers route to the manual flow (spec §3.5). */
 export class NullProvider implements AIProvider {
   readonly name = 'null' as const
   readonly supportsVision = false
   readonly executionSite = 'server' as const
 
-  // Parameters are kept so the signatures match AIProvider exactly; callers
-  // shouldn't have to special-case this implementation.
   async extractQuestions(_page: PageInput): Promise<ExtractedQuestion[]> {
     throw new ProviderUnavailable()
   }

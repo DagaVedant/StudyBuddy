@@ -14,14 +14,6 @@ import { contentHashSource, normalizeForCompare } from '@/lib/questions/shape'
 import { checkpointJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
 
-/**
- * Runs the extraction stage for one worksheet.
- *
- * Shared by the Tier B server worker and the Tier 0 operator GPU worker — the
- * only difference is which provider is passed in and where the process runs
- * (spec §3.5: the pipeline is shared, only the executor differs).
- */
-
 export interface ExtractProgress {
   page: number
   total: number
@@ -48,8 +40,6 @@ export async function runExtraction(
     throw new Error('Worksheet has no pages.')
   }
 
-  // Resume from where a previous attempt died rather than re-running pages
-  // that already produced questions.
   const startAfter = Number(job.checkpoint?.lastPageNumber ?? 0)
 
   let created = 0
