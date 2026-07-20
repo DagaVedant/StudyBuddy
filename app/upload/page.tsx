@@ -8,8 +8,6 @@ import UploadClient, { type SubjectGroup } from './upload-client'
 
 export const metadata = { title: 'Upload a Worksheet · StudyBuddy' }
 
-/** Root subjects grouped over their immediate children — granular enough to be
- *  useful, short enough to scan in a native select on a phone. */
 function subjectGroups(): SubjectGroup[] {
   const topics = flattenTaxonomy()
 

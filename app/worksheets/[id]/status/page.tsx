@@ -10,7 +10,6 @@ import { queueDepth, workerStatus } from '@/lib/queue'
 
 export const metadata = { title: 'Processing · StudyBuddy' }
 
-/** Polls while a queued worksheet is processed by a worker (spec §5.2). */
 export const revalidate = 0
 
 export default async function StatusPage({

@@ -10,7 +10,6 @@ import { contentHashSource, questionInputSchema } from '@/lib/questions/shape'
 
 type Params = { params: Promise<{ questionId: string }> }
 
-/** Questions carry `userId` directly, so ownership is one lookup. */
 async function ownsQuestion(questionId: string) {
   const session = await auth()
   if (!session?.user?.id) return null
@@ -81,8 +80,6 @@ export async function PATCH(request: Request, { params }: Params) {
       await tx.update(questions).set(patch).where(eq(questions.id, questionId))
     }
 
-    // Choices and topic are replace-in-full rather than merged; the editor
-    // always sends the complete set it wants.
     if (input.choices !== undefined) {
       await tx.delete(answerChoices).where(eq(answerChoices.questionId, questionId))
       if (input.choices.length > 0) {

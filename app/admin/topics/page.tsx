@@ -10,13 +10,6 @@ import type { Db } from '@/lib/dashboard/queries'
 
 export const metadata = { title: 'Topic Proposals · StudyBuddy' }
 
-/**
- * The admin console (spec §2.1) — Vedant and Avya only.
- *
- * Deliberately shows the proposed name and its source question text, and
- * nothing else about the student: admin is an operations role, not a
- * superuser over student data.
- */
 export default async function AdminTopicsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')

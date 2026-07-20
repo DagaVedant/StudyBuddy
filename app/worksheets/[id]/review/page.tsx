@@ -19,7 +19,6 @@ import ReviewClient, { type EditablePage, type EditableQuestion } from './review
 
 export const metadata = { title: 'Review Questions · StudyBuddy' }
 
-/** Only leaves are valid classification targets (spec §7.2). */
 async function leafTopics(): Promise<TopicChoice[]> {
   const pathBySlug = new Map(flattenTaxonomy().map((topic) => [topic.slug, topic.path]))
 
@@ -121,8 +120,8 @@ export default async function ReviewPage({
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
         {initialQuestions.length > 0 ? 'Check What We Found' : 'Add Your Questions'}
       </h1>
-      {/* The AI already extracted on any AI tier — lead with checking, not
-          drawing. Boxing by hand is the correction tool and the no-AI path. */}
+      {
+}
       <p className="hint mb-6 text-pretty">
         {initialQuestions.length > 0
           ? `We pulled ${initialQuestions.length} ${initialQuestions.length === 1 ? 'question' : 'questions'} off the page automatically. Compare them against the original — fix anything that came out wrong, and drag a box on the page if one was missed. Nothing counts toward your stats until you confirm.`
