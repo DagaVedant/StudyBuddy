@@ -55,7 +55,6 @@ describe('getTopicStats', () => {
     const slopeQ = await makeQuestion(db, userId, worksheetId, { topicId: slope })
     await makeAttempt(db, userId, slopeQ.id, 'unsure')
 
-    // Another student's data must not leak into these numbers.
     const foreign = await makeQuestion(db, otherId, otherSheet, { topicId: triangles })
     await makeAttempt(db, otherId, foreign.id, 'wrong')
 
@@ -77,7 +76,6 @@ describe('getTopicStats', () => {
     const triangles = topicIds.get(TRIANGLES)!
     const slope = topicIds.get(SLOPE)!
 
-    // One miss on slope; a sustained problem on triangles.
     const single = await makeQuestion(db, userId, worksheetId, { topicId: slope })
     await makeAttempt(db, userId, single.id, 'wrong')
 

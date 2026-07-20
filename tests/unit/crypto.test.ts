@@ -35,7 +35,6 @@ describe('sealApiKey / openApiKey', () => {
   })
 
   it('produces a different ciphertext each time', () => {
-    // A fixed IV would leak that two users pasted the same key.
     const a = sealApiKey(REAL_KEY)
     const b = sealApiKey(REAL_KEY)
     expect(a.ciphertext).not.toBe(b.ciphertext)

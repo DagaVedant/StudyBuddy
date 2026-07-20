@@ -7,25 +7,9 @@ import { vector } from '@electric-sql/pglite-pgvector'
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket'
 import postgres from 'postgres'
 
-/**
- * Embedded Postgres exposed over TCP so the real Next.js app can connect to it
- * with an ordinary `postgres://` URL.
- *
- * This is what makes E2E possible without provisioning a database: the app
- * under test is the actual app, running the actual queries, against a real
- * Postgres engine.
- */
-
 export const E2E_PORT = 55432
 export const E2E_DATABASE_URL = `postgres://postgres:postgres@127.0.0.1:${E2E_PORT}/postgres`
 
-/**
- * Test-only control endpoint.
- *
- * The socket server drops a second concurrent client, and the app already
- * holds a pool on it. Specs therefore query the in-process PGlite directly
- * over loopback HTTP instead of opening a competing Postgres connection.
- */
 export const CONTROL_PORT = 55433
 export const CONTROL_URL = `http://127.0.0.1:${CONTROL_PORT}`
 
@@ -43,17 +27,12 @@ async function applyMigration(client: PGlite): Promise<void> {
     try {
       await client.exec(statement)
     } catch (error) {
-      // PGlite's pgvector build has no HNSW; vector columns still work.
       if (/USING hnsw/i.test(statement)) continue
       throw new Error(`Migration failed:\n${statement}\n\n${(error as Error).message}`)
     }
   }
 }
 
-/**
- * Seeds the taxonomy directly rather than shelling out to the seed script,
- * so setup doesn't depend on a second process connecting over the socket.
- */
 async function seedTopics(client: PGlite): Promise<void> {
   const { flattenTaxonomy } = await import('../../lib/taxonomy/trees')
 
@@ -63,8 +42,6 @@ async function seedTopics(client: PGlite): Promise<void> {
   for (const node of flat) {
     const parentId = node.parentSlug ? (idBySlug.get(node.parentSlug) ?? null) : null
 
-    // `id` is defaulted by Drizzle ($defaultFn), not by the database, so raw
-    // SQL has to supply it.
     const id = crypto.randomUUID()
 
     await client.query(
@@ -77,7 +54,6 @@ async function seedTopics(client: PGlite): Promise<void> {
   }
 }
 
-/** Short-lived socket client so control queries share the server's queue. */
 async function runOverSocket(
   sql: string,
   params: unknown[],
@@ -127,10 +103,6 @@ export async function startDatabase(): Promise<void> {
           params?: unknown[]
         }
 
-        // Goes through the socket, NOT db.query() directly. PGlite is
-        // single-threaded: a direct call while the socket server has a query
-        // in flight corrupts the wire protocol and resets the app's
-        // connection. The socket server's queue is the only safe entry point.
         const result = await runOverSocket(sql, params ?? [])
 
         response

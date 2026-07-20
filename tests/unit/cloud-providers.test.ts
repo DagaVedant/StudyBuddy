@@ -14,7 +14,6 @@ const page = {
   pageNumber: 1,
 }
 
-/** Captures the request instead of sending it. */
 function recorder(body: unknown) {
   const calls: { url: string; init: RequestInit }[] = []
 
@@ -91,7 +90,6 @@ describe('OpenAIProvider', () => {
     expect(calls[0].url).toBe('https://api.openai.com/v1/chat/completions')
   })
 
-  // The third argument used to be a bare fetch; that call shape still works.
   it('accepts a bare fetch as its third argument', async () => {
     const { calls, fetchImpl } = recorder(chatReply(oneQuestion))
     await new OpenAIProvider('sk-test', 'gpt-4.1', fetchImpl).extractQuestions(page)

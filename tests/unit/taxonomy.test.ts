@@ -20,11 +20,6 @@ describe('flattenTaxonomy', () => {
     expect(() => flattenTaxonomy(colliding)).toThrow(/Duplicate topic slug/)
   })
 
-  /*
-   * These cover the material a real SHSAT form left untagged. Each name is a
-   * question type that actually appeared and had nowhere to go — the failure
-   * was silent, so it is worth asserting the homes exist.
-   */
   it('covers the arithmetic the rest of the tree assumed', () => {
     const leaves = new Set(flat.filter((t) => t.isLeaf).map((t) => t.name))
 
@@ -48,10 +43,6 @@ describe('flattenTaxonomy', () => {
     expect(poetry.map((t) => t.name)).toContain('Stanza and line structure')
   })
 
-  /*
-   * Percentages and unit conversion existed only under SAT Math, so a 12%
-   * discount on a homework sheet had no home in the general maths tree.
-   */
   it('does not leave percent work stranded under one exam', () => {
     const percent = flat.filter(
       (t) => t.isLeaf && t.slug.startsWith('high-school-math.') && /percent/i.test(t.name),

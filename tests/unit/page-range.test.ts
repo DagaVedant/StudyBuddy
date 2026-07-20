@@ -8,7 +8,6 @@ import {
 } from '@/lib/upload/page-range'
 
 describe('parsePageRange', () => {
-  // Both boxes empty is the default and must stay the zero-effort path.
   it('treats both boxes empty as every page', () => {
     const result = parsePageRange('', '')
     expect(result).toEqual({ ok: true, range: null })
@@ -82,7 +81,6 @@ describe('countInRange', () => {
     expect(countInRange(112, null)).toBe(112)
   })
 
-  // The real case: a 112-page SHSAT form whose test section ends at page 59.
   it('counts a bounded range inclusively', () => {
     expect(countInRange(112, { from: 1, to: 59 })).toBe(59)
     expect(countInRange(112, { from: 60, to: 112 })).toBe(53)

@@ -9,14 +9,6 @@ import {
   uploadWorksheet,
 } from './support/helpers'
 
-/**
- * The whole Tier A loop, in order: upload -> extract -> review -> markup ->
- * dashboard -> spaced repetition.
- *
- * This is the coverage unit tests cannot reach — pdf.js rasterizing in a real
- * browser, the text layer coming back with usable geometry, and the
- * drag-to-draw coordinate math that was previously unverified.
- */
 test.describe.configure({ mode: 'serial' })
 
 let page: Page
@@ -26,8 +18,6 @@ test.beforeAll(async ({ browser }) => {
 
   const email = await registerAndSignIn(page)
 
-  // Burn the trial so the account is Tier A and lands in the manual editor
-  // rather than queueing for a GPU worker that isn't running in tests.
   await setTrialWorksheetsUsed(email, TRIAL_WORKSHEET_LIMIT)
 })
 
@@ -42,7 +32,6 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/review/)
   await expect(page.getByRole('heading', { name: 'Review Questions' })).toBeVisible()
 
-  // The page image came back through the ownership-checked file route.
   const image = page.getByRole('img', { name: /Page 1 of/ })
   await expect(image).toBeVisible()
 
@@ -57,7 +46,6 @@ test('dragging a region creates a question with its text filled in', async () =>
   const box = await image.boundingBox()
   if (!box) throw new Error('page image has no layout box')
 
-  // Sweep the upper part of the page, where the first question sits.
   await page.mouse.move(box.x + box.width * 0.05, box.y + box.height * 0.05)
   await page.mouse.down()
   await page.mouse.move(box.x + box.width * 0.95, box.y + box.height * 0.22, {
@@ -68,8 +56,6 @@ test('dragging a region creates a question with its text filled in', async () =>
   const prompt = page.getByLabel('Question text')
   await expect(prompt).toBeVisible()
 
-  // Auto-fill is the whole point of storing line geometry: the student edits
-  // what came out rather than retyping it.
   await expect(prompt).toHaveValue(/triangle/i)
 })
 
@@ -110,8 +96,6 @@ test('marking a miss prompts for the answer actually given', async () => {
   await page.getByRole('button', { name: 'Next: What You Put' }).click()
   await expect(page.getByText(/What did you put/)).toBeVisible()
 
-  // Capturing the chosen distractor is what lets explanations target the
-  // actual mistake instead of re-solving the problem.
   await page.getByText('105').click()
   await page.getByRole('button', { name: 'Save and Finish' }).click()
 
@@ -133,7 +117,6 @@ test('a missed question is due for review immediately', async () => {
   await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible()
   await expect(page.getByText(/triangle/i).first()).toBeVisible()
 
-  // Answer stays hidden until asked for.
   await expect(page.getByRole('heading', { name: 'Answer' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Show Answer' }).click()
 

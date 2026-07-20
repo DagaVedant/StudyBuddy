@@ -38,8 +38,6 @@ test('the stored theme is applied before first paint', async ({ page }) => {
     document.documentElement.getAttribute('data-theme'),
   )
 
-  // The inline head script must set data-theme before the body renders,
-  // otherwise every load flashes the system theme first.
   await page.goto('/dashboard')
   const atLoad = await page.evaluate(() =>
     document.documentElement.getAttribute('data-theme'),
@@ -58,7 +56,6 @@ test('an explicit choice overrides the OS preference', async ({ page }) => {
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-checked', 'false')
 
-  // Still light after reload, despite the OS asking for dark.
   await page.reload()
   await expect(page.getByRole('switch', { name: 'Dark mode' })).toHaveAttribute(
     'aria-checked',

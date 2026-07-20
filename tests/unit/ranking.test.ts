@@ -45,7 +45,6 @@ describe('wilsonLowerBound', () => {
 
 describe('rankWeaknesses', () => {
   it('does not let a single miss outrank a sustained problem', () => {
-    // The exact failure the spec calls out: 1/1 must not beat 12/40.
     const ranked = rankWeaknesses([
       stats({ topicId: 'one-off', wrong: 1 }),
       stats({ topicId: 'real-problem', wrong: 12, correct: 28 }),

@@ -17,7 +17,6 @@ describe('auditExtraction', () => {
     expect(result.found).toBe(5)
   })
 
-  // Holes inside the observed range need no help from the student.
   it('finds a gap without being told the total', () => {
     const result = auditExtraction([
       { pageNumber: 1, printed: [1, 2, 3] },
@@ -41,8 +40,6 @@ describe('auditExtraction', () => {
     ])
   })
 
-  // A page whose own numbering straddles the gap owns it alone — no need to
-  // re-read its neighbours.
   it('blames one page when its own range brackets the gap', () => {
     const result = auditExtraction([
       { pageNumber: 1, printed: [1, 2] },
@@ -54,10 +51,6 @@ describe('auditExtraction', () => {
     expect(result.retry).toEqual([{ pageNumber: 2, expect: [4, 5] }])
   })
 
-  /*
-   * Questions missing off the end are invisible without the total — the run
-   * looks internally consistent. This is the case the upload field exists for.
-   */
   it('needs the total to see questions missing off the end', () => {
     const pages = [
       { pageNumber: 1, printed: [1, 2, 3] },
@@ -80,12 +73,6 @@ describe('auditExtraction', () => {
     expect(result.retry).toEqual([{ pageNumber: 2, expect: [5, 6] }])
   })
 
-  /*
-   * The page range lets a student upload a slice of a document, so the first
-   * question can legitimately be number 47. Counting from 1 would report the
-   * first 46 as missing and send the worker to re-read pages that never held
-   * them.
-   */
   it('audits a mid-document slice from where its numbering starts', () => {
     const result = auditExtraction(
       [
