@@ -5,15 +5,6 @@ const PERCENT = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 })
 
-/**
- * A single ratio against a limit is a **meter**, not a donut — a two-slice pie
- * is the wrong form for one percentage, and a meter stays readable at the sizes
- * a topic list actually uses.
- *
- * Colour here is *status*, not identity: how bad the accuracy is. Status is
- * never carried by colour alone — the percentage is always printed beside it.
- */
-
 type Band = 'critical' | 'serious' | 'warning' | 'good' | 'unknown'
 
 function band(accuracy: number, ranked: boolean): Band {
@@ -62,7 +53,6 @@ export function Meter({
   )
 }
 
-/** The accuracy number itself, or an explicit low-evidence state. */
 export function AccuracyLabel({
   accuracy,
   ranked,

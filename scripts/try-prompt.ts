@@ -9,18 +9,6 @@ import { EXTRACTION_JSON_SCHEMA, EXTRACTION_SYSTEM, extractionUserText } from '.
 import { parseExtraction } from '../lib/ai/types'
 import { storage } from '../lib/storage'
 
-/**
- * Runs the live extraction prompt against real stored pages and prints what
- * comes back.
- *
- * Usage: npx tsx scripts/try-prompt.ts <title prefix> <page> [page...]
- *
- * A prompt edit is a change to the most load-bearing string in the pipeline
- * and it cannot be reviewed by reading it — one added sentence silently took
- * a 112-page run to zero questions. Check tightening against pages that should
- * go quiet *and* pages that must not.
- */
-
 const BASE = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
 const MODEL = process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b'
 
@@ -56,8 +44,6 @@ async function main() {
       continue
     }
 
-    // Ollama cannot decode WebP, which is what pages are stored as. The GPU
-    // worker transcodes for the same reason.
     const png =
       object.contentType === 'image/png' || object.contentType === 'image/jpeg'
         ? Buffer.from(object.body)

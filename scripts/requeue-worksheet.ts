@@ -4,15 +4,6 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
-/**
- * Re-queues extraction for worksheets that have pages but no questions.
- *
- * Recovers uploads stranded by the Tier C bug, where `complete` marked a
- * worksheet awaiting_review without enqueuing any job. Pages are already
- * stored, so nothing needs re-uploading.
- *
- * Usage: npx tsx scripts/requeue-worksheet.ts [--all | <worksheetId>]
- */
 async function main() {
   const arg = process.argv[2] ?? '--all'
   const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })

@@ -4,14 +4,6 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
-/**
- * Prints a page's text layer and the prompts extracted from it, side by side.
- *
- * Usage: npx tsx scripts/peek-page.ts <title prefix> <page> [page...]
- *
- * This is how you tell a genuine miss from a page that legitimately has no
- * questions on it — an instructions page, an answer grid, a passage spread.
- */
 async function main() {
   const [prefix, ...pages] = process.argv.slice(2)
   if (!prefix || pages.length === 0) {

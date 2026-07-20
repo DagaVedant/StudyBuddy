@@ -4,7 +4,6 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
-/** Dumps the full processing trail for recent worksheets. */
 async function main() {
   const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
 
@@ -49,7 +48,6 @@ async function main() {
     if (j.error) console.log(`    error: ${String(j.error).slice(0, 300)}`)
   }
 
-  // Which pages produced questions, for the largest recent worksheet?
   const [biggest] = sheets.filter((s) => Number(s.pages_stored) > 5)
   if (biggest) {
     console.log(`\n=== per-page for "${biggest.title}" ===`)

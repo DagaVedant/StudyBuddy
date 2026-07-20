@@ -4,15 +4,6 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
-/**
- * Clears a worksheet's extracted questions and queues a fresh extraction.
- *
- * For re-running a worksheet after an extraction bug fix. Pages are kept, so
- * nothing needs re-uploading; questions and their attempts are deleted, which
- * is why this asks for an explicit id rather than doing every worksheet.
- *
- * Usage: npx tsx scripts/reextract-worksheet.ts <worksheetId|title-substring>
- */
 async function main() {
   const target = process.argv[2]
   if (!target) throw new Error('Usage: npx tsx scripts/reextract-worksheet.ts <id|title>')

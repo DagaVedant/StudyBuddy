@@ -4,7 +4,6 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
-/** Resets a dev account's trial counters. Usage: npx tsx scripts/reset-trial.ts <email> */
 async function main() {
   const email = process.argv[2]
   if (!email) throw new Error('Usage: npx tsx scripts/reset-trial.ts <email>')

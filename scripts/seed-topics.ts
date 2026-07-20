@@ -42,7 +42,6 @@ async function main() {
   const sql = postgres(url, { max: 1 })
   const db = drizzle(sql)
 
-  // Parents must exist before children can reference them.
   const ordered = [...flat].sort((a, b) => a.depth - b.depth)
   const idBySlug = new Map<string, string>()
   let inserted = 0

@@ -14,8 +14,6 @@ async function main() {
 
   const sql = postgres(url, { max: 1 })
 
-  // 0000_init.sql also does this, but running it here keeps things working if
-  // the init migration is ever regenerated without the hand-added header.
   await sql`CREATE EXTENSION IF NOT EXISTS vector`
 
   await migrate(drizzle(sql), { migrationsFolder: './drizzle' })

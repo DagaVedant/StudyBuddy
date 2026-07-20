@@ -6,10 +6,6 @@ type Theme = 'light' | 'dark'
 
 export const THEME_STORAGE_KEY = 'studybuddy-theme'
 
-/**
- * Runs before first paint to stop a flash of the wrong theme. Inlined into
- * <head> by the root layout — it must stay dependency-free and synchronous.
- */
 export const themeInitScript = `
 (function () {
   try {
@@ -27,11 +23,6 @@ function resolveTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
-/**
- * The theme lives in the DOM (a data attribute) and in the OS preference, both
- * of which are external stores — so it's read with useSyncExternalStore rather
- * than mirrored into component state.
- */
 function subscribe(onChange: () => void): () => void {
   const media = window.matchMedia('(prefers-color-scheme: dark)')
   media.addEventListener('change', onChange)
@@ -49,9 +40,6 @@ function subscribe(onChange: () => void): () => void {
 }
 
 export default function ThemeToggle() {
-  // The server can't know the theme. Only aria-checked depends on this value;
-  // the switch's appearance is driven by CSS, so nothing visibly moves when
-  // the real value arrives.
   const theme = useSyncExternalStore<Theme>(subscribe, resolveTheme, () => 'light')
   const isDark = theme === 'dark'
 
@@ -60,9 +48,7 @@ export default function ThemeToggle() {
     document.documentElement.setAttribute('data-theme', next)
     try {
       localStorage.setItem(THEME_STORAGE_KEY, next)
-    } catch {
-      // Private mode; the choice just won't persist.
-    }
+    } catch {}
   }
 
   return (

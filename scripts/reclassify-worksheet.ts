@@ -4,18 +4,6 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
-/**
- * Clears a worksheet's topic assignments and queues a classify-only job.
- *
- * For measuring a taxonomy change against the same questions — re-extracting
- * would change the questions too, so any movement in the coarse count could
- * not be attributed to the tree.
- *
- * The job is queued with its checkpoint already at the last page, so the
- * worker skips extraction entirely and goes straight to classification.
- *
- * Usage: npx tsx scripts/reclassify-worksheet.ts <id|title-substring>
- */
 async function main() {
   const target = process.argv[2]
   if (!target) throw new Error('Usage: npx tsx scripts/reclassify-worksheet.ts <id|title>')
