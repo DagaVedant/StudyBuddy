@@ -1,29 +1,12 @@
-/**
- * The canonical topic taxonomy (spec §7.1).
- *
- * The classifier may only ever return a leaf that exists in this tree, or
- * explicitly abstain — it never invents topic names. That constraint is the
- * whole reason the weakness dashboard stays meaningful across uploads.
- *
- * Slugs are derived from the path (see `flattenTaxonomy`), so renaming a node
- * changes its slug. Rename deliberately; the seed script upserts by slug.
- */
-
 export interface TopicNode {
   name: string
-  /** Overrides the auto-derived slug segment. Use to keep a slug stable across a rename. */
   slug?: string
   children?: TopicNode[]
 }
 
-/** Terse constructor so the trees below stay readable. */
 function n(name: string, ...children: TopicNode[]): TopicNode {
   return children.length ? { name, children } : { name }
 }
-
-/* -------------------------------------------------------------------------- */
-/* SAT Math — College Board digital SAT domains and skills                     */
-/* -------------------------------------------------------------------------- */
 
 const satMath = n(
   'SAT Math',
@@ -61,10 +44,6 @@ const satMath = n(
     n('Circles'),
   ),
 )
-
-/* -------------------------------------------------------------------------- */
-/* SAT Reading and Writing                                                     */
-/* -------------------------------------------------------------------------- */
 
 const satReadingWriting = n(
   'SAT Reading and Writing',

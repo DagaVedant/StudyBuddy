@@ -3,24 +3,14 @@ import { and, eq, sql } from 'drizzle-orm'
 import type { Db } from '@/lib/dashboard/queries'
 import { gpuWorkers, processingJobs } from '@/lib/db/schema'
 
-/**
- * Postgres-backed durable queue (spec §3.3, §4).
- *
- * Shared by Tier B server jobs and the Tier 0 operator GPU worker, which are
- * separated only by the `executor` discriminator. Claiming uses
- * FOR UPDATE SKIP LOCKED so multiple workers can drain it concurrently.
- */
-
 export type JobExecutor = 'server' | 'browser' | 'operator_gpu'
 export type JobStage = 'extract' | 'answer_key' | 'classify' | 'explain'
 export type JobPriority = 'high' | 'normal' | 'low'
 
 export const MAX_ATTEMPTS = 3
 
-/** How long a claim is honoured before another worker may reclaim it. */
 export const CLAIM_TTL_MS = 15 * 60_000
 
-/** A worker is considered offline this long after its last heartbeat. */
 export const HEARTBEAT_TTL_MS = 90_000
 
 export interface EnqueueArgs {
@@ -56,23 +46,12 @@ export interface ClaimedJob {
   checkpoint: Record<string, unknown> | null
 }
 
-/**
- * Atomically claims one job.
- *
- * Priority ordering is `high` → `normal` → `low`, then oldest first, so an
- * admin's unlimited-length upload (queued `low`) yields to trial users
- * (spec §2.1). Jobs whose claim has expired are reclaimed, which is what makes
- * a dead worker recoverable rather than a permanent stall.
- */
 export async function claimJob(
   db: Db,
   executor: JobExecutor,
   workerId: string | null = null,
   now: Date = new Date(),
 ): Promise<ClaimedJob | null> {
-  // ISO strings, not Date objects: raw sql`` fragments bypass the column
-  // mappers, and postgres.js refuses to serialize a bare Date there (PGlite's
-  // driver accepts them, which is why tests alone didn't catch this).
   const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS).toISOString()
   const claimedAt = now.toISOString()
 

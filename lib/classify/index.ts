@@ -6,37 +6,21 @@ import { questionTopics, questions, topicProposals, topics } from '@/lib/db/sche
 import { embed } from '@/lib/embeddings'
 import { flattenTaxonomy } from '@/lib/taxonomy/trees'
 
-/**
- * Topic classification (spec §7.2).
- *
- * The model never names a topic. It picks from a vector-narrowed shortlist of
- * real leaves or abstains — which is the whole reason the weakness dashboard
- * stays meaningful across uploads instead of fragmenting into
- * "Triangles" / "Triangle Properties" / "Geometry: Triangles".
- */
-
 export const SHORTLIST_SIZE = 15
 
-/** Below this the assignment is treated as a coarse guess, not a leaf answer. */
 export const CONFIDENCE_FLOOR = 0.45
 
-/** Two proposals this close are the same topic wearing different words. */
 export const PROPOSAL_DEDUP_THRESHOLD = 0.85
 
 const pathBySlug = new Map(flattenTaxonomy().map((topic) => [topic.slug, topic.path]))
 
 export interface ClassifyOutcome {
   topicId: string | null
-  /** True when we fell back to an ancestor so the question still shows up. */
   coarse: boolean
   proposalId: string | null
   confidence: number
 }
 
-/**
- * Narrows the canonical leaves to a shortlist by vector similarity, optionally
- * constrained to a subject the student picked at upload time.
- */
 export async function shortlistTopics(
   db: Db,
   questionText: string,
@@ -69,7 +53,6 @@ export async function shortlistTopics(
   }))
 }
 
-/** Walks up from a leaf slug to the nearest existing ancestor topic. */
 async function nearestAncestor(db: Db, slug: string): Promise<string | null> {
   const parts = slug.split('.')
 
@@ -104,13 +87,6 @@ export async function classifyQuestion(
   return applyClassification(db, question, candidates, result)
 }
 
-/**
- * Validates and persists one classification result.
- *
- * Split from classifyQuestion so the GPU worker path can reuse it: there the
- * model call happens on the operator's machine, but validation and persistence
- * must stay server-side — the worker's output is never trusted raw (spec §8).
- */
 export async function applyClassification(
   db: Db,
   question: { id: string; promptText: string; userId: string },
