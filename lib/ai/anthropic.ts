@@ -27,13 +27,6 @@ import {
 
 const DEFAULT_MODEL = 'claude-opus-5'
 
-/**
- * Tier B, Anthropic (spec §3.5). Runs server-side with the student's own key.
- *
- * Uses structured outputs rather than assistant prefills — prefills return a
- * 400 on current models. Note there is no `temperature` here: sampling
- * parameters are rejected on Opus 5.
- */
 export class AnthropicProvider implements AIProvider {
   readonly name = 'anthropic' as const
   readonly supportsVision = true
@@ -63,7 +56,6 @@ export class AnthropicProvider implements AIProvider {
       },
     })
 
-    // Safety classifiers can decline; content is empty or partial when they do.
     if (response.stop_reason === 'refusal') {
       throw new ProviderRefused(response.stop_details?.category ?? null)
     }

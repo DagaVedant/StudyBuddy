@@ -34,14 +34,6 @@ export function mockEnabled(): boolean {
   return process.env.ENABLE_MOCK_AI === 'true'
 }
 
-/**
- * Picks the provider for a user (spec §3).
- *
- * Precedence: a configured cloud key beats the trial, because the student is
- * paying for it and it's better; Ollama is reported but *not* returned as a
- * usable server-side provider, since the server cannot reach the student's
- * localhost — that path runs in their browser (spec §3.4).
- */
 export async function resolveProvider(
   db: Db,
   userId: string,
@@ -84,20 +76,6 @@ export async function resolveProvider(
     }
   }
 
-  /*
-   * Tier C is NOT resolved here on purpose.
-   *
-   * Browser-driven Ollama extraction is not built yet. Returning
-   * `executor: 'browser'` for it made `complete` mark the worksheet
-   * awaiting_review and enqueue nothing — a 112-page upload silently
-   * produced zero questions and still reported success. Until the client
-   * loop exists, an Ollama credential must not shadow a path that works,
-   * so it falls through to the operator GPU below and is only reported
-   * as the account's tier once it can actually do the work.
-   */
-
-  // Admins always route to the operator GPU with no quota (spec §2.1) —
-  // it's the operator's own hardware.
   if (user?.role === 'admin') {
     return {
       provider: mockEnabled() ? new MockProvider() : new NullProvider(),
@@ -106,7 +84,6 @@ export async function resolveProvider(
     }
   }
 
-  // Trial: work is done by the operator's GPU worker, not here.
   const worksheetsUsed = user?.trialWorksheetsUsed ?? 0
   if (worksheetsUsed < TRIAL_WORKSHEET_LIMIT) {
     return {
@@ -119,13 +96,6 @@ export async function resolveProvider(
   return { provider: new NullProvider(), tier: 'free', executor: 'none' }
 }
 
-/**
- * Builds the client for a student-supplied key.
- *
- * The model is theirs to choose — OpenRouter in particular is only worth
- * having because one key reaches many models — so a stored name always wins
- * over the default.
- */
 export function cloudProvider(
   provider: CloudProvider,
   apiKey: string,
@@ -145,7 +115,6 @@ export function cloudProvider(
   }
 }
 
-/** The provider the operator's GPU worker itself runs (spec §3.3). */
 export function operatorProvider(): AIProvider {
   if (mockEnabled() && !process.env.WORKER_FORCE_REAL) {
     return new MockProvider()

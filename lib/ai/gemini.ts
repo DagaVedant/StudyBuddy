@@ -25,17 +25,6 @@ import {
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
-/**
- * Tier B, Google Gemini.
- *
- * Deliberately not routed through the OpenAI-compatible shim Google also
- * publishes: `responseSchema` is a first-class field of the native API, and
- * extraction is the call where a malformed reply costs a whole page. This
- * project has already lost a 112-page run to JSON that would not parse.
- *
- * Gemini rejects JSON Schema keywords it does not implement, so the shared
- * schemas are stripped to the subset it accepts before being sent.
- */
 export class GeminiProvider implements AIProvider {
   readonly name = 'google' as const
   readonly supportsVision = true
@@ -65,8 +54,6 @@ export class GeminiProvider implements AIProvider {
       {
         method: 'POST',
         headers: {
-          // Header rather than a query parameter: a key in a URL ends up in
-          // logs and proxy history.
           'x-goog-api-key': this.apiKey,
           'Content-Type': 'application/json',
         },
@@ -102,8 +89,6 @@ export class GeminiProvider implements AIProvider {
 
     if (!text) throw new Error('Gemini returned an empty response.')
 
-    // A long page can still stop at the output cap; keep whatever entries
-    // completed rather than losing the page.
     return parseModelJson(text).value
   }
 
@@ -149,13 +134,6 @@ export class GeminiProvider implements AIProvider {
   }
 }
 
-/**
- * Reduces a JSON Schema to the subset Gemini's `responseSchema` accepts.
- *
- * It rejects the request outright on unknown keywords — `additionalProperties`
- * and `$schema` among them — so the shared schemas cannot be sent as written.
- * Exported for tests, since a silent mismatch here fails every call.
- */
 export function geminiSchema(schema: Record<string, unknown>): Record<string, unknown> {
   const allowed = new Set([
     'type',

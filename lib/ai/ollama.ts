@@ -28,23 +28,13 @@ export interface OllamaOptions {
   baseUrl: string
   visionModel: string
   textModel: string
-  /**
-   * Tier C runs in the browser against the student's own localhost; the
-   * operator GPU worker runs the same code server-side (spec §3.3, §3.4).
-   */
   executionSite?: ExecutionSite
   fetchImpl?: typeof fetch
   timeoutMs?: number
-  /** Ollama's 4096 default truncates dense pages mid-JSON. */
   contextTokens?: number
   maxOutputTokens?: number
 }
 
-/**
- * Ollama, used for both Tier C (student's own GPU, browser-side) and the
- * operator GPU worker (Tier 0, server-side). Identical wire protocol; only
- * where it runs differs.
- */
 export class OllamaProvider implements AIProvider {
   readonly name = 'ollama' as const
   readonly supportsVision = true
@@ -65,13 +55,10 @@ export class OllamaProvider implements AIProvider {
     this.executionSite = options.executionSite ?? 'browser'
     this.fetchImpl = options.fetchImpl ?? fetch
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
-    // A dense SHSAT page with reading passages emitted >14k chars of JSON and
-    // still got cut off at a 4k output cap. qwen2.5vl handles 32k total.
     this.contextTokens = options.contextTokens ?? 32_768
     this.maxOutputTokens = options.maxOutputTokens ?? 8_192
   }
 
-  /** Ollama's /api/chat with `format` set to a JSON Schema constrains decoding. */
   private async chat(
     model: string,
     system: string,
@@ -93,13 +80,6 @@ export class OllamaProvider implements AIProvider {
           format: schema,
           options: {
             temperature: 0,
-            /*
-             * Ollama defaults num_ctx to 4096, which a dense exam page blows
-             * through: image tokens plus page text plus a long JSON array of
-             * questions. Generation then stops mid-string and the reply fails
-             * to parse ("Unterminated string in JSON"), losing the whole page.
-             * qwen2.5vl handles 32k, so give it real headroom.
-             */
             num_ctx: this.contextTokens,
             num_predict: this.maxOutputTokens,
           },
@@ -122,8 +102,6 @@ export class OllamaProvider implements AIProvider {
       const content = body.message?.content
       if (!content) throw new Error('Ollama returned an empty response.')
 
-      // A local model can stop mid-string at its output cap; keep whatever
-      // complete entries it managed rather than losing the page.
       const { value, truncated } = parseModelJson(content)
       if (truncated) {
         console.warn(
@@ -176,7 +154,6 @@ export class OllamaProvider implements AIProvider {
     return explanationSchema.parse(raw)
   }
 
-  /** Used by the settings connection test and the worker heartbeat. */
   async listModels(): Promise<string[]> {
     const response = await this.fetchImpl(`${this.baseUrl}/api/tags`)
     if (!response.ok) throw new Error(`Ollama responded ${response.status}`)

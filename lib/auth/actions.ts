@@ -56,7 +56,6 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     return { error: parsed.error.issues[0]?.message ?? 'Check the form and try again.' }
   }
 
-  // The 13+ gate (spec §2) — enforced server-side, not just in the date input.
   const age = validateDob(parsed.data.dob)
   if (!age.ok) return { error: age.reason }
 
@@ -68,8 +67,6 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     .where(eq(users.email, email))
     .limit(1)
 
-  // Deliberately identical response whether or not the address is taken, so
-  // this endpoint can't be used to enumerate accounts.
   if (!existing) {
     const passwordHash = await bcrypt.hash(password, 12)
 
@@ -104,7 +101,6 @@ export async function signInWithCredentials(
     })
     return {}
   } catch (error) {
-    // signIn signals success by throwing NEXT_REDIRECT — only AuthError is ours.
     if (error instanceof AuthError) {
       const cause = error.cause?.err?.message
       if (cause === 'EmailNotVerified') {
@@ -116,11 +112,6 @@ export async function signInWithCredentials(
   }
 }
 
-/**
- * Collects the date of birth for accounts created through OAuth, which never
- * passed through the signup form. The proxy holds these accounts on
- * /onboarding/age until this succeeds.
- */
 export async function submitDob(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await auth()
   if (!session?.user?.id) return { error: 'You need to be signed in.' }
