@@ -29,8 +29,6 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Only ever the last four characters — the key itself is never returned
-  // after save (spec §3.6).
   return NextResponse.json({
     credentials: await getCredentialSummary(db as unknown as Db, session.user.id),
   })
@@ -51,8 +49,6 @@ export async function POST(request: Request) {
   const input = parsed.data
 
   if (input.provider === 'ollama') {
-    // Pinned to loopback: the server never dials this, and the field must not
-    // become an SSRF lever if that ever changes (spec §3.6).
     if (!isAllowedOllamaUrl(input.baseUrl)) {
       return NextResponse.json(
         { error: 'Ollama must be on localhost — that is the only address your browser can reach.' },
@@ -114,8 +110,6 @@ export async function POST(request: Request) {
         keyAuthTag: sealed.authTag,
         keyLast4: sealed.last4,
         modelName: input.model ?? null,
-        // Also cleared on update, or switching model would leave the old
-        // vision name behind — and that is the one extraction actually uses.
         visionModelName: input.model ?? null,
         updatedAt: new Date(),
       },
@@ -136,7 +130,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
 
-  // Revoking wipes the ciphertext row entirely (spec §3.6).
   await deleteCredential(db as unknown as Db, session.user.id, deletable.data)
 
   return NextResponse.json({ ok: true })

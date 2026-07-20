@@ -12,7 +12,6 @@ const createSchema = z.object({
   sourceType: z.enum(['pdf_digital', 'pdf_scanned', 'photo', 'image']),
   subjectHint: z.string().trim().max(100).nullish(),
   pageCount: z.number().int().min(1).max(2000),
-  /** Lets extraction check its own coverage (lib/worker/audit.ts). */
   expectedQuestionCount: z.number().int().min(1).max(2000).nullish(),
 })
 
@@ -30,7 +29,6 @@ export async function POST(request: Request) {
   const { title, sourceType, subjectHint, pageCount, expectedQuestionCount } =
     parsed.data
 
-  // Page cap is a quota, so admins are exempt (spec §2.1).
   const cap = pageCapFor(session.user.role)
   if (pageCount > cap) {
     return NextResponse.json(

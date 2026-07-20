@@ -15,7 +15,6 @@ const WHEN = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
 })
 
-/** Where a worksheet sends you depends on how far through the flow it is. */
 function destination(id: string, status: string): { href: string; cta: string } {
   switch (status) {
     case 'uploading':
@@ -50,7 +49,6 @@ export default async function WorksheetsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-  // One grouped query rather than N+1 per worksheet.
   const rows = await db
     .select({
       id: worksheets.id,
@@ -112,7 +110,6 @@ export default async function WorksheetsPage() {
                 >
                   <div className="aspect-4/3 overflow-hidden border-b border-border bg-bg">
                     {sheet.firstPageKey ? (
-                      /* Authenticated route; next/image can't forward the session. */
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         src={`/api/files/${sheet.firstPageKey}`}
