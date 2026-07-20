@@ -1,17 +1,5 @@
 import { pipeline, type FeatureExtractionPipeline } from '@huggingface/transformers'
 
-/**
- * Embeddings (spec §7.3).
- *
- * `Xenova/all-MiniLM-L6-v2`, 384 dimensions, ~23MB quantized. No embedding
- * API is ever called: this runs in the student's browser (Tier A/C), in the
- * job worker (Tier B), and on the operator GPU (Tier 0) — same model, so the
- * vectors are interchangeable across tiers.
- *
- * It also closes a real hole: Anthropic has no embeddings API, so a Tier B
- * user with an Anthropic key would otherwise have no embedding source at all.
- */
-
 export const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
 export const EMBEDDING_DIMENSIONS = 384
 
@@ -25,7 +13,6 @@ async function getExtractor(): Promise<FeatureExtractionPipeline> {
   return extractorPromise
 }
 
-/** Warms the one-time model download so the first real call isn't slow. */
 export function preloadEmbeddings(): void {
   void getExtractor().catch(() => {
     extractorPromise = null
@@ -38,8 +25,6 @@ export async function embed(text: string): Promise<number[]> {
 
   const extractor = await getExtractor()
 
-  // Mean pooling + L2 normalization is what MiniLM sentence embeddings expect;
-  // normalized vectors also make cosine distance a plain dot product.
   const output = await extractor(trimmed.slice(0, 2000), {
     pooling: 'mean',
     normalize: true,
