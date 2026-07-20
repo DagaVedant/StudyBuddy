@@ -20,8 +20,6 @@ test('a fresh account queues its upload for the GPU worker', async ({ page }) =>
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/status/)
   await expect(page.getByRole('heading', { name: 'Working on It' })).toBeVisible()
 
-  // No worker is running in tests, which is exactly the "operator's machine is
-  // asleep" case: the job queues rather than failing (spec §3.3).
   await expect(page.getByText(/queue|offline/i).first()).toBeVisible()
   await expect(page.getByRole('link', { name: 'Back to Dashboard' })).toBeVisible()
 })
@@ -46,15 +44,12 @@ test('settings offers both upgrade paths and states where trial work runs', asyn
 
   await expect(page.getByRole('heading', { name: 'How StudyBuddy Thinks' })).toBeVisible()
 
-  // The processing-location disclosure is required at the point of use
-  // (spec §8), not buried in a policy page.
   await expect(page.getByText(/hardware we operate/i)).toBeVisible()
   await expect(page.getByText(/never used for training/i)).toBeVisible()
 
   await expect(page.getByRole('heading', { name: 'Your own API key' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Your own GPU (Ollama)' })).toBeVisible()
 
-  // The tab-must-stay-open constraint is stated up front (spec §3.4).
   await expect(page.getByText(/tab has to stay open/i)).toBeVisible()
 })
 
@@ -78,7 +73,6 @@ test('a saved API key is never shown again', async ({ page }) => {
 
   await expect(page.getByText(/key ending 4f2a/)).toBeVisible()
 
-  // Only the last four characters may ever come back (spec §3.6).
   await page.reload()
   expect(await page.content()).not.toContain(secret)
 })

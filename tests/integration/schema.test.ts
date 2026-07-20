@@ -20,7 +20,6 @@ afterAll(async () => {
   await close()
 })
 
-/** Drizzle returns `{ rows }` on pglite and a bare array on postgres.js. */
 function rows<T>(result: unknown): T[] {
   if (Array.isArray(result)) return result as T[]
   return ((result as { rows?: T[] }).rows ?? []) as T[]
@@ -70,7 +69,6 @@ describe('migration', () => {
       sql`select atttypmod from pg_attribute
           where attrelid = 'topics'::regclass and attname = 'embedding'`,
     )
-    // pgvector stores the declared dimension directly in atttypmod.
     expect(rows<{ atttypmod: number }>(result)[0]?.atttypmod).toBe(384)
   })
 })

@@ -37,9 +37,7 @@ afterAll(async () => {
 })
 
 async function drain(executor: 'server' | 'operator_gpu' = 'operator_gpu') {
-  // Empty the queue between tests so ordering assertions stay meaningful.
   while (await claimJob(db as Db, executor)) {
-    // keep claiming
   }
   await db.delete(processingJobs)
 }
@@ -82,7 +80,6 @@ describe('claimJob', () => {
   it('serves high priority before normal before low', async () => {
     await drain()
 
-    // Enqueue in reverse order so ordering can't pass by accident.
     for (const priority of ['low', 'normal', 'high'] as const) {
       await enqueueJob(db as Db, {
         worksheetId,
@@ -103,7 +100,6 @@ describe('claimJob', () => {
       order.push(row.priority)
     }
 
-    // This is what stops an admin's unlimited upload stalling trial users.
     expect(order).toEqual(['high', 'normal', 'low'])
   })
 

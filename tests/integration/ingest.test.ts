@@ -22,7 +22,6 @@ afterAll(async () => {
   await close()
 })
 
-/** ordinal 0 is "unnumbered on the page", which is the safe default here. */
 function question(
   promptText: string,
   choices: { label: string; text: string }[] = [],
@@ -54,11 +53,6 @@ async function setup() {
 }
 
 describe('persistQuestions', () => {
-  /*
-   * A local vision model can stutter. One real SHSAT page emitted the same
-   * reading question four times in a single reply, which inflated that page
-   * from 3 questions to 6.
-   */
   it('drops a question the model repeated in one reply', async () => {
     const { job, pageId } = await setup()
 
@@ -84,18 +78,11 @@ describe('persistQuestions', () => {
     expect(rows).toHaveLength(1)
   })
 
-  /*
-   * The model can split one multiple-choice question into one entry per
-   * option — same stem, a different slice of the choices each time. Hash dedup
-   * cannot see that, because prompt+choices really do differ.
-   */
   it('folds a question the model split across its own options', async () => {
     const { job, pageId } = await setup()
 
     const stem = 'Which quotation best supports the idea that The People feel a connection?'
 
-    // The model labels every copy with the question's real printed number —
-    // the page this came from returned [27, 28, 29, 29, 29, 29].
     const created = await persistQuestions(db as Db, job, pageId, [
       question(stem, [{ label: 'A', text: 'The hunters rode up.' }], 29),
       question(stem, [{ label: 'B', text: 'They paraded around.' }], 29),
@@ -110,7 +97,6 @@ describe('persistQuestions', () => {
       .from(questions)
       .where(eq(questions.worksheetId, job.worksheetId))
 
-    // The scattered options belong to that one question.
     const choices = await db
       .select()
       .from(answerChoices)

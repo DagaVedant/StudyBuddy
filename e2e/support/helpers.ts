@@ -3,17 +3,6 @@ import { expect, type Page } from '@playwright/test'
 import { CONTROL_URL } from './database'
 import { worksheetPdf } from './pdf'
 
-/**
- * Test helpers that talk to the same embedded Postgres the app is using, so
- * setup can drive the real flows rather than faking state.
- */
-
-/**
- * Queries the in-process PGlite through the test control endpoint.
- *
- * The app owns the Postgres socket; opening a second client on it gets reset,
- * so specs read state this way instead.
- */
 async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
   const response = await fetch(CONTROL_URL, {
     method: 'POST',
@@ -27,14 +16,8 @@ async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
   return body.rows ?? []
 }
 
-/** Kept so specs can call it; there is no long-lived connection to close. */
 export async function closeDbClient(): Promise<void> {}
 
-/**
- * Next.js renders a route announcer with role="alert", so an unscoped
- * getByRole('alert') matches two elements. Every alert this app renders is a
- * <p>, which disambiguates cleanly.
- */
 export function alertBox(page: Page) {
   return page.locator('p[role="alert"]')
 }
@@ -47,7 +30,6 @@ export function uniqueEmail(prefix = 'student'): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10_000)}@studybuddy.test`
 }
 
-/** A date of birth that is comfortably over the 13+ gate. */
 export function adultDob(): string {
   const now = new Date()
   return `${now.getFullYear() - 20}-01-15`
@@ -60,11 +42,6 @@ export function minorDob(): string {
 
 const PASSWORD = 'correct-horse-battery'
 
-/**
- * Signs up through the real form, then completes the real email-verification
- * round trip by reading the token out of the database — the same link the
- * student would click.
- */
 export async function registerAndSignIn(
   page: Page,
   email = uniqueEmail(),
@@ -77,8 +54,6 @@ export async function registerAndSignIn(
 
   await expect(statusBox(page)).toContainText('verification link')
 
-  // Completes the real verification round trip by reading the token the app
-  // just issued — the same link the student would click.
   const rows = await query<{ token: string }>(
     'select token from verification_tokens where identifier = $1 limit 1',
     [email],
@@ -96,7 +71,6 @@ export async function registerAndSignIn(
   return email
 }
 
-/** Runs the browser ingest pipeline for real: pdf.js -> upload -> text layer. */
 export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Promise<void> {
   await page.goto('/upload')
 
@@ -111,7 +85,6 @@ export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Pr
   await page.getByLabel('Worksheet name').fill(title)
   await page.getByRole('button', { name: 'Start Processing' }).click()
 
-  // Ingest ends on the review editor (Tier A) or the status page (queued).
   await page.waitForURL(/\/worksheets\/[^/]+\/(review|status)/, { timeout: 90_000 })
 }
 
