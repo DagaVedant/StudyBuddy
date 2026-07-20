@@ -15,7 +15,6 @@ import {
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccountType } from 'next-auth/adapters'
 
-/** [x0, y0, x1, y1] in page-image pixels. */
 export type BBox = [number, number, number, number]
 
 export interface TextLine {
@@ -30,13 +29,8 @@ const id = () =>
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 
-/* -------------------------------------------------------------------------- */
-/* Enums                                                                       */
-/* -------------------------------------------------------------------------- */
-
 export const userRole = pgEnum('user_role', ['student', 'admin'])
 
-/** Which AI path the account is currently on (spec §3). */
 export const aiTier = pgEnum('ai_tier', ['trial', 'free', 'cloud', 'ollama'])
 
 export const aiProvider = pgEnum('ai_provider', [
@@ -71,7 +65,6 @@ export const questionType = pgEnum('question_type', [
   'grid_in',
 ])
 
-/** Provenance of the correct answer (spec §4 stage 4). Drives the UI badge. */
 export const answerSource = pgEnum('answer_source', [
   'user_key',
   'pdf_key',

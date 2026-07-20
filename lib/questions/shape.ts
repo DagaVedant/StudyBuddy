@@ -2,21 +2,10 @@ import { z } from 'zod'
 
 export const bboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()])
 
-/**
- * Models return choice labels inconsistently — "A", "A.", "A)", "(A)". The UI
- * supplies its own separator, so trailing punctuation has to come off or it
- * renders as "A..". Applied at render too, so rows stored before this
- * normalisation existed still display correctly.
- */
 export function choiceLabel(raw: string): string {
   return raw.trim().replace(/^\(|[).\s]+$/g, '') || raw.trim()
 }
 
-/**
- * Vision models return labels as "A.", "A)", "(A)" depending on the page's own
- * formatting. Stored labels are bare ("A") — the UI adds its own punctuation,
- * and "A.." was what shipped without this.
- */
 export function normalizeChoiceLabel(label: string): string {
   const cleaned = label.trim().replace(/^[([]+/, '').replace(/[.)\]\s]+$/, '')
   return (cleaned || label.trim()).slice(0, 8)
@@ -47,11 +36,6 @@ export const questionInputSchema = z.object({
 
 export type QuestionInput = z.infer<typeof questionInputSchema>
 
-/**
- * Normalized hash for exact-duplicate detection within a user (spec §6.3).
- * Punctuation and spacing vary between OCR passes of the same question, so
- * they're stripped before hashing.
- */
 export function normalizeForCompare(value: string): string {
   return value
     .toLowerCase()

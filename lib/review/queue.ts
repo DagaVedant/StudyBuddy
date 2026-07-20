@@ -25,11 +25,9 @@ export interface ReviewItem {
   questionType: string
   figureImageKey: string | null
   correctAnswer: string | null
-  /** 'ai_derived' drives the "not from an answer key" badge (spec §4 stage 4). */
   answerSource: string
   choices: ReviewChoice[]
   topicName: string | null
-  /** What the student put last time, so the card can show their actual mistake. */
   lastOutcome: string | null
   lastChoiceId: string | null
   lastFreeText: string | null
@@ -37,10 +35,6 @@ export interface ReviewItem {
   dueAt: string
 }
 
-/**
- * The due queue (spec §5.4). Ordered by how overdue a card is, so the most
- * neglected material comes back first.
- */
 export async function getDueCards(
   db: Db,
   userId: string,
@@ -101,7 +95,6 @@ export async function getDueCards(
   ])
 
   return cards.map((card) => {
-    // Already sorted newest-first, so the first hit is the latest.
     const last = lastAttempts.find((attempt) => attempt.questionId === card.questionId)
     const explanation = explanationRows.find(
       (row) => row.questionId === card.questionId,
