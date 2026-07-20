@@ -49,7 +49,6 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
     [questions.length],
   )
 
-  // Number keys keep a 40-question pass fast on desktop.
   useEffect(() => {
     if (phase !== 'outcomes') return
 
@@ -106,7 +105,6 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
     }
   }
 
-  /* ---------------------------------------------------------------- */
 
   if (phase === 'answers') {
     return (
@@ -226,7 +224,6 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
     )
   }
 
-  /* ---------------------------------------------------------------- */
 
   return (
     <div className="space-y-6">

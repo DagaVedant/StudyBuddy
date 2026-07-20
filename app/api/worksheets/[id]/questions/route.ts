@@ -83,7 +83,6 @@ export async function POST(request: Request, { params }: Params) {
         questionType: input.questionType,
         bbox: input.bbox ?? null,
         correctAnswer: input.correctAnswer ?? null,
-        // A student typing the key in by hand is authoritative (spec §4 stage 4).
         answerSource: input.correctAnswer ? 'user_key' : 'none',
         userVerified: true,
         contentHash,

@@ -11,10 +11,6 @@ import { guardWorksheet } from '@/lib/upload/guard'
 
 type Params = { params: Promise<{ id: string }> }
 
-/**
- * Ends the client-side ingest phase and routes the worksheet to whichever
- * processing path the account's tier implies (spec §4, §5.2 step 5).
- */
 export async function POST(_request: Request, { params }: Params) {
   const { id: worksheetId } = await params
 
@@ -27,12 +23,6 @@ export async function POST(_request: Request, { params }: Params) {
 
   const { tier, executor } = await resolveProvider(client, guard.userId)
 
-  /* Tier A — no AI at all; straight to the manual editor.
-   *
-   * `browser` deliberately has no branch here. When it did, an unbuilt Tier C
-   * silently marked worksheets awaiting_review with nothing extracted. If an
-   * executor ever reaches here that cannot actually do work, the honest
-   * outcome is the manual editor, not a success message. */
   if (executor === 'none') {
     await db
       .update(worksheets)
@@ -47,17 +37,13 @@ export async function POST(_request: Request, { params }: Params) {
     })
   }
 
-  /* Tier 0 — operator GPU. Quota is charged here, server-side, at enqueue.
-     Admins are exempt (spec §2.1): it's the operator's own hardware. */
   if (executor === 'operator_gpu') {
-    // One worksheet, regardless of how many pages are in it.
     const charge =
       guard.role === 'admin'
         ? ({ ok: true, remaining: Number.POSITIVE_INFINITY } as const)
         : await consumeTrial(client, guard.userId, 'worksheets', 1)
 
     if (!charge.ok) {
-      // Out of trial: fall back to the manual editor rather than dead-ending.
       await db
         .update(worksheets)
         .set({ status: 'awaiting_review', tierUsed: 'free' })
@@ -82,7 +68,6 @@ export async function POST(_request: Request, { params }: Params) {
       userId: guard.userId,
       stage: 'extract',
       executor: 'operator_gpu',
-      // Admin bulk uploads yield to trial users (spec §2.1).
       priority: guard.role === 'admin' ? 'low' : 'normal',
     })
 
@@ -100,7 +85,6 @@ export async function POST(_request: Request, { params }: Params) {
     })
   }
 
-  /* Tier B — server-side job with the student's own key. */
   await db
     .update(worksheets)
     .set({ status: 'queued', tierUsed: tier })

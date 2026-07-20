@@ -53,8 +53,6 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-4 text-sm text-muted">{children}</p>
 }
 
-/* Accuracy is a single ratio against a limit, so it renders as a meter — see
-   components/meter.tsx for why that beats a two-slice donut. */
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -71,7 +69,6 @@ export default async function DashboardPage() {
     getDistractorPatterns(client, userId),
   ])
 
-  // Query returns slugs; the taxonomy has the readable paths.
   const taxonomy = flattenTaxonomy()
   const pathBySlug = new Map(taxonomy.map((topic) => [topic.slug, topic.path]))
   const nameBySlug = new Map(taxonomy.map((topic) => [topic.slug, topic.name]))

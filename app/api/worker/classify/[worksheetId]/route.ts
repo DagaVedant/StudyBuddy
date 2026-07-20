@@ -11,17 +11,7 @@ import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ worksheetId: string }> }
 
-/**
- * Classification round-trip for the GPU worker (spec §3.3, §7.2).
- *
- * The model call runs on the operator's machine — the server cannot reach the
- * operator's Ollama — but everything trust-sensitive stays here: the server
- * builds the candidate shortlists, and results are validated against those
- * shortlists before anything is written. A compromised worker can mislabel a
- * question at worst; it cannot invent topics or touch other worksheets.
- */
 
-/** GET: the worker fetches unclassified questions with their candidates. */
 export async function GET(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
@@ -86,7 +76,6 @@ const resultsSchema = z.object({
     .max(100),
 })
 
-/** POST: the worker returns model output for server-side validation. */
 export async function POST(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
@@ -115,7 +104,6 @@ export async function POST(request: Request, { params }: Params) {
   let coarse = 0
 
   for (const entry of parsed.data.results) {
-    // Only questions on this worksheet — the worker cannot reach across.
     const [question] = await db
       .select({
         id: questions.id,
@@ -129,8 +117,6 @@ export async function POST(request: Request, { params }: Params) {
 
     if (!question || question.worksheetId !== worksheetId) continue
 
-    // Re-derive the shortlist server-side; the worker's claimed slug is only
-    // accepted if it appears in OUR candidate list for this question.
     const candidates = await shortlistTopics(
       client,
       question.promptText,
@@ -147,7 +133,6 @@ export async function POST(request: Request, { params }: Params) {
       if (outcome.topicId) applied += 1
       if (outcome.coarse) coarse += 1
     } catch {
-      // One bad result must not abort the batch.
     }
   }
 

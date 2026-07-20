@@ -12,11 +12,8 @@ export default async function HomePage() {
     <main className="mx-auto w-full max-w-6xl px-6 py-16 sm:py-24">
       <p className="eyebrow">Practice, measured</p>
 
-      {/*
-       * Sized in vw between two rems so the headline fills the measure at any
-       * width instead of stepping between breakpoints — the whole effect of
-       * type this heavy is that it runs edge to edge.
-       */}
+      {
+}
       <h1 className="display mt-4 text-[clamp(2.75rem,11vw,7.5rem)]">
         Know what
         <br />

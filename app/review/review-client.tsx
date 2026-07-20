@@ -77,7 +77,6 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
         setDone((count) => count + 1)
 
         if (index + 1 >= items.length) {
-          // Refetches the queue; anything rated "Again" may be due again now.
           router.refresh()
           setIndex(items.length)
         } else {
@@ -164,7 +163,6 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
         <p className="whitespace-pre-line text-pretty">{item.promptText}</p>
 
         {item.figureImageKey && (
-          // Authenticated dynamic route; next/image can't forward the session.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`/api/files/${item.figureImageKey}`}

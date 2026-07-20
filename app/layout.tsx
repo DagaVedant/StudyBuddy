@@ -12,11 +12,6 @@ const geistSans = Geist({
   subsets: ['latin'],
 })
 
-/**
- * Headline face. Archivo is a grotesque with real weight at 800 and flat,
- * squared terminals, which is what gives the blocky look — it stays solid set
- * large and uppercase where a lighter face would go spindly.
- */
 const archivo = Archivo({
   variable: '--font-archivo',
   subsets: ['latin'],
@@ -48,8 +43,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Applies the stored theme before first paint; without it every load
-            flashes the system theme before the user's choice takes effect. */}
+        {
+}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="flex min-h-full flex-col">
@@ -59,11 +54,8 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        {/*
-          A plain column with no scroll container of its own — the topbar is
-          `sticky`, and any ancestor that scrolls or clips would pin it to that
-          box instead of the viewport.
-        */}
+        {
+}
         <SessionProvider>
           <AppTopbar />
           <div id="main" className="flex min-w-0 flex-1 flex-col">
