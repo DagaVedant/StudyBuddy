@@ -5,18 +5,6 @@ import { auth, signOut } from '@/auth'
 import NavLinks from './nav-links'
 import ThemeToggle from './theme-toggle'
 
-/**
- * The one persistent chrome element, pinned to the top of the viewport.
- *
- * `sticky` rather than `fixed`: it holds its own space in the flow, so no page
- * needs a compensating top padding and nothing can end up hidden underneath
- * it. That only works while no ancestor scrolls or clips — the root layout is
- * a plain flex column for exactly this reason.
- *
- * Opaque, not translucent. A blurred bar over scrolling content is decoration
- * that costs legibility, and the nav has to stay readable against whatever
- * passes beneath it.
- */
 export default async function AppTopbar() {
   const session = await auth()
   if (!session?.user) return null
@@ -57,10 +45,6 @@ export default async function AppTopbar() {
   )
 }
 
-/**
- * Four squares on a grid — a worksheet's questions, some marked. Drawn rather
- * than imported so it inherits `currentColor` and needs no dark-mode variant.
- */
 function Mark() {
   return (
     <svg

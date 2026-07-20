@@ -4,14 +4,6 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
-/**
- * Per-page extraction tally for one worksheet, plus duplicate detection.
- *
- * Usage: npx tsx scripts/tally-questions.ts <title prefix>
- *
- * The point is checking a real run against a known answer count. A page-level
- * histogram shows *where* extraction went quiet, which a single total hides.
- */
 async function main() {
   const prefix = process.argv[2]
   if (!prefix) {
@@ -55,8 +47,6 @@ async function main() {
 
   console.log(`\ntotal = ${total}   empty pages = ${empty}`)
 
-  // A test bundled with its own answer key restates every question, which
-  // doubles the count without anything being wrong.
   const [dupes] = await sql`
     select count(*)::int as n from (
       select content_hash from questions

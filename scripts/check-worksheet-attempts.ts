@@ -4,7 +4,6 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
-/** Reports what a re-extract would destroy for a worksheet. */
 async function main() {
   const target = process.argv[2]
   if (!target) throw new Error('Usage: npx tsx scripts/check-worksheet-attempts.ts <title>')

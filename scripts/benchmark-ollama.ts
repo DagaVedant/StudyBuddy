@@ -10,14 +10,6 @@ import sharp from 'sharp'
 import { OllamaProvider } from '../lib/ai/ollama'
 import type { TopicCandidate } from '../lib/ai/types'
 
-/**
- * Benchmarks the local vision model against a synthetic worksheet page.
- *
- * Spec §13 makes this a gate: if Qwen2.5-VL 7B extracts badly enough that the
- * review step becomes tedious, the Tier 0 trial does more harm than good and
- * should be cut before a queue is built around it.
- */
-
 const WORKSHEET_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1600">
   <rect width="1240" height="1600" fill="white"/>
@@ -115,7 +107,6 @@ async function main() {
   const outPath = join(process.cwd(), '.uploads', 'benchmark-page.png')
   await writeFile(outPath, png).catch(() => {})
 
-  /* ---- 1. Extraction ------------------------------------------------- */
   console.log('--- Extraction (vision) ---')
   let start = Date.now()
   const questions = await provider.extractQuestions({
@@ -137,7 +128,6 @@ async function main() {
     )
   }
 
-  /* ---- 2. Classification --------------------------------------------- */
   console.log('\n--- Classification (text) ---')
   const expectations: [string, string][] = [
     ['In triangle ABC, angle A = 40 and angle B = 65. What is angle C?', 'triangle-angle-sum'],
@@ -159,7 +149,6 @@ async function main() {
           `[conf ${result.confidence.toFixed(2)}, ${seconds(start)}]`,
       )
     } catch (error) {
-      // One bad reply shouldn't abort the whole benchmark run.
       console.log(
         `  ERR  ${question.slice(0, 46).padEnd(48)} -> ${(error as Error).message.slice(0, 80)}`,
       )
@@ -167,7 +156,6 @@ async function main() {
   }
   console.log(`  ${correct}/${expectations.length} correct`)
 
-  /* ---- 3. Explanation ------------------------------------------------ */
   console.log('\n--- Explanation (text) ---')
   start = Date.now()
   const explanation = await provider.explain({
@@ -185,7 +173,6 @@ async function main() {
   console.log(`  ${explanation.body_md.replace(/\n/g, '\n  ').slice(0, 700)}`)
   console.log(`\n  misconception: ${explanation.misconception_note ?? '(none)'}`)
 
-  /* ---- Verdict -------------------------------------------------------- */
   console.log('\n=== Verdict ===')
   console.log(`Extraction recall : ${questions.length}/${EXPECTED}`)
   console.log(`Classification    : ${correct}/${expectations.length}`)

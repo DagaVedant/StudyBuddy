@@ -8,16 +8,6 @@ import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
 import { auditExtraction } from '../lib/worker/audit'
 
-/**
- * The operator GPU pull-worker (spec §3.3).
- *
- * Runs on the machine with the 5080. It only ever dials OUT — there is no
- * inbound port, no tunnel, and no public endpoint on the home network. If this
- * process is not running, jobs queue rather than fail.
- *
- * Run with:  npm run worker
- */
-
 const API = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
 const TOKEN = process.env.WORKER_API_TOKEN ?? ''
 const WORKER_NAME = process.env.WORKER_NAME ?? 'local-gpu'
@@ -85,12 +75,6 @@ async function postJob(jobId: string, body: unknown): Promise<void> {
   }
 }
 
-/**
- * Ollama's image decoder does not accept WebP, and the pipeline stores page
- * images as WebP. Transcode to PNG on the worker rather than changing the
- * storage format — WebP stays the right choice for storage and for the cloud
- * providers, which accept it.
- */
 async function toOllamaImage(
   bytes: Uint8Array,
   mediaType: string,
@@ -108,17 +92,6 @@ interface ClassifyBatchEntry {
   candidates: { slug: string; name: string; path: string }[]
 }
 
-/**
- * Second pass over only the pages that are demonstrably missing questions.
- *
- * Runs before the job reports complete, so the student never sees the
- * incomplete result — the worksheet simply arrives with its questions in it.
- *
- * The retry is worth doing because it carries information the first pass did
- * not have: the numbers to look for. Re-asking with the same prompt would be
- * pointless; rewording alone has twice been measured to change nothing about
- * this model's output.
- */
 async function recoverMissingQuestions(
   job: { id: string; worksheetId: string },
   pages: WorkerPage[],
@@ -180,18 +153,11 @@ async function recoverMissingQuestions(
 
       log(`  audit: page ${page.pageNumber} re-read for ${target.expect.join(', ')}`)
     } catch (error) {
-      // A failed retry leaves the first pass's questions in place. Missing a
-      // question is worse than the alternative, but not worth failing the job.
       log(`  audit: page ${page.pageNumber} retry failed — ${(error as Error).message}`)
     }
   }
 }
 
-/**
- * Auto-classification for Tier 0 (spec §7.2). The server hands over candidate
- * shortlists, this machine runs the model, and the server validates every
- * returned slug against its own shortlist before writing anything.
- */
 async function classifyWorksheet(worksheetId: string): Promise<void> {
   const batchResponse = await api(`/api/worker/classify/${worksheetId}`)
   if (!batchResponse.ok) {
@@ -245,7 +211,6 @@ async function processJob(claim: ClaimResponse): Promise<void> {
   try {
     for (const page of pages) {
       if (shuttingDown) {
-        // Leave the claim to age out; another run resumes from the checkpoint.
         log('shutting down mid-job; leaving it to be reclaimed')
         return
       }
@@ -277,8 +242,6 @@ async function processJob(claim: ClaimResponse): Promise<void> {
           pageNumber: page.pageNumber,
         })
       } catch (error) {
-        // A single unparseable page shouldn't kill a 40-page worksheet —
-        // but it is counted, and all-pages-failed fails the job below.
         pageFailures += 1
         lastError = (error as Error).message
         log(`  page ${page.pageNumber}: extraction failed — ${lastError}`)
@@ -298,9 +261,6 @@ async function processJob(claim: ClaimResponse): Promise<void> {
       )
     }
 
-    // Every attempted page failing is a job failure, not a completion — the
-    // student must not spend trial pages on a run that produced nothing, and
-    // the fail path is what triggers the refund (spec §12 assumption 9).
     if (attempted > 0 && pageFailures === attempted) {
       throw new Error(`Extraction failed on all ${attempted} pages. Last error: ${lastError}`)
     }
@@ -368,8 +328,6 @@ async function main(): Promise<void> {
 
       await processJob(claim)
     } catch (error) {
-      // The app being down is expected (deploys, laptop asleep) — back off
-      // rather than hammering it.
       log(`poll error: ${(error as Error).message} — retrying in ${backoff / 1000}s`)
       await new Promise((resolve) => setTimeout(resolve, backoff))
       backoff = Math.min(backoff * 2, BACKOFF_MAX_MS)

@@ -17,16 +17,9 @@ export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
   const items = isAdmin ? [...NAV, { href: '/admin/topics', label: 'Admin' }] : NAV
 
   return (
-    /*
-     * Centred on wide screens, scrollable on narrow ones. Scrolling rather
-     * than a hamburger keeps every destination one tap away — with six items
-     * there is nothing worth hiding behind a menu.
-     */
     <nav aria-label="Main" className="min-w-0 flex-1">
       <ul className="flex gap-1 overflow-x-auto text-sm md:justify-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {items.map((item) => {
-          // Exact match on the index route, prefix match elsewhere, so
-          // /worksheets/abc/review still highlights Worksheets.
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`)
 

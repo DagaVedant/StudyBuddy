@@ -6,7 +6,6 @@ export interface TopicChoice {
   id: string
   slug: string
   name: string
-  /** "Geometry › Triangles › Triangle angle sum" */
   path: string
 }
 
@@ -30,11 +29,6 @@ function score(topic: TopicChoice, query: string): number {
   return Number.POSITIVE_INFINITY
 }
 
-/**
- * Combobox over the canonical leaves. The whole list ships to the client
- * (~233 entries) so filtering is instant and works offline — there is no
- * search endpoint to round-trip against.
- */
 export default function TopicPicker({ topics, value, onChange, disabled }: Props) {
   const inputId = useId()
   const listId = useId()
@@ -78,8 +72,6 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
       ?.scrollIntoView({ block: 'nearest' })
   }, [active, open])
 
-  /** Any query change resets the highlighted row, so the old index can't
-   *  point at an unrelated result. */
   function updateQuery(next: string) {
     setQuery(next)
     setActive(0)

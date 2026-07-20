@@ -4,18 +4,6 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
-/**
- * Where the classifier is struggling, as evidence for growing the taxonomy.
- *
- * Three signals, in increasing order of usefulness:
- *   - abstentions: nothing in the tree fit at all
- *   - coarse hits: it landed on a branch instead of a leaf, so the tree stops
- *     one level short of where the question actually lives
- *   - crowding: one leaf absorbing a large share of a subject usually means it
- *     is standing in for several distinct skills
- *
- * Usage: npx tsx scripts/topic-gaps.ts
- */
 async function main() {
   const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
 
