@@ -5,16 +5,6 @@ import type { TextLine } from '@/lib/db/schema'
 import { RASTER_DPI, RASTER_MAX_EDGE } from '@/lib/upload/limits'
 import { pageInRange, type PageRange } from '@/lib/upload/page-range'
 
-/**
- * pdf.js is deliberately NOT bundled. Both files are served from /public,
- * copied there by scripts/copy-pdf-worker.mjs. Two verified failures forced
- * this (see that script's header): Turbopack can't resolve the worker URL
- * specifier, and its re-bundled main module hangs forever inside
- * `page.render()` against the stock worker. The unbundled pair works.
- *
- * The `new Function` indirection stops the bundler from statically analyzing
- * the import and pulling the module into its graph.
- */
 const runtimeImport = new Function('url', 'return import(url)') as (
   url: string,
 ) => Promise<typeof PdfjsModule>
@@ -29,7 +19,6 @@ async function getPdfjs(): Promise<typeof PdfjsModule> {
   return pdfjsPromise
 }
 
-/** pdf.js viewports are in CSS points, 72 to the inch. */
 const PDF_POINTS_PER_INCH = 72
 
 export interface RasterPage {
@@ -37,17 +26,10 @@ export interface RasterPage {
   blob: Blob
   width: number
   height: number
-  /** Text layer embedded in the PDF, empty for scans, photos, and images. */
   embeddedText: string
-  /** Line geometry in page-image pixels, for drag-to-fill in the editor. */
   embeddedLines: TextLine[]
 }
 
-/**
- * Groups pdf.js text items into lines in canvas pixel space. Items arrive as
- * fragments with a baseline origin, so they're bucketed by baseline and then
- * ordered left to right.
- */
 function toTextLines(
   pdfjs: typeof PdfjsModule,
   items: TextItem[],

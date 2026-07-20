@@ -24,24 +24,13 @@ import {
 } from './types'
 
 export interface ChatCompletionsOptions {
-  /** Defaults to OpenAI. OpenRouter serves the same protocol elsewhere. */
   endpoint?: string
-  /** Used in error messages so a failure names the service the user chose. */
   label?: string
   headers?: Record<string, string>
   fetchImpl?: typeof fetch
   name?: AIProvider['name']
 }
 
-/**
- * Tier B over the Chat Completions protocol, via plain fetch rather than a
- * vendor SDK for three calls.
- *
- * OpenAI defined this shape and OpenRouter implements it, so both run through
- * this one client with a different endpoint — see OpenRouterProvider. Gemini
- * is not here: its structured output is a first-class request field rather
- * than a compatibility shim, so it gets its own client (./gemini).
- */
 export class OpenAIProvider implements AIProvider {
   readonly name: AIProvider['name']
   readonly supportsVision = true
@@ -59,7 +48,6 @@ export class OpenAIProvider implements AIProvider {
     model = 'gpt-4.1',
     options: ChatCompletionsOptions | typeof fetch = {},
   ) {
-    // The third argument used to be a bare fetch; keep that call shape working.
     const resolved: ChatCompletionsOptions =
       typeof options === 'function' ? { fetchImpl: options } : options
 
@@ -109,8 +97,6 @@ export class OpenAIProvider implements AIProvider {
     const text = body.choices?.[0]?.message?.content
     if (!text) throw new Error(`${this.label} returned an empty response.`)
 
-    // A hosted model can still stop mid-string at its output cap; keep the
-    // complete entries rather than losing the page.
     return parseModelJson(text).value
   }
 

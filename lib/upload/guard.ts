@@ -8,11 +8,6 @@ export type Guarded =
   | { ok: true; userId: string; role: 'student' | 'admin' }
   | { ok: false; status: 401 | 404 }
 
-/**
- * Every worksheet-scoped route runs this first. Returns 404 rather than 403 on
- * a mismatch so the API can't be used to confirm that someone else's worksheet
- * exists (spec §8).
- */
 export async function guardWorksheet(worksheetId: string): Promise<Guarded> {
   const session = await auth()
   if (!session?.user?.id) return { ok: false, status: 401 }

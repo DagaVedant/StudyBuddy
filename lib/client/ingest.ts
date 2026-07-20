@@ -59,13 +59,6 @@ async function expectOk(response: Response): Promise<unknown> {
   throw new IngestError(body?.error ?? `Request failed (${response.status}).`)
 }
 
-/**
- * The whole Tier A ingest path, driven from the browser (spec §5.2):
- * rasterize -> upload page images -> text layer -> hand off to review.
- *
- * The server never sees the original file. For born-digital PDFs the embedded
- * text layer is used directly and OCR is skipped entirely.
- */
 export async function ingestWorksheet({
   files,
   title,
@@ -84,20 +77,12 @@ export async function ingestWorksheet({
 
   onProgress({ stage: 'reading', completed: 0, total: 1, detail: 'Reading files' })
 
-  // Rasterize everything to page images first so the page count is known
-  // before the worksheet row is created.
   const pdfs = files.filter((file) => file.type === 'application/pdf')
   const images = files.filter((file) => file.type !== 'application/pdf')
 
   const pages: RasterPage[] = []
   let sawPdf = false
 
-  /*
-   * Page numbers run across the whole upload, so a range means the same thing
-   * whether the student picked one PDF or several files. `offset` tracks every
-   * page seen — including ones the range skipped — otherwise the numbering
-   * would shift under the range and "pages 60-112" would select the wrong ones.
-   */
   let offset = 0
 
   for (const file of pdfs) {
