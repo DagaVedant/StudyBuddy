@@ -1,12 +1,3 @@
-/**
- * Builds a minimal, valid PDF with a real text layer.
- *
- * A born-digital PDF is deliberate: `hasUsableTextLayer()` then returns true,
- * so the ingest path uses pdf.js text extraction and skips Tesseract — which
- * both exercises the fast path and keeps the suite from downloading a wasm
- * bundle on every run.
- */
-
 function escapePdfText(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
 }
@@ -48,8 +39,6 @@ export function buildTextPdf(lines: string[]): Buffer {
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\n`
   pdf += `startxref\n${xrefOffset}\n%%EOF\n`
 
-  // Everything above is ASCII, so string length equals byte length and the
-  // xref offsets stay correct.
   return Buffer.from(pdf, 'latin1')
 }
 

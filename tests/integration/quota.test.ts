@@ -46,8 +46,6 @@ describe('consumeTrial', () => {
   it('charges one worksheet no matter how many pages it has', async () => {
     const userId = await makeUser(db)
 
-    // The whole point of the worksheet unit: a 112-page practice test costs
-    // the same as a one-page quiz.
     await consumeTrial(db as Db, userId, 'worksheets', 1)
 
     expect((await getTrialState(db as Db, userId)).worksheetsRemaining).toBe(
@@ -60,7 +58,6 @@ describe('consumeTrial', () => {
 
     expect((await consumeTrial(db as Db, userId, 'explanations', 18)).ok).toBe(true)
 
-    // Five explanations with two left must not partially consume.
     const overflow = await consumeTrial(db as Db, userId, 'explanations', 5)
     expect(overflow.ok).toBe(false)
     expect(overflow.remaining).toBe(2)
