@@ -141,6 +141,7 @@ export async function failJob(
   db: Db,
   jobId: string,
   message: string,
+  force = false,
 ): Promise<{ permanent: boolean }> {
   const [row] = await db
     .select({ attemptCount: processingJobs.attemptCount })
@@ -148,7 +149,11 @@ export async function failJob(
     .where(eq(processingJobs.id, jobId))
     .limit(1)
 
-  const permanent = (row?.attemptCount ?? MAX_ATTEMPTS) >= MAX_ATTEMPTS
+  // `force` is for a failure retrying can never fix — e.g. Tier B discovering
+  // the student's API key is gone. Spreading that over the normal 3-attempt
+  // retry schedule just delays the student seeing it and wastes claims on a
+  // job that was never going to succeed.
+  const permanent = force || (row?.attemptCount ?? MAX_ATTEMPTS) >= MAX_ATTEMPTS
 
   await db
     .update(processingJobs)
