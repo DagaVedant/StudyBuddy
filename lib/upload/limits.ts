@@ -19,7 +19,3 @@ export const ACCEPTED_SOURCE_TYPES = [
 export function pageCapFor(role: 'student' | 'admin'): number {
   return role === 'admin' ? Number.POSITIVE_INFINITY : MAX_PAGES_PER_UPLOAD
 }
-
-export function describePageCap(role: 'student' | 'admin'): string {
-  return role === 'admin' ? 'no page limit' : `${MAX_PAGES_PER_UPLOAD} pages per upload`
-}

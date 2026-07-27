@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import { asc, eq, inArray } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 
 import type { AIProvider, ExtractedQuestion } from '@/lib/ai/types'
 import type { Db } from '@/lib/dashboard/queries'
@@ -193,17 +193,3 @@ export async function pagesForJob(db: Db, worksheetId: string) {
     .orderBy(asc(worksheetPages.pageNumber))
 }
 
-export async function keyBelongsToActiveJob(
-  db: Db,
-  key: string,
-  worksheetIds: string[],
-): Promise<boolean> {
-  if (worksheetIds.length === 0) return false
-
-  const rows = await db
-    .select({ imageKey: worksheetPages.imageKey })
-    .from(worksheetPages)
-    .where(inArray(worksheetPages.worksheetId, worksheetIds))
-
-  return rows.some((row) => row.imageKey === key)
-}
