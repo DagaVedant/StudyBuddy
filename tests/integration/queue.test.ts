@@ -37,7 +37,9 @@ afterAll(async () => {
 })
 
 async function drain(executor: 'server' | 'operator_gpu' = 'operator_gpu') {
+
   while (await claimJob(db as Db, executor)) {
+
   }
   await db.delete(processingJobs)
 }
@@ -136,7 +138,6 @@ describe('claimJob', () => {
     expect(claimed?.id).toBe(jobId)
     expect(await claimJob(db as Db, 'operator_gpu')).toBeNull()
 
-    // The worker died mid-job; its claim ages out.
     const later = new Date(Date.now() + CLAIM_TTL_MS + 60_000)
     const reclaimed = await claimJob(db as Db, 'operator_gpu', null, later)
 
@@ -178,7 +179,7 @@ describe('failJob', () => {
     const { permanent } = await failJob(db as Db, job!.id, 'model timed out')
 
     expect(permanent).toBe(false)
-    // Immediately claimable again — no waiting for the claim to age out.
+
     expect(await claimJob(db as Db, 'operator_gpu')).not.toBeNull()
   })
 
@@ -282,7 +283,6 @@ describe('worker heartbeat', () => {
     await heartbeat(db as Db, 'local-5080', 'qwen2.5vl:7b')
     const muchLater = new Date(Date.now() + 10 * 60_000)
 
-    // The operator's machine went to sleep; jobs queue rather than fail.
     expect((await workerStatus(db as Db, muchLater)).online).toBe(false)
   })
 

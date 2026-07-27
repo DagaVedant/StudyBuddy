@@ -11,6 +11,7 @@ function fakePage(pageNumber: number): RasterPage {
     blob: new Blob(['x']),
     width: 100,
     height: 100,
+
     embeddedText: 'x'.repeat(200),
     embeddedLines: [],
   }
@@ -29,6 +30,7 @@ vi.mock('@/lib/client/rasterize', async (importOriginal) => {
         options: { offset?: number; range?: { from: number; to: number | null } | null } = {},
       ) => {
         const { offset = 0, range = null } = options
+
         const totalPages = Number(file.name.match(/(\d+)p/)?.[1] ?? 1)
         const pages: RasterPage[] = []
 
@@ -98,8 +100,6 @@ describe('ingestWorksheet page range', () => {
     expect(rendered).toEqual([1, 2, 3, 4, 5])
   })
 
-  // The case this was built for: a practice form whose test section ends
-  // partway through, followed by an explanations section.
   it('never renders a page outside the range', async () => {
     const result = await ingest([pdf('form-10p.pdf')], { from: 1, to: 4 })
 
@@ -114,11 +114,6 @@ describe('ingestWorksheet page range', () => {
     expect(result.pageCount).toBe(4)
   })
 
-  /*
-   * The offset must advance by every page in a file, not by the pages kept.
-   * Counting only kept pages would shift the numbering under the range and
-   * silently select the wrong pages in the next file.
-   */
   it('numbers pages across several files as one document', async () => {
     await ingest([pdf('a-3p.pdf'), pdf('b-4p.pdf')], { from: 3, to: 5 })
 

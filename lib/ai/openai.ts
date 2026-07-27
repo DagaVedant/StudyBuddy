@@ -24,7 +24,9 @@ import {
 } from './types'
 
 export interface ChatCompletionsOptions {
+
   endpoint?: string
+
   label?: string
   headers?: Record<string, string>
   fetchImpl?: typeof fetch
@@ -48,6 +50,7 @@ export class OpenAIProvider implements AIProvider {
     model = 'gpt-4.1',
     options: ChatCompletionsOptions | typeof fetch = {},
   ) {
+
     const resolved: ChatCompletionsOptions =
       typeof options === 'function' ? { fetchImpl: options } : options
 

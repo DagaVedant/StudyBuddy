@@ -75,8 +75,6 @@ export async function runExtraction(
     onProgress?.({ page: page.pageNumber, total: pages.length })
   }
 
-  // Extraction is done, but nothing counts until the student confirms it
-  // (spec §4 stage 5) — hence awaiting_review, not ready.
   await db
     .update(worksheets)
     .set({ status: 'awaiting_review' })
@@ -85,32 +83,6 @@ export async function runExtraction(
   return { pagesProcessed: processed, questionsCreated: created }
 }
 
-/**
- * Writes one page's extracted questions.
- *
- * Shared by both executors — the Tier 0 GPU worker posts results to the worker
- * API, the Tier B path calls it directly — so dedup and ordinal continuity
- * behave the same either way. They diverged once and only one side got fixed.
- */
-/**
- * Folds a page's repeated questions back into one entry each.
- *
- * A vision model splits a multiple-choice question when every option is itself
- * a block of text — a page of long quotations came back as the same stem four
- * times, each carrying one option. Hash dedup cannot see that, because
- * prompt+choices genuinely differ.
- *
- * Telling the model not to does nothing. Instructing it that each question
- * appears exactly once, that a multi-line option is still an option, and that
- * repeating a stem means it should extend the previous entry produced output
- * byte-identical to the unmodified prompt across three pages.
- *
- * It does not need telling, though: it already labels every copy with the
- * question's printed number. That page came back as ordinals
- * [27, 28, 29, 29, 29, 29] — it knew the last four were one question. So the
- * printed number is the key, and the text is only a fallback for genuinely
- * unnumbered questions, where 0 means "no number on the page".
- */
 function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[] {
   const byPrompt = new Map<string, ExtractedQuestion>()
 
@@ -149,7 +121,6 @@ export async function persistQuestions(
   const extracted = mergeSplitQuestions(raw)
   if (extracted.length === 0) return 0
 
-  // Ordinals continue across pages rather than restarting at 1 per page.
   const existing = await db
     .select({ ordinal: questions.ordinal, contentHash: questions.contentHash })
     .from(questions)
@@ -157,13 +128,6 @@ export async function persistQuestions(
 
   let nextOrdinal = existing.reduce((max, row) => Math.max(max, row.ordinal), 0) + 1
 
-  /*
-   * A local model can stutter, repeating the same question several times in one
-   * reply — a real reading page emitted the same question four times. Two
-   * questions with identical wording *and* identical options are not two
-   * questions on a practice test, so the hash the schema already keeps for
-   * dedup is applied at insert instead of after the fact.
-   */
   const seen = new Set(
     existing.map((row) => row.contentHash).filter((hash): hash is string => !!hash),
   )
@@ -189,7 +153,7 @@ export async function persistQuestions(
         promptText: question.prompt_text,
         questionType: question.question_type,
         bbox: question.bbox,
-        // Nothing the model produced is trusted until the student confirms it.
+
         userVerified: false,
         answerSource: 'none',
         contentHash,
@@ -214,7 +178,6 @@ export async function persistQuestions(
   return created
 }
 
-/** Page images the worker needs, resolved for a claimed job. */
 export async function pagesForJob(db: Db, worksheetId: string) {
   return db
     .select({
@@ -230,7 +193,6 @@ export async function pagesForJob(db: Db, worksheetId: string) {
     .orderBy(asc(worksheetPages.pageNumber))
 }
 
-/** True when this storage key belongs to a worksheet with a live claim. */
 export async function keyBelongsToActiveJob(
   db: Db,
   key: string,

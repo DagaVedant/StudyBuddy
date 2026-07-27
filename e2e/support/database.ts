@@ -27,6 +27,7 @@ async function applyMigration(client: PGlite): Promise<void> {
     try {
       await client.exec(statement)
     } catch (error) {
+
       if (/USING hnsw/i.test(statement)) continue
       throw new Error(`Migration failed:\n${statement}\n\n${(error as Error).message}`)
     }

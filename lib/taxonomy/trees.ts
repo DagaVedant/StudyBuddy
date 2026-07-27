@@ -1,5 +1,8 @@
+
+
 export interface TopicNode {
   name: string
+
   slug?: string
   children?: TopicNode[]
 }
@@ -67,10 +70,6 @@ const satReadingWriting = n(
     n('Form, structure, and sense'),
   ),
 )
-
-/* -------------------------------------------------------------------------- */
-/* High school math                                                            */
-/* -------------------------------------------------------------------------- */
 
 const algebra1 = n(
   'Algebra 1',
@@ -337,17 +336,6 @@ const precalculus = n(
   n('Limits', n('Limits graphically and numerically'), n('Limit laws'), n('Continuity')),
 )
 
-/*
- * Arithmetic and number theory.
- *
- * Added after a real SHSAT form left a third of its maths untagged: mixed
- * number division, ordering negative rationals, "the least positive integer
- * divisible by the first six", successive percent change, remainders over an
- * 86-day span. Percentages and unit conversion existed only under SAT Math,
- * so a question about a 12% discount on a homework sheet had nowhere to go.
- *
- * This is the floor the rest of the tree assumed and never covered.
- */
 const numberSense = n(
   'Number sense',
   n(
@@ -407,10 +395,6 @@ const highSchoolMath = n(
   precalculus,
 )
 
-/* -------------------------------------------------------------------------- */
-/* ELA                                                                         */
-/* -------------------------------------------------------------------------- */
-
 const ela = n(
   'ELA',
   n(
@@ -439,23 +423,13 @@ const ela = n(
     n('Comparing texts'),
     n('Summarizing'),
     n('Vocabulary in context'),
-    /* Real question stems the tree had no home for: "how the use of
-       problem-solution in paragraph 2 contributes to the development of
-       ideas", "how the graph supports the ideas in paragraph 8". */
+
     n('Organizational patterns'),
     n('Development of ideas'),
     n('Function of a sentence or paragraph'),
     n('Evidence from a graph, map, or table'),
   ),
 
-  /*
-   * Poetry.
-   *
-   * Eight questions on one form asked about stanzas, lines, and a speaker, and
-   * the classifier proposed "Poetry Analysis" itself. Prose comprehension does
-   * not cover it — a question about where a line breaks has no equivalent in
-   * an essay.
-   */
   n(
     'Poetry',
     n('Stanza and line structure'),
@@ -493,9 +467,7 @@ const ela = n(
     n('Concision'),
     n('Sentence variety'),
     n('Integrating sources'),
-    /* The recurring revising/editing question types, taken from the wording
-       exams actually use — each was a distinct stem the tree flattened into
-       "Organization and coherence". */
+
     n('Combining sentences'),
     n('Precise language'),
     n('Adding a supporting sentence'),
@@ -505,19 +477,12 @@ const ela = n(
   ),
 )
 
-/* -------------------------------------------------------------------------- */
-
-/** Root subjects. Science and AP frameworks are deferred to v2 (spec §9). */
 export const TAXONOMY: TopicNode[] = [
   satMath,
   satReadingWriting,
   highSchoolMath,
   ela,
 ]
-
-/* -------------------------------------------------------------------------- */
-/* Flattening                                                                  */
-/* -------------------------------------------------------------------------- */
 
 export interface FlatTopic {
   slug: string
@@ -526,7 +491,7 @@ export interface FlatTopic {
   depth: number
   subjectRoot: string
   isLeaf: boolean
-  /** Human-readable path, e.g. "Geometry › Triangles › Triangle angle sum". */
+
   path: string
 }
 
@@ -538,11 +503,6 @@ function slugSegment(name: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-/**
- * Depth-first flatten with derived dotted slugs. Throws on sibling slug
- * collisions rather than silently merging two distinct topics — a collision
- * here would corrupt every downstream accuracy number.
- */
 export function flattenTaxonomy(roots: TopicNode[] = TAXONOMY): FlatTopic[] {
   const out: FlatTopic[] = []
   const seen = new Set<string>()

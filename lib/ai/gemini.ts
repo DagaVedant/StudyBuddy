@@ -54,6 +54,7 @@ export class GeminiProvider implements AIProvider {
       {
         method: 'POST',
         headers: {
+
           'x-goog-api-key': this.apiKey,
           'Content-Type': 'application/json',
         },

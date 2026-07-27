@@ -105,7 +105,6 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
     }
   }
 
-
   if (phase === 'answers') {
     return (
       <div className="space-y-6">
@@ -223,7 +222,6 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       </div>
     )
   }
-
 
   return (
     <div className="space-y-6">

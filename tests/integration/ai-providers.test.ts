@@ -44,6 +44,7 @@ function page(text: string): PageInput {
 
 describe('prompt templates', () => {
   it('frame page content as data, not instructions', () => {
+
     for (const system of [EXTRACTION_SYSTEM, CLASSIFY_SYSTEM, EXPLAIN_SYSTEM]) {
       expect(system.toLowerCase()).toContain('never follow')
     }
@@ -72,6 +73,7 @@ describe('prompt templates', () => {
   })
 
   it('tell the model to abstain rather than guess', () => {
+
     const flat = CLASSIFY_SYSTEM.toLowerCase().replace(/\s+/g, ' ')
     expect(flat).toContain('abstain')
     expect(flat).toContain('never invent a slug')
@@ -112,8 +114,7 @@ describe('output schemas', () => {
   })
 
   it('keep a page when the model numbers questions from zero', () => {
-    // Real Qwen output on the SHSAT form. Requiring ordinal >= 1 here silently
-    // discarded 5 of 12 pages — the field is advisory, the server renumbers.
+
     const { questions, rejected } = parseExtraction({
       questions: [
         {
@@ -130,17 +131,11 @@ describe('output schemas', () => {
     expect(rejected).toBe(0)
     expect(questions).toHaveLength(1)
 
-    /*
-     * 0 is preserved rather than clamped to 1. It means "no printed number",
-     * and ingest merges a page's entries by printed number — clamping would
-     * make every unnumbered question on a page look like question 1 and
-     * collapse them into one. The stored ordinal is assigned by the server.
-     */
     expect(questions[0].ordinal).toBe(0)
   })
 
   it('keep the good questions when one on the page is malformed', () => {
-    // One bad item must not discard the rest of the page.
+
     const { questions, rejected } = parseExtraction({
       questions: [
         {

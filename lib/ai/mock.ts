@@ -15,6 +15,7 @@ export class MockProvider implements AIProvider {
   readonly executionSite = 'server' as const
 
   async extractQuestions(page: PageInput): Promise<ExtractedQuestion[]> {
+
     const lines = page.text
       .split('\n')
       .map((line) => line.trim())

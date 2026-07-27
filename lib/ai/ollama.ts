@@ -28,9 +28,11 @@ export interface OllamaOptions {
   baseUrl: string
   visionModel: string
   textModel: string
+
   executionSite?: ExecutionSite
   fetchImpl?: typeof fetch
   timeoutMs?: number
+
   contextTokens?: number
   maxOutputTokens?: number
 }
@@ -55,6 +57,7 @@ export class OllamaProvider implements AIProvider {
     this.executionSite = options.executionSite ?? 'browser'
     this.fetchImpl = options.fetchImpl ?? fetch
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
+
     this.contextTokens = options.contextTokens ?? 32_768
     this.maxOutputTokens = options.maxOutputTokens ?? 8_192
   }
@@ -80,6 +83,7 @@ export class OllamaProvider implements AIProvider {
           format: schema,
           options: {
             temperature: 0,
+
             num_ctx: this.contextTokens,
             num_predict: this.maxOutputTokens,
           },

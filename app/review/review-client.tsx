@@ -77,6 +77,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
         setDone((count) => count + 1)
 
         if (index + 1 >= items.length) {
+
           router.refresh()
           setIndex(items.length)
         } else {
@@ -163,6 +164,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
         <p className="whitespace-pre-line text-pretty">{item.promptText}</p>
 
         {item.figureImageKey && (
+
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`/api/files/${item.figureImageKey}`}

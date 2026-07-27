@@ -69,6 +69,7 @@ describe('migration', () => {
       sql`select atttypmod from pg_attribute
           where attrelid = 'topics'::regclass and attname = 'embedding'`,
     )
+
     expect(rows<{ atttypmod: number }>(result)[0]?.atttypmod).toBe(384)
   })
 })

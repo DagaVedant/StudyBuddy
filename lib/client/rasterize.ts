@@ -26,7 +26,9 @@ export interface RasterPage {
   blob: Blob
   width: number
   height: number
+
   embeddedText: string
+
   embeddedLines: TextLine[]
 }
 
@@ -112,20 +114,19 @@ export interface RasterProgress {
 }
 
 export interface RasterizeOptions {
-  /** Pages already contributed by earlier files, so the range is document-wide. */
+
   offset?: number
   range?: PageRange | null
 }
 
 export interface RasterizedPdf {
   pages: RasterPage[]
-  /** Every page in the file, including the ones the range skipped. */
+
   totalPages: number
 }
 
 async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  // WebP is dramatically smaller than PNG on scanned text and loses nothing
-  // OCR or a vision model cares about at this quality.
+
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/webp', 0.9),
   )
@@ -138,11 +139,6 @@ async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return fallback
 }
 
-/**
- * Rasterizes a PDF entirely in the browser (spec §5.2 step 2). Nothing
- * downstream ever parses a PDF, which keeps that attack surface off the server
- * and off the operator's GPU machine.
- */
 export async function rasterizePdf(
   file: File,
   onProgress?: (progress: RasterProgress) => void,
@@ -153,15 +149,11 @@ export async function rasterizePdf(
   const pdfjs = await getPdfjs()
   const data = await file.arrayBuffer()
 
-  // v6 hangs teardown off the loading task, not the document proxy.
   const loadingTask = pdfjs.getDocument({ data })
   const pdf = await loadingTask.promise
 
   const pages: RasterPage[] = []
 
-  // The bar counts pages that will actually be rendered, not pages in the
-  // file — a 112-page PDF trimmed to 59 is 59 units of work, and a bar that
-  // stops at 59/112 looks like a failure.
   let plannedTotal = 0
   for (let n = 1; n <= pdf.numPages; n += 1) {
     if (pageInRange(offset + n, range)) plannedTotal += 1
@@ -171,11 +163,7 @@ export async function rasterizePdf(
 
   try {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      /*
-       * Skipped before getPage, so an excluded page is never decoded, never
-       * rendered to a canvas, and never encoded. That is the entire point of
-       * putting the range here rather than filtering later.
-       */
+
       if (!pageInRange(offset + pageNumber, range)) continue
 
       const page = await pdf.getPage(pageNumber)
@@ -192,10 +180,6 @@ export async function rasterizePdf(
       canvas.width = Math.floor(viewport.width)
       canvas.height = Math.floor(viewport.height)
 
-      // `intent: 'print'` is load-bearing: the default display intent chunks
-      // its work on requestAnimationFrame, which Chrome suspends entirely in
-      // hidden tabs — so rendering stalls the moment the student switches
-      // tabs mid-upload. Print intent renders without rAF scheduling.
       await page.render({ canvas, viewport, intent: 'print' }).promise
 
       const [blob, textContent] = await Promise.all([
@@ -211,9 +195,7 @@ export async function rasterizePdf(
       const embeddedText = embeddedLines.map((line) => line.text).join('\n')
 
       pages.push({
-        // The page's number in its own document, not its position in what was
-        // kept. A student who extracts pages 60-112 should see "page 60", not
-        // "page 1" — and nothing downstream requires these to start at 1.
+
         pageNumber: offset + pageNumber,
         blob,
         width: canvas.width,
@@ -222,7 +204,6 @@ export async function rasterizePdf(
         embeddedLines,
       })
 
-      // Release the backing bitmap before the next page allocates one.
       canvas.width = 0
       canvas.height = 0
 
@@ -237,7 +218,6 @@ export async function rasterizePdf(
   return { pages, totalPages: pdf.numPages }
 }
 
-/** Normalizes a photo or image upload into the same shape as a PDF page. */
 export async function rasterizeImage(
   file: File,
   pageNumber: number,
@@ -268,10 +248,6 @@ export async function rasterizeImage(
   }
 }
 
-/**
- * A born-digital PDF carries a usable text layer, so OCR can be skipped
- * entirely — it's both exact and free. Scans and photos land well under this.
- */
 export function hasUsableTextLayer(pages: RasterPage[]): boolean {
   if (pages.length === 0) return false
   const totalChars = pages.reduce((sum, page) => sum + page.embeddedText.length, 0)

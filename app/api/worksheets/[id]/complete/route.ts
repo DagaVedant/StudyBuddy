@@ -38,12 +38,14 @@ export async function POST(_request: Request, { params }: Params) {
   }
 
   if (executor === 'operator_gpu') {
+
     const charge =
       guard.role === 'admin'
         ? ({ ok: true, remaining: Number.POSITIVE_INFINITY } as const)
         : await consumeTrial(client, guard.userId, 'worksheets', 1)
 
     if (!charge.ok) {
+
       await db
         .update(worksheets)
         .set({ status: 'awaiting_review', tierUsed: 'free' })
@@ -68,6 +70,7 @@ export async function POST(_request: Request, { params }: Params) {
       userId: guard.userId,
       stage: 'extract',
       executor: 'operator_gpu',
+
       priority: guard.role === 'admin' ? 'low' : 'normal',
     })
 

@@ -54,6 +54,7 @@ export function extractionUserText(page: PageInput, expect: number[] = []): stri
     '</page_text>',
     ...target,
     '',
+
     'Extract the questions.',
   ].join('\n')
 }
@@ -112,8 +113,6 @@ export function explainUserText(input: ExplainInput): string {
 
   return lines.join('\n')
 }
-
-/** JSON Schemas for structured output, shared by the cloud providers. */
 
 export const EXTRACTION_JSON_SCHEMA = {
   type: 'object',

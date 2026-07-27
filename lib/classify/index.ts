@@ -16,6 +16,7 @@ const pathBySlug = new Map(flattenTaxonomy().map((topic) => [topic.slug, topic.p
 
 export interface ClassifyOutcome {
   topicId: string | null
+
   coarse: boolean
   proposalId: string | null
   confidence: number
@@ -107,8 +108,6 @@ export async function applyClassification(
       ? candidates.find((candidate) => candidate.slug === result.topic_slug)
       : undefined
 
-  // A slug outside the shortlist means the model invented one. Treat that as
-  // an abstention rather than trusting it.
   const confident = Boolean(chosen) && result.confidence >= CONFIDENCE_FLOOR
 
   if (chosen && confident) {
@@ -139,10 +138,6 @@ export async function applyClassification(
     }
   }
 
-  /* Abstained, unconfident, or hallucinated a slug --------------------- */
-
-  // Tag the nearest ancestor so the question still appears on the dashboard,
-  // just at a coarser level (spec §7.2).
   const ancestorId = await nearestAncestor(db, candidates[0].slug)
 
   if (ancestorId) {
@@ -173,11 +168,6 @@ export async function applyClassification(
   }
 }
 
-/**
- * Files a topic proposal for admin review, deduped by embedding similarity
- * against existing topics and other pending proposals — otherwise the queue
- * fills with fifty spellings of the same idea.
- */
 export async function proposeTopic(
   db: Db,
   input: {
@@ -224,7 +214,6 @@ export async function proposeTopic(
   return row.id
 }
 
-/** Classifies every unclassified question on a worksheet. */
 export async function classifyWorksheet(
   db: Db,
   provider: AIProvider,
@@ -257,7 +246,7 @@ export async function classifyWorksheet(
       if (outcome.topicId) classified += 1
       if (outcome.coarse) coarse += 1
     } catch {
-      // One bad classification shouldn't abort a whole worksheet.
+
     }
   }
 

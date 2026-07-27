@@ -19,6 +19,7 @@ describe('scheduleFromOutcome', () => {
   })
 
   it('schedules an unsure question sooner than a confident one', () => {
+
     expect(seed('unsure').dueAt.getTime()).toBeLessThan(seed('correct').dueAt.getTime())
   })
 
@@ -42,7 +43,7 @@ describe('scheduleFromOutcome', () => {
 
   it('returns a log entry that matches the card it produced', () => {
     const { card, log } = scheduleFromOutcome(null, 'wrong', NOW)
-    expect(log.rating).toBe(1) // Rating.Again
+    expect(log.rating).toBe(1)
     expect(card.state).toBeDefined()
   })
 })
@@ -73,6 +74,7 @@ describe('scheduleFromReview', () => {
   })
 
   it('increments lapses only once a card has graduated to review', () => {
+
     let card = scheduleFromOutcome(null, 'correct', NOW).card
     let clock = NOW
 
