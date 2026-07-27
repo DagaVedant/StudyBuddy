@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 
 import { consumeTrial } from '@/lib/ai/quota'
 import { resolveProvider } from '@/lib/ai/resolve'
@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { enqueueJob, workerStatus } from '@/lib/queue'
 import { guardWorksheet } from '@/lib/upload/guard'
+import { drainServerQueue } from '@/lib/worker/server-job'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -100,6 +101,11 @@ export async function POST(_request: Request, { params }: Params) {
     executor: 'server',
     priority: guard.role === 'admin' ? 'low' : 'normal',
   })
+
+  // Runs once this response has gone out. There is no separate worker process
+  // for Tier B to poll from — the extraction runs against the student's own
+  // key, reachable directly from here — so this request is what starts it.
+  after(() => drainServerQueue(client))
 
   return NextResponse.json({
     ok: true,
