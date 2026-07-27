@@ -13,12 +13,6 @@ async function getExtractor(): Promise<FeatureExtractionPipeline> {
   return extractorPromise
 }
 
-export function preloadEmbeddings(): void {
-  void getExtractor().catch(() => {
-    extractorPromise = null
-  })
-}
-
 export async function embed(text: string): Promise<number[]> {
   const trimmed = text.trim()
   if (!trimmed) return new Array(EMBEDDING_DIMENSIONS).fill(0)
@@ -31,14 +25,6 @@ export async function embed(text: string): Promise<number[]> {
   })
 
   return Array.from(output.data as Float32Array)
-}
-
-export async function embedMany(texts: string[]): Promise<number[][]> {
-  const results: number[][] = []
-  for (const text of texts) {
-    results.push(await embed(text))
-  }
-  return results
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {

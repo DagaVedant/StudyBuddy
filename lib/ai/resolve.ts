@@ -8,7 +8,6 @@ import { openApiKey } from './crypto'
 import { GeminiProvider } from './gemini'
 import { TRIAL_WORKSHEET_LIMIT } from './limits'
 import { MockProvider, NullProvider } from './mock'
-import { OllamaProvider } from './ollama'
 import { OpenAIProvider } from './openai'
 import { OpenRouterProvider } from './openrouter'
 import {
@@ -113,20 +112,6 @@ export function cloudProvider(
     case 'google':
       return new GeminiProvider(apiKey, chosen)
   }
-}
-
-export function operatorProvider(): AIProvider {
-  if (mockEnabled() && !process.env.WORKER_FORCE_REAL) {
-    return new MockProvider()
-  }
-
-  return new OllamaProvider({
-    baseUrl: process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434',
-    visionModel: process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b',
-    textModel: process.env.OLLAMA_TEXT_MODEL ?? 'qwen2.5vl:7b',
-    executionSite: 'operator_gpu',
-    timeoutMs: 15 * 60_000,
-  })
 }
 
 export async function getCredentialSummary(db: Db, userId: string) {

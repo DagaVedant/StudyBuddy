@@ -34,8 +34,6 @@ export const questionInputSchema = z.object({
   topicId: z.string().min(1).nullish(),
 })
 
-export type QuestionInput = z.infer<typeof questionInputSchema>
-
 export function normalizeForCompare(value: string): string {
   return value
     .toLowerCase()
