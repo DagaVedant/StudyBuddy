@@ -43,8 +43,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {
-}
+        {}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="flex min-h-full flex-col">
@@ -54,8 +53,7 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        {
-}
+        {}
         <SessionProvider>
           <AppTopbar />
           <div id="main" className="flex min-w-0 flex-1 flex-col">

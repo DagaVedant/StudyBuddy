@@ -53,6 +53,7 @@ async function setup() {
 }
 
 describe('persistQuestions', () => {
+
   it('drops a question the model repeated in one reply', async () => {
     const { job, pageId } = await setup()
 
@@ -116,14 +117,6 @@ describe('persistQuestions', () => {
     expect(await persistQuestions(db as Db, job, second, [shared])).toBe(0)
   })
 
-  /*
-   * Reading sections reuse the opening of a stem across several questions, so
-   * merging must compare the whole prompt. In the real material the idea being
-   * asked about is always named inside the stem, which is what keeps these
-   * apart — an earlier version of this test asserted that two *character-
-   * identical* stems stayed separate, a case the source material never
-   * actually produces.
-   */
   it('keeps questions whose stems share an opening but name different ideas', async () => {
     const { job, pageId } = await setup()
 
@@ -143,12 +136,6 @@ describe('persistQuestions', () => {
     expect(created).toBe(2)
   })
 
-  /*
-   * The failure mode this nearly introduced: `ordinal` used to be clamped to a
-   * minimum of 1, so on a worksheet with no printed numbers every question
-   * arrived as 1 and merging by number would have collapsed the whole page
-   * into one. Unnumbered questions carry 0 and fall back to comparing text.
-   */
   it('keeps distinct unnumbered questions apart', async () => {
     const { job, pageId } = await setup()
 

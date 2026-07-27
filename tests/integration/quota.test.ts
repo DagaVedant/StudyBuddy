@@ -86,8 +86,6 @@ describe('consumeTrial', () => {
   it('cannot be raced past the limit', async () => {
     const userId = await makeUser(db)
 
-    // The guard is in the UPDATE's WHERE clause, so concurrent callers can't
-    // both pass a read-then-write check.
     const results = await Promise.all(
       Array.from({ length: 20 }, () =>
         consumeTrial(db as Db, userId, 'worksheets', 1),

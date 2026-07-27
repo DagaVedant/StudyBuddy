@@ -26,7 +26,7 @@ export type Tier = 'trial' | 'free' | 'cloud' | 'ollama'
 export interface ResolvedProvider {
   provider: AIProvider
   tier: Tier
-  /** Where extraction actually happens — decides which queue lane, if any. */
+
   executor: 'server' | 'browser' | 'operator_gpu' | 'none'
 }
 

@@ -11,7 +11,6 @@ import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ worksheetId: string }> }
 
-
 export async function GET(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
@@ -104,6 +103,7 @@ export async function POST(request: Request, { params }: Params) {
   let coarse = 0
 
   for (const entry of parsed.data.results) {
+
     const [question] = await db
       .select({
         id: questions.id,
@@ -133,6 +133,7 @@ export async function POST(request: Request, { params }: Params) {
       if (outcome.topicId) applied += 1
       if (outcome.coarse) coarse += 1
     } catch {
+
     }
   }
 

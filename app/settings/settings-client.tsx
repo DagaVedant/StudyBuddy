@@ -39,7 +39,7 @@ export default function SettingsClient({
   const [provider, setProvider] = useState<CloudProvider>('anthropic')
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('')
-  const [ollamaUrl, setOllamaUrl] = useState('http:
+  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -95,7 +95,7 @@ export default function SettingsClient({
         </p>
       )}
 
-      {}
+      {/* ---------------------------------------------------------------- */}
       <section
         aria-labelledby="trial-heading"
         className="rounded border border-border bg-surface p-4"
@@ -118,7 +118,7 @@ export default function SettingsClient({
         </p>
       </section>
 
-      {}
+      {/* ---------------------------------------------------------------- */}
       <section
         aria-labelledby="cloud-heading"
         className="rounded border border-border bg-surface p-4"
@@ -157,6 +157,7 @@ export default function SettingsClient({
                 value={provider}
                 onChange={(event) => {
                   setProvider(event.target.value as CloudProvider)
+                  // The old provider's model name means nothing to the new one.
                   setModel('')
                 }}
               >
@@ -222,7 +223,7 @@ export default function SettingsClient({
         )}
       </section>
 
-      {}
+      {/* ---------------------------------------------------------------- */}
       <section
         aria-labelledby="ollama-heading"
         className="rounded border border-border bg-surface p-4"

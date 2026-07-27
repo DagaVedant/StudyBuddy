@@ -149,6 +149,7 @@ async function main() {
           `[conf ${result.confidence.toFixed(2)}, ${seconds(start)}]`,
       )
     } catch (error) {
+
       console.log(
         `  ERR  ${question.slice(0, 46).padEnd(48)} -> ${(error as Error).message.slice(0, 80)}`,
       )

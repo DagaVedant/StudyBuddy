@@ -114,7 +114,6 @@ describe('GeminiProvider', () => {
     expect(body.generationConfig.responseSchema).toBeTruthy()
   })
 
-  // A key in a query string ends up in logs and proxy history.
   it('sends the key as a header, never in the URL', async () => {
     const { calls, fetchImpl } = recorder(geminiReply(oneQuestion))
     await new GeminiProvider('AIza-secret', 'gemini-2.5-flash', fetchImpl).extractQuestions(page)
@@ -135,11 +134,7 @@ describe('GeminiProvider', () => {
 })
 
 describe('geminiSchema', () => {
-  /*
-   * Gemini rejects the whole request on JSON Schema keywords it does not
-   * implement, so the shared schemas cannot be sent as written. A mismatch
-   * here fails every call, not just an edge case.
-   */
+
   it('strips keywords Gemini rejects', () => {
     const cleaned = JSON.stringify(
       geminiSchema(EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>),

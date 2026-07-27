@@ -110,6 +110,7 @@ export default async function WorksheetsPage() {
                 >
                   <div className="aspect-4/3 overflow-hidden border-b border-border bg-bg">
                     {sheet.firstPageKey ? (
+
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         src={`/api/files/${sheet.firstPageKey}`}

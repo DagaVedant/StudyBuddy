@@ -146,7 +146,7 @@ describe('getRecentWorksheets', () => {
     const b = await makeQuestion(db, userId, worksheetId, { ordinal: 2 })
 
     await makeAttempt(db, userId, a.id, 'wrong')
-    // A second attempt on the same question must not inflate the question count.
+
     await makeAttempt(db, userId, a.id, 'wrong')
     await makeAttempt(db, userId, b.id, 'correct')
 

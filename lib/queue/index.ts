@@ -52,6 +52,7 @@ export async function claimJob(
   workerId: string | null = null,
   now: Date = new Date(),
 ): Promise<ClaimedJob | null> {
+
   const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS).toISOString()
   const claimedAt = now.toISOString()
 
@@ -112,7 +113,6 @@ export async function claimJob(
   }
 }
 
-/** Per-page progress so a dead worker or closed tab resumes, not restarts. */
 export async function checkpointJob(
   db: Db,
   jobId: string,
@@ -137,10 +137,6 @@ export async function completeJob(db: Db, jobId: string): Promise<void> {
     .where(eq(processingJobs.id, jobId))
 }
 
-/**
- * Records a failure. Returns true when the job is permanently dead, which is
- * the signal to refund trial quota (spec §12 assumption 9).
- */
 export async function failJob(
   db: Db,
   jobId: string,
@@ -194,10 +190,6 @@ export async function queueDepth(
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Worker registry                                                            */
-/* -------------------------------------------------------------------------- */
-
 export async function heartbeat(
   db: Db,
   name: string,
@@ -234,10 +226,6 @@ export interface WorkerStatus {
   lastHeartbeatAt: Date | null
 }
 
-/**
- * Drives the "queued — we'll notify you" state on the upload screen. A stale
- * heartbeat means the operator's machine is asleep, not that jobs are lost.
- */
 export async function workerStatus(
   db: Db,
   now: Date = new Date(),

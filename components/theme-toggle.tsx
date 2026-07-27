@@ -40,6 +40,7 @@ function subscribe(onChange: () => void): () => void {
 }
 
 export default function ThemeToggle() {
+
   const theme = useSyncExternalStore<Theme>(subscribe, resolveTheme, () => 'light')
   const isDark = theme === 'dark'
 
@@ -48,7 +49,9 @@ export default function ThemeToggle() {
     document.documentElement.setAttribute('data-theme', next)
     try {
       localStorage.setItem(THEME_STORAGE_KEY, next)
-    } catch {}
+    } catch {
+
+    }
   }
 
   return (

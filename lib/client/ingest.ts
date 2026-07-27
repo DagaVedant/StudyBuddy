@@ -32,9 +32,9 @@ export interface IngestOptions {
   files: File[]
   title: string
   subjectHint?: string | null
-  /** Restricts which pages are rendered at all. null means every page. */
+
   pageRange?: PageRange | null
-  /** Lets extraction check its own coverage and re-read pages it missed. */
+
   expectedQuestionCount?: number | null
   onProgress: (progress: IngestProgress) => void
   signal?: AbortSignal
@@ -137,7 +137,6 @@ export async function ingestWorksheet({
       ? 'photo'
       : 'image'
 
-  // OCR data is a large download; start fetching it while pages upload.
   if (!digital) preloadOcr()
 
   assertNotAborted(signal)

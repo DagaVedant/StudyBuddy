@@ -46,7 +46,7 @@ export default async function SettingsPage() {
           explanationsRemaining: trial.explanationsRemaining,
         }}
         workerOnline={worker.online}
-        appUrl={process.env.NEXT_PUBLIC_APP_URL ?? 'http:
+        appUrl={process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}
       />
     </main>
   )

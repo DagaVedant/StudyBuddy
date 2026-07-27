@@ -28,6 +28,7 @@ async function main() {
 
   let done = 0
   for (const topic of pending) {
+
     const vector = await embed(pathBySlug.get(topic.slug) ?? topic.name)
 
     await db.update(topics).set({ embedding: vector }).where(eq(topics.id, topic.id))

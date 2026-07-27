@@ -108,8 +108,6 @@ describe('auditExtraction', () => {
     expect(result.missing).toEqual([])
   })
 
-  // A worksheet with no printed numbers anywhere must not be reported as one
-  // enormous gap; there is simply nothing to audit.
   it('stays quiet on a worksheet with no numbering', () => {
     const result = auditExtraction([
       { pageNumber: 1, printed: [] },

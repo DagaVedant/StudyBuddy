@@ -10,8 +10,6 @@ export interface StorageDriver {
   remove(key: string): Promise<void>
 }
 
-/* -------------------------------------------------------------------------- */
-
 const LOCAL_ROOT = join(process.cwd(), '.uploads')
 
 function safeLocalPath(key: string): string {
@@ -52,12 +50,11 @@ const localDriver: StorageDriver = {
   },
 }
 
-/* -------------------------------------------------------------------------- */
-
 const blobDriver: StorageDriver = {
   name: 'vercel-blob',
 
   async put(key, body, contentType) {
+
     await put(key, body, {
       access: 'public',
       contentType,
@@ -85,11 +82,10 @@ const blobDriver: StorageDriver = {
       const meta = await head(key)
       await del(meta.url)
     } catch {
+
     }
   },
 }
-
-/* -------------------------------------------------------------------------- */
 
 export const storage: StorageDriver = process.env.BLOB_READ_WRITE_TOKEN
   ? blobDriver

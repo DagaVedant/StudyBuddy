@@ -46,6 +46,7 @@ export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[
   return result.map((row) => ({
     topicId: row.topicId,
     topicName: row.topicName,
+
     topicPath: row.slug,
     subjectRoot: row.subjectRoot,
     correct: Number(row.correct),
@@ -108,7 +109,6 @@ export interface TrendPoint {
   wrong: number
 }
 
-/** Weekly accuracy, for the "is any of this working" chart. */
 export async function getAccuracyTrend(
   db: Db,
   userId: string,
@@ -190,10 +190,6 @@ export interface DistractorPattern {
   timesChosen: number
 }
 
-/**
- * Which wrong answers the student keeps reaching for. More actionable than any
- * topic-level score, and it falls out of data the markup flow already captures.
- */
 export async function getDistractorPatterns(
   db: Db,
   userId: string,

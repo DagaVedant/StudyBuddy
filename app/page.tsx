@@ -12,8 +12,7 @@ export default async function HomePage() {
     <main className="mx-auto w-full max-w-6xl px-6 py-16 sm:py-24">
       <p className="eyebrow">Practice, measured</p>
 
-      {
-}
+      {}
       <h1 className="display mt-4 text-[clamp(2.75rem,11vw,7.5rem)]">
         Know what
         <br />

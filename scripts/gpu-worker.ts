@@ -141,8 +141,6 @@ async function recoverMissingQuestions(
         expect: target.expect,
       })
 
-      // Ingest dedups by printed number, so re-sending a page's questions
-      // adds only what was missing and leaves the rest untouched.
       await postJob(job.id, {
         action: 'page_result',
         pageId: page.id,
@@ -153,6 +151,7 @@ async function recoverMissingQuestions(
 
       log(`  audit: page ${page.pageNumber} re-read for ${target.expect.join(', ')}`)
     } catch (error) {
+
       log(`  audit: page ${page.pageNumber} retry failed — ${(error as Error).message}`)
     }
   }
@@ -211,6 +210,7 @@ async function processJob(claim: ClaimResponse): Promise<void> {
   try {
     for (const page of pages) {
       if (shuttingDown) {
+
         log('shutting down mid-job; leaving it to be reclaimed')
         return
       }
@@ -242,6 +242,7 @@ async function processJob(claim: ClaimResponse): Promise<void> {
           pageNumber: page.pageNumber,
         })
       } catch (error) {
+
         pageFailures += 1
         lastError = (error as Error).message
         log(`  page ${page.pageNumber}: extraction failed — ${lastError}`)
@@ -328,6 +329,7 @@ async function main(): Promise<void> {
 
       await processJob(claim)
     } catch (error) {
+
       log(`poll error: ${(error as Error).message} — retrying in ${backoff / 1000}s`)
       await new Promise((resolve) => setTimeout(resolve, backoff))
       backoff = Math.min(backoff * 2, BACKOFF_MAX_MS)

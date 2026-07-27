@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import { PGlite } from '@electric-sql/pglite'
+
 import { vector } from '@electric-sql/pglite-pgvector'
 import { drizzle } from 'drizzle-orm/pglite'
 
@@ -38,6 +39,7 @@ export async function createTestDb(): Promise<{
       try {
         await client.exec(statement)
       } catch (error) {
+
         if (/USING hnsw/i.test(statement)) continue
         throw new Error(
           `Migration ${migration.tag} failed:\n${statement}\n\n${(error as Error).message}`,

@@ -222,6 +222,7 @@ export default function ReviewClient({
   async function confirm() {
     setConfirming(true)
     setError(null)
+    // Let debounced saves land before the worksheet is locked in.
     await new Promise((resolve) => setTimeout(resolve, 700))
 
     try {
@@ -251,7 +252,7 @@ export default function ReviewClient({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
-      {}
+      {/* ---- Page image, with what was found drawn on it ---------------- */}
       <section aria-labelledby="page-heading" className="min-w-0">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="page-heading" className="truncate text-sm font-medium">
@@ -309,7 +310,7 @@ export default function ReviewClient({
             void createQuestion(box)
           }}
         >
-          {}
+          {/* Authenticated dynamic route; next/image can't forward the session. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             ref={imageRef}
@@ -364,7 +365,7 @@ export default function ReviewClient({
         <p className="hint">Missed one? Drag a box around it on the page.</p>
       </section>
 
-      {}
+      {/* ---- Extracted question cards ---------------------------------- */}
       <section aria-labelledby="questions-heading" className="min-w-0 space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="questions-heading" className="text-sm font-medium">
@@ -411,7 +412,7 @@ export default function ReviewClient({
                   question.id === selectedId ? 'border-accent' : 'border-border'
                 }`}
               >
-                {}
+                {/* Summary — what the AI actually pulled off the page. */}
                 <div className="p-3">
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 shrink-0 rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium tabular-nums text-accent">
@@ -475,7 +476,7 @@ export default function ReviewClient({
                   </div>
                 </div>
 
-                {}
+                {/* Editor — only when something needs correcting. */}
                 {expanded && (
                   <div className="space-y-4 border-t border-border p-3">
                     <div>
