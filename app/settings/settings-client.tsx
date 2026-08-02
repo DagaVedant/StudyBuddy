@@ -114,7 +114,7 @@ export default function SettingsClient({
           Trial uploads are processed on hardware we operate. Pages are sent
           there, kept only while the job runs, and never used for training.
           {!workerOnline &&
-            ' That machine is offline right now — uploads will queue and you will be notified when they finish.'}
+            ' That machine is offline right now. Uploads will queue and you will be notified when they finish.'}
         </p>
       </section>
 
@@ -235,7 +235,7 @@ export default function SettingsClient({
           </span>
         </h2>
         <p className="hint text-pretty">
-          Free and private — pages would never leave your machine. Our server
+          Free and private: pages would never leave your machine. Our server
           cannot reach your computer, so this has to run in your browser, and
           that part is still being built. You can save your settings now;
           uploads keep using the options above until it ships.
@@ -270,7 +270,7 @@ export default function SettingsClient({
                 value={ollamaUrl}
                 onChange={(event) => setOllamaUrl(event.target.value)}
               />
-              <p className="hint">Must be localhost — that is all your browser can reach.</p>
+              <p className="hint">Must be localhost. That is all your browser can reach.</p>
             </div>
 
             <details className="text-sm">

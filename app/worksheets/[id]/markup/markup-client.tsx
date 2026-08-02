@@ -99,7 +99,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       setSubmitting(false)
       setError(
         cause instanceof Error
-          ? `${cause.message}. Your marks are still here — try again.`
+          ? `${cause.message}. Your marks are still here. Try again.`
           : 'Could not save your marks. Try again.',
       )
     }

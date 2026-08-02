@@ -120,11 +120,10 @@ export default async function ReviewPage({
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
         {initialQuestions.length > 0 ? 'Check What We Found' : 'Add Your Questions'}
       </h1>
-      {}
       <p className="hint mb-6 text-pretty">
         {initialQuestions.length > 0
-          ? `We pulled ${initialQuestions.length} ${initialQuestions.length === 1 ? 'question' : 'questions'} off the page automatically. Compare them against the original — fix anything that came out wrong, and drag a box on the page if one was missed. Nothing counts toward your stats until you confirm.`
-          : 'Drag a box around each question on the page. The text fills in automatically from what we could read — fix anything that came out wrong. Nothing counts toward your stats until you confirm.'}
+          ? `We pulled ${initialQuestions.length} ${initialQuestions.length === 1 ? 'question' : 'questions'} off the page automatically. Compare them against the original. Fix anything that came out wrong, and drag a box on the page if one was missed. Nothing counts toward your stats until you confirm.`
+          : 'Drag a box around each question on the page. The text fills in automatically from what we could read. Fix anything that came out wrong. Nothing counts toward your stats until you confirm.'}
       </p>
 
       <ReviewClient

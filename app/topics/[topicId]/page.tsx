@@ -173,7 +173,7 @@ export default async function TopicPage({
 
         {vault.length === 0 ? (
           <p className="rounded border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
-            Nothing to revisit here — you have not missed a question in this topic.
+            Nothing to revisit here. You have not missed a question in this topic.
           </p>
         ) : (
           <ul className="space-y-2">

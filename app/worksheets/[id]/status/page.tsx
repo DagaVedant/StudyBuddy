@@ -99,13 +99,13 @@ export default async function StatusPage({
 
           <p aria-live="polite" className="hint text-pretty">
             {job?.executor === 'server' || worker.online
-              ? `Reading your worksheet — ${found.length} questions found so far.`
+              ? `Reading your worksheet. ${found.length} questions found so far.`
               : 'Queued. The processing machine is offline right now, so this will start when it comes back. You can close this page; we will email you.'}
             {depth.pending > 1 && ` ${depth.pending} worksheets ahead of yours.`}
           </p>
 
           <p className="hint">
-            This page updates on refresh. Safe to close — nothing is lost.
+            This page updates on refresh. Safe to close: nothing is lost.
           </p>
 
           <div className="mt-6">

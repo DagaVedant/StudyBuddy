@@ -130,7 +130,7 @@ export default async function DashboardPage() {
       {!hasData && (
         <p className="mt-6 rounded border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
           Nothing tracked yet. Upload a worksheet you have already done and mark
-          which questions you missed — everything here fills in from that.
+          which questions you missed. Everything here fills in from that.
         </p>
       )}
 
@@ -143,8 +143,8 @@ export default async function DashboardPage() {
             >
               {weakest.length === 0 ? (
                 <Empty>
-                  No topic has enough evidence yet
-                  {thin > 0 && ` — ${thin} still building up data`}.
+                  No topic has enough evidence yet.
+                  {thin > 0 && ` ${thin} more still building up data.`}
                 </Empty>
               ) : (
                 <ul className="divide-y divide-border">

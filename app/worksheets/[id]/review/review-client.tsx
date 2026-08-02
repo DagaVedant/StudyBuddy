@@ -256,7 +256,7 @@ export default function ReviewClient({
       <section aria-labelledby="page-heading" className="min-w-0">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="page-heading" className="truncate text-sm font-medium">
-            <span className="text-muted">{worksheetTitle} — </span>
+            <span className="text-muted">{worksheetTitle} · </span>
             Page <span className="tabular-nums">{page.pageNumber}</span> of{' '}
             <span className="tabular-nums">{pages.length}</span>
           </h2>
@@ -444,7 +444,7 @@ export default function ReviewClient({
                             {choiceLabel(choice.label)}.
                           </span>{' '}
                           <span className="max-w-32 truncate align-bottom">
-                            {choice.text || '—'}
+                            {choice.text || 'blank'}
                           </span>
                         </li>
                       ))}
@@ -652,8 +652,8 @@ export default function ReviewClient({
         <div className="sticky bottom-0 -mx-1 border-t border-border bg-bg px-1 pb-1 pt-3">
           {untagged > 0 && (
             <p className="hint mb-2">
-              <span className="tabular-nums">{untagged}</span> still have no topic —
-              they will show up on the dashboard under a broader heading.
+              <span className="tabular-nums">{untagged}</span> still have no topic.
+              They will show up on the dashboard under a broader heading.
             </p>
           )}
           <button
@@ -664,7 +664,7 @@ export default function ReviewClient({
           >
             {confirming
               ? 'Confirming…'
-              : `Looks Right — Mark ${questions.length} ${
+              : `Looks Right, Mark ${questions.length} ${
                   questions.length === 1 ? 'Question' : 'Questions'
                 }`}
           </button>
