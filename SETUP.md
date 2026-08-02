@@ -250,11 +250,18 @@ start it, or let the trial run out and it falls through to the manual editor.
 
 ## Known gaps
 
-- **The Playwright E2E suite is half-passing.** The app builds and 111
-  unit/integration tests pass, but the browser harness has a database
-  contention problem. The browser pipeline — pdf.js rasterization, drag-to-draw
-  coordinates — is written but not verified end to end.
+- **Trial explanations don't work.** The job-stage enum has an `'explain'`
+  value for running this asynchronously on the operator GPU, same as
+  extraction, but nothing enqueues or processes one — the endpoint calls the
+  provider synchronously, and a trial account resolves to a placeholder
+  provider that always refuses. A trial student asking for an explanation
+  gets "No AI is set up for your account," which is wrong.
+- **Accepting a topic proposal in the admin queue is a no-op.** It flips the
+  proposal's status; nothing reads that status to actually add the topic to
+  the tree. The review UI is real, the effect isn't.
 - **Tier C (student's own Ollama) is not wired.** Settings saves the config and
   the provider exists, but the browser does not yet drive extraction through
   it; those uploads land in the manual editor.
+- **No abuse controls anywhere** — no rate limiting on signup, upload, or any
+  other endpoint.
 - **AI-generated practice questions** are deferred to v2 by design (spec §9).

@@ -17,19 +17,40 @@ let db: PGlite | null = null
 let server: PGLiteSocketServer | null = null
 let control: Server | null = null
 
+interface Journal {
+  entries: { idx: number; tag: string }[]
+}
+
+/**
+ * Applies every migration in journal order, not just the first one.
+ *
+ * This hardcoded 0000_init.sql for long enough that three later migrations
+ * (trial_worksheets_used, printed_number/expected_question_count, the
+ * openrouter/google provider enum values) were silently missing from every
+ * E2E run — invisibly, since a missing column only surfaces the moment some
+ * code tries to write to it, which for trial_worksheets_used is the very
+ * first signup. That's most of what "16 E2E specs are failing" actually was.
+ */
 async function applyMigration(client: PGlite): Promise<void> {
-  const sql = await readFile(resolve(process.cwd(), 'drizzle/0000_init.sql'), 'utf8')
+  const journal = JSON.parse(
+    await readFile(resolve(process.cwd(), 'drizzle/meta/_journal.json'), 'utf8'),
+  ) as Journal
 
-  for (const statement of sql
-    .split('--> statement-breakpoint')
-    .map((part) => part.trim())
-    .filter(Boolean)) {
-    try {
-      await client.exec(statement)
-    } catch (error) {
+  for (const entry of [...journal.entries].sort((a, b) => a.idx - b.idx)) {
+    const sql = await readFile(resolve(process.cwd(), `drizzle/${entry.tag}.sql`), 'utf8')
 
-      if (/USING hnsw/i.test(statement)) continue
-      throw new Error(`Migration failed:\n${statement}\n\n${(error as Error).message}`)
+    for (const statement of sql
+      .split('--> statement-breakpoint')
+      .map((part) => part.trim())
+      .filter(Boolean)) {
+      try {
+        await client.exec(statement)
+      } catch (error) {
+        if (/USING hnsw/i.test(statement)) continue
+        throw new Error(
+          `Migration ${entry.tag} failed:\n${statement}\n\n${(error as Error).message}`,
+        )
+      }
     }
   }
 }
