@@ -152,7 +152,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         </h2>
         <p className="hint mx-auto max-w-sm text-pretty">
           PDFs, scans, or photos of the pages. Everything is rendered and read on
-          your device — the file itself never leaves your browser.
+          your device. The file itself never leaves your browser.
         </p>
 
         <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2 sm:flex-row">
@@ -250,7 +250,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             type="text"
             autoComplete="off"
             spellCheck={false}
-            placeholder="Unit 4 Practice — Triangles…"
+            placeholder="Unit 4 Practice: Triangles…"
             className="field"
             disabled={busy}
             value={title}
@@ -326,7 +326,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
 
           <p className="hint text-pretty">
             Leave blank for the whole file. Worth setting when a practice test
-            is followed by an answer key or explanations — those pages aren&rsquo;t
+            is followed by an answer key or explanations. Those pages aren&rsquo;t
             questions, and skipping them means they are never rendered,
             uploaded, or read.
           </p>

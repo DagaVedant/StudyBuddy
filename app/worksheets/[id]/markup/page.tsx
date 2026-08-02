@@ -91,7 +91,7 @@ export default async function MarkupPage({
         How Did You Do?
       </h1>
       <p className="hint mb-8 text-pretty">
-        {worksheet.title} — mark each question, then tell us what you put for the
+        {worksheet.title}. Mark each question, then tell us what you put for the
         ones you missed.
       </p>
 

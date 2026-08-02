@@ -212,7 +212,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
 
               {item.answerSource === 'ai_derived' && (
                 <p className="mt-2 rounded border border-border px-2 py-1 text-xs text-muted">
-                  AI-derived — not from an answer key. Double-check it.
+                  AI-derived, not from an answer key. Double-check it.
                 </p>
               )}
             </div>
@@ -244,7 +244,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
                   </button>
                   <p aria-live="polite" className="hint">
                     {explainError ??
-                      'Generated once, then saved — it uses your answer to target the mistake.'}
+                      'Generated once, then saved. It uses your answer to target the mistake.'}
                   </p>
                 </div>
               )}

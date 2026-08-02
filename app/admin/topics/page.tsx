@@ -77,7 +77,7 @@ export default async function AdminTopicsPage() {
           </div>
           <div>
             <dt className="text-muted">Model</dt>
-            <dd className="mt-0.5 font-medium">{worker.modelName ?? '—'}</dd>
+            <dd className="mt-0.5 font-medium">{worker.modelName ?? 'none'}</dd>
           </div>
           <div>
             <dt className="text-muted">GPU queue</dt>
@@ -100,7 +100,7 @@ export default async function AdminTopicsPage() {
         </h2>
         <p className="hint mb-3 text-pretty">
           Raised when the classifier could not fit a question to any canonical
-          leaf. Accepting one does not create the topic yet — it marks it for the
+          leaf. Accepting one does not create the topic yet. It marks it for the
           next taxonomy update.
         </p>
 

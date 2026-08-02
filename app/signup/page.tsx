@@ -15,8 +15,8 @@ export default function SignUpPage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-6 py-12">
       <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
       <p className="hint">
-        You start with {TRIAL_WORKSHEET_LIMIT} worksheets of free AI processing
-        — no card, no setup.
+        You start with {TRIAL_WORKSHEET_LIMIT} worksheets of free AI processing,
+        no card and no setup.
       </p>
 
       {state.error && (

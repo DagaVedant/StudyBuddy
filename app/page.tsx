@@ -12,7 +12,6 @@ export default async function HomePage() {
     <main className="mx-auto w-full max-w-6xl px-6 py-16 sm:py-24">
       <p className="eyebrow">Practice, measured</p>
 
-      {}
       <h1 className="display mt-4 text-[clamp(2.75rem,11vw,7.5rem)]">
         Know what
         <br />
@@ -22,7 +21,7 @@ export default async function HomePage() {
       <p className="mt-8 max-w-xl text-lg text-pretty text-muted">
         Upload the worksheets you have already done. StudyBuddy pulls out every
         question, tracks which ones you got wrong, and tells you what to study
-        next — with a review schedule that actually sticks.
+        next, with a review schedule that actually sticks.
       </p>
 
       <div className="mt-10 flex flex-col gap-3 sm:flex-row">

@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   if (input.provider === 'ollama') {
     if (!isAllowedOllamaUrl(input.baseUrl)) {
       return NextResponse.json(
-        { error: 'Ollama must be on localhost — that is the only address your browser can reach.' },
+        { error: 'Ollama must be on localhost. That is the only address your browser can reach.' },
         { status: 400 },
       )
     }
