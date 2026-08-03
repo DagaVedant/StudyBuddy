@@ -35,6 +35,10 @@ const signupSchema = z.object({
 async function issueVerificationToken(email: string) {
   const token = randomBytes(32).toString('hex')
 
+  // Old links for this address are dropped first, so a retry leaves exactly
+  // one working link rather than a pile of them.
+  await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
+
   await db.insert(verificationTokens).values({
     identifier: email,
     token,
@@ -62,7 +66,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   const { email, password, name } = parsed.data
 
   const [existing] = await db
-    .select({ id: users.id })
+    .select({ id: users.id, emailVerified: users.emailVerified })
     .from(users)
     .where(eq(users.email, email))
     .limit(1)
@@ -76,8 +80,27 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
       passwordHash,
       dob: age.dob,
     })
+  }
 
-    await issueVerificationToken(email)
+  // Signing up again for an address that exists but was never verified
+  // re-sends the link. Without this, anyone whose first email failed to
+  // arrive was stuck for good: the account already existed, so a second
+  // attempt issued nothing and still claimed a link was on its way.
+  const needsLink = !existing || !existing.emailVerified
+
+  if (needsLink) {
+    try {
+      await issueVerificationToken(email)
+    } catch (cause) {
+      console.error('[signup] could not send verification email:', cause)
+
+      // Said the same way whether the account is new or already pending, so
+      // this still does not reveal whether the address is registered.
+      return {
+        error:
+          'Your account is ready, but the verification email could not be sent. Try signing up again in a moment to get a new link.',
+      }
+    }
   }
 
   return {
