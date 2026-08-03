@@ -3,7 +3,7 @@ import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import type { AIProvider, TopicCandidate } from '@/lib/ai/types'
 import type { Db } from '@/lib/dashboard/queries'
 import { questionTopics, questions, topicProposals, topics } from '@/lib/db/schema'
-import { embed } from '@/lib/embeddings'
+import { EMBEDDING_DIMENSIONS, embed } from '@/lib/embeddings'
 import { flattenTaxonomy } from '@/lib/taxonomy/trees'
 
 export const SHORTLIST_SIZE = 15
@@ -22,29 +22,32 @@ export interface ClassifyOutcome {
   confidence: number
 }
 
-export async function shortlistTopics(
+/**
+ * Rejects anything that is not a clean vector of the right width, so a
+ * caller that computed its embedding elsewhere cannot put junk into a
+ * similarity query or store it against a proposal.
+ */
+export function isEmbedding(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length === EMBEDDING_DIMENSIONS &&
+    value.every((n) => typeof n === 'number' && Number.isFinite(n))
+  )
+}
+
+/**
+ * The half of shortlisting that is only ever SQL.
+ *
+ * Split out from shortlistTopics so it can run on a host that cannot load the
+ * embedding model: whoever *can* embed (the GPU worker) computes the vector
+ * and hands it here, and pgvector does the rest.
+ */
+export async function shortlistByVector(
   db: Db,
-  questionText: string,
+  vector: number[],
   subjectHint?: string | null,
   limit = SHORTLIST_SIZE,
 ): Promise<TopicCandidate[]> {
-  // No shortlist without an embedding, and no embedding on a host that cannot
-  // load onnxruntime's native library. Returning empty routes that into the
-  // "no candidates" path callers already handle (the question ends up
-  // untagged) instead of failing the whole request — but it is logged rather
-  // than swallowed, because every question going untagged is a broken
-  // dashboard, not a normal outcome.
-  let vector: number[]
-  try {
-    vector = await embed(questionText)
-  } catch (error) {
-    console.error(
-      '[classify] embedding unavailable, leaving question untagged:',
-      (error as Error).message,
-    )
-    return []
-  }
-
   const literal = `[${vector.join(',')}]`
 
   const rows = await db
@@ -68,6 +71,36 @@ export async function shortlistTopics(
     name: row.name,
     path: pathBySlug.get(row.slug) ?? row.name,
   }))
+}
+
+/**
+ * Embeds here and then searches — so this only works where the model can
+ * load. Callers on a host without it (Vercel) should take the vector from
+ * somewhere that can, via shortlistByVector.
+ *
+ * A failure to embed returns no candidates rather than throwing, which
+ * callers already treat as "leave the question untagged". Logged, not
+ * swallowed: every question going untagged is an empty dashboard, not a
+ * normal outcome.
+ */
+export async function shortlistTopics(
+  db: Db,
+  questionText: string,
+  subjectHint?: string | null,
+  limit = SHORTLIST_SIZE,
+): Promise<TopicCandidate[]> {
+  let vector: number[]
+  try {
+    vector = await embed(questionText)
+  } catch (error) {
+    console.error(
+      '[classify] embedding unavailable, leaving question untagged:',
+      (error as Error).message,
+    )
+    return []
+  }
+
+  return shortlistByVector(db, vector, subjectHint, limit)
 }
 
 async function nearestAncestor(db: Db, slug: string): Promise<string | null> {
@@ -114,6 +147,9 @@ export async function applyClassification(
     abstain: boolean
     suggested_name: string | null
   },
+  // Only consulted when the result turns out coarse, which is the one branch
+  // that raises a proposal. Passed in by callers that cannot embed locally.
+  proposalEmbedding?: number[],
 ): Promise<ClassifyOutcome> {
   if (candidates.length === 0) {
     return { topicId: null, coarse: false, proposalId: null, confidence: 0 }
@@ -174,6 +210,7 @@ export async function applyClassification(
     questionId: question.id,
     userId: question.userId,
     parentId: ancestorId,
+    embedding: proposalEmbedding,
   })
 
   return {
@@ -191,12 +228,14 @@ export async function proposeTopic(
     questionId: string | null
     userId: string | null
     parentId: string | null
+    // Supplied by callers that computed it elsewhere; otherwise embedded here.
+    embedding?: number[]
   },
 ): Promise<string | null> {
   const name = input.name.trim().slice(0, 120)
   if (!name) return null
 
-  const vector = await embed(name)
+  const vector = input.embedding ?? (await embed(name))
   const literal = `[${vector.join(',')}]`
 
   const [nearProposal] = await db

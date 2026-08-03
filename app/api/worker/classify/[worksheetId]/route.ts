@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { classificationSchema } from '@/lib/ai/types'
-import { applyClassification, shortlistTopics } from '@/lib/classify'
+import { applyClassification, isEmbedding } from '@/lib/classify'
 import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { questionTopics, questions, worksheets } from '@/lib/db/schema'
@@ -11,6 +11,13 @@ import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ worksheetId: string }> }
 
+/**
+ * Hands back the questions still needing a topic, and nothing more.
+ *
+ * Shortlisting used to happen here, which meant embedding here — and this
+ * server cannot load the embedding model. The worker embeds these itself and
+ * posts the vectors to ./shortlist to get candidates back.
+ */
 export async function GET(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
@@ -18,7 +25,6 @@ export async function GET(request: Request, { params }: Params) {
   }
 
   const { worksheetId } = await params
-  const client = db as unknown as Db
 
   const [worksheet] = await db
     .select({ subjectHint: worksheets.subjectHint })
@@ -31,10 +37,7 @@ export async function GET(request: Request, { params }: Params) {
   }
 
   const rows = await db
-    .select({
-      id: questions.id,
-      promptText: questions.promptText,
-    })
+    .select({ id: questions.id, promptText: questions.promptText })
     .from(questions)
     .where(eq(questions.worksheetId, worksheetId))
     .limit(100)
@@ -46,23 +49,18 @@ export async function GET(request: Request, { params }: Params) {
     .where(eq(questions.worksheetId, worksheetId))
 
   const done = new Set(assigned.map((row) => row.questionId))
-  const pending = rows.filter((row) => !done.has(row.id))
 
-  const batch = []
-  for (const question of pending) {
-    batch.push({
-      questionId: question.id,
-      promptText: question.promptText,
-      candidates: await shortlistTopics(
-        client,
-        question.promptText,
-        worksheet.subjectHint,
-      ),
-    })
-  }
-
-  return NextResponse.json({ batch })
+  return NextResponse.json({
+    subjectHint: worksheet.subjectHint,
+    questions: rows.filter((row) => !done.has(row.id)),
+  })
 }
+
+const candidateSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  path: z.string().min(1),
+})
 
 const resultsSchema = z.object({
   results: z
@@ -70,6 +68,12 @@ const resultsSchema = z.object({
       z.object({
         questionId: z.string().min(1),
         classification: classificationSchema,
+        // The shortlist the worker actually classified against, sent back so
+        // this route does not have to rebuild it — which it cannot do without
+        // an embedding model.
+        candidates: z.array(candidateSchema).max(64),
+        // Consulted only when the result is coarse enough to raise a proposal.
+        proposalEmbedding: z.array(z.number()).optional(),
       }),
     )
     .max(100),
@@ -90,7 +94,7 @@ export async function POST(request: Request, { params }: Params) {
   const client = db as unknown as Db
 
   const [worksheet] = await db
-    .select({ subjectHint: worksheets.subjectHint })
+    .select({ id: worksheets.id })
     .from(worksheets)
     .where(eq(worksheets.id, worksheetId))
     .limit(1)
@@ -117,18 +121,13 @@ export async function POST(request: Request, { params }: Params) {
 
     if (!question || question.worksheetId !== worksheetId) continue
 
-    const candidates = await shortlistTopics(
-      client,
-      question.promptText,
-      worksheet.subjectHint,
-    )
-
     try {
       const outcome = await applyClassification(
         client,
         question,
-        candidates,
+        entry.candidates,
         entry.classification,
+        isEmbedding(entry.proposalEmbedding) ? entry.proposalEmbedding : undefined,
       )
       if (outcome.topicId) applied += 1
       if (outcome.coarse) coarse += 1

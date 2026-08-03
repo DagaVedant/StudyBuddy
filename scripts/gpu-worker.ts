@@ -6,6 +6,7 @@ import sharp from 'sharp'
 
 import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
+import { embed } from '../lib/embeddings'
 import { auditExtraction } from '../lib/worker/audit'
 
 const API = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
@@ -86,10 +87,15 @@ async function toOllamaImage(
   return { image: new Uint8Array(png), mediaType: 'image/png' }
 }
 
-interface ClassifyBatchEntry {
-  questionId: string
+interface PendingQuestion {
+  id: string
   promptText: string
-  candidates: { slug: string; name: string; path: string }[]
+}
+
+interface TopicCandidate {
+  slug: string
+  name: string
+  path: string
 }
 
 async function recoverMissingQuestions(
@@ -157,27 +163,75 @@ async function recoverMissingQuestions(
   }
 }
 
+/**
+ * Embedding happens here rather than on the server, because this machine has
+ * the native runtime the model needs and a serverless host does not. The
+ * server keeps the part that is only ever SQL: turning a vector into a
+ * shortlist of nearby topics.
+ */
 async function classifyWorksheet(worksheetId: string): Promise<void> {
-  const batchResponse = await api(`/api/worker/classify/${worksheetId}`)
-  if (!batchResponse.ok) {
-    log(`  classify: could not fetch batch (${batchResponse.status}); skipping`)
+  const pendingResponse = await api(`/api/worker/classify/${worksheetId}`)
+  if (!pendingResponse.ok) {
+    log(`  classify: could not fetch questions (${pendingResponse.status}); skipping`)
     return
   }
 
-  const { batch } = (await batchResponse.json()) as { batch: ClassifyBatchEntry[] }
-  if (batch.length === 0) return
+  const { questions: pending } = (await pendingResponse.json()) as {
+    questions: PendingQuestion[]
+  }
+  if (pending.length === 0) return
 
-  const results = []
-  for (const entry of batch) {
+  const items = []
+  for (const question of pending) {
     if (shuttingDown) return
     try {
-      const classification = await provider.classifyTopic(
-        entry.promptText,
-        entry.candidates,
-      )
-      results.push({ questionId: entry.questionId, classification })
+      items.push({ questionId: question.id, embedding: await embed(question.promptText) })
     } catch (error) {
-      log(`  classify: "${entry.promptText.slice(0, 40)}" failed — ${(error as Error).message}`)
+      log(`  classify: could not embed a question — ${(error as Error).message}`)
+    }
+  }
+
+  if (items.length === 0) return
+
+  const shortlistResponse = await api(`/api/worker/classify/${worksheetId}/shortlist`, {
+    method: 'POST',
+    body: JSON.stringify({ items }),
+  })
+
+  if (!shortlistResponse.ok) {
+    log(`  classify: shortlist rejected (${shortlistResponse.status}); skipping`)
+    return
+  }
+
+  const { batch } = (await shortlistResponse.json()) as {
+    batch: { questionId: string; candidates: TopicCandidate[] }[]
+  }
+
+  const promptById = new Map(pending.map((question) => [question.id, question.promptText]))
+  const results = []
+
+  for (const entry of batch) {
+    if (shuttingDown) return
+
+    const promptText = promptById.get(entry.questionId)
+    if (!promptText || entry.candidates.length === 0) continue
+
+    try {
+      const classification = await provider.classifyTopic(promptText, entry.candidates)
+
+      // The server raises a topic proposal when the match comes back coarse,
+      // and dedupes proposals by embedding — another vector it cannot compute
+      // itself, so it is sent along.
+      const proposedName = classification.suggested_name ?? promptText.slice(0, 80)
+
+      results.push({
+        questionId: entry.questionId,
+        classification,
+        candidates: entry.candidates,
+        proposalEmbedding: await embed(proposedName),
+      })
+    } catch (error) {
+      log(`  classify: "${promptText.slice(0, 40)}" failed — ${(error as Error).message}`)
     }
   }
 
@@ -190,7 +244,7 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
 
   if (post.ok) {
     const summary = (await post.json()) as { applied: number; coarse: number }
-    log(`  classified ${summary.applied}/${batch.length} (${summary.coarse} coarse)`)
+    log(`  classified ${summary.applied}/${pending.length} (${summary.coarse} coarse)`)
   } else {
     log(`  classify: server rejected results (${post.status})`)
   }
