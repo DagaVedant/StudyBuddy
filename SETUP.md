@@ -153,17 +153,27 @@ Email links and the GPU worker both use this value.
 
 ## 7. Optional extras
 
-### Google sign-in
+### Google sign-in and sign-up
 
-Email/password works without this.
+Email/password works without this. "Continue with Google" appears on both
+`/signin` and `/signup` — it's the same button either way, since Google never
+distinguishes the two: a first-time click creates the account automatically.
 
 1. **https://console.cloud.google.com/apis/credentials**
-2. Create OAuth client ID → Web application
-3. Authorised redirect URIs — add both:
+2. If prompted, configure the **OAuth consent screen** first (External, app
+   name, your support email). While it's in **Testing** status, only accounts
+   you add under **Test users** can complete the flow — everyone else sees an
+   "app not verified" block screen. Either add test users or click
+   **Publish App** once you're ready for real users (personal-use Google
+   accounts do not require Google's verification review for a small app like
+   this).
+3. Create OAuth client ID → Web application
+4. Authorised redirect URIs — add both:
    - `http://localhost:3000/api/auth/callback/google`
    - `https://your-project.vercel.app/api/auth/callback/google`
-4. Put the client ID and secret into `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`,
-   locally and on Vercel.
+5. Put the client ID and secret into `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`,
+   locally and on Vercel. `auth.ts` sets `trustHost: true`, so nothing else
+   (like an `AUTH_URL`) is needed for Vercel to compute the right callback URL.
 
 ### Real verification emails
 
