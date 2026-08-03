@@ -26,9 +26,12 @@ const client =
     connect_timeout: 15,
   })
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForDb.__sql = client
-}
+// Cached unconditionally, not just outside production: Next.js bundles each
+// route/action separately, and each bundle that imports this module gets its
+// own copy of this file's module scope even within one running process — so
+// without a process-wide cache, every one of those opens its own connection
+// pool instead of sharing one.
+globalForDb.__sql = client
 
 export const db = drizzle(client, { schema })
 export { client, schema }
