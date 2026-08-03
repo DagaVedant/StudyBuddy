@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Archivo, Geist } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
@@ -60,6 +61,7 @@ export default function RootLayout({
             {children}
           </div>
         </SessionProvider>
+        <Analytics />
       </body>
     </html>
   )
