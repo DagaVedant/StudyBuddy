@@ -6,6 +6,8 @@ import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { attempts, questions, worksheetPages, worksheets } from '@/lib/db/schema'
 
+import DeleteWorksheetButton from './delete-worksheet-button'
+
 export const metadata = { title: 'Worksheets · StudyBuddy' }
 export const dynamic = 'force-dynamic'
 
@@ -160,12 +162,15 @@ export default async function WorksheetsPage() {
                     >
                       {STATUS_LABEL[sheet.status] ?? sheet.status}
                     </span>
-                    <Link
-                      href={href}
-                      className="text-sm text-accent underline underline-offset-2"
-                    >
-                      {cta}
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href={href}
+                        className="text-sm text-accent underline underline-offset-2"
+                      >
+                        {cta}
+                      </Link>
+                      <DeleteWorksheetButton worksheetId={sheet.id} title={sheet.title} />
+                    </div>
                   </div>
                 </div>
               </li>
