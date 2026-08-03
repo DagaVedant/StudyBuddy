@@ -1,0 +1,79 @@
+import { eq, inArray } from 'drizzle-orm'
+
+import type { Db } from '@/lib/dashboard/queries'
+import { answerChoices, questions } from '@/lib/db/schema'
+import { planDuplicateMerges } from '@/lib/questions/duplicates'
+
+/**
+ * Folds a question the extractor emitted twice back into one row.
+ *
+ * Runs once the pages are all in and before the audit, so the audit sees a
+ * repaired run: left alone, a phantom row both inflates the count and pushes
+ * every following number up by one, which makes the audit hunt for a question
+ * that was never missing.
+ *
+ * Safe at this point in the job because nothing downstream exists yet. The
+ * student has not reached markup, so there are no attempts or review cards
+ * pointing at these rows.
+ */
+export async function mergeDuplicateQuestions(
+  db: Db,
+  worksheetId: string,
+): Promise<{ merged: number }> {
+  const rows = await db
+    .select({
+      id: questions.id,
+      printedNumber: questions.printedNumber,
+      promptText: questions.promptText,
+    })
+    .from(questions)
+    .where(eq(questions.worksheetId, worksheetId))
+
+  if (rows.length < 2) return { merged: 0 }
+
+  const choiceRows = await db
+    .select({
+      questionId: answerChoices.questionId,
+      label: answerChoices.label,
+      text: answerChoices.text,
+    })
+    .from(answerChoices)
+    .where(
+      inArray(
+        answerChoices.questionId,
+        rows.map((row) => row.id),
+      ),
+    )
+
+  const byQuestion = new Map<string, { label: string; text: string }[]>()
+  for (const choice of choiceRows) {
+    byQuestion.set(choice.questionId, [
+      ...(byQuestion.get(choice.questionId) ?? []),
+      { label: choice.label, text: choice.text },
+    ])
+  }
+
+  const plans = planDuplicateMerges(
+    rows.map((row) => ({
+      id: row.id,
+      printedNumber: row.printedNumber,
+      promptText: row.promptText,
+      choices: byQuestion.get(row.id) ?? [],
+    })),
+  )
+
+  for (const plan of plans) {
+    // The surviving row takes the number the phantom was occupying, which
+    // closes the gap the deletion would otherwise leave behind.
+    if (plan.printedNumber !== null) {
+      await db
+        .update(questions)
+        .set({ printedNumber: plan.printedNumber })
+        .where(eq(questions.id, plan.keepId))
+    }
+
+    await db.delete(questions).where(eq(questions.id, plan.dropId))
+  }
+
+  return { merged: plans.length }
+}

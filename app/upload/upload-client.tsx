@@ -356,10 +356,14 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           </p>
         </fieldset>
 
-        <div>
+        {/* Given its own tinted panel rather than sitting last in the column
+            as another greyed-out "(optional)": this is the only thing that
+            tells the checker what to aim for, and left blank it cannot tell a
+            question it missed from one it counted twice. */}
+        <div className="rounded-2xl bg-tint-butter p-4">
           <label className="label" htmlFor={countId}>
             How many questions?{' '}
-            <span className="font-normal text-muted">(optional)</span>
+            <span className="font-normal text-muted">(worth filling in)</span>
           </label>
           <input
             id={countId}
@@ -374,8 +378,10 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             onChange={(event) => setQuestionCount(event.target.value)}
           />
           <p className="hint text-pretty">
-            If the paper says how many it has, telling us lets StudyBuddy check
-            its own work and go back over anything it missed.
+            Usually printed on the front of a practice test. It is what
+            StudyBuddy checks its own work against: with it, a question that
+            got missed or counted twice is caught and re-read before you see
+            it. Without it, there is nothing to compare against.
           </p>
         </div>
       </section>
