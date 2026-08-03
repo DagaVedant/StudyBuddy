@@ -5,6 +5,8 @@ import type { TextLine } from '@/lib/db/schema'
 import { RASTER_DPI, RASTER_MAX_EDGE } from '@/lib/upload/limits'
 import { pageInRange, type PageRange } from '@/lib/upload/page-range'
 
+import { throwIfCancelled } from './abort'
+
 const runtimeImport = new Function('url', 'return import(url)') as (
   url: string,
 ) => Promise<typeof PdfjsModule>
@@ -117,6 +119,7 @@ export interface RasterizeOptions {
 
   offset?: number
   range?: PageRange | null
+  signal?: AbortSignal
 }
 
 export interface RasterizedPdf {
@@ -144,7 +147,9 @@ export async function rasterizePdf(
   onProgress?: (progress: RasterProgress) => void,
   options: RasterizeOptions = {},
 ): Promise<RasterizedPdf> {
-  const { offset = 0, range = null } = options
+  const { offset = 0, range = null, signal } = options
+
+  throwIfCancelled(signal)
 
   const pdfjs = await getPdfjs()
   const data = await file.arrayBuffer()
@@ -166,6 +171,8 @@ export async function rasterizePdf(
 
       if (!pageInRange(offset + pageNumber, range)) continue
 
+      throwIfCancelled(signal)
+
       const page = await pdf.getPage(pageNumber)
 
       let scale = RASTER_DPI / PDF_POINTS_PER_INCH
@@ -180,7 +187,24 @@ export async function rasterizePdf(
       canvas.width = Math.floor(viewport.width)
       canvas.height = Math.floor(viewport.height)
 
-      await page.render({ canvas, viewport, intent: 'print' }).promise
+      // A single page of a dense PDF can take seconds to paint. Cancelling
+      // tears the render down mid-page rather than letting it finish into a
+      // canvas nobody is going to look at.
+      const renderTask = page.render({ canvas, viewport, intent: 'print' })
+      const cancelRender = () => renderTask.cancel()
+      signal?.addEventListener('abort', cancelRender, { once: true })
+
+      try {
+        await renderTask.promise
+      } catch (cause) {
+        // pdf.js reports its own RenderingCancelledException here; if the
+        // signal is what tripped it, report it as a cancel rather than as a
+        // rendering failure.
+        throwIfCancelled(signal)
+        throw cause
+      } finally {
+        signal?.removeEventListener('abort', cancelRender)
+      }
 
       const [blob, textContent] = await Promise.all([
         canvasToBlob(canvas),
@@ -221,7 +245,10 @@ export async function rasterizePdf(
 export async function rasterizeImage(
   file: File,
   pageNumber: number,
+  signal?: AbortSignal,
 ): Promise<RasterPage> {
+  throwIfCancelled(signal)
+
   const bitmap = await createImageBitmap(file)
 
   try {

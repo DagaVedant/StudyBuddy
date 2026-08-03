@@ -1,3 +1,4 @@
+import { throwIfCancelled } from './abort'
 import { ocrPage, preloadOcr } from './ocr'
 import {
   hasUsableTextLayer,
@@ -48,9 +49,7 @@ export interface IngestResult {
 
 class IngestError extends Error {}
 
-function assertNotAborted(signal?: AbortSignal) {
-  if (signal?.aborted) throw new IngestError('Upload cancelled.')
-}
+const assertNotAborted = throwIfCancelled
 
 async function expectOk(response: Response): Promise<unknown> {
   if (response.ok) return response.json()
@@ -99,7 +98,7 @@ export async function ingestWorksheet({
           detail: `Rendering ${file.name}`,
         })
       },
-      { offset, range: pageRange },
+      { offset, range: pageRange, signal },
     )
 
     pages.push(...rendered.pages)
@@ -117,7 +116,7 @@ export async function ingestWorksheet({
       total: pages.length + 1,
       detail: `Processing ${file.name}`,
     })
-    pages.push(await rasterizeImage(file, offset))
+    pages.push(await rasterizeImage(file, offset, signal))
   }
 
   if (pages.length === 0) {
@@ -198,7 +197,7 @@ export async function ingestWorksheet({
 
     const { text, lines } = digital
       ? { text: page.embeddedText, lines: page.embeddedLines }
-      : await ocrPage(page.blob)
+      : await ocrPage(page.blob, signal)
 
     await expectOk(
       await fetch(`/api/worksheets/${worksheetId}/pages`, {
