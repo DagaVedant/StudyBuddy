@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useActionState } from 'react'
 
 import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/limits'
-import { signUp } from '@/lib/auth/actions'
+import { signInWithGoogle, signUp } from '@/lib/auth/actions'
 import type { FormState } from '@/lib/auth/actions'
 import { MIN_AGE_YEARS } from '@/lib/auth/policy'
 
@@ -31,7 +31,19 @@ export default function SignUpPage() {
         </p>
       )}
 
-      <form action={action} className="mt-6 space-y-4">
+      <form action={signInWithGoogle} className="mt-6">
+        <button type="submit" className="btn btn-secondary">
+          Continue with Google
+        </button>
+      </form>
+
+      <div className="my-6 flex items-center gap-3 text-sm text-muted">
+        <span className="h-px flex-1 bg-border" />
+        or
+        <span className="h-px flex-1 bg-border" />
+      </div>
+
+      <form action={action} className="space-y-4">
         <div>
           <label className="label" htmlFor="name">
             Name <span className="font-normal text-muted">(optional)</span>
