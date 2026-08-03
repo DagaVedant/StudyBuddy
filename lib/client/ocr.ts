@@ -2,6 +2,8 @@ import { createWorker, type Worker } from 'tesseract.js'
 
 import type { TextLine } from '@/lib/db/schema'
 
+import { throwIfCancelled, untilCancelled } from './abort'
+
 let workerPromise: Promise<Worker> | null = null
 
 async function getWorker(): Promise<Worker> {
@@ -20,9 +22,25 @@ export interface OcrResult {
   lines: TextLine[]
 }
 
-export async function ocrPage(image: Blob): Promise<OcrResult> {
-  const worker = await getWorker()
-  const { data } = await worker.recognize(image, {}, { text: true, blocks: true })
+export async function ocrPage(image: Blob, signal?: AbortSignal): Promise<OcrResult> {
+  throwIfCancelled(signal)
+
+  const worker = await untilCancelled(getWorker(), signal)
+
+  // Tesseract offers no way to interrupt a page mid-recognition, so cancelling
+  // stops us waiting and then terminates the worker outright — otherwise the
+  // wasted recognition keeps a core busy long after the user gave up. The next
+  // upload lazily creates a fresh worker.
+  let data
+  try {
+    ;({ data } = await untilCancelled(
+      worker.recognize(image, {}, { text: true, blocks: true }),
+      signal,
+    ))
+  } catch (cause) {
+    if (signal?.aborted) void terminateOcr()
+    throw cause
+  }
 
   const lines: TextLine[] = []
   for (const block of data.blocks ?? []) {

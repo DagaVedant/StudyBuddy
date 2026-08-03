@@ -60,6 +60,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
   const [dragging, setDragging] = useState(false)
   const [progress, setProgress] = useState<IngestProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
   const busy = progress !== null && progress.stage !== 'done'
@@ -90,8 +91,22 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
     setFiles((current) => current.filter((_, i) => i !== index))
   }
 
+  /**
+   * Clears the screen on the click rather than waiting for the in-flight step
+   * to unwind. Rasterizing a page or recognizing text can take seconds, and
+   * leaving a progress bar creeping forward after someone pressed Cancel reads
+   * as the button not having worked.
+   */
+  function cancel() {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setProgress(null)
+    setNotice('Upload cancelled. Nothing was saved.')
+  }
+
   async function start() {
     setError(null)
+    setNotice(null)
 
     const parsed = parsePageRange(pageFrom, pageTo)
     if (!parsed.ok) {
@@ -111,11 +126,20 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         expectedQuestionCount: questionCount.trim()
           ? Number(questionCount.trim())
           : null,
-        onProgress: setProgress,
+        onProgress: (next) => {
+          // A cancelled run can still emit one last progress event as it
+          // unwinds; ignoring those keeps the bar from flickering back.
+          if (controller.signal.aborted) return
+          setProgress(next)
+        },
         signal: controller.signal,
       })
       router.push(result.next)
     } catch (cause) {
+      // Covers our own CancelledError and the DOMException fetch throws on
+      // abort — either way the user asked for this, so it is not an error.
+      if (controller.signal.aborted) return
+
       setProgress(null)
       setError(
         cause instanceof Error
@@ -123,7 +147,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           : 'Something went wrong. Try uploading again.',
       )
     } finally {
-      abortRef.current = null
+      if (abortRef.current === controller) abortRef.current = null
     }
   }
 
@@ -365,6 +389,15 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         </p>
       )}
 
+      {notice && (
+        <p
+          role="status"
+          className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-muted"
+        >
+          {notice}
+        </p>
+      )}
+
       {progress && (
         <section
           aria-labelledby="progress-heading"
@@ -413,7 +446,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           <button
             type="button"
             className="btn btn-secondary touch-manipulation sm:w-auto sm:px-6"
-            onClick={() => abortRef.current?.abort()}
+            onClick={cancel}
           >
             Cancel
           </button>
