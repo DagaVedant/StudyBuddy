@@ -18,7 +18,7 @@ test.beforeAll(async ({ browser }) => {
 
   const email = await registerAndSignIn(page)
 
-  await setTrialWorksheetsUsed(email, TRIAL_WORKSHEET_LIMIT)
+  await setTrialWorksheetsUsed(page, email, TRIAL_WORKSHEET_LIMIT)
 })
 
 test.afterAll(async () => {
@@ -30,7 +30,7 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
   await uploadWorksheet(page)
 
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/review/)
-  await expect(page.getByRole('heading', { name: 'Review Questions' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
 
   const image = page.getByRole('img', { name: /Page 1 of/ })
   await expect(image).toBeVisible()
