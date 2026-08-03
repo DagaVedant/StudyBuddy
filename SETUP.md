@@ -272,6 +272,16 @@ start it, or let the trial run out and it falls through to the manual editor.
 - **Tier C (student's own Ollama) is not wired.** Settings saves the config and
   the provider exists, but the browser does not yet drive extraction through
   it; those uploads land in the manual editor.
+- **Tier B uploads come back untagged.** Auto-classification needs an
+  embedding, and the embedding model needs a native runtime that a serverless
+  host does not have. The GPU worker does its own embedding, so trial uploads
+  are classified normally — but Tier B runs the extraction on the server,
+  where there is no worker to ask. Those questions are saved and reviewable,
+  they just do not land under a topic, so they do not reach the weakness
+  dashboard. Fixing it means either a hosted embedding API or routing Tier B
+  through a worker; both need the 290 topic embeddings recomputed with
+  whatever model replaces the current one, since vectors from different
+  models are not comparable.
 - **No abuse controls anywhere** — no rate limiting on signup, upload, or any
   other endpoint.
 - **AI-generated practice questions** are deferred to v2 by design (spec §9).
