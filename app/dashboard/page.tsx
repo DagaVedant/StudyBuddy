@@ -39,7 +39,7 @@ function Panel({
 }) {
   const id = title.toLowerCase().replace(/\W+/g, '-')
   return (
-    <section aria-labelledby={id} className="rounded border border-border bg-surface p-4">
+    <section aria-labelledby={id} className="card p-4">
       <h2 id={id} className="text-sm font-medium">
         {title}
       </h2>
@@ -96,22 +96,26 @@ export default async function DashboardPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-balance text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="text-balance text-2xl font-extrabold tracking-tight">Dashboard</h1>
         <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-4">
           Upload a Worksheet
         </Link>
       </div>
 
-      <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded border border-border bg-border sm:grid-cols-4">
+      <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Due now', value: overview.dueNow, href: '/review' },
-          { label: 'Due this week', value: overview.dueThisWeek },
-          { label: 'Questions tracked', value: overview.questionsTracked },
-          { label: 'Worksheets', value: overview.worksheetsUploaded },
+          { label: 'Due now', value: overview.dueNow, href: '/review', tint: 'bg-tint-mint' },
+          { label: 'Due this week', value: overview.dueThisWeek, tint: 'bg-tint-peach' },
+          {
+            label: 'Questions tracked',
+            value: overview.questionsTracked,
+            tint: 'bg-tint-lavender',
+          },
+          { label: 'Worksheets', value: overview.worksheetsUploaded, tint: 'bg-tint-butter' },
         ].map((stat) => (
-          <div key={stat.label} className="bg-surface px-4 py-3">
+          <div key={stat.label} className={`rounded-2xl px-4 py-3.5 ${stat.tint}`}>
             <dt className="text-sm text-muted">{stat.label}</dt>
-            <dd className="mt-1 text-xl font-semibold tabular-nums">
+            <dd className="mt-1 text-2xl font-extrabold tabular-nums text-fg">
               {stat.href && stat.value > 0 ? (
                 <Link
                   href={stat.href}
@@ -128,7 +132,7 @@ export default async function DashboardPage() {
       </dl>
 
       {!hasData && (
-        <p className="mt-6 rounded border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+        <p className="mt-6 rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
           Nothing tracked yet. Upload a worksheet you have already done and mark
           which questions you missed. Everything here fills in from that.
         </p>
