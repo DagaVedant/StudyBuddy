@@ -21,62 +21,85 @@
   color-scheme: light;
 
   /*
-   * The page is tinted and cards are near-white, rather than the other way
-   * round. That is what gives the flat look its depth without a single shadow
-   * — surfaces lift off the field by being lighter than it.
+   * Soft Pastels: a warm plum-tinted neutral ramp (not the old cool blue),
+   * a coral accent, and a small set of tile tints reserved for the dashboard
+   * stat cards. The page is tinted and cards are near-white, rather than the
+   * other way round: surfaces lift off the field by being lighter than it.
    */
-  --bg: oklch(96.5% 0.019 244);
-  --surface: oklch(99.6% 0.004 244);
-  /* The topbar is the same colour as the page, so this hairline is the only
-     thing separating it from content scrolling underneath. Too faint and the
-     bar dissolves into the page. */
-  --border: oklch(84% 0.032 244);
-  --fg: oklch(21% 0.021 250);
-  --muted: oklch(49% 0.025 246);
-  --accent: oklch(50% 0.2 252);
-  --accent-fg: oklch(99% 0.005 250);
-  --danger: oklch(52% 0.18 25);
-  --success: oklch(50% 0.13 155);
+  --bg: oklch(97.5% 0.012 320);
+  --surface: oklch(99.5% 0.006 320);
+  --border: oklch(90% 0.025 320);
+  --fg: oklch(27% 0.045 320);
+  /* Darker than a plain "half-tone" grey would suggest: at 54% this failed
+     WCAG AA (4.5:1) against the pastel tile tints below, which sit around
+     90-93% lightness rather than the page's near-white surfaces. */
+  --muted: oklch(48% 0.035 320);
+  --accent: oklch(54% 0.19 42);
+  --accent-fg: oklch(99% 0.005 42);
+  /* Kept at the same hue the app shipped with (25) rather than pushed lower
+     to separate from --accent: below ~20 this chroma/lightness drifts from
+     red toward pink, which reads as decorative rather than as an error. */
+  --danger: oklch(52% 0.19 24);
+  --success: oklch(56% 0.14 158);
   /* Status ramp for accuracy meters — reserved for state, never for series
      identity, and always paired with a printed number. */
-  --warning: oklch(58% 0.15 45);
-  --caution: oklch(64% 0.13 85);
+  --warning: oklch(62% 0.15 55);
+  --caution: oklch(68% 0.12 90);
+
+  /* Dashboard stat-tile identity only — not a general-purpose palette. */
+  --tint-mint: oklch(93% 0.05 165);
+  --tint-peach: oklch(92% 0.055 55);
+  --tint-lavender: oklch(93% 0.035 300);
+  --tint-butter: oklch(93% 0.06 95);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --bg: oklch(17.5% 0.016 250);
-    --surface: oklch(22% 0.02 250);
-    --border: oklch(36% 0.03 250);
-    --fg: oklch(95% 0.008 250);
-    --muted: oklch(69% 0.02 248);
-    /* Lighter and less saturated than the light-mode accent: the same blue on
-       a dark field reads as a glare rather than a colour. */
-    --accent: oklch(74% 0.14 250);
-    --accent-fg: oklch(17.5% 0.016 250);
-    --danger: oklch(70% 0.15 25);
-    --success: oklch(72% 0.14 155);
-    --warning: oklch(74% 0.14 45);
-    --caution: oklch(80% 0.12 85);
+    --bg: oklch(18% 0.02 320);
+    --surface: oklch(23% 0.025 320);
+    --border: oklch(34% 0.03 320);
+    --fg: oklch(94% 0.015 320);
+    --muted: oklch(68% 0.025 320);
+    /* Lighter and less saturated than the light-mode accent: the same coral
+       on a dark field reads as a glare rather than a colour. */
+    --accent: oklch(72% 0.15 42);
+    --accent-fg: oklch(18% 0.02 42);
+    --danger: oklch(70% 0.16 24);
+    --success: oklch(72% 0.13 160);
+    --warning: oklch(74% 0.13 55);
+    --caution: oklch(78% 0.11 92);
+
+    /* Deepened and desaturated, not inverted — a light pastel fill would
+       read as a glare on a dark ground, so these stay dark with a hint of
+       hue instead. */
+    --tint-mint: oklch(26% 0.045 165);
+    --tint-peach: oklch(27% 0.05 55);
+    --tint-lavender: oklch(27% 0.035 300);
+    --tint-butter: oklch(27% 0.05 95);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: oklch(17% 0.008 250);
-  --surface: oklch(21% 0.01 250);
-  --border: oklch(31% 0.012 250);
-  --fg: oklch(95% 0.004 250);
-  --muted: oklch(68% 0.012 250);
-  --accent: oklch(72% 0.12 250);
-  --accent-fg: oklch(17% 0.008 250);
-  --danger: oklch(70% 0.15 25);
-  --success: oklch(72% 0.14 155);
-  --warning: oklch(74% 0.14 45);
-  --caution: oklch(80% 0.12 85);
+  --bg: oklch(18% 0.02 320);
+  --surface: oklch(23% 0.025 320);
+  --border: oklch(34% 0.03 320);
+  --fg: oklch(94% 0.015 320);
+  --muted: oklch(68% 0.025 320);
+  --accent: oklch(72% 0.15 42);
+  --accent-fg: oklch(18% 0.02 42);
+  --danger: oklch(70% 0.16 24);
+  --success: oklch(72% 0.13 160);
+  --warning: oklch(74% 0.13 55);
+  --caution: oklch(78% 0.11 92);
+
+  --tint-mint: oklch(26% 0.045 165);
+  --tint-peach: oklch(27% 0.05 55);
+  --tint-lavender: oklch(27% 0.035 300);
+  --tint-butter: oklch(27% 0.05 95);
 }
 
 @theme inline {
@@ -91,6 +114,10 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-caution: var(--caution);
+  --color-tint-mint: var(--tint-mint);
+  --color-tint-peach: var(--tint-peach);
+  --color-tint-lavender: var(--tint-lavender);
+  --color-tint-butter: var(--tint-butter);
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -133,13 +160,13 @@ body {
   }
 
   .field {
-    @apply w-full rounded border border-border bg-surface px-3 py-2 text-fg
+    @apply w-full rounded-xl border border-border bg-surface px-3 py-2 text-fg
       outline-none placeholder:text-muted focus-visible:border-accent
       focus-visible:ring-2 focus-visible:ring-accent/30;
   }
 
   .btn {
-    @apply inline-flex w-full items-center justify-center rounded px-4 py-2
+    @apply inline-flex w-full items-center justify-center rounded-xl px-4 py-2
       font-medium transition-colors focus-visible:outline-2
       focus-visible:outline-offset-2 focus-visible:outline-accent
       disabled:opacity-60;
@@ -153,12 +180,24 @@ body {
     @apply border border-border bg-surface text-fg hover:border-accent;
   }
 
+  .btn-danger {
+    @apply bg-danger text-white hover:opacity-90;
+  }
+
   .label {
     @apply mb-1.5 block text-sm font-medium text-fg;
   }
 
   .hint {
     @apply mt-1.5 text-sm text-muted;
+  }
+
+  /* Soft Pastels' card treatment: generously rounded, shadow over hairline
+     border so tiles feel lifted rather than boxed in. No padding baked in —
+     a divided list wants its outer wrapper padding-free, so callers add
+     their own (usually p-4). */
+  .card {
+    @apply rounded-2xl border-0 bg-surface shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)];
   }
 }
 
