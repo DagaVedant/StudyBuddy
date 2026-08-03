@@ -1,7 +1,7 @@
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, normalize, sep } from 'node:path'
 
-import { del, head, put } from '@vercel/blob'
+import { del, get, put } from '@vercel/blob'
 
 export interface StorageDriver {
   readonly name: 'vercel-blob' | 'local'
@@ -54,9 +54,12 @@ const blobDriver: StorageDriver = {
   name: 'vercel-blob',
 
   async put(key, body, contentType) {
-
+    // The store this app was provisioned with is private-access-only —
+    // uploading with access: 'public' is rejected outright, not just
+    // served without a public URL. Reads go through the SDK's own
+    // authenticated get() below rather than a bare public URL fetch.
     await put(key, body, {
-      access: 'public',
+      access: 'private',
       contentType,
       addRandomSuffix: false,
       allowOverwrite: true,
@@ -65,12 +68,11 @@ const blobDriver: StorageDriver = {
 
   async get(key) {
     try {
-      const meta = await head(key)
-      const response = await fetch(meta.url)
-      if (!response.ok) return null
+      const result = await get(key, { access: 'private' })
+      if (!result) return null
       return {
-        body: Buffer.from(await response.arrayBuffer()),
-        contentType: meta.contentType ?? 'application/octet-stream',
+        body: Buffer.from(await new Response(result.stream).arrayBuffer()),
+        contentType: result.blob.contentType ?? 'application/octet-stream',
       }
     } catch {
       return null
@@ -78,12 +80,7 @@ const blobDriver: StorageDriver = {
   },
 
   async remove(key) {
-    try {
-      const meta = await head(key)
-      await del(meta.url)
-    } catch {
-
-    }
+    await del(key).catch(() => {})
   },
 }
 
