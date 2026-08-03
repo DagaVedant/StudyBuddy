@@ -36,6 +36,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const marked = Object.keys(outcomes).length
+  const currentQuestion = questions[cursor]
   const missed = useMemo(
     () => questions.filter((question) => outcomes[question.id] === 'wrong'),
     [questions, outcomes],
@@ -253,58 +254,54 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         </div>
       </div>
 
-      <ul className="space-y-3">
-        {questions.map((question, index) => {
-          const chosen = outcomes[question.id]
-          return (
-            <li
-              key={question.id}
-              className={`rounded border bg-surface p-4 ${
-                index === cursor && !chosen ? 'border-accent' : 'border-border'
-              }`}
-            >
-              <p className="text-sm">
-                <span className="tabular-nums text-muted">{question.ordinal}. </span>
-                <span className="whitespace-pre-line">{question.promptText}</span>
-              </p>
+      {marked >= questions.length ? (
+        <div className="rounded border border-border bg-surface p-6 text-center">
+          <p className="font-medium">
+            All <span className="tabular-nums">{questions.length}</span> marked.
+          </p>
+          <p className="hint">Ready to continue.</p>
+        </div>
+      ) : (
+        currentQuestion && (
+          <div className="rounded border border-accent bg-surface p-4">
+            <p className="text-sm text-muted">
+              Question <span className="tabular-nums">{currentQuestion.ordinal}</span> of{' '}
+              <span className="tabular-nums">{questions.length}</span>
+            </p>
+            <p className="mt-2 whitespace-pre-line">{currentQuestion.promptText}</p>
 
-              <fieldset className="mt-3">
-                <legend className="sr-only">
-                  Result for question {question.ordinal}
-                </legend>
-                <div className="grid grid-cols-3 gap-2">
-                  {OUTCOMES.map((outcome) => {
-                    const active = chosen === outcome.value
-                    return (
-                      <label
-                        key={outcome.value}
-                        title={outcome.hint}
-                        className={`flex cursor-pointer flex-col items-center rounded border px-2 py-2 text-center text-sm touch-manipulation has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
-                          active
-                            ? 'border-accent bg-accent/10 font-medium'
-                            : 'border-border hover:border-accent'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`outcome-${question.id}`}
-                          className="sr-only"
-                          checked={active}
-                          onChange={() => mark(question.id, outcome.value, index)}
-                        />
-                        {outcome.label}
-                        <span className="text-xs font-normal text-muted">
-                          {outcome.hint}
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </fieldset>
-            </li>
-          )
-        })}
-      </ul>
+            <fieldset className="mt-4">
+              <legend className="sr-only">
+                Result for question {currentQuestion.ordinal}
+              </legend>
+              <div className="grid grid-cols-3 gap-2">
+                {OUTCOMES.map((outcome) => (
+                  <button
+                    key={outcome.value}
+                    type="button"
+                    title={outcome.hint}
+                    className="flex flex-col items-center rounded border border-border px-2 py-3 text-center text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    onClick={() => mark(currentQuestion.id, outcome.value, cursor)}
+                  >
+                    {outcome.label}
+                    <span className="text-xs font-normal text-muted">{outcome.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            {cursor > 0 && (
+              <button
+                type="button"
+                className="mt-4 text-sm text-muted underline underline-offset-2 hover:text-fg"
+                onClick={() => setCursor((index) => Math.max(0, index - 1))}
+              >
+                Back
+              </button>
+            )}
+          </div>
+        )
+      )}
 
       {error && (
         <p
@@ -319,27 +316,28 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         {marked} of {questions.length} questions marked
       </p>
 
-      <div className="flex flex-col gap-3 sm:flex-row-reverse">
-        {missed.length > 0 ? (
-          <button
-            type="button"
-            className="btn btn-primary touch-manipulation sm:w-auto sm:px-6"
-            disabled={marked === 0}
-            onClick={() => setPhase('answers')}
-          >
-            Next: What You Put
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-primary touch-manipulation sm:w-auto sm:px-6"
-            disabled={marked === 0 || submitting}
-            onClick={() => void submit()}
-          >
-            {submitting ? 'Saving…' : 'Save and Finish'}
-          </button>
-        )}
-      </div>
+      {marked >= questions.length && (
+        <div className="flex flex-col gap-3 sm:flex-row-reverse">
+          {missed.length > 0 ? (
+            <button
+              type="button"
+              className="btn btn-primary touch-manipulation sm:w-auto sm:px-6"
+              onClick={() => setPhase('answers')}
+            >
+              Next: What You Put
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary touch-manipulation sm:w-auto sm:px-6"
+              disabled={submitting}
+              onClick={() => void submit()}
+            >
+              {submitting ? 'Saving…' : 'Save and Finish'}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
