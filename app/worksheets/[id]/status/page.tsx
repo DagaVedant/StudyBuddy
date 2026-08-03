@@ -7,6 +7,7 @@ import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { processingJobs, questions, worksheets } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
+import { phaseFor } from '@/lib/worker/progress'
 
 export const metadata = { title: 'Processing · StudyBuddy' }
 
@@ -53,7 +54,19 @@ export default async function StatusPage({
   ])
 
   const failed = worksheet.status === 'failed' || job?.status === 'failed'
-  const percent = Math.round((job?.progress ?? 0) * 100)
+  const progress = job?.progress ?? 0
+  const percent = Math.round(progress * 100)
+  const phase = phaseFor(progress)
+
+  // The count is a running total during reading, so it can pass what the
+  // student told us the paper holds — a misread number, or the same question
+  // picked up twice. Showing "115 of 114" reads as a bug, and the number is
+  // not the useful thing at that point anyway: what matters is that the audit
+  // is now going back over it. So once we are at or past the stated total, the
+  // stage replaces the tally.
+  const expected = worksheet.expectedQuestionCount
+  const countIsTrustworthy = !expected || found.length < expected
+  const stillReading = phase === 'reading' && countIsTrustworthy
 
   return (
     <main className="mx-auto w-full max-w-xl px-6 py-16">
@@ -99,7 +112,11 @@ export default async function StatusPage({
 
           <p aria-live="polite" className="hint text-pretty">
             {job?.executor === 'server' || worker.online
-              ? `Reading your worksheet. ${found.length} questions found so far.`
+              ? stillReading
+                ? `Reading your worksheet. ${found.length} questions found so far.`
+                : phase === 'classifying'
+                  ? 'Sorting the questions into topics.'
+                  : 'Checking every question was picked up, and going back over anything that was missed.'
               : 'Queued. The processing machine is offline right now, so this will start when it comes back. You can close this page; we will email you.'}
             {depth.pending > 1 && ` ${depth.pending} worksheets ahead of yours.`}
           </p>

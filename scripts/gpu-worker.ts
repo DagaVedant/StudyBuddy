@@ -111,6 +111,17 @@ async function recoverMissingQuestions(
   }
 
   const audit = auditExtraction(coverage.pages, coverage.expectedTotal)
+
+  // Worth saying out loud even though nothing is deleted over it: more
+  // questions than the paper has means a misread number or a double-count,
+  // and the student is about to see one too many on the review screen.
+  if (audit.extra.length > 0) {
+    log(
+      `  audit: ${audit.found} found but only ${audit.expected} expected — ` +
+        `numbered past the end: ${audit.extra.join(', ')} (check for duplicates)`,
+    )
+  }
+
   if (audit.retry.length === 0) return
 
   log(
@@ -320,7 +331,10 @@ async function processJob(claim: ClaimResponse): Promise<void> {
       throw new Error(`Extraction failed on all ${attempted} pages. Last error: ${lastError}`)
     }
 
+    await postJob(job.id, { action: 'phase', phase: 'verifying' })
     await recoverMissingQuestions(job, pages)
+
+    await postJob(job.id, { action: 'phase', phase: 'classifying' })
     await classifyWorksheet(job.worksheetId)
 
     await postJob(job.id, { action: 'complete' })

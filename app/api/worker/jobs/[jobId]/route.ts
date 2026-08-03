@@ -10,6 +10,7 @@ import { processingJobs, worksheetPages, worksheets } from '@/lib/db/schema'
 import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
 import { persistQuestions } from '@/lib/worker/ingest'
+import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
 
 type Params = { params: Promise<{ jobId: string }> }
 
@@ -20,6 +21,12 @@ const bodySchema = z.discriminatedUnion('action', [
     pageNumber: z.number().int().min(1),
     totalPages: z.number().int().min(1),
     questions: z.array(extractedQuestionSchema).max(100),
+  }),
+  // Moves the bar past page-reading once the worker starts a later stage, so
+  // it does not sit at full while the audit and classification still run.
+  z.object({
+    action: z.literal('phase'),
+    phase: z.enum(['verifying', 'classifying']),
   }),
   z.object({ action: z.literal('complete') }),
   z.object({ action: z.literal('fail'), message: z.string().max(2000) }),
@@ -74,6 +81,19 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ ok: true, permanent })
   }
 
+  if (body.action === 'phase') {
+    await checkpointJob(
+      client,
+      jobId,
+      body.phase === 'classifying' ? CLASSIFYING_AT : VERIFYING_AT,
+      // Carried through untouched: a phase change moves the bar, it does not
+      // change where a resumed job would pick up from.
+      job.checkpoint ?? {},
+    )
+
+    return NextResponse.json({ ok: true })
+  }
+
   if (body.action === 'complete') {
     await completeJob(client, jobId)
     await db
@@ -97,9 +117,12 @@ export async function POST(request: Request, { params }: Params) {
 
   const created = await persistQuestions(client, job, page.id, body.questions)
 
-  await checkpointJob(client, jobId, body.pageNumber / body.totalPages, {
-    lastPageNumber: body.pageNumber,
-  })
+  await checkpointJob(
+    client,
+    jobId,
+    readingProgress(body.pageNumber, body.totalPages),
+    { lastPageNumber: body.pageNumber },
+  )
 
   return NextResponse.json({
     ok: true,
