@@ -106,6 +106,10 @@ export default async function ReviewPage({
       topicRows.find((row) => row.questionId === question.id)?.topicId ?? null,
   }))
 
+  const overCount = worksheet.expectedQuestionCount
+    ? initialQuestions.length - worksheet.expectedQuestionCount
+    : 0
+
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <nav aria-label="Breadcrumb" className="mb-4 text-sm">
@@ -125,6 +129,22 @@ export default async function ReviewPage({
           ? `We pulled ${initialQuestions.length} ${initialQuestions.length === 1 ? 'question' : 'questions'} off the page automatically. Compare them against the original. Fix anything that came out wrong, and drag a box on the page if one was missed. Nothing counts toward your stats until you confirm.`
           : 'Drag a box around each question on the page. The text fills in automatically from what we could read. Fix anything that came out wrong. Nothing counts toward your stats until you confirm.'}
       </p>
+
+      {overCount > 0 && (
+        <p
+          role="status"
+          className="mb-6 rounded-xl border border-caution/50 px-3 py-2 text-sm text-pretty"
+        >
+          That is{' '}
+          <span className="font-medium tabular-nums">
+            {overCount} more
+          </span>{' '}
+          than the {worksheet.expectedQuestionCount} you said this paper has, so
+          one was probably picked up twice or had its number misread. Deleting
+          the wrong one would lose a real question, so nothing was removed.
+          Worth checking for a duplicate before you confirm.
+        </p>
+      )}
 
       <ReviewClient
         worksheetId={id}

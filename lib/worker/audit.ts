@@ -13,6 +13,16 @@ export interface AuditResult {
   retry: RetryTarget[]
   found: number
   expected: number | null
+  /**
+   * Printed numbers above the total the student gave us.
+   *
+   * The audit used to only look for gaps, so extraction coming back with
+   * *more* questions than the paper has counted as a clean run. It is not:
+   * it means a number was misread, or one question was picked up twice. We
+   * cannot tell which from here, and deleting someone's questions on a guess
+   * is worse than showing too many, so this is reported rather than acted on.
+   */
+  extra: number[]
 }
 
 export function auditExtraction(
@@ -40,11 +50,14 @@ export function auditExtraction(
     if (number >= 1 && !seen.has(number)) missing.push(number)
   }
 
+  const expected = expectedTotal && expectedTotal > 0 ? expectedTotal : null
+
   return {
     missing,
     retry: pagesToRetry(pages, missing),
     found: seen.size,
-    expected: expectedTotal && expectedTotal > 0 ? expectedTotal : null,
+    expected,
+    extra: expected ? [...seen].filter((n) => n > expected).sort((a, b) => a - b) : [],
   }
 }
 

@@ -117,4 +117,44 @@ describe('auditExtraction', () => {
     expect(result.missing).toEqual([])
     expect(result.retry).toEqual([])
   })
+
+  // Overshooting the stated total used to read as a clean run: the audit only
+  // ever looked for gaps, so a misread or double-counted number passed
+  // silently while claiming the paper was fully covered.
+  it('reports numbers past the total the student gave', () => {
+    const result = auditExtraction(
+      [
+        { pageNumber: 1, printed: [1, 2, 3] },
+        { pageNumber: 2, printed: [4, 5, 115] },
+      ],
+      5,
+    )
+
+    expect(result.extra).toEqual([115])
+    expect(result.found).toBe(6)
+    expect(result.expected).toBe(5)
+  })
+
+  it('reports several overshoots in order', () => {
+    const result = auditExtraction(
+      [{ pageNumber: 1, printed: [1, 2, 9, 7] }],
+      3,
+    )
+
+    expect(result.extra).toEqual([7, 9])
+  })
+
+  it('has nothing to overshoot when no total was given', () => {
+    const result = auditExtraction([{ pageNumber: 1, printed: [1, 2, 300] }])
+
+    expect(result.extra).toEqual([])
+    expect(result.expected).toBeNull()
+  })
+
+  it('does not count the exact total as an overshoot', () => {
+    const result = auditExtraction([{ pageNumber: 1, printed: [1, 2, 3] }], 3)
+
+    expect(result.extra).toEqual([])
+    expect(result.missing).toEqual([])
+  })
 })
