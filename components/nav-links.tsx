@@ -7,7 +7,6 @@ const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/worksheets', label: 'Worksheets' },
   { href: '/review', label: 'Review' },
-  { href: '/upload', label: 'Upload' },
   { href: '/settings', label: 'Settings' },
 ]
 
@@ -28,7 +27,7 @@ export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
               <Link
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`block whitespace-nowrap rounded px-3 py-1.5 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                className={`block whitespace-nowrap rounded-lg px-3 py-1.5 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                   active
                     ? 'bg-accent/12 text-accent'
                     : 'text-muted hover:text-fg'
