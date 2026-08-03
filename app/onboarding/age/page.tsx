@@ -50,7 +50,7 @@ export default function AgeGatePage() {
       {error && (
         <p
           role="alert"
-          className="mt-6 rounded border border-danger/40 px-3 py-2 text-sm text-danger"
+          className="mt-6 rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
         >
           {error}
         </p>

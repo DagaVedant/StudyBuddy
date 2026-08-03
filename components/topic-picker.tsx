@@ -91,7 +91,7 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
 
       {selected && !open ? (
         <div className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate rounded border border-border bg-surface px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1 truncate rounded-xl border border-border bg-surface px-3 py-2 text-sm">
             {selected.path}
           </span>
           <button
@@ -152,7 +152,7 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
           id={listId}
           role="listbox"
           aria-label="Topics"
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto overscroll-contain rounded border border-border bg-surface shadow-lg"
+          className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface shadow-lg"
         >
           {results.length === 0 && (
             <li className="px-3 py-2 text-sm text-muted">

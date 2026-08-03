@@ -85,12 +85,12 @@ export default function SettingsClient({
   return (
     <div className="space-y-6">
       {error && (
-        <p role="alert" className="rounded border border-danger/40 px-3 py-2 text-sm text-danger">
+        <p role="alert" className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
       {notice && (
-        <p role="status" className="rounded border border-border bg-surface px-3 py-2 text-sm">
+        <p role="status" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm">
           {notice}
         </p>
       )}
@@ -98,7 +98,7 @@ export default function SettingsClient({
       {/* ---------------------------------------------------------------- */}
       <section
         aria-labelledby="trial-heading"
-        className="rounded border border-border bg-surface p-4"
+        className="card p-4"
       >
         <h2 id="trial-heading" className="text-sm font-medium">
           Free trial
@@ -121,7 +121,7 @@ export default function SettingsClient({
       {/* ---------------------------------------------------------------- */}
       <section
         aria-labelledby="cloud-heading"
-        className="rounded border border-border bg-surface p-4"
+        className="card p-4"
       >
         <h2 id="cloud-heading" className="text-sm font-medium">
           Your own API key
@@ -133,7 +133,7 @@ export default function SettingsClient({
 
         {cloud ? (
           <div className="mt-3 flex items-center gap-3">
-            <span className="flex-1 truncate rounded border border-border px-3 py-2 text-sm">
+            <span className="flex-1 truncate rounded-xl border border-border px-3 py-2 text-sm">
               {cloud.provider} · key ending {cloud.keyLast4}
             </span>
             <button
@@ -226,11 +226,11 @@ export default function SettingsClient({
       {/* ---------------------------------------------------------------- */}
       <section
         aria-labelledby="ollama-heading"
-        className="rounded border border-border bg-surface p-4"
+        className="card p-4"
       >
         <h2 id="ollama-heading" className="text-sm font-medium">
           Your own GPU (Ollama){' '}
-          <span className="ml-1 rounded border border-border px-1.5 py-0.5 text-xs font-normal text-muted">
+          <span className="ml-1 rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted">
             Not ready yet
           </span>
         </h2>
@@ -243,7 +243,7 @@ export default function SettingsClient({
 
         {ollama ? (
           <div className="mt-3 flex items-center gap-3">
-            <span className="min-w-0 flex-1 truncate rounded border border-border px-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 truncate rounded-xl border border-border px-3 py-2 text-sm">
               {ollama.ollamaBaseUrl} · {ollama.visionModelName}
             </span>
             <button
@@ -281,7 +281,7 @@ export default function SettingsClient({
                 Set <code>OLLAMA_ORIGINS</code> to <code>{appUrl}</code> and restart
                 Ollama. On Windows:
               </p>
-              <pre className="mt-2 overflow-x-auto rounded border border-border p-2 text-xs">
+              <pre className="mt-2 overflow-x-auto rounded-lg border border-border p-2 text-xs">
                 <code>{`setx OLLAMA_ORIGINS "${appUrl}"`}</code>
               </pre>
             </details>

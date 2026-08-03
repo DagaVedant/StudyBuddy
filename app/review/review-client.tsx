@@ -120,7 +120,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
 
   if (!item) {
     return (
-      <div className="rounded border border-border bg-surface p-6 text-center">
+      <div className="card p-6 text-center">
         <h2 className="font-medium">Session complete</h2>
         <p className="hint">
           You reviewed <span className="tabular-nums">{done}</span>{' '}
@@ -154,7 +154,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
         />
       </div>
 
-      <article className="rounded border border-border bg-surface p-5">
+      <article className="card p-5">
         {item.topicName && (
           <p className="mb-2 text-xs uppercase tracking-wide text-muted">
             {item.topicName}
@@ -169,7 +169,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
           <img
             src={`/api/files/${item.figureImageKey}`}
             alt="Figure for this question"
-            className="mt-4 max-h-64 w-auto rounded border border-border"
+            className="mt-4 max-h-64 w-auto rounded-xl border border-border"
           />
         )}
 
@@ -178,7 +178,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
             {item.choices.map((choice) => (
               <li
                 key={choice.id}
-                className={`rounded border px-3 py-2 text-sm ${
+                className={`rounded-xl border px-3 py-2 text-sm ${
                   revealed && choice.isCorrect
                     ? 'border-success text-success'
                     : revealed && choice.id === item.lastChoiceId
@@ -211,7 +211,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
               </p>
 
               {item.answerSource === 'ai_derived' && (
-                <p className="mt-2 rounded border border-border px-2 py-1 text-xs text-muted">
+                <p className="mt-2 rounded-lg border border-border px-2 py-1 text-xs text-muted">
                   AI-derived, not from an answer key. Double-check it.
                 </p>
               )}
@@ -236,7 +236,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
                 <div className="mt-1">
                   <button
                     type="button"
-                    className="rounded border border-border px-3 py-1.5 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+                    className="rounded-xl border border-border px-3 py-1.5 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
                     disabled={explaining}
                     onClick={() => void explain(item)}
                   >
@@ -256,7 +256,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
       {error && (
         <p
           role="alert"
-          className="rounded border border-danger/40 px-3 py-2 text-sm text-danger"
+          className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
         >
           {error}
         </p>
@@ -272,7 +272,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
                 type="button"
                 disabled={busy}
                 onClick={() => void rate(rating.value)}
-                className="flex flex-col items-center rounded border border-border px-2 py-2 text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+                className="flex flex-col items-center rounded-xl border border-border px-2 py-2 text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
               >
                 <span className="font-medium">{rating.label}</span>
                 <span className="text-xs text-muted">{rating.hint}</span>

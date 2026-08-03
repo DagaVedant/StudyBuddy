@@ -143,7 +143,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           addFiles(event.dataTransfer.files)
         }}
         aria-labelledby="add-heading"
-        className={`rounded border border-dashed p-6 text-center ${
+        className={`rounded-2xl border border-dashed p-6 text-center ${
           dragging ? 'border-accent bg-accent/5' : 'border-border'
         }`}
       >
@@ -212,7 +212,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           <h2 id="selected-heading" className="text-sm font-medium">
             Selected files
           </h2>
-          <ul className="mt-2 divide-y divide-border rounded border border-border">
+          <ul className="card mt-2 divide-y divide-border overflow-hidden">
             {files.map((file, index) => (
               <li
                 key={`${file.name}-${index}`}
@@ -359,7 +359,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
       {error && (
         <p
           role="alert"
-          className="rounded border border-danger/40 px-3 py-2 text-sm text-danger"
+          className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
         >
           {error}
         </p>
@@ -368,7 +368,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
       {progress && (
         <section
           aria-labelledby="progress-heading"
-          className="rounded border border-border bg-surface p-4"
+          className="card p-4"
         >
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="progress-heading" className="text-sm font-medium">

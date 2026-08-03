@@ -32,13 +32,13 @@ function SignInForm() {
       <p className="hint">Pick up where you left off.</p>
 
       {verified && (
-        <p role="status" className="mt-6 rounded border border-border bg-surface px-3 py-2 text-sm">
+        <p role="status" className="mt-6 rounded-xl border border-border bg-surface px-3 py-2 text-sm">
           Email verified. You can sign in now.
         </p>
       )}
 
       {message && (
-        <p role="alert" className="mt-6 rounded border border-danger/40 px-3 py-2 text-sm text-danger">
+        <p role="alert" className="mt-6 rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger">
           {message}
         </p>
       )}

@@ -109,7 +109,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
   if (phase === 'answers') {
     return (
       <div className="space-y-6">
-        <div className="rounded border border-border bg-surface px-4 py-3">
+        <div className="card px-4 py-3">
           <h2 className="text-sm font-medium">
             What did you put for the{' '}
             <span className="tabular-nums">{missed.length}</span> you missed?
@@ -124,7 +124,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
           {missed.map((question) => (
             <li
               key={question.id}
-              className="rounded border border-border bg-surface p-4"
+              className="card p-4"
             >
               <p className="text-sm">
                 <span className="tabular-nums text-muted">{question.ordinal}. </span>
@@ -142,7 +142,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
                       return (
                         <label
                           key={choice.id}
-                          className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm touch-manipulation has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
+                          className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm touch-manipulation has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
                             active
                               ? 'border-accent bg-accent/10'
                               : 'border-border hover:border-accent'
@@ -196,7 +196,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         {error && (
           <p
             role="alert"
-            className="rounded border border-danger/40 px-3 py-2 text-sm text-danger"
+            className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
           >
             {error}
           </p>
@@ -255,7 +255,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       </div>
 
       {marked >= questions.length ? (
-        <div className="rounded border border-border bg-surface p-6 text-center">
+        <div className="card p-6 text-center">
           <p className="font-medium">
             All <span className="tabular-nums">{questions.length}</span> marked.
           </p>
@@ -263,7 +263,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         </div>
       ) : (
         currentQuestion && (
-          <div className="rounded border border-accent bg-surface p-4">
+          <div className="rounded-2xl border-2 border-accent bg-surface p-4 shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)]">
             <p className="text-sm text-muted">
               Question <span className="tabular-nums">{currentQuestion.ordinal}</span> of{' '}
               <span className="tabular-nums">{questions.length}</span>
@@ -280,7 +280,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
                     key={outcome.value}
                     type="button"
                     title={outcome.hint}
-                    className="flex flex-col items-center rounded border border-border px-2 py-3 text-center text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="flex flex-col items-center rounded-xl border border-border px-2 py-3 text-center text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     onClick={() => mark(currentQuestion.id, outcome.value, cursor)}
                   >
                     {outcome.label}
@@ -306,7 +306,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       {error && (
         <p
           role="alert"
-          className="rounded border border-danger/40 px-3 py-2 text-sm text-danger"
+          className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
         >
           {error}
         </p>

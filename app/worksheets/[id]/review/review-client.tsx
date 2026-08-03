@@ -241,7 +241,7 @@ export default function ReviewClient({
 
   if (!page) {
     return (
-      <p className="rounded border border-border bg-surface px-4 py-6 text-sm text-muted">
+      <p className="card px-4 py-6 text-sm text-muted">
         This worksheet has no pages. Upload it again.
       </p>
     )
@@ -265,7 +265,7 @@ export default function ReviewClient({
           <div className="flex shrink-0 gap-2">
             <button
               type="button"
-              className="rounded border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+              className="rounded-xl border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
               disabled={pageIndex === 0}
               onClick={() => setPageIndex((index) => index - 1)}
             >
@@ -273,7 +273,7 @@ export default function ReviewClient({
             </button>
             <button
               type="button"
-              className="rounded border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+              className="rounded-xl border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
               disabled={pageIndex >= pages.length - 1}
               onClick={() => setPageIndex((index) => index + 1)}
             >
@@ -283,7 +283,7 @@ export default function ReviewClient({
         </div>
 
         <div
-          className="relative touch-none select-none overflow-hidden rounded border border-border bg-surface lg:sticky lg:top-4"
+          className="card relative touch-none select-none overflow-hidden lg:sticky lg:top-4"
           onPointerDown={(event) => {
             if (event.button !== 0) return
             event.currentTarget.setPointerCapture(event.pointerId)
@@ -391,14 +391,14 @@ export default function ReviewClient({
         {error && (
           <p
             role="alert"
-            className="rounded border border-danger/40 px-3 py-2 text-sm text-danger"
+            className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
           >
             {error}
           </p>
         )}
 
         {questions.length === 0 && (
-          <p className="rounded border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
+          <p className="rounded-2xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
             Nothing was picked up from this page. Drag a box around a question to
             add it by hand.
           </p>
@@ -417,8 +417,8 @@ export default function ReviewClient({
                   if (node) cardRefs.current.set(question.id, node)
                   else cardRefs.current.delete(question.id)
                 }}
-                className={`rounded border bg-surface ${
-                  question.id === selectedId ? 'border-accent' : 'border-border'
+                className={`rounded-2xl border bg-surface shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] ${
+                  question.id === selectedId ? 'border-accent' : 'border-transparent'
                 }`}
               >
                 {/* Summary — what the AI actually pulled off the page. */}
@@ -443,7 +443,7 @@ export default function ReviewClient({
                       {question.choices.map((choice, index) => (
                         <li
                           key={index}
-                          className={`rounded border px-1.5 py-0.5 text-xs ${
+                          className={`rounded-full border px-2 py-0.5 text-xs ${
                             choice.isCorrect
                               ? 'border-success text-success'
                               : 'border-border text-muted'
@@ -589,7 +589,7 @@ export default function ReviewClient({
                         {question.choices.length < CHOICE_LABELS.length && (
                           <button
                             type="button"
-                            className="mt-2 rounded border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                            className="mt-2 rounded-xl border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                             onClick={() =>
                               update(question.id, {
                                 choices: [
