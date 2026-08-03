@@ -1,21 +1,15 @@
-import { createServer, type Server } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import { PGlite } from '@electric-sql/pglite'
 import { vector } from '@electric-sql/pglite-pgvector'
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket'
-import postgres from 'postgres'
 
 export const E2E_PORT = 55432
 export const E2E_DATABASE_URL = `postgres://postgres:postgres@127.0.0.1:${E2E_PORT}/postgres`
 
-export const CONTROL_PORT = 55433
-export const CONTROL_URL = `http://127.0.0.1:${CONTROL_PORT}`
-
 let db: PGlite | null = null
 let server: PGLiteSocketServer | null = null
-let control: Server | null = null
 
 interface Journal {
   entries: { idx: number; tag: string }[]
@@ -76,27 +70,6 @@ async function seedTopics(client: PGlite): Promise<void> {
   }
 }
 
-async function runOverSocket(
-  sql: string,
-  params: unknown[],
-): Promise<Record<string, unknown>[]> {
-  const client = postgres(E2E_DATABASE_URL, {
-    max: 1,
-    prepare: false,
-    idle_timeout: 1,
-    connect_timeout: 20,
-  })
-
-  try {
-    return (await client.unsafe(sql, params as never)) as unknown as Record<
-      string,
-      unknown
-    >[]
-  } finally {
-    await client.end({ timeout: 5 }).catch(() => {})
-  }
-}
-
 export async function startDatabase(): Promise<void> {
   db = await PGlite.create({ extensions: { vector } })
   await db.exec('CREATE EXTENSION IF NOT EXISTS vector;')
@@ -104,55 +77,20 @@ export async function startDatabase(): Promise<void> {
   await applyMigration(db)
   await seedTopics(db)
 
+  // maxConnections stays at its default of 1: PGlite only tolerates one live
+  // session over this socket. A second connection (even a persistent one
+  // opened once) corrupts the first rather than being safely queued, despite
+  // the library advertising multi-connection support. Anything the test
+  // process needs to read or write goes through the app's own connection via
+  // the app/api/test/* routes instead of a rival connection here.
   server = new PGLiteSocketServer({ db, port: E2E_PORT, host: '127.0.0.1' })
   await server.start()
-
-  control = createServer((request, response) => {
-    if (request.method !== 'POST') {
-      response.writeHead(405).end()
-      return
-    }
-
-    let body = ''
-    request.on('data', (chunk) => {
-      body += chunk
-    })
-
-    request.on('end', async () => {
-      try {
-        const { sql, params } = JSON.parse(body) as {
-          sql: string
-          params?: unknown[]
-        }
-
-        const result = await runOverSocket(sql, params ?? [])
-
-        response
-          .writeHead(200, { 'Content-Type': 'application/json' })
-          .end(JSON.stringify({ rows: result }))
-      } catch (error) {
-        response
-          .writeHead(500, { 'Content-Type': 'application/json' })
-          .end(JSON.stringify({ error: (error as Error).message }))
-      }
-    })
-  })
-
-  await new Promise<void>((resolve) =>
-    control!.listen(CONTROL_PORT, '127.0.0.1', resolve),
-  )
 }
 
 export async function stopDatabase(): Promise<void> {
-  await new Promise<void>((resolve) => {
-    if (!control) return resolve()
-    control.close(() => resolve())
-  })
-
   await server?.stop()
   await db?.close()
 
-  control = null
   server = null
   db = null
 }

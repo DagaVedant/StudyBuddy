@@ -1,20 +1,6 @@
 import { expect, type Page } from '@playwright/test'
 
-import { CONTROL_URL } from './database'
 import { worksheetPdf } from './pdf'
-
-async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-  const response = await fetch(CONTROL_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sql, params }),
-  })
-
-  const body = (await response.json()) as { rows?: T[]; error?: string }
-  if (!response.ok) throw new Error(body.error ?? 'Control query failed')
-
-  return body.rows ?? []
-}
 
 export async function closeDbClient(): Promise<void> {}
 
@@ -54,13 +40,13 @@ export async function registerAndSignIn(
 
   await expect(statusBox(page)).toContainText('verification link')
 
-  const rows = await query<{ token: string }>(
-    'select token from verification_tokens where identifier = $1 limit 1',
-    [email],
+  const tokenResponse = await page.request.get(
+    `/api/test/verification-token?email=${encodeURIComponent(email)}`,
   )
-  if (rows.length === 0) throw new Error(`No verification token issued for ${email}`)
+  if (!tokenResponse.ok()) throw new Error(`No verification token issued for ${email}`)
+  const { token } = (await tokenResponse.json()) as { token: string }
 
-  await page.goto(`/verify?token=${rows[0].token}&email=${encodeURIComponent(email)}`)
+  await page.goto(`/verify?token=${token}&email=${encodeURIComponent(email)}`)
   await expect(statusBox(page)).toContainText('Email verified')
 
   await page.getByLabel('Email').fill(email)
@@ -89,11 +75,12 @@ export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Pr
 }
 
 export async function setTrialWorksheetsUsed(
+  page: Page,
   email: string,
   used: number,
 ): Promise<void> {
-  await query('update users set trial_worksheets_used = $1 where email = $2', [
-    used,
-    email,
-  ])
+  const response = await page.request.post('/api/test/trial-worksheets-used', {
+    data: { email, used },
+  })
+  if (!response.ok()) throw new Error(`Could not set trial usage for ${email}`)
 }
