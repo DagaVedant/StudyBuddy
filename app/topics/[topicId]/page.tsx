@@ -126,7 +126,7 @@ export default async function TopicPage({
 
       <section
         aria-labelledby="mastery-heading"
-        className="rounded border border-border bg-surface p-4"
+        className="card p-4"
       >
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="mastery-heading" className="text-sm font-medium">
@@ -172,7 +172,7 @@ export default async function TopicPage({
         </p>
 
         {vault.length === 0 ? (
-          <p className="rounded border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
+          <p className="rounded-2xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
             Nothing to revisit here. You have not missed a question in this topic.
           </p>
         ) : (
@@ -186,14 +186,14 @@ export default async function TopicPage({
               return (
                 <li
                   key={`${row.questionId}-${index}`}
-                  className="rounded border border-border bg-surface p-3"
+                  className="card p-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="min-w-0 flex-1 whitespace-pre-line text-sm">
                       {row.promptText}
                     </p>
                     <span
-                      className={`shrink-0 rounded border px-1.5 py-0.5 text-xs ${
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-xs ${
                         OUTCOME_STYLE[row.outcome] ?? 'border-border text-muted'
                       }`}
                     >

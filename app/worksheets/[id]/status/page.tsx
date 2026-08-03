@@ -65,7 +65,7 @@ export default async function StatusPage({
 
       {failed ? (
         <>
-          <p className="mt-6 rounded border border-danger/40 px-3 py-2 text-sm text-danger">
+          <p className="mt-6 rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger">
             {job?.error ?? 'Processing failed.'} This worksheet was not counted
             against your trial.
           </p>

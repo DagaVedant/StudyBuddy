@@ -93,7 +93,7 @@ export default async function WorksheetsPage() {
       </p>
 
       {rows.length === 0 ? (
-        <p className="rounded border border-dashed border-border px-4 py-12 text-center text-sm text-muted">
+        <p className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted">
           Nothing uploaded yet. Your worksheets will appear here once you add one.
         </p>
       ) : (
@@ -104,7 +104,7 @@ export default async function WorksheetsPage() {
             return (
               <li
                 key={sheet.id}
-                className="flex flex-col overflow-hidden rounded border border-border bg-surface"
+                className="card flex flex-col overflow-hidden"
               >
                 <Link
                   href={href}
