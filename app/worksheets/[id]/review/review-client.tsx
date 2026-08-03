@@ -92,6 +92,7 @@ export default function ReviewClient({
 
   const imageRef = useRef<HTMLImageElement>(null)
   const dragStart = useRef<{ x: number; y: number } | null>(null)
+  const draftRef = useRef<BBox | null>(null)
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const cardRefs = useRef(new Map<string, HTMLLIElement>())
 
@@ -288,22 +289,30 @@ export default function ReviewClient({
             event.currentTarget.setPointerCapture(event.pointerId)
             const point = toPageCoords(event)
             dragStart.current = point
-            setDraft([point.x, point.y, point.x, point.y])
+            const box: BBox = [point.x, point.y, point.x, point.y]
+            draftRef.current = box
+            setDraft(box)
           }}
           onPointerMove={(event) => {
             if (!dragStart.current) return
             const point = toPageCoords(event)
             const start = dragStart.current
-            setDraft([
+            const box: BBox = [
               Math.min(start.x, point.x),
               Math.min(start.y, point.y),
               Math.max(start.x, point.x),
               Math.max(start.y, point.y),
-            ])
+            ]
+            draftRef.current = box
+            setDraft(box)
           }}
           onPointerUp={() => {
-            const box = draft
+            // Reads the ref, not the `draft` state closure: a pointerup that
+            // arrives before React commits the last pointermove's setDraft
+            // would otherwise see a stale (often zero-size) box.
+            const box = draftRef.current
             dragStart.current = null
+            draftRef.current = null
             setDraft(null)
             if (!box) return
             if (box[2] - box[0] < MIN_DRAG_PX || box[3] - box[1] < MIN_DRAG_PX) return
