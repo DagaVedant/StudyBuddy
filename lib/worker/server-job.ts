@@ -5,6 +5,7 @@ import { classifyWorksheet } from '@/lib/classify'
 import type { Db } from '@/lib/dashboard/queries'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, completeJob, failJob } from '@/lib/queue'
+import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
 import { runExtraction } from '@/lib/worker/ingest'
 
 type Resolver = (db: Db, userId: string) => Promise<ResolvedProvider>
@@ -77,6 +78,9 @@ async function runOneServerJob(
 
   try {
     await runExtraction(db, provider, job)
+
+    // Same repair the GPU path gets when it enters its verifying phase.
+    await mergeDuplicateQuestions(db, job.worksheetId)
 
     const [worksheet] = await db
       .select({ subjectHint: worksheets.subjectHint })

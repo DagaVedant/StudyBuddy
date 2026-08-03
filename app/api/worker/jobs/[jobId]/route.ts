@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { processingJobs, worksheetPages, worksheets } from '@/lib/db/schema'
 import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
+import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
 import { persistQuestions } from '@/lib/worker/ingest'
 import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
 
@@ -82,6 +83,15 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   if (body.action === 'phase') {
+    // Done before the audit reads the numbering, so it audits a repaired run
+    // rather than chasing a gap a phantom row created.
+    if (body.phase === 'verifying') {
+      const { merged } = await mergeDuplicateQuestions(client, job.worksheetId)
+      if (merged > 0) {
+        console.log(`[dedupe] folded ${merged} duplicate question(s) on ${job.worksheetId}`)
+      }
+    }
+
     await checkpointJob(
       client,
       jobId,
