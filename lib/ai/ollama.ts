@@ -24,6 +24,23 @@ import {
   type TopicCandidate,
 } from './types'
 
+/**
+ * Timing and token counts Ollama reports alongside every reply.
+ *
+ * Durations are nanoseconds, which is what the API returns; dividing
+ * evalCount by evalDurationNs gives generation tokens per second.
+ */
+export interface OllamaCallStats {
+  model: string
+  promptTokens: number
+  evalTokens: number
+  promptDurationNs: number
+  evalDurationNs: number
+  totalDurationNs: number
+  /** Time spent bringing the model into memory — large when it is offloaded. */
+  loadDurationNs: number
+}
+
 export interface OllamaOptions {
   baseUrl: string
   visionModel: string
@@ -35,6 +52,14 @@ export interface OllamaOptions {
 
   contextTokens?: number
   maxOutputTokens?: number
+
+  /**
+   * Observability hook, unset in normal use. Ollama reports token counts and
+   * durations on every reply and the provider used to drop them; the
+   * benchmark needs them to report tokens/sec, and there is no way to
+   * recover them after the fact.
+   */
+  onStats?: (stats: OllamaCallStats) => void
 }
 
 export class OllamaProvider implements AIProvider {
@@ -49,6 +74,7 @@ export class OllamaProvider implements AIProvider {
   private readonly timeoutMs: number
   private readonly contextTokens: number
   private readonly maxOutputTokens: number
+  private readonly onStats?: (stats: OllamaCallStats) => void
 
   constructor(options: OllamaOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '')
@@ -58,6 +84,7 @@ export class OllamaProvider implements AIProvider {
     this.fetchImpl = options.fetchImpl ?? fetch
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
 
+    this.onStats = options.onStats
     this.contextTokens = options.contextTokens ?? 32_768
     this.maxOutputTokens = options.maxOutputTokens ?? 8_192
   }
@@ -102,7 +129,26 @@ export class OllamaProvider implements AIProvider {
         )
       }
 
-      const body = (await response.json()) as { message?: { content?: string } }
+      const body = (await response.json()) as {
+        message?: { content?: string }
+        prompt_eval_count?: number
+        eval_count?: number
+        prompt_eval_duration?: number
+        eval_duration?: number
+        total_duration?: number
+        load_duration?: number
+      }
+
+      this.onStats?.({
+        model,
+        promptTokens: body.prompt_eval_count ?? 0,
+        evalTokens: body.eval_count ?? 0,
+        promptDurationNs: body.prompt_eval_duration ?? 0,
+        evalDurationNs: body.eval_duration ?? 0,
+        totalDurationNs: body.total_duration ?? 0,
+        loadDurationNs: body.load_duration ?? 0,
+      })
+
       const content = body.message?.content
       if (!content) throw new Error('Ollama returned an empty response.')
 
