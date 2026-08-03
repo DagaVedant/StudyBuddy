@@ -1,14 +1,28 @@
-import { pipeline, type FeatureExtractionPipeline } from '@huggingface/transformers'
+import type { FeatureExtractionPipeline } from '@huggingface/transformers'
 
 export const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
 export const EMBEDDING_DIMENSIONS = 384
 
 let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
 
+/**
+ * Imported at call time, not at module load.
+ *
+ * @huggingface/transformers pulls in onnxruntime-node, which dlopen()s a
+ * native .so. A top-level import therefore takes down every route that
+ * transitively reaches this file — including ones that never embed anything —
+ * the moment that library is missing, which is exactly what happens on a
+ * serverless host that did not trace the binary into the bundle. Keeping the
+ * import inside the function means only code that actually needs an embedding
+ * can be hurt by its absence.
+ */
 async function getExtractor(): Promise<FeatureExtractionPipeline> {
-  extractorPromise ??= pipeline('feature-extraction', EMBEDDING_MODEL, {
-    dtype: 'q8',
-  }) as Promise<FeatureExtractionPipeline>
+  extractorPromise ??= import('@huggingface/transformers').then(
+    ({ pipeline }) =>
+      pipeline('feature-extraction', EMBEDDING_MODEL, {
+        dtype: 'q8',
+      }) as Promise<FeatureExtractionPipeline>,
+  )
 
   return extractorPromise
 }

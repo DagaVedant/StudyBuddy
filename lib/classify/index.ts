@@ -28,7 +28,23 @@ export async function shortlistTopics(
   subjectHint?: string | null,
   limit = SHORTLIST_SIZE,
 ): Promise<TopicCandidate[]> {
-  const vector = await embed(questionText)
+  // No shortlist without an embedding, and no embedding on a host that cannot
+  // load onnxruntime's native library. Returning empty routes that into the
+  // "no candidates" path callers already handle (the question ends up
+  // untagged) instead of failing the whole request — but it is logged rather
+  // than swallowed, because every question going untagged is a broken
+  // dashboard, not a normal outcome.
+  let vector: number[]
+  try {
+    vector = await embed(questionText)
+  } catch (error) {
+    console.error(
+      '[classify] embedding unavailable, leaving question untagged:',
+      (error as Error).message,
+    )
+    return []
+  }
+
   const literal = `[${vector.join(',')}]`
 
   const rows = await db
