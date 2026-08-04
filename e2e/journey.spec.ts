@@ -62,11 +62,21 @@ test('dragging a region creates a question with its text filled in', async () =>
 test('a topic can be assigned from the canonical tree', async () => {
   await page.getByRole('combobox', { name: 'Topic' }).fill('triangle angle')
 
-  const option = page.getByRole('option').first()
+  // Scoped to the picker's own listbox: an unscoped option lookup matches the
+  // question-type <select> first, whose native options a browser reports as
+  // hidden, so the test failed on an element it was never looking for.
+  const option = page
+    .getByRole('listbox', { name: 'Topics' })
+    .getByRole('option')
+    .first()
+
   await expect(option).toBeVisible()
   await option.click()
 
-  await expect(page.getByText(/Triangle angle sum/)).toBeVisible()
+  // The chosen topic is shown twice once assigned — beside the question in the
+  // list, and as the full path in the editor — so this says which one it means
+  // rather than failing for matching both.
+  await expect(page.getByText(/Triangle angle sum/).first()).toBeVisible()
 })
 
 test('answer choices can be added and one marked correct', async () => {
@@ -82,7 +92,7 @@ test('answer choices can be added and one marked correct', async () => {
 })
 
 test('confirming moves the worksheet to markup', async () => {
-  await page.getByRole('button', { name: /Confirm 1 Question/ }).click()
+  await page.getByRole('button', { name: /Looks Right, Mark \d+ Question/ }).click()
 
   await page.waitForURL(/\/worksheets\/[^/]+\/markup/, { timeout: 30_000 })
   await expect(page.getByRole('heading', { name: 'How Did You Do?' })).toBeVisible()
@@ -96,7 +106,9 @@ test('marking a miss prompts for the answer actually given', async () => {
   await page.getByRole('button', { name: 'Next: What You Put' }).click()
   await expect(page.getByText(/What did you put/)).toBeVisible()
 
-  await page.getByText('105').click()
+  // Exact, because the question stem quotes every option, so a loose match
+  // finds the prompt before it finds the choice.
+  await page.getByText('105', { exact: true }).click()
   await page.getByRole('button', { name: 'Save and Finish' }).click()
 
   await page.waitForURL('**/dashboard', { timeout: 30_000 })
