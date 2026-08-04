@@ -17,7 +17,6 @@ function SignInForm() {
   const params = useSearchParams()
   const next = params.get('next') ?? '/dashboard'
   const linkError = params.get('error')
-  const verified = params.get('verified')
 
   const [state, action, pending] = useActionState<FormState, FormData>(
     signInWithCredentials,
@@ -31,12 +30,6 @@ function SignInForm() {
       <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
       <p className="hint">Pick up where you left off.</p>
 
-      {verified && (
-        <p role="status" className="mt-6 rounded-xl border border-border bg-surface px-3 py-2 text-sm">
-          Email verified. You can sign in now.
-        </p>
-      )}
-
       {message && (
         <p role="alert" className="mt-6 rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger">
           {message}
@@ -44,14 +37,14 @@ function SignInForm() {
       )}
 
       <form action={signInWithGoogle} className="mt-6">
-        <button type="submit" className="btn btn-secondary">
+        <button type="submit" className="btn btn-primary">
           Continue with Google
         </button>
       </form>
 
       <div className="my-6 flex items-center gap-3 text-sm text-muted">
         <span className="h-px flex-1 bg-border" />
-        or
+        or use a password
         <span className="h-px flex-1 bg-border" />
       </div>
 
@@ -86,7 +79,7 @@ function SignInForm() {
           />
         </div>
 
-        <button type="submit" className="btn btn-primary" disabled={pending}>
+        <button type="submit" className="btn btn-secondary" disabled={pending}>
           {pending ? 'Signing in…' : 'Sign in'}
         </button>
       </form>

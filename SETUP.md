@@ -46,7 +46,7 @@ While you're in there, set your real admin emails:
 ADMIN_EMAILS="your@email.com,avya@email.com"
 ```
 
-Admin is granted at login by matching the **verified** email against this list.
+Admin is granted at login by matching the signed-in email against this list.
 It gives you unlimited upload length and the topic-proposal queue at
 `/admin/topics`. There is deliberately no way to grant it from the UI.
 
@@ -80,10 +80,6 @@ npm run dev
 ```
 
 Open http://localhost:3000 and create an account.
-
-**Verifying your email locally:** with no email provider configured, the
-verification link is printed to the terminal running `npm run dev`. Look for a
-line starting `[mail]` and open the URL in it.
 
 That's a working app. Everything below is deployment and extras.
 
@@ -147,7 +143,7 @@ In your Vercel project: **Storage → Create → Blob**. Vercel injects
 ### 6b. Point the app at its real URL
 
 Once you know the deployed URL, set `NEXT_PUBLIC_APP_URL` to it and redeploy.
-Email links and the GPU worker both use this value.
+The GPU worker uses this value, as do the OAuth callbacks.
 
 ---
 
@@ -155,7 +151,9 @@ Email links and the GPU worker both use this value.
 
 ### Google sign-in and sign-up
 
-Email/password works without this. "Continue with Google" appears on both
+**Set this up.** It is the recommended way in and the only one that proves a
+user owns their address — see "Why there is no email set-up step" below.
+"Continue with Google" leads on both
 `/signin` and `/signup` — it's the same button either way, since Google never
 distinguishes the two: a first-time click creates the account automatically.
 
@@ -175,13 +173,17 @@ distinguishes the two: a first-time click creates the account automatically.
    locally and on Vercel. `auth.ts` sets `trustHost: true`, so nothing else
    (like an `AUTH_URL`) is needed for Vercel to compute the right callback URL.
 
-### Real verification emails
+### Why there is no email set-up step
 
-Without this, links print to the server console — fine locally, not fine for
-real users.
+There is no email at all. Sending to arbitrary addresses needs a domain you
+own, so that SPF and DKIM records can be published for it, and a free
+`*.vercel.app` subdomain cannot carry those records — no provider will accept
+it. Rather than ship a signup flow that only works for one inbox, the app does
+without.
 
-1. **https://resend.com** → sign up, verify a domain
-2. Set `RESEND_API_KEY` and `EMAIL_FROM` on Vercel
+The consequence: **Google is the only way to prove an address**, so it is the
+recommended way in. A password account is created ready to use and is never
+verified, which also means there is no password reset — nothing can send one.
 
 ---
 
