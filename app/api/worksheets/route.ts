@@ -3,8 +3,10 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
+import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
+import { UPLOAD_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 import { MAX_PAGES_PER_UPLOAD, pageCapFor } from '@/lib/upload/limits'
 
 const createSchema = z.object({
@@ -19,6 +21,22 @@ export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Keyed by account rather than by IP: uploading needs a session, and a
+  // shared school connection should not have one student's stack of homework
+  // lock out everyone else on it.
+  const allowance = await consumeRateLimit(
+    db as unknown as Db,
+    UPLOAD_LIMIT,
+    `user:${session.user.id}`,
+  )
+
+  if (!allowance.ok) {
+    return NextResponse.json(
+      { error: "That's a lot of uploads in one go. Try again shortly." },
+      { status: 429, headers: { 'Retry-After': String(allowance.retryAfter) } },
+    )
   }
 
   const parsed = createSchema.safeParse(await request.json())

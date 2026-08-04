@@ -9,6 +9,7 @@ import { auth } from '@/auth'
 import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { answerChoices, attempts, explanations, questions } from '@/lib/db/schema'
+import { EXPLAIN_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 
 const schema = z.object({ questionId: z.string().min(1) })
 
@@ -25,6 +26,17 @@ export async function POST(request: Request) {
 
   const userId = session.user.id
   const client = db as unknown as Db
+
+  // Every one of these is a model call. The trial quota already caps trial
+  // accounts; this caps the ones paying with someone else's key or the
+  // operator's GPU, which nothing else was bounding.
+  const allowance = await consumeRateLimit(client, EXPLAIN_LIMIT, `user:${userId}`)
+  if (!allowance.ok) {
+    return NextResponse.json(
+      { error: 'You have asked for a lot of explanations. Try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(allowance.retryAfter) } },
+    )
+  }
 
   const [question] = await db
     .select()
