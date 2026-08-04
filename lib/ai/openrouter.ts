@@ -1,10 +1,12 @@
+import { appBaseUrl } from '@/lib/app-url'
+
 import { OpenAIProvider } from './openai'
 
 export class OpenRouterProvider extends OpenAIProvider {
   constructor(
     apiKey: string,
     model = 'google/gemini-2.5-flash',
-    appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    appUrl = appBaseUrl(),
     fetchImpl: typeof fetch = fetch,
   ) {
     super(apiKey, model, {
