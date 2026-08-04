@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { getTrialState } from '@/lib/ai/quota'
+import { appBaseUrl } from '@/lib/app-url'
 import { getCredentialSummary } from '@/lib/ai/resolve'
 import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
@@ -46,7 +47,7 @@ export default async function SettingsPage() {
           explanationsRemaining: trial.explanationsRemaining,
         }}
         workerOnline={worker.online}
-        appUrl={process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}
+        appUrl={appBaseUrl()}
       />
     </main>
   )

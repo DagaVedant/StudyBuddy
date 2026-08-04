@@ -1,3 +1,5 @@
+import { appBaseUrl } from '@/lib/app-url'
+
 interface SendArgs {
   to: string
   subject: string
@@ -31,8 +33,7 @@ async function send({ to, subject, text }: SendArgs): Promise<void> {
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  const url = `${base}/verify?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
+  const url = `${appBaseUrl()}/verify?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
 
   await send({
     to: email,
