@@ -6,7 +6,13 @@ import { refundTrial } from '@/lib/ai/quota'
 import { extractedQuestionSchema } from '@/lib/ai/types'
 import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
-import { processingJobs, questions, worksheetPages, worksheets } from '@/lib/db/schema'
+import {
+  explanations,
+  processingJobs,
+  questions,
+  worksheetPages,
+  worksheets,
+} from '@/lib/db/schema'
 import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
 import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
@@ -38,6 +44,14 @@ const bodySchema = z.discriminatedUnion('action', [
     pageId: z.string().min(1),
     replace: z.array(z.string().uuid()).max(100),
     questions: z.array(extractedQuestionSchema).max(100),
+  }),
+  z.object({
+    action: z.literal('explanation'),
+    questionId: z.string().uuid(),
+    attemptId: z.string().uuid().nullish(),
+    bodyMd: z.string().min(1).max(6000),
+    misconceptionNote: z.string().max(400).nullish(),
+    model: z.string().max(200),
   }),
   z.object({ action: z.literal('complete') }),
   z.object({ action: z.literal('fail'), message: z.string().max(2000) }),
@@ -164,6 +178,31 @@ export async function POST(request: Request, { params }: Params) {
       kept: suspects.length - replaceable.length,
       restored,
     })
+  }
+
+  if (body.action === 'explanation') {
+    const [question] = await db
+      .select({ id: questions.id })
+      .from(questions)
+      .where(and(eq(questions.id, body.questionId), eq(questions.userId, job.userId)))
+      .limit(1)
+
+    if (!question) {
+      return NextResponse.json({ error: 'Question does not belong to this job' }, { status: 400 })
+    }
+
+    await db.insert(explanations).values({
+      questionId: body.questionId,
+      attemptId: body.attemptId ?? null,
+      bodyMd: body.bodyMd,
+      misconceptionNote: body.misconceptionNote ?? null,
+      // Left null: the column names a cloud vendor, and this came off the
+      // operator's own GPU, which is not one of them.
+      provider: null,
+      model: body.model,
+    })
+
+    return NextResponse.json({ ok: true })
   }
 
   if (body.action === 'complete') {

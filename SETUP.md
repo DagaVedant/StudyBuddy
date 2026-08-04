@@ -291,15 +291,6 @@ start it, or let the trial run out and it falls through to the manual editor.
 
 ## Known gaps
 
-- **Trial explanations don't work.** The job-stage enum has an `'explain'`
-  value for running this asynchronously on the operator GPU, same as
-  extraction, but nothing enqueues or processes one — the endpoint calls the
-  provider synchronously, and a trial account resolves to a placeholder
-  provider that always refuses. A trial student asking for an explanation
-  gets "No AI is set up for your account," which is wrong.
-- **Accepting a topic proposal in the admin queue is a no-op.** It flips the
-  proposal's status; nothing reads that status to actually add the topic to
-  the tree. The review UI is real, the effect isn't.
 - **Tier C (student's own Ollama) is not wired.** Settings saves the config and
   the provider exists, but the browser does not yet drive extraction through
   it; those uploads land in the manual editor.
@@ -313,6 +304,12 @@ start it, or let the trial run out and it falls through to the manual editor.
   through a worker; both need the 290 topic embeddings recomputed with
   whatever model replaces the current one, since vectors from different
   models are not comparable.
-- **No abuse controls anywhere** — no rate limiting on signup, upload, or any
-  other endpoint.
+- **Rate limiting covers signup, verification email, upload and explain only.**
+  Everything else — rating a card, editing a question, saving credentials — is
+  unbounded. Those all need a session and only touch the caller's own rows, so
+  the exposure is small, but it is not zero.
+- **A trial explanation needs the GPU worker running.** It is queued rather
+  than generated on the spot, because the worker dials out and this site
+  cannot call into it. With the worker down the request queues and the student
+  waits about three minutes before being told to come back to it.
 - **AI-generated practice questions** are deferred to v2 by design (spec §9).

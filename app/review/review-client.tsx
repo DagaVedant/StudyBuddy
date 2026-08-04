@@ -31,6 +31,40 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
     return generated[entry.questionId] ?? entry.explanation?.body ?? null
   }
 
+  /**
+   * Waits for an explanation the GPU worker is generating.
+   *
+   * Trial accounts run on the operator's own machine, which this site cannot
+   * call directly, so the answer is queued and collected. Polling is on GET
+   * rather than POST so waiting does not spend the hourly request budget or
+   * charge the trial quota again.
+   */
+  async function waitForExplanation(questionId: string): Promise<string> {
+    const deadline = Date.now() + 3 * 60_000
+
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      const response = await fetch(
+        `/api/explain?questionId=${encodeURIComponent(questionId)}`,
+      )
+      const body = (await response.json()) as {
+        status?: 'ready' | 'queued' | 'none'
+        explanation?: { body: string }
+      }
+
+      if (body.status === 'ready' && body.explanation) return body.explanation.body
+
+      if (body.status === 'none') {
+        throw new Error('That explanation did not come through. Try again.')
+      }
+    }
+
+    throw new Error(
+      'The tutor is taking longer than usual. It will be here when you come back to this question.',
+    )
+  }
+
   async function explain(entry: ReviewItem) {
     setExplaining(true)
     setExplainError(null)
@@ -43,14 +77,17 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
       })
       const body = (await response.json()) as {
         explanation?: { body: string }
+        status?: string
         error?: string
       }
-      if (!response.ok) throw new Error(body.error ?? 'Could not generate that.')
+      if (!response.ok && response.status !== 202) {
+        throw new Error(body.error ?? 'Could not generate that.')
+      }
 
-      setGenerated((current) => ({
-        ...current,
-        [entry.questionId]: body.explanation!.body,
-      }))
+      const text =
+        body.explanation?.body ?? (await waitForExplanation(entry.questionId))
+
+      setGenerated((current) => ({ ...current, [entry.questionId]: text }))
     } catch (cause) {
       setExplainError((cause as Error).message)
     } finally {

@@ -19,6 +19,13 @@ export interface EnqueueArgs {
   stage: JobStage
   executor: JobExecutor
   priority?: JobPriority
+  /**
+   * Work the stage needs that the worksheet id does not carry.
+   *
+   * Extraction needs nothing here, since the worksheet is the whole job. An
+   * explanation is about one question, and this is where it says which.
+   */
+  checkpoint?: Record<string, unknown>
 }
 
 export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {
@@ -31,10 +38,38 @@ export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {
       executor: args.executor,
       priority: args.priority ?? 'normal',
       status: 'pending',
+      checkpoint: args.checkpoint ?? null,
     })
     .returning({ id: processingJobs.id })
 
   return row.id
+}
+
+/**
+ * An explain job already waiting for this question, if there is one.
+ *
+ * Clicking twice while the worker is busy should join the queue once rather
+ * than book the GPU twice for the same answer.
+ */
+export async function pendingExplainJob(
+  db: Db,
+  userId: string,
+  questionId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ id: processingJobs.id })
+    .from(processingJobs)
+    .where(
+      and(
+        eq(processingJobs.userId, userId),
+        eq(processingJobs.stage, 'explain'),
+        sql`${processingJobs.status} in ('pending', 'running')`,
+        sql`${processingJobs.checkpoint} ->> 'questionId' = ${questionId}`,
+      ),
+    )
+    .limit(1)
+
+  return row?.id ?? null
 }
 
 export interface ClaimedJob {
