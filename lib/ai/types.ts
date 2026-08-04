@@ -113,6 +113,28 @@ export const explanationSchema = z.object({
 
 export type Explanation = z.infer<typeof explanationSchema>
 
+export interface ReviewCandidate {
+  /** The number printed on the page, which is how the verdict points back. */
+  number: number
+  prompt_text: string
+  choices: { label: string; text: string }[]
+}
+
+export const questionReviewSchema = z.object({
+  number: z.coerce
+    .number()
+    .catch(0)
+    .transform((value) => (Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0)),
+  intact: z.boolean(),
+  reason: z.string().max(400).nullable().default(null),
+})
+
+export const reviewResultSchema = z.object({
+  verdicts: z.array(questionReviewSchema).max(100).default([]),
+})
+
+export type QuestionReview = z.infer<typeof questionReviewSchema>
+
 export interface PageInput {
 
   image: Uint8Array
@@ -148,6 +170,16 @@ export interface AIProvider {
   extractQuestions(page: PageInput): Promise<ExtractedQuestion[]>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<Classification>
   explain(input: ExplainInput): Promise<Explanation>
+
+  /**
+   * A second opinion on whether extracted questions came out whole.
+   *
+   * Optional because it is worth doing only where a second model is already
+   * paid for and idle — the operator's GPU. Callers must treat its absence as
+   * "no opinion" rather than as a failure, and a provider that cannot do it is
+   * not a worse provider.
+   */
+  reviewQuestions?(candidates: ReviewCandidate[]): Promise<QuestionReview[]>
 }
 
 export class ProviderUnavailable extends Error {

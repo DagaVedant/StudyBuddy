@@ -5,15 +5,19 @@ import {
   EXPLAIN_SYSTEM,
   EXTRACTION_JSON_SCHEMA,
   EXTRACTION_SYSTEM,
+  REVIEW_JSON_SCHEMA,
+  REVIEW_SYSTEM,
   classifyUserText,
   explainUserText,
   extractionUserText,
+  reviewUserText,
 } from './prompts'
 import { parseModelJson } from './json'
 import {
   classificationSchema,
   explanationSchema,
   parseExtraction,
+  reviewResultSchema,
   type AIProvider,
   type Classification,
   type ExecutionSite,
@@ -21,6 +25,8 @@ import {
   type ExtractedQuestion,
   type Explanation,
   type PageInput,
+  type QuestionReview,
+  type ReviewCandidate,
   type TopicCandidate,
 } from './types'
 
@@ -65,6 +71,15 @@ export interface OllamaOptions {
   timeoutMs?: number
 
   /**
+   * Model used to sanity-check extracted questions, defaulting to textModel.
+   *
+   * Its job is judging whether a question came out whole, which is far easier
+   * than reading the page was, so a small fast model is the right tool — this
+   * runs over every question on the worksheet.
+   */
+  reviewModel?: string
+
+  /**
    * How many times to ask before giving up on a page.
    *
    * Benchmarking found empty replies on roughly a quarter of pages for some
@@ -95,6 +110,7 @@ export class OllamaProvider implements AIProvider {
   private readonly baseUrl: string
   private readonly visionModel: string
   private readonly textModel: string
+  private readonly reviewModel: string
   private readonly fetchImpl: typeof fetch
   private readonly timeoutMs: number
   private readonly contextTokens: number
@@ -106,6 +122,7 @@ export class OllamaProvider implements AIProvider {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '')
     this.visionModel = options.visionModel
     this.textModel = options.textModel
+    this.reviewModel = options.reviewModel ?? options.textModel
     this.executionSite = options.executionSite ?? 'browser'
     this.fetchImpl = options.fetchImpl ?? fetch
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
@@ -254,6 +271,29 @@ export class OllamaProvider implements AIProvider {
     )
 
     return explanationSchema.parse(raw)
+  }
+
+  async reviewQuestions(candidates: ReviewCandidate[]): Promise<QuestionReview[]> {
+    if (candidates.length === 0) return []
+
+    const raw = await this.chat(
+      this.reviewModel,
+      REVIEW_SYSTEM,
+      reviewUserText(candidates),
+      undefined,
+      REVIEW_JSON_SCHEMA as unknown as Record<string, unknown>,
+    )
+
+    // A malformed review means no opinion, not a failed worksheet. This runs
+    // after the questions are already saved, so refusing to parse should cost
+    // the student a second look, never the upload.
+    const parsed = reviewResultSchema.safeParse(raw)
+    if (!parsed.success) {
+      console.warn('[ollama] could not read the review reply, treating as no opinion')
+      return []
+    }
+
+    return parsed.data.verdicts
   }
 
   async listModels(): Promise<string[]> {

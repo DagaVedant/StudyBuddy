@@ -209,6 +209,37 @@ WORKER_API_TOKEN="<the same value you put in Vercel>"
 
 The token must match exactly, or every claim returns 401.
 
+### The review pass (recommended)
+
+After the pages are read, the worker checks whether each question came out
+whole — not whether the numbering is complete, which the audit already covers,
+but whether the stem is a fragment, options are missing, or the choices belong
+to a different question. Anything doubtful sends that page back to the vision
+model, and a question is only replaced if the second read actually returns it.
+
+Most of that is caught without a model. For the rest a second model is asked,
+and which one matters:
+
+```
+OLLAMA_REVIEW_MODEL="gpt-oss:20b"
+```
+
+Measured against a real 114-question extraction, `gpt-oss:20b` raised **no**
+false alarms. The default (whatever `OLLAMA_VISION_MODEL` is set to, normally
+`qwen2.5vl:7b`) called two sound questions broken — both stems that their own
+answer options finish, which is ordinary phrasing on a real test. A reviewer
+that cries wolf costs re-reads, so pull the bigger one if you have the disk:
+
+```bash
+ollama pull gpt-oss:20b
+```
+
+It never sees an image, so it does not need to be a vision model. Leaving it
+unset is safe — the pass still runs, just noisier. No re-read ever deletes a
+question outright, and at most 30% of a worksheet's pages are re-read, so an
+extraction that is wrong throughout fails fast to the review screen instead of
+taking twice as long to arrive equally wrong.
+
 ### Hiding your home IP (spec §3.3.1)
 
 Your worker's outbound requests reveal your home IP to Vercel and the blob

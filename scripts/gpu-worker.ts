@@ -8,11 +8,24 @@ import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
 import { embed } from '../lib/embeddings'
 import { auditExtraction } from '../lib/worker/audit'
+import { planReview, type ReviewableQuestion } from '../lib/worker/review'
 
 const API = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
 const TOKEN = process.env.WORKER_API_TOKEN ?? ''
 const WORKER_NAME = process.env.WORKER_NAME ?? 'local-gpu'
 const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b'
+/**
+ * Second-opinion model for the review pass. Reads text, never images.
+ *
+ * Defaults to the vision model so the worker runs with nothing extra pulled.
+ * Measured on a real extraction, gpt-oss:20b was the better reviewer: it
+ * matched the default on damaged questions and raised no false alarms, where
+ * the 7b called two sound questions broken — both of them stems finished by
+ * their own options, the same shape that fooled the text checks before they
+ * were narrowed. A reviewer that cries wolf costs re-reads, so it is worth
+ * setting this.
+ */
+const REVIEW_MODEL = process.env.OLLAMA_REVIEW_MODEL ?? VISION_MODEL
 const OLLAMA_URL = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
 
 const IDLE_POLL_MS = 5_000
@@ -44,6 +57,7 @@ const provider = new OllamaProvider({
   baseUrl: OLLAMA_URL,
   visionModel: VISION_MODEL,
   textModel: VISION_MODEL,
+  reviewModel: REVIEW_MODEL,
   executionSite: 'operator_gpu',
   timeoutMs: 15 * 60_000,
 })
@@ -65,7 +79,7 @@ async function api(path: string, init: RequestInit = {}): Promise<Response> {
   })
 }
 
-async function postJob(jobId: string, body: unknown): Promise<void> {
+async function postJob(jobId: string, body: unknown): Promise<Response> {
   const response = await api(`/api/worker/jobs/${jobId}`, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -74,6 +88,10 @@ async function postJob(jobId: string, body: unknown): Promise<void> {
   if (!response.ok) {
     throw new Error(`Job update failed (${response.status}): ${await response.text()}`)
   }
+
+  // Returned so a caller that cares what the server did with the update can
+  // read it; most do not, and ignoring it stays valid.
+  return response
 }
 
 async function toOllamaImage(
@@ -96,6 +114,100 @@ interface TopicCandidate {
   slug: string
   name: string
   path: string
+}
+
+/**
+ * Second look at questions that arrived but may not have arrived whole.
+ *
+ * The audit before this only sees the printed numbering, so a page that
+ * produced a question for every number it should have looks perfect to it even
+ * when those questions are cut off, missing options, or carrying someone
+ * else's answers. Cheap checks find most of that; the review model is asked
+ * about the rest.
+ */
+async function reviewExtractedQuestions(
+  job: { id: string; worksheetId: string },
+  pages: WorkerPage[],
+): Promise<void> {
+  const response = await api(`/api/worker/questions/${job.worksheetId}`)
+  if (!response.ok) return
+
+  const { questions } = (await response.json()) as { questions: ReviewableQuestion[] }
+  if (questions.length === 0) return
+
+  const plan = await planReview(questions, (candidates) =>
+    provider.reviewQuestions(candidates),
+  )
+
+  if (plan.suspects.length === 0) return
+
+  log(
+    `  review: ${plan.suspects.length} of ${questions.length} question(s) look wrong` +
+      `${plan.modelConsulted ? '' : ' (cheap checks only, reviewer unavailable)'}` +
+      ` — re-reading ${plan.reread.length} page(s)`,
+  )
+
+  if (plan.skippedPages.length > 0) {
+    log(
+      `  review: too much of this worksheet is suspect; ` +
+        `left page(s) ${plan.skippedPages.join(', ')} for the student to fix`,
+    )
+  }
+
+  const byNumber = new Map(pages.map((page) => [page.pageNumber, page]))
+
+  for (const target of plan.reread) {
+    if (shuttingDown) return
+
+    const page = byNumber.get(target.pageNumber)
+    if (!page) continue
+
+    const replace = plan.suspects
+      .filter((suspect) => suspect.pageNumber === target.pageNumber)
+      .map((suspect) => suspect.id)
+
+    try {
+      const imageResponse = await api(`/api/worker/pages/${page.id}`)
+      if (!imageResponse.ok) continue
+
+      const raw = new Uint8Array(await imageResponse.arrayBuffer())
+      const { image, mediaType } = await toOllamaImage(
+        raw,
+        imageResponse.headers.get('content-type') ?? 'image/webp',
+      )
+
+      const questions = await provider.extractQuestions({
+        image,
+        mediaType,
+        text: page.ocrText ?? '',
+        width: page.width ?? 0,
+        height: page.height ?? 0,
+        pageNumber: page.pageNumber,
+        expect: target.expect,
+      })
+
+      const result = await postJob(job.id, {
+        action: 'page_review',
+        pageId: page.id,
+        replace,
+        questions,
+      })
+
+      const outcome = (await result.json().catch(() => null)) as {
+        replaced?: number
+        kept?: number
+      } | null
+
+      log(
+        `  review: page ${page.pageNumber} re-read — ` +
+          `replaced ${outcome?.replaced ?? 0}, kept ${outcome?.kept ?? 0} as-is`,
+      )
+    } catch (error) {
+      // The questions are already saved and the student can edit them. A
+      // failed second look is not a failed worksheet.
+      log(`  review: page ${page.pageNumber} could not be re-read: ${(error as Error).message}`)
+    }
+  }
 }
 
 async function recoverMissingQuestions(
@@ -333,6 +445,10 @@ async function processJob(claim: ClaimResponse): Promise<void> {
 
     await postJob(job.id, { action: 'phase', phase: 'verifying' })
     await recoverMissingQuestions(job, pages)
+
+    // After the numbering is repaired, so the review judges the questions the
+    // student will actually see rather than ones about to be replaced.
+    await reviewExtractedQuestions(job, pages)
 
     await postJob(job.id, { action: 'phase', phase: 'classifying' })
     await classifyWorksheet(job.worksheetId)
