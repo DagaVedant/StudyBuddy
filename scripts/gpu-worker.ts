@@ -373,10 +373,65 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
   }
 }
 
+/**
+ * Explains one question for an account whose only model is this GPU.
+ *
+ * The server cannot reach here — the worker dials out and nothing listens —
+ * so a trial explanation has to be collected rather than requested, the same
+ * way extraction is.
+ */
+async function processExplainJob(job: { id: string }): Promise<void> {
+  const response = await api(`/api/worker/explain/${job.id}`)
+  if (!response.ok) {
+    throw new Error(`Could not fetch the question to explain (${response.status})`)
+  }
+
+  const input = (await response.json()) as {
+    questionId: string
+    attemptId: string | null
+    promptText: string
+    choices: { label: string; text: string }[]
+    correctAnswer: string | null
+    studentAnswer: string | null
+  }
+
+  const explanation = await provider.explain({
+    promptText: input.promptText,
+    choices: input.choices,
+    correctAnswer: input.correctAnswer,
+    studentAnswer: input.studentAnswer,
+  })
+
+  await postJob(job.id, {
+    action: 'explanation',
+    questionId: input.questionId,
+    attemptId: input.attemptId,
+    bodyMd: explanation.body_md,
+    misconceptionNote: explanation.misconception_note,
+    model: VISION_MODEL,
+  })
+
+  await postJob(job.id, { action: 'complete' })
+  log(`explained ${input.questionId}`)
+}
+
 async function processJob(claim: ClaimResponse): Promise<void> {
   const job = claim.job!
   const pages = claim.pages ?? []
   const resumeAfter = job.checkpoint?.lastPageNumber ?? 0
+
+  // Not every job is a worksheet. Claiming is shared, so the stage decides.
+  if (job.stage === 'explain') {
+    log(`claimed ${job.id} — explanation (attempt ${job.attemptCount})`)
+    try {
+      await processExplainJob(job)
+    } catch (error) {
+      const message = (error as Error).message
+      log(`failed ${job.id}: ${message}`)
+      await postJob(job.id, { action: 'fail', message }).catch(() => {})
+    }
+    return
+  }
 
   log(`claimed ${job.id} — ${pages.length} pages (attempt ${job.attemptCount})`)
 

@@ -9,9 +9,61 @@ import { auth } from '@/auth'
 import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { answerChoices, attempts, explanations, questions } from '@/lib/db/schema'
+import { enqueueJob, pendingExplainJob } from '@/lib/queue'
 import { EXPLAIN_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 
 const schema = z.object({ questionId: z.string().min(1) })
+
+/**
+ * Whether an explanation has arrived yet.
+ *
+ * Separate from POST so waiting on a queued job does not spend the request
+ * budget: polling through POST would exhaust an hour's allowance in a couple
+ * of minutes, and it would also re-charge the trial quota each time.
+ */
+export async function GET(request: Request) {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const questionId = new URL(request.url).searchParams.get('questionId')
+  if (!questionId) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
+
+  const [question] = await db
+    .select({ id: questions.id })
+    .from(questions)
+    .where(and(eq(questions.id, questionId), eq(questions.userId, session.user.id)))
+    .limit(1)
+
+  if (!question) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const [ready] = await db
+    .select()
+    .from(explanations)
+    .where(eq(explanations.questionId, question.id))
+    .orderBy(desc(explanations.generatedAt))
+    .limit(1)
+
+  if (ready && !ready.reportedWrong) {
+    return NextResponse.json({
+      status: 'ready',
+      explanation: { body: ready.bodyMd, misconception: ready.misconceptionNote },
+    })
+  }
+
+  const pending = await pendingExplainJob(
+    db as unknown as Db,
+    session.user.id,
+    question.id,
+  )
+
+  // Nothing ready and nothing queued means the job failed or was never
+  // enqueued; saying so lets the client stop waiting instead of polling on.
+  return NextResponse.json({ status: pending ? 'queued' : 'none' })
+}
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -81,13 +133,39 @@ export async function POST(request: Request) {
     lastAttempt?.freeTextAnswer ??
     null
 
-  const { provider, tier } = await resolveProvider(client, userId)
+  const { provider, tier, executor } = await resolveProvider(client, userId)
 
   if (tier === 'trial' && session.user.role !== 'admin') {
     const charge = await consumeTrial(client, userId, 'explanations', 1)
     if (!charge.ok) {
       return NextResponse.json({ error: charge.reason }, { status: 402 })
     }
+  }
+
+  // A trial account's model is the operator's GPU, which sits behind a home
+  // connection and only ever dials out — this server cannot call it. So the
+  // work is queued for the worker to collect, exactly as extraction is.
+  //
+  // Until this existed the request fell through to a provider that always
+  // refuses, and the student was told no AI was set up for their account,
+  // which was never true.
+  if (executor === 'operator_gpu' && provider.name === 'null') {
+    const existing = await pendingExplainJob(client, userId, question.id)
+
+    const jobId =
+      existing ??
+      (await enqueueJob(client, {
+        worksheetId: question.worksheetId,
+        userId,
+        stage: 'explain',
+        executor: 'operator_gpu',
+        // Priority matters here in a way it does not for extraction: someone
+        // is sat waiting on this, where an upload is left to run.
+        priority: 'high',
+        checkpoint: { questionId: question.id, attemptId: lastAttempt?.id ?? null },
+      }))
+
+    return NextResponse.json({ status: 'queued', jobId }, { status: 202 })
   }
 
   try {

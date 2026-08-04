@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import { acceptTopicProposal } from '@/lib/classify/proposals'
 import { db } from '@/lib/db'
 import { questions, topicProposals, topics } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
@@ -48,12 +49,20 @@ export default async function AdminTopicsPage() {
     const id = String(formData.get('id'))
     const action = String(formData.get('action'))
 
-    await db
-      .update(topicProposals)
-      .set({ status: action === 'accept' ? 'accepted' : 'rejected' })
-      .where(eq(topicProposals.id, id))
+    if (action === 'accept') {
+      const outcome = await acceptTopicProposal(client, id)
+      if (!outcome.ok) {
+        console.warn(`[admin] could not accept proposal ${id}: ${outcome.reason}`)
+      }
+    } else {
+      await db
+        .update(topicProposals)
+        .set({ status: 'rejected' })
+        .where(eq(topicProposals.id, id))
+    }
 
     revalidatePath('/admin/topics')
+    revalidatePath('/dashboard')
   }
 
   return (
@@ -100,8 +109,8 @@ export default async function AdminTopicsPage() {
         </h2>
         <p className="hint mb-3 text-pretty">
           Raised when the classifier could not fit a question to any canonical
-          leaf. Accepting one does not create the topic yet. It marks it for the
-          next taxonomy update.
+          leaf. Accepting one adds it to the tree under its suggested parent and
+          tags the question that raised it.
         </p>
 
         {proposals.length === 0 ? (
