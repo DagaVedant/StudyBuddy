@@ -6,12 +6,20 @@ import bcrypt from 'bcryptjs'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
+import { headers } from 'next/headers'
 import { AuthError } from 'next-auth'
 
 import { auth, signIn } from '@/auth'
+import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { users, verificationTokens } from '@/lib/db/schema'
 import { sendVerificationEmail } from '@/lib/mail'
+import {
+  SIGNUP_LIMIT,
+  VERIFY_EMAIL_LIMIT,
+  callerIp,
+  consumeRateLimit,
+} from '@/lib/rate-limit'
 
 import { validateDob } from './policy'
 
@@ -32,7 +40,24 @@ const signupSchema = z.object({
   dob: z.string().min(1, 'Enter your date of birth.'),
 })
 
-async function issueVerificationToken(email: string) {
+/**
+ * Issues a fresh verification link, unless this address has had too many.
+ *
+ * Keyed by address as well as by caller: the signup limit caps one connection,
+ * but sending mail to an address the requester does not own is the abuse worth
+ * stopping, and that can be driven from anywhere.
+ *
+ * Returns false when throttled rather than throwing, because the account is
+ * fine and the last link it was sent still works.
+ */
+async function issueVerificationToken(email: string): Promise<boolean> {
+  const allowance = await consumeRateLimit(
+    db as unknown as Db,
+    VERIFY_EMAIL_LIMIT,
+    `email:${email}`,
+  )
+  if (!allowance.ok) return false
+
   const token = randomBytes(32).toString('hex')
 
   // Old links for this address are dropped first, so a retry leaves exactly
@@ -46,9 +71,31 @@ async function issueVerificationToken(email: string) {
   })
 
   await sendVerificationEmail(email, token)
+  return true
+}
+
+/**
+ * Says how long to wait, without pretending a minute is "60 minutes".
+ */
+function waitFor(seconds: number): string {
+  if (seconds < 90) return 'a moment'
+  const minutes = Math.ceil(seconds / 60)
+  return minutes < 60 ? `${minutes} minutes` : 'an hour'
 }
 
 export async function signUp(_prev: FormState, formData: FormData): Promise<FormState> {
+  // Checked before the form is even read: the point is to cap how often this
+  // runs at all, and parsing first would let a flood of junk through to the
+  // database lookups below.
+  const ip = callerIp(await headers())
+  const attempt = await consumeRateLimit(db as unknown as Db, SIGNUP_LIMIT, `ip:${ip}`)
+
+  if (!attempt.ok) {
+    return {
+      error: `Too many sign-up attempts from this connection. Try again in ${waitFor(attempt.retryAfter)}.`,
+    }
+  }
+
   const parsed = signupSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
@@ -90,7 +137,15 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
 
   if (needsLink) {
     try {
-      await issueVerificationToken(email)
+      const sent = await issueVerificationToken(email)
+
+      // The reply below stays the same either way. Saying "you have had too
+      // many links" would confirm the address is registered, which is exactly
+      // what the neutral wording exists to avoid — and the last link this
+      // address was sent is still valid, so nothing is actually lost.
+      if (!sent) {
+        console.warn(`[signup] verification email throttled for ${email}`)
+      }
     } catch (cause) {
       console.error('[signup] could not send verification email:', cause)
 

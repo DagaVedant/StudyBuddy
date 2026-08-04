@@ -536,6 +536,22 @@ export const usageEvents = pgTable(
   (t) => [index('usage_events_user_kind_idx').on(t.userId, t.kind, t.createdAt)],
 )
 
+/**
+ * Fixed-window counters for abuse control.
+ *
+ * In Postgres rather than memory because the app runs on serverless functions:
+ * each invocation may be a fresh process, so an in-process counter would reset
+ * constantly and limit nothing. One row per subject per action, reused across
+ * windows rather than accumulating history — this table answers "how many so
+ * far", and nothing needs it to remember yesterday.
+ */
+export const rateLimits = pgTable('rate_limits', {
+  /** Action and subject, e.g. `signup:ip:203.0.113.4`. */
+  key: text('key').primaryKey(),
+  count: integer('count').default(0).notNull(),
+  windowStart: timestamp('window_start', { withTimezone: true }).defaultNow().notNull(),
+})
+
 export type User = typeof users.$inferSelect
 export type Worksheet = typeof worksheets.$inferSelect
 export type WorksheetPage = typeof worksheetPages.$inferSelect
