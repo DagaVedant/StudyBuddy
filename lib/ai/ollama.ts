@@ -41,6 +41,20 @@ export interface OllamaCallStats {
   loadDurationNs: number
 }
 
+/**
+ * The model accepted the request and then generated nothing.
+ *
+ * Distinct from a transport failure: the call succeeded, so no HTTP status
+ * reports it, and distinct from a page that genuinely holds no questions,
+ * because those come back as a valid empty list rather than empty content.
+ */
+class EmptyReplyError extends Error {
+  constructor(model: string) {
+    super(`${model} returned an empty response.`)
+    this.name = 'EmptyReplyError'
+  }
+}
+
 export interface OllamaOptions {
   baseUrl: string
   visionModel: string
@@ -49,6 +63,17 @@ export interface OllamaOptions {
   executionSite?: ExecutionSite
   fetchImpl?: typeof fetch
   timeoutMs?: number
+
+  /**
+   * How many times to ask before giving up on a page.
+   *
+   * Benchmarking found empty replies on roughly a quarter of pages for some
+   * models, and each one silently costs every question on that page — the
+   * audit only sees gaps in the printed numbering it was given, so a page
+   * that returns nothing at all leaves nothing behind to notice. One retry
+   * recovered every such page in the sample.
+   */
+  maxAttempts?: number
 
   contextTokens?: number
   maxOutputTokens?: number
@@ -74,6 +99,7 @@ export class OllamaProvider implements AIProvider {
   private readonly timeoutMs: number
   private readonly contextTokens: number
   private readonly maxOutputTokens: number
+  private readonly maxAttempts: number
   private readonly onStats?: (stats: OllamaCallStats) => void
 
   constructor(options: OllamaOptions) {
@@ -87,6 +113,7 @@ export class OllamaProvider implements AIProvider {
     this.onStats = options.onStats
     this.contextTokens = options.contextTokens ?? 32_768
     this.maxOutputTokens = options.maxOutputTokens ?? 8_192
+    this.maxAttempts = Math.max(1, options.maxAttempts ?? 3)
   }
 
   private async chat(
@@ -95,6 +122,27 @@ export class OllamaProvider implements AIProvider {
     userText: string,
     images: string[] | undefined,
     schema: Record<string, unknown>,
+  ): Promise<unknown> {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.chatOnce(model, system, userText, images, schema, attempt)
+      } catch (error) {
+        if (!(error instanceof EmptyReplyError) || attempt >= this.maxAttempts) throw error
+
+        console.warn(
+          `[ollama] ${model} generated nothing on attempt ${attempt}, asking again`,
+        )
+      }
+    }
+  }
+
+  private async chatOnce(
+    model: string,
+    system: string,
+    userText: string,
+    images: string[] | undefined,
+    schema: Record<string, unknown>,
+    attempt: number,
   ): Promise<unknown> {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), this.timeoutMs)
@@ -109,7 +157,11 @@ export class OllamaProvider implements AIProvider {
           stream: false,
           format: schema,
           options: {
-            temperature: 0,
+            // Greedy first, since that is the most faithful transcription.
+            // A repeat means the model already chose to emit nothing here, so
+            // asking again identically would land on the same silence; a small
+            // amount of randomness is what lets the retry take another path.
+            temperature: attempt === 1 ? 0 : 0.2 * (attempt - 1),
 
             num_ctx: this.contextTokens,
             num_predict: this.maxOutputTokens,
@@ -150,7 +202,7 @@ export class OllamaProvider implements AIProvider {
       })
 
       const content = body.message?.content
-      if (!content) throw new Error('Ollama returned an empty response.')
+      if (!content?.trim()) throw new EmptyReplyError(model)
 
       const { value, truncated } = parseModelJson(content)
       if (truncated) {
