@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -6,7 +6,7 @@ import { refundTrial } from '@/lib/ai/quota'
 import { extractedQuestionSchema } from '@/lib/ai/types'
 import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
-import { processingJobs, worksheetPages, worksheets } from '@/lib/db/schema'
+import { processingJobs, questions, worksheetPages, worksheets } from '@/lib/db/schema'
 import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
 import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
@@ -28,6 +28,16 @@ const bodySchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('phase'),
     phase: z.enum(['verifying', 'classifying']),
+  }),
+  // A page read a second time because the review pass doubted some of what it
+  // produced. Distinct from page_result: that one only ever adds, so a
+  // corrected question would land beside the broken one instead of replacing
+  // it, and the student would see both.
+  z.object({
+    action: z.literal('page_review'),
+    pageId: z.string().min(1),
+    replace: z.array(z.string().uuid()).max(100),
+    questions: z.array(extractedQuestionSchema).max(100),
   }),
   z.object({ action: z.literal('complete') }),
   z.object({ action: z.literal('fail'), message: z.string().max(2000) }),
@@ -102,6 +112,58 @@ export async function POST(request: Request, { params }: Params) {
     )
 
     return NextResponse.json({ ok: true })
+  }
+
+  if (body.action === 'page_review') {
+    const [target] = await db
+      .select({ id: worksheetPages.id, worksheetId: worksheetPages.worksheetId })
+      .from(worksheetPages)
+      .where(eq(worksheetPages.id, body.pageId))
+      .limit(1)
+
+    if (!target || target.worksheetId !== job.worksheetId) {
+      return NextResponse.json({ error: 'Page does not belong to this job' }, { status: 400 })
+    }
+
+    const suspects = body.replace.length
+      ? await db
+          .select({ id: questions.id, printedNumber: questions.printedNumber })
+          .from(questions)
+          .where(
+            and(
+              eq(questions.worksheetId, job.worksheetId),
+              inArray(questions.id, body.replace),
+            ),
+          )
+      : []
+
+    // Only drop a doubted question when the second read actually came back
+    // with that number. Otherwise the review would turn a question that is
+    // merely damaged into one that is missing, which is strictly worse.
+    const refound = new Set(
+      body.questions.map((question) => question.ordinal).filter((n) => n >= 1),
+    )
+    const replaceable = suspects.filter(
+      (row) => row.printedNumber !== null && refound.has(row.printedNumber),
+    )
+
+    if (replaceable.length > 0) {
+      await db.delete(questions).where(
+        inArray(
+          questions.id,
+          replaceable.map((row) => row.id),
+        ),
+      )
+    }
+
+    const restored = await persistQuestions(client, job, target.id, body.questions)
+
+    return NextResponse.json({
+      ok: true,
+      replaced: replaceable.length,
+      kept: suspects.length - replaceable.length,
+      restored,
+    })
   }
 
   if (body.action === 'complete') {
