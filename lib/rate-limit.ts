@@ -20,18 +20,6 @@ export interface LimitRule {
 /** Signing up: keyed by IP, because there is no account yet to key on. */
 export const SIGNUP_LIMIT: LimitRule = { action: 'signup', limit: 5, windowSeconds: 3600 }
 
-/**
- * Asking for a verification email again.
- *
- * Tighter than signup and keyed by address: resending is what turns a signup
- * form into a way to send someone else mail they did not ask for.
- */
-export const VERIFY_EMAIL_LIMIT: LimitRule = {
-  action: 'verify-email',
-  limit: 3,
-  windowSeconds: 3600,
-}
-
 /** Uploading. Generous — a real student may have a stack of worksheets. */
 export const UPLOAD_LIMIT: LimitRule = { action: 'upload', limit: 30, windowSeconds: 3600 }
 
@@ -53,12 +41,26 @@ export function limitKey(rule: LimitRule, subject: string): string {
  * The whole decision is a single upsert so that two concurrent requests cannot
  * both read the same count and both decide they are under the limit.
  */
+/**
+ * Whether limits are enforced at all.
+ *
+ * The end-to-end suite signs up many times from one address, which is exactly
+ * the shape the signup limit exists to stop, so it would throttle the tests
+ * long before it throttled an abuser. Off only when explicitly asked, so a
+ * deployment cannot end up unprotected by omission.
+ */
+export function limitsEnforced(): boolean {
+  return process.env.DISABLE_RATE_LIMITS !== 'true'
+}
+
 export async function consumeRateLimit(
   db: Db,
   rule: LimitRule,
   subject: string,
   now: Date = new Date(),
 ): Promise<LimitDecision> {
+  if (!limitsEnforced()) return { ok: true, remaining: rule.limit, retryAfter: 0 }
+
   const key = limitKey(rule, subject)
 
   // Passed as an ISO string: the driver renders a Date into a form Postgres

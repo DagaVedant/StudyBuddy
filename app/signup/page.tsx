@@ -32,14 +32,14 @@ export default function SignUpPage() {
       )}
 
       <form action={signInWithGoogle} className="mt-6">
-        <button type="submit" className="btn btn-secondary">
+        <button type="submit" className="btn btn-primary">
           Continue with Google
         </button>
       </form>
 
       <div className="my-6 flex items-center gap-3 text-sm text-muted">
         <span className="h-px flex-1 bg-border" />
-        or
+        or use a password
         <span className="h-px flex-1 bg-border" />
       </div>
 
@@ -89,7 +89,7 @@ export default function SignUpPage() {
           <p className="hint">StudyBuddy is for people {MIN_AGE_YEARS} and older.</p>
         </div>
 
-        <button type="submit" className="btn btn-primary" disabled={pending}>
+        <button type="submit" className="btn btn-secondary" disabled={pending}>
           {pending ? 'Creating account…' : 'Create account'}
         </button>
       </form>

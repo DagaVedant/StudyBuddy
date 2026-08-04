@@ -53,10 +53,10 @@ export default defineConfig({
       CREDENTIALS_ENC_KEY: Buffer.alloc(32, 7).toString('base64'),
       ADMIN_EMAILS: 'admin@studybuddy.test',
       ENABLE_MOCK_AI: 'true',
+      DISABLE_RATE_LIMITS: 'true',
       NEXT_PUBLIC_APP_URL: BASE_URL,
       WORKER_API_TOKEN: 'e2e-worker-token',
       BLOB_READ_WRITE_TOKEN: '',
-      RESEND_API_KEY: '',
       // Unlocks app/api/test/* — routes the E2E harness reads/writes test
       // state through, since they share the app's own DB connection instead
       // of opening a second one (see e2e/support/database.ts).

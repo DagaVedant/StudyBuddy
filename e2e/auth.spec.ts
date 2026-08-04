@@ -54,7 +54,7 @@ test('signup does not reveal whether an email is already registered', async ({
   expect(second).toBe(first)
 })
 
-test('an unverified account cannot sign in', async ({ page }) => {
+test('a new password account can sign in straight away', async ({ page }) => {
   const email = uniqueEmail('unverified')
 
   await page.goto('/signup')
@@ -69,7 +69,9 @@ test('an unverified account cannot sign in', async ({ page }) => {
   await page.getByLabel('Password').fill('correct-horse-battery')
   await page.getByRole('button', { name: 'Sign in' }).click()
 
-  await expect(alertBox(page)).toContainText(/verify/i)
+  // Nothing sends mail any more, so an account is usable as soon as it is
+  // made. This used to assert the opposite.
+  await page.waitForURL(/\/dashboard/)
 })
 
 test('a wrong password is rejected', async ({ page }) => {

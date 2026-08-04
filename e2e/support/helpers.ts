@@ -38,17 +38,11 @@ export async function registerAndSignIn(
   await page.getByLabel('Date of birth').fill(adultDob())
   await page.getByRole('button', { name: 'Create account' }).click()
 
-  await expect(statusBox(page)).toContainText('verification link')
+  // No verification round-trip any more: nothing sends mail, so an account is
+  // usable the moment it is made.
+  await expect(statusBox(page)).toBeVisible()
 
-  const tokenResponse = await page.request.get(
-    `/api/test/verification-token?email=${encodeURIComponent(email)}`,
-  )
-  if (!tokenResponse.ok()) throw new Error(`No verification token issued for ${email}`)
-  const { token } = (await tokenResponse.json()) as { token: string }
-
-  await page.goto(`/verify?token=${token}&email=${encodeURIComponent(email)}`)
-  await expect(statusBox(page)).toContainText('Email verified')
-
+  await page.goto('/signin')
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in' }).click()
