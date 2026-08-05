@@ -211,6 +211,33 @@ WORKER_API_TOKEN="<the same value you put in Vercel>"
 
 The token must match exactly, or every claim returns 401.
 
+### Reading pages in parallel
+
+A packet over **15 pages or 30 questions** is read two pages at a time; a short
+worksheet stays sequential, where the saving would be seconds and the memory is
+better spent elsewhere.
+
+Ollama serialises requests by default, so the worker's own setting achieves
+nothing on its own. Both are needed:
+
+```
+OLLAMA_NUM_PARALLEL=2          # on the Ollama server
+OLLAMA_MAX_PARALLEL_PAGES=2    # in .env.local, capped at 4
+```
+
+Measured on a 58-page packet, 59% of the time was decode and 38% prefill.
+Decode overlaps almost for free; prefill already saturates the card. That caps
+the gain at about **1.7x** no matter how many slots are opened — 3 buys a
+little over 2, and beyond that nothing.
+
+Raise it only if the card has room. Each slot reserves its own context, and
+overflowing VRAM is not a gentle slowdown: an offloaded model measured 9.2
+tokens/sec against 79. The context reservation was cut from 32,768 to 24,576
+to make room for a second slot — that is sized on the densest page seen
+(10,182 prompt tokens plus a full 8,192 of output), not on the ~3,900 average,
+because sizing it on the average silently truncates the pages carrying the
+most questions.
+
 ### The review pass (recommended)
 
 After the pages are read, the worker checks whether each question came out
