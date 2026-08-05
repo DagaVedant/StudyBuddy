@@ -228,11 +228,19 @@ export async function POST(request: Request, { params }: Params) {
 
   const created = await persistQuestions(client, job, page.id, body.questions)
 
+  // Recorded as a set rather than a high-water mark. With more than one page
+  // in flight they finish out of order, so "everything up to N is done" would
+  // be a lie, and a resumed job would skip whatever was still running below N.
+  const previous = (job.checkpoint as { donePages?: number[] } | null)?.donePages ?? []
+  const donePages = [...new Set([...previous, body.pageNumber])].sort((a, b) => a - b)
+
   await checkpointJob(
     client,
     jobId,
-    readingProgress(body.pageNumber, body.totalPages),
-    { lastPageNumber: body.pageNumber },
+    readingProgress(donePages.length, body.totalPages),
+    // lastPageNumber stays for a job enqueued before this shipped, whose
+    // checkpoint has no donePages to read.
+    { donePages, lastPageNumber: Math.max(...donePages) },
   )
 
   return NextResponse.json({

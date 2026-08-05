@@ -128,7 +128,16 @@ export class OllamaProvider implements AIProvider {
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
 
     this.onStats = options.onStats
-    this.contextTokens = options.contextTokens ?? 32_768
+    // 24576, not 32768: every request in flight reserves its own KV cache, so
+    // the reservation is what decides whether a second page can be read at the
+    // same time or whether the model spills out of VRAM and collapses to a
+    // tenth of its speed.
+    //
+    // Not lower, though. The densest page measured wanted 10,182 prompt tokens
+    // and hit the 8,192 output cap, so ~18.4k is the real worst case rather
+    // than the ~3.9k average — sizing this off the average would quietly
+    // truncate exactly the pages that carry the most questions.
+    this.contextTokens = options.contextTokens ?? 24_576
     this.maxOutputTokens = options.maxOutputTokens ?? 8_192
     this.maxAttempts = Math.max(1, options.maxAttempts ?? 3)
   }

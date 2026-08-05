@@ -1,8 +1,10 @@
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
+import { worksheets } from '@/lib/db/schema'
 import { claimJob, heartbeat, queueDepth } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
 import { pagesForJob } from '@/lib/worker/ingest'
@@ -36,12 +38,21 @@ export async function POST(request: Request) {
 
   await heartbeat(client, workerName, modelName ?? null, 1)
 
+  // Sent so the worker can size its own concurrency: how much of the paper
+  // there is decides whether reading pages in parallel is worth the memory.
+  const [worksheet] = await db
+    .select({ expectedQuestionCount: worksheets.expectedQuestionCount })
+    .from(worksheets)
+    .where(eq(worksheets.id, job.worksheetId))
+    .limit(1)
+
   return NextResponse.json({
     job: {
       id: job.id,
       worksheetId: job.worksheetId,
       stage: job.stage,
       attemptCount: job.attemptCount,
+      expectedQuestionCount: worksheet?.expectedQuestionCount ?? null,
       checkpoint: job.checkpoint,
     },
     pages: await pagesForJob(client, job.worksheetId),

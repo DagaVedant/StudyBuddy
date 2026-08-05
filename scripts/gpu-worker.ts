@@ -8,6 +8,7 @@ import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
 import { embed } from '../lib/embeddings'
 import { auditExtraction } from '../lib/worker/audit'
+import { concurrencyFor, mapWithConcurrency } from '../lib/worker/concurrency'
 import { planReview, type ReviewableQuestion } from '../lib/worker/review'
 
 const API = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
@@ -47,7 +48,8 @@ interface ClaimResponse {
     worksheetId: string
     stage: string
     attemptCount: number
-    checkpoint: { lastPageNumber?: number } | null
+    expectedQuestionCount?: number | null
+    checkpoint: { lastPageNumber?: number; donePages?: number[] } | null
   } | null
   pages?: WorkerPage[]
   depth?: { pending: number; running: number }
@@ -418,7 +420,11 @@ async function processExplainJob(job: { id: string }): Promise<void> {
 async function processJob(claim: ClaimResponse): Promise<void> {
   const job = claim.job!
   const pages = claim.pages ?? []
-  const resumeAfter = job.checkpoint?.lastPageNumber ?? 0
+  // A set, not a high-water mark. Pages finish out of order once more than
+  // one is in flight, so "everything up to N is done" stops being true — and
+  // a crash would silently skip whatever was still running below N.
+  const done = new Set<number>(job.checkpoint?.donePages ?? [])
+  const legacyHighWater = job.checkpoint?.lastPageNumber ?? 0
 
   // Not every job is a worksheet. Claiming is shared, so the stage decides.
   if (job.stage === 'explain') {
@@ -439,15 +445,28 @@ async function processJob(claim: ClaimResponse): Promise<void> {
   let pageFailures = 0
   let lastError = ''
 
-  try {
-    for (const page of pages) {
-      if (shuttingDown) {
+  const todo = pages.filter(
+    (page) => !done.has(page.pageNumber) && page.pageNumber > legacyHighWater,
+  )
 
-        log('shutting down mid-job; leaving it to be reclaimed')
+  const slots = concurrencyFor({
+    pageCount: pages.length,
+    expectedQuestionCount: job.expectedQuestionCount ?? null,
+  })
+
+  if (slots > 1) {
+    log(`  reading ${slots} pages at a time (${todo.length} left of ${pages.length})`)
+  }
+
+  let stopped = false
+
+  try {
+    await mapWithConcurrency(todo, slots, async (page) => {
+      if (shuttingDown || stopped) {
+        stopped = true
         return
       }
 
-      if (page.pageNumber <= resumeAfter) continue
 
       const imageResponse = await api(`/api/worker/pages/${page.id}`)
       if (!imageResponse.ok) {
@@ -492,6 +511,13 @@ async function processJob(claim: ClaimResponse): Promise<void> {
         `  page ${page.pageNumber}/${pages.length}: ${questions.length} questions ` +
           `(${((Date.now() - started) / 1000).toFixed(1)}s)`,
       )
+
+      done.add(page.pageNumber)
+    })
+
+    if (stopped) {
+      log('shutting down mid-job; leaving it to be reclaimed')
+      return
     }
 
     if (attempted > 0 && pageFailures === attempted) {
