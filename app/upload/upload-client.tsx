@@ -63,6 +63,16 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
   const [notice, setNotice] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
+
+  /**
+   * True from the click, not from the first progress event.
+   *
+   * `busy` below is derived from state, and state does not update until React
+   * re-renders, so between pressing Upload and the first progress arriving the
+   * button was still live. A second press in that window started a second
+   * ingest of the same files, which is how one PDF became two worksheets.
+   */
+  const runningRef = useRef(false)
   const busy = progress !== null && progress.stage !== 'done'
 
   // Closing the tab mid-ingest loses the rasterized pages, so warn first.
@@ -98,6 +108,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
    * as the button not having worked.
    */
   function cancel() {
+    runningRef.current = false
     abortRef.current?.abort()
     abortRef.current = null
     setProgress(null)
@@ -105,6 +116,9 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
   }
 
   async function start() {
+    if (runningRef.current) return
+    runningRef.current = true
+
     setError(null)
     setNotice(null)
 
@@ -147,6 +161,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           : 'Something went wrong. Try uploading again.',
       )
     } finally {
+      runningRef.current = false
       if (abortRef.current === controller) abortRef.current = null
     }
   }
@@ -371,17 +386,17 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             type="number"
             inputMode="numeric"
             min={1}
-            placeholder="114"
+            placeholder="20"
             className="field w-32 tabular-nums"
             disabled={busy}
             value={questionCount}
             onChange={(event) => setQuestionCount(event.target.value)}
           />
           <p className="hint text-pretty">
-            Usually printed on the front of a practice test. It is what
-            StudyBuddy checks its own work against: with it, a question that
-            got missed or counted twice is caught and re-read before you see
-            it. Without it, there is nothing to compare against.
+            Usually printed on the front of a practice test. StudyBuddy
+            compares it against what it actually pulled out, so a question it
+            skipped or grabbed twice gets caught and re-read before it reaches
+            you. Leave it blank and there is nothing to check against.
           </p>
         </div>
       </section>
