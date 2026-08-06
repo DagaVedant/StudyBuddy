@@ -1,0 +1,378 @@
+/*
+ * Homepage hero — "ground and figure".
+ *
+ * Two layers. The forgetting curve is the ground: present from the first
+ * frame but dim, so it reads as atmosphere. The extraction demo is the
+ * figure, running in a panel on top of it. When the extraction finishes the
+ * curve comes up to full and its review points light underneath — the
+ * explanation arrives as a change in the background rather than as a second
+ * screen.
+ *
+ * The whole sequence is CSS. No JavaScript, no observer, no client
+ * component: the page stays a Server Component and the motion cannot fail
+ * to start. It plays once on load and rests in its finished state — a
+ * looping hero is exhausting on the second visit.
+ */
+
+@property --sb-questions {
+  syntax: '<integer>';
+  inherits: false;
+  initial-value: 0;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  /* so the curve's negative z-index stays inside this section */
+  isolation: isolate;
+}
+
+/* ── the ground ────────────────────────────────────────────── */
+
+.plot {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 62%;
+  z-index: -1;
+  opacity: 0.16;
+  animation: brighten 900ms cubic-bezier(0.22, 1, 0.36, 1) 2.7s both;
+}
+
+.plot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes brighten {
+  from {
+    opacity: 0.16;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.area {
+  fill: var(--accent);
+  opacity: 0.09;
+}
+
+.curve {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.dot {
+  fill: var(--accent);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.dot:nth-of-type(1) {
+  animation-delay: 3s;
+}
+.dot:nth-of-type(2) {
+  animation-delay: 3.25s;
+}
+.dot:nth-of-type(3) {
+  animation-delay: 3.5s;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── the figure ────────────────────────────────────────────── */
+
+.panel {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  /* Load-bearing, not decorative: the panel sits on a live background and
+     has to stay legible once the curve behind it comes up to full. */
+  background: color-mix(in oklch, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 24px 48px -32px oklch(0% 0 0 / 0.45);
+  animation: rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (min-width: 48rem) {
+  .panel {
+    grid-template-columns: 1fr 0.78fr;
+    gap: 2rem;
+    padding: 1.75rem;
+    align-items: center;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.count {
+  font-family: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.875rem, 6vw, 2.75rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  counter-reset: sb var(--sb-questions);
+  animation: count 2s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
+}
+
+/* The real sentence lives in a visually-hidden sibling — generated content
+   is not reliably announced, selectable, or translatable. */
+.count::after {
+  content: counter(sb) ' questions';
+}
+
+@keyframes count {
+  from {
+    --sb-questions: 0;
+  }
+  to {
+    --sb-questions: 24;
+  }
+}
+
+.topics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topic {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  opacity: 0;
+  animation: slidein 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.topic b {
+  margin-left: auto;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.topic:nth-child(1) {
+  background: var(--tint-mint);
+  animation-delay: 0.8s;
+}
+.topic:nth-child(2) {
+  background: var(--tint-peach);
+  animation-delay: 1.13s;
+}
+.topic:nth-child(3) {
+  background: var(--tint-lavender);
+  animation-delay: 1.46s;
+}
+.topic:nth-child(4) {
+  background: var(--tint-butter);
+  animation-delay: 1.79s;
+}
+
+@keyframes slidein {
+  from {
+    opacity: 0;
+    transform: translateX(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── the worksheet being read ──────────────────────────────── */
+
+.sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.875rem;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.q {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.line {
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+/*
+ * One animation per box rather than a snap plus a settle: two animations
+ * touching opacity would fight during the second one's delay, because
+ * fill-mode `both` makes it assert its start value before it runs.
+ */
+.qbox {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--accent);
+  border-radius: 0.5rem;
+  opacity: 0;
+  animation: qbox 1.4s linear both;
+}
+
+.q:nth-child(1) .qbox {
+  animation-delay: 0.6s;
+}
+.q:nth-child(2) .qbox {
+  animation-delay: 0.93s;
+}
+.q:nth-child(3) .qbox {
+  animation-delay: 1.26s;
+}
+.q:nth-child(4) .qbox {
+  animation-delay: 1.59s;
+}
+
+@keyframes qbox {
+  0% {
+    opacity: 0;
+    transform: scale(1.04);
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  13% {
+    opacity: 1;
+    transform: none;
+  }
+  71% {
+    opacity: 1;
+  }
+  87% {
+    /* settles rather than vanishing — the evidence stays on screen */
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+/*
+ * translateY percentages resolve against the element's own height, so a
+ * 25%-tall head travelling -100% → 400% crosses exactly one sheet at any
+ * viewport size, without animating a layout property.
+ */
+.beam {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 25%;
+  pointer-events: none;
+  background: linear-gradient(
+    transparent,
+    color-mix(in oklch, var(--accent) 22%, transparent),
+    transparent
+  );
+  animation: beam 2.2s cubic-bezier(0.4, 0, 0.2, 1) 0.35s both;
+}
+
+@keyframes beam {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    transform: translateY(400%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(400%);
+    opacity: 0;
+  }
+}
+
+/* ── the line that arrives once the curve is lit ───────────── */
+
+.caption {
+  animation: fadeup 400ms ease-out 3.6s both;
+}
+
+@keyframes fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Motion off: the finished state, immediately. Every value the sequence
+ * would have arrived at is asserted here, so nothing is lost — only the
+ * four seconds it took to get there.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .plot,
+  .dot,
+  .panel,
+  .count,
+  .topic,
+  .qbox,
+  .caption {
+    animation: none;
+  }
+
+  .plot {
+    opacity: 1;
+  }
+  .dot,
+  .topic,
+  .caption {
+    opacity: 1;
+  }
+  .qbox {
+    opacity: 0.4;
+  }
+  .count {
+    --sb-questions: 24;
+  }
+  .beam {
+    display: none;
+  }
+}
