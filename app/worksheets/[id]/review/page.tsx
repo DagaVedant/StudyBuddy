@@ -95,6 +95,7 @@ export default async function ReviewPage({
     id: question.id,
     pageId: question.pageId,
     ordinal: question.ordinal,
+    printedNumber: question.printedNumber,
     promptText: question.promptText,
     questionType: question.questionType,
     bbox: question.bbox,

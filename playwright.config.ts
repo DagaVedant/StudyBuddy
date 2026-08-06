@@ -54,6 +54,7 @@ export default defineConfig({
       ADMIN_EMAILS: 'admin@studybuddy.test',
       ENABLE_MOCK_AI: 'true',
       DISABLE_RATE_LIMITS: 'true',
+      SKIP_MIGRATIONS: 'true',
       NEXT_PUBLIC_APP_URL: BASE_URL,
       WORKER_API_TOKEN: 'e2e-worker-token',
       BLOB_READ_WRITE_TOKEN: '',

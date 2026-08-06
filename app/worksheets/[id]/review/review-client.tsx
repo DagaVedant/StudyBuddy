@@ -27,12 +27,27 @@ export interface EditableQuestion {
   id: string
   pageId: string | null
   ordinal: number
+  /** The number printed on the paper. Null when the sheet numbers nothing. */
+  printedNumber: number | null
   promptText: string
   questionType: QuestionType
   bbox: BBox | null
   correctAnswer: string | null
   choices: { label: string; text: string; isCorrect: boolean }[]
   topicId: string | null
+}
+
+/**
+ * What to show beside a question.
+ *
+ * The number printed on the paper, so the label matches what the student is
+ * looking at. Ordinal is a row counter and only ever coincided with the paper
+ * by luck; it once put "138" beside question 25 of 114. It stays as the
+ * fallback for worksheets that print no numbers at all, where a position is
+ * better than nothing.
+ */
+function questionLabel(question: EditableQuestion): number {
+  return question.printedNumber ?? question.ordinal
 }
 
 interface Props {
@@ -204,7 +219,9 @@ export default function ReviewClient({
       const { questionId } = (await response.json()) as { questionId: string }
       setQuestions((current) => [
         ...current,
-        { ...body, id: questionId, correctAnswer: null, topicId: null },
+        // Null rather than a made-up number: a question added by hand has no
+        // number printed on the paper, so it falls back to its position.
+        { ...body, id: questionId, correctAnswer: null, topicId: null, printedNumber: null },
       ])
       setSelectedId(questionId)
       setExpandedId(questionId)
@@ -335,7 +352,7 @@ export default function ReviewClient({
               <button
                 key={question.id}
                 type="button"
-                aria-label={`Question ${question.ordinal}`}
+                aria-label={`Question ${questionLabel(question)}`}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={() => focusQuestion(question.id)}
                 style={{
@@ -351,7 +368,7 @@ export default function ReviewClient({
                 }`}
               >
                 <span className="absolute -top-px left-0 -translate-y-full rounded-t bg-accent px-1 text-xs tabular-nums text-accent-fg">
-                  {question.ordinal}
+                  {questionLabel(question)}
                 </span>
               </button>
             ) : null,
@@ -425,7 +442,7 @@ export default function ReviewClient({
                 <div className="p-3">
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 shrink-0 rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium tabular-nums text-accent">
-                      {question.ordinal}
+                      {questionLabel(question)}
                     </span>
                     <button
                       type="button"
