@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   PARALLEL_PAGE_THRESHOLD,
-  PARALLEL_QUESTION_THRESHOLD,
   concurrencyFor,
   mapWithConcurrency,
   maxParallelPages,
@@ -16,45 +15,26 @@ afterEach(() => {
 })
 
 describe('concurrencyFor', () => {
-  it('keeps a short worksheet sequential', () => {
+  // Parallel page reads are off. They were 1.7x faster and cost no extraction
+  // accuracy, but ordinals are handed out as rows are written, so pages
+  // finishing out of order left the student a list in the wrong order labelled
+  // with numbers matching nothing on the page.
+  it('reads one page at a time, whatever the size', () => {
     expect(concurrencyFor({ pageCount: 4, expectedQuestionCount: 10 })).toBe(1)
+    expect(concurrencyFor({ pageCount: PARALLEL_PAGE_THRESHOLD + 1 })).toBe(1)
+    expect(concurrencyFor({ pageCount: 200, expectedQuestionCount: 500 })).toBe(1)
   })
 
-  it('opens slots once the page count passes the threshold', () => {
-    expect(concurrencyFor({ pageCount: PARALLEL_PAGE_THRESHOLD })).toBe(1)
-    expect(concurrencyFor({ pageCount: PARALLEL_PAGE_THRESHOLD + 1 })).toBeGreaterThan(1)
+  it('cannot be turned back on by the environment alone', () => {
+    process.env.OLLAMA_MAX_PARALLEL_PAGES = '4'
+    expect(concurrencyFor({ pageCount: 200 })).toBe(1)
   })
 
-  // A dense paper is worth overlapping even when it is few pages, because the
-  // cost is in the questions on them rather than in the page count.
-  it('opens slots for a question-heavy but short paper', () => {
-    expect(
-      concurrencyFor({ pageCount: 6, expectedQuestionCount: PARALLEL_QUESTION_THRESHOLD + 1 }),
-    ).toBeGreaterThan(1)
-  })
-
-  it('treats an unstated question count as no reason to parallelise', () => {
-    expect(concurrencyFor({ pageCount: 3, expectedQuestionCount: null })).toBe(1)
-    expect(concurrencyFor({ pageCount: 3 })).toBe(1)
-  })
-
-  it('takes the operator at their word', () => {
-    process.env.OLLAMA_MAX_PARALLEL_PAGES = '3'
-    expect(concurrencyFor({ pageCount: 40 })).toBe(3)
-  })
-
-  // Overflowing VRAM is not a gentle slowdown — an offloaded model measured
-  // 9.2 tok/s against 79 — so a fat-fingered value must not be honoured.
-  it('caps a wild setting rather than trusting it', () => {
+  it('still caps the setting, for whenever ordering is fixed', () => {
     process.env.OLLAMA_MAX_PARALLEL_PAGES = '64'
-    expect(concurrencyFor({ pageCount: 40 })).toBe(4)
-  })
-
-  it('never drops below one', () => {
+    expect(maxParallelPages()).toBe(4)
     process.env.OLLAMA_MAX_PARALLEL_PAGES = '0'
     expect(maxParallelPages()).toBe(1)
-    process.env.OLLAMA_MAX_PARALLEL_PAGES = 'banana'
-    expect(maxParallelPages()).toBe(2)
   })
 })
 

@@ -36,12 +36,27 @@ export function maxParallelPages(): number {
   return Math.min(4, Math.max(1, Math.trunc(raw)))
 }
 
-export function concurrencyFor(work: WorkloadSize): number {
-  const big =
-    work.pageCount > PARALLEL_PAGE_THRESHOLD ||
-    (work.expectedQuestionCount ?? 0) > PARALLEL_QUESTION_THRESHOLD
-
-  return big ? maxParallelPages() : 1
+/**
+ * Always one. Reading pages in parallel is disabled.
+ *
+ * It worked, and it was 1.7x faster on a 59 page packet with no loss of
+ * extraction accuracy: 114 of 114 questions found, none missing, none
+ * numbered past the end. What it broke was the order.
+ *
+ * A question's ordinal is assigned when its row is written, as one past the
+ * highest already stored. Read pages one at a time and that matches the paper.
+ * Read them two at a time and page 4 can finish before page 3, so page 4's
+ * questions take the lower ordinals. The review screen sorts by ordinal and
+ * shows it, so the student got a list in the wrong order, labelled with
+ * numbers that matched nothing on the page in front of them.
+ *
+ * Ordering by printed number would paper over it, but plenty of worksheets
+ * have no printed numbers at all, and ordinal is what those fall back to.
+ * The real fix is to assign ordinals by page and position rather than by
+ * arrival, and until that exists this stays off.
+ */
+export function concurrencyFor(_work: WorkloadSize): number {
+  return 1
 }
 
 /**
