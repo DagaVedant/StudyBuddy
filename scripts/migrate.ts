@@ -7,6 +7,15 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 
 async function main() {
+  // The end-to-end suite points DATABASE_URL at a PGlite socket that is not
+  // listening yet when the build runs, and it applies its own migrations
+  // anyway. Only the test config sets this, so a deployment cannot skip by
+  // accident.
+  if (process.env.SKIP_MIGRATIONS === 'true') {
+    console.log('SKIP_MIGRATIONS set, not migrating.')
+    return
+  }
+
   const url = process.env.DATABASE_URL
 
   if (!url) {
