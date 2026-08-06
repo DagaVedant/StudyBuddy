@@ -3,8 +3,13 @@
 One post covering the whole project. Paste the text below, attach the images in
 the order they appear.
 
-**Images ready to attach:** `devlog/media/pipeline.png`,
-`devlog/media/benchmark.png`
+**Two images, both generated and sitting in `devlog/media/`.**
+
+The image lines below are already inline, in the right places. They point at
+repo paths, which the posting site cannot read, so it will shove both images to
+the bottom of the post. To fix that: upload each image with the editor's own
+image button, copy the URL it gives back, and paste it inside the brackets on
+the matching line. The lines to change are marked `<-- SWAP`.
 
 **Still worth grabbing** (2 minutes, big payoff, since visuals are what make
 people stop scrolling): a screenshot of the dashboard with real weak topics, and
@@ -15,7 +20,7 @@ appear.
 
 # I built a study app that turns homework into a personalised revision plan, and runs the AI on my own gaming laptop
 
-![pipeline](devlog/media/pipeline.png)
+![How StudyBuddy works](devlog/media/pipeline.png) <-- SWAP for the uploaded pipeline.png URL
 
 **What it does:** you upload a worksheet or a practice test as a PDF or a photo.
 It reads every question off the page, works out which topic each one belongs to,
@@ -37,7 +42,7 @@ pulled. Months later I finally measured it properly: 9 vision models, a real 58
 page SHSAT practice test, 114 questions, scored on whether the questions came off
 the page intact.
 
-![benchmark](devlog/media/benchmark.png)
+![Benchmark results](devlog/media/benchmark.png) <-- SWAP for the uploaded benchmark.png URL
 
 The model I had already been using won. The 27b model, at nearly four times the
 size, scored six points **worse** and took 183 seconds per page against 7.8. I
