@@ -31,17 +31,6 @@ export function limitKey(rule: LimitRule, subject: string): string {
 }
 
 /**
- * Counts one request against a rule and says whether to allow it.
- *
- * Fixed windows rather than a sliding log: the failure mode is that someone
- * spends a full window's allowance either side of a boundary, which for signup
- * and upload limits is a rounding error, and it costs one row and one
- * statement instead of a row per request.
- *
- * The whole decision is a single upsert so that two concurrent requests cannot
- * both read the same count and both decide they are under the limit.
- */
-/**
  * Whether limits are enforced at all.
  *
  * The end-to-end suite signs up many times from one address, which is exactly
@@ -53,6 +42,17 @@ export function limitsEnforced(): boolean {
   return process.env.DISABLE_RATE_LIMITS !== 'true'
 }
 
+/**
+ * Counts one request against a rule and says whether to allow it.
+ *
+ * Fixed windows rather than a sliding log: the failure mode is that someone
+ * spends a full window's allowance either side of a boundary, which for signup
+ * and upload limits is a rounding error, and it costs one row and one
+ * statement instead of a row per request.
+ *
+ * The whole decision is a single upsert so that two concurrent requests cannot
+ * both read the same count and both decide they are under the limit.
+ */
 export async function consumeRateLimit(
   db: Db,
   rule: LimitRule,
@@ -67,25 +67,54 @@ export async function consumeRateLimit(
   // rejects here.
   const nowIso = now.toISOString()
 
-  const rows = await db.execute(sql`
+  // Wrapped because this runs before anything else the endpoint does, so a
+  // limiter that throws does not throttle a request, it removes the feature.
+  // That is exactly what happened once: the table had not been migrated onto
+  // the deployed database, and every upload returned a 500 having never
+  // reached a line of upload code.
+  //
+  // Failing open is the right side to fail on. The worst case is that abuse
+  // goes uncounted for as long as the table is unhappy; the alternative is
+  // that every student is locked out by a bug in the thing meant to protect
+  // them.
+  let rows: unknown
+  try {
+    rows = await runCounter(db, key, nowIso, rule.windowSeconds)
+  } catch (error) {
+    console.error('[rate-limit] counter failed, allowing the request:', error)
+    return { ok: true, remaining: rule.limit, retryAfter: 0 }
+  }
+
+  return decide(rows, rule, now)
+}
+
+async function runCounter(
+  db: Db,
+  key: string,
+  nowIso: string,
+  windowSeconds: number,
+): Promise<unknown> {
+  return db.execute(sql`
     INSERT INTO rate_limits (key, count, window_start)
     VALUES (${key}, 1, ${nowIso}::timestamptz)
     ON CONFLICT (key) DO UPDATE SET
       count = CASE
         WHEN rate_limits.window_start
-             <= ${nowIso}::timestamptz - make_interval(secs => ${rule.windowSeconds})
+             <= ${nowIso}::timestamptz - make_interval(secs => ${windowSeconds})
         THEN 1
         ELSE rate_limits.count + 1
       END,
       window_start = CASE
         WHEN rate_limits.window_start
-             <= ${nowIso}::timestamptz - make_interval(secs => ${rule.windowSeconds})
+             <= ${nowIso}::timestamptz - make_interval(secs => ${windowSeconds})
         THEN ${nowIso}::timestamptz
         ELSE rate_limits.window_start
       END
     RETURNING count, window_start
   `)
+}
 
+function decide(rows: unknown, rule: LimitRule, now: Date): LimitDecision {
   const row = (rows as unknown as { rows?: unknown[] }).rows ?? (rows as unknown as unknown[])
   const first = (Array.isArray(row) ? row[0] : undefined) as
     | { count: number | string; window_start: string | Date }
