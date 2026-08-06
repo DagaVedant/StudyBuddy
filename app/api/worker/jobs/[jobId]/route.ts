@@ -16,6 +16,7 @@ import {
 import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
 import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
+import { renumberQuestions } from '@/lib/worker/renumber'
 import { persistQuestions } from '@/lib/worker/ingest'
 import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
 
@@ -113,6 +114,13 @@ export async function POST(request: Request, { params }: Params) {
       const { merged } = await mergeDuplicateQuestions(client, job.worksheetId)
       if (merged > 0) {
         console.log(`[dedupe] folded ${merged} duplicate question(s) on ${job.worksheetId}`)
+      }
+
+      // After the merge, so it numbers what survives rather than leaving a
+      // hole where a folded row used to be.
+      const { renumbered } = await renumberQuestions(client, job.worksheetId)
+      if (renumbered > 0) {
+        console.log(`[renumber] reordered ${renumbered} question(s) on ${job.worksheetId}`)
       }
     }
 
