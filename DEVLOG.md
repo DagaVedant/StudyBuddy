@@ -1,177 +1,114 @@
-# Devlog posts
+# StudyBuddy devlog
 
-Ready to paste, one per chunk of work. Each is 3 to 6 sentences with a visual.
-Post them in order as you log the matching hours.
+One post covering the whole project. Paste the text below, attach the images in
+the order they appear.
 
-**Visual status:** `devlog/media/benchmark.png` is generated and ready. The rest
-need a screenshot or a 20 second screen recording, noted under each post. Grab
-them before you post; reconstructing later is how devlogs get skipped.
+**Images ready to attach:** `devlog/media/pipeline.png`,
+`devlog/media/benchmark.png`
 
----
-
-## 1. Redesigned the whole app around soft pastels
-
-**Visual:** before/after screenshot of the dashboard, side by side.
-
-The app worked but looked like a database admin panel, so I redesigned it around
-a soft pastel palette that suits a study tool for students. I built four mockup
-directions first instead of jumping straight into code, which saved me from
-redoing it twice. The annoying part was contrast: my first muted text colour
-measured 4.0:1 against the pastel tiles and WCAG wants 4.5:1, so I had to darken
-it and recheck every tint. Then my new accent and danger colours drifted so close
-together that a delete button read as a normal one, and I only caught it by
-rendering the actual RGB swatches side by side instead of trusting the numbers.
+**Still worth grabbing** (2 minutes, big payoff, since visuals are what make
+people stop scrolling): a screenshot of the dashboard with real weak topics, and
+a 20 second screen recording of uploading a worksheet and watching questions
+appear.
 
 ---
 
-## 2. Spent an afternoon on a 500 error that was three separate bugs
+# I built a study app that turns homework into a personalised revision plan, and runs the AI on my own gaming laptop
 
-**Visual:** screenshot of the 500 error page, or the terminal stack trace.
+![pipeline](devlog/media/pipeline.png)
 
-Upload finished, then died with a 500. I assumed one bug and found three stacked
-on top of each other. Vercel Blob needed `access: 'private'` and a different read
-path than the one I had written; the embeddings library was being imported at the
-top of a module, which dragged a native ONNX runtime into a serverless function
-that has no such thing, killing the route before any of my code ran; and signup
-had a dead end where a failed email left the account created but unreachable.
-The lesson was that "it worked locally" and "it works on serverless" are barely
-related claims.
+**What it does:** you upload a worksheet or a practice test as a PDF or a photo.
+It reads every question off the page, works out which topic each one belongs to,
+and after you mark which ones you got wrong it schedules them for review using
+FSRS, the same spaced repetition algorithm Anki uses. The dashboard then tells
+you which topics you are actually weak at, rather than which ones you feel weak
+at.
 
----
+**The constraint that shaped everything:** I did not want to pay for an API. So
+the vision model runs on my own RTX 5080 laptop, which sits at home and polls the
+deployed site for jobs. It only ever dials out, so there is no inbound port and
+nothing listening on my home network. New accounts get three free worksheets
+processed on my hardware. If my laptop is off, uploads queue instead of failing.
 
-## 3. Cancel now actually cancels
+## The part I got most wrong
 
-**Visual:** short screen recording of hitting cancel mid-upload and it stopping
-instantly.
-
-Pressing cancel during an upload used to finish the current page first, which
-could mean waiting several seconds while the UI said it had stopped. Now an
-AbortSignal is threaded all the way down through PDF rasterization and the OCR
-worker, so the render task is cancelled and the worker terminated the moment you
-click. The subtle bit was cleanup: I had the listener removal inside a `.finally()`
-and a test caught it lingering an extra microtask, which is exactly the kind of
-thing that becomes a memory leak nobody can reproduce.
-
----
-
-## 4. Found a question that got split in two, and did not trust the obvious fix
-
-**Visual:** screenshot of the two duplicate rows in the database or the review
-screen.
-
-The AI read question 1 on page 3 as two separate questions, which inflated the
-count and pushed every following number off by one. The obvious fix is to delete
-rows whose label style looks wrong, so I checked that against the real worksheet
-first: page 4 has legitimate numeric labels, and a label only rule would have
-deleted a real question. One false positive out of two. So the merge rule now
-requires the answer choices of one row to be contained inside the other, and it
-only ever merges pairs. I would much rather show one question too many than
-silently delete someone's homework.
-
----
-
-## 5. Benchmarked 9 vision models and the one I was already using won
-
-**Visual:** `devlog/media/benchmark.png` (ready to attach)
+I picked the extraction model, `qwen2.5vl:7b`, because it was the first thing I
+pulled. Months later I finally measured it properly: 9 vision models, a real 58
+page SHSAT practice test, 114 questions, scored on whether the questions came off
+the page intact.
 
 ![benchmark](devlog/media/benchmark.png)
 
-I had picked `qwen2.5vl:7b` because it was the first thing I pulled, so I built a
-harness to actually measure it: 9 models, a real 58 page SHSAT paper, 114
-questions, scored on whether the questions came off the page intact. Ground truth
-was free because every printed number 1 to 114 should appear exactly once, which
-makes the paper grade itself. The 7b won at 99.1% and was 4x faster per page than
-anything else. The 27b model, at nearly four times the size, scored six points
-worse and took 183 seconds per page against 7.8.
+The model I had already been using won. The 27b model, at nearly four times the
+size, scored six points **worse** and took 183 seconds per page against 7.8. I
+had been quietly assuming for weeks that upgrading would fix my accuracy problems
+and it would have made everything 17 times slower for nothing.
 
----
+Ground truth was free, which I was pleased with: every printed question number
+from 1 to 114 should appear exactly once across the paper, so the test grades
+itself and I did not have to label 58 pages by hand.
 
-## 6. Every single miss was the same bug, and it was mine
+## The bug that was hiding behind the accuracy problem
 
-**Visual:** screenshot of the miss table, or the terminal showing
-`generated nothing on attempt 1, asking again`.
+Then I looked at *which* questions each model missed, and they were not scattered
+randomly. They came in blocks. One model dropped 17 consecutive questions.
 
-Digging into the benchmark results, every missed question across every model
-traced to a page that returned an empty response, not to a question the model
-misread. One model blanked on 14 of 58 pages. The worst part was realising my
-pipeline had no retry for it: an empty reply produces zero questions and no
-error, so the audit saw nothing wrong and the worksheet still reported success
-while an entire page silently vanished. One retry with the temperature nudged
-above zero fixes it, because a greedy call that already chose to emit nothing
-will make the same choice again given identical input.
+Every single miss, across every model, turned out to be a page that returned an
+**empty response**. Not a question misread, a page that came back with nothing.
+One model did this on 14 of its 58 pages.
 
----
+That was my bug, not the model's. An empty reply produces zero questions and no
+error, so my audit, which only checked that the question numbering had no gaps,
+saw nothing wrong. The upload reported success while an entire page had silently
+vanished. One retry fixed it, with the temperature nudged above zero, because a
+greedy model that already chose to emit nothing will make the identical choice
+when asked again.
 
-## 7. Taught the app to notice when a question arrives broken
+## Other things that broke, in order of how stupid I felt
 
-**Visual:** screenshot of the worker log showing
-`review: N of M questions look wrong, re-reading X pages`.
+**A rule that was wrong 25 times out of 25.** I wrote a check to catch questions
+that got cut off mid sentence: flag any stem that does not end in punctuation. It
+fired on 25 of 114 rows of a *clean* extraction. Real test questions constantly
+end with "by" or "through" and are completed by their own answer choices.
+Narrowing it to actual cut markers removed every false positive and changed zero
+decisions, meaning the rule had been pure noise the entire time. The 7B model I
+was using as a second opinion makes the identical mistake, which was oddly
+comforting.
 
-The audit only checked that the numbering had no gaps, so a page that produced a
-question for every number it owed looked perfect even when those questions were
-fragments or missing half their answer choices. That was about one row in ten.
-My first truncation rule flagged any stem that did not end in punctuation, and it
-fired on 25 of 114 rows of a clean run, every one of them wrong: real test
-questions routinely end with "by" or "through" and are finished by their own
-answer options. Narrowing it to real cut markers removed every false positive and
-changed exactly zero decisions, so the rule had been pure noise the whole time.
+**I added rate limiting and immediately locked out my own test suite,** which
+signs up far more than five times an hour from localhost.
 
----
+**One 500 error that was three unrelated bugs stacked on each other:** blob
+storage needing a different access mode, an embeddings library dragging a native
+runtime into a serverless function that has no such thing, and a signup dead end
+where a failed email left the account created but unreachable.
 
-## 8. Killed my email provider and made Google the front door
+**A double slash in a URL.** Verification emails were pointing at
+`host//verify?token=...` because the base URL ended in a slash. Two slashes is
+not the same route, and a host that redirects to tidy it can drop the query
+string, taking the token with it.
 
-**Visual:** screenshot of the Resend error, "We don't allow free public domains."
+**I deleted my entire email system.** Sending email to real addresses needs a
+domain you own so SPF and DKIM records can be published, and a free `.vercel.app`
+subdomain cannot carry those. Rather than buy a domain I deleted 274 lines and
+made Google sign-in the front door, which already skipped the whole problem.
 
-Signup was broken for everyone except me, because sending email to real addresses
-needs a domain you own so SPF and DKIM records can be published, and a free
-`.vercel.app` subdomain cannot carry those. Resend rejected it outright and so
-would anyone else. Rather than pay for a domain I deleted the entire email path,
-which turned out to be easy because Google sign-in already skipped it: the OAuth
-callback marks the address verified, so those users never touched email at all.
-274 lines deleted and signup works for real people now.
+## A decision I am glad I slowed down on
 
----
+The AI read one question as two, which inflated the count and pushed every
+following number off by one. The obvious fix is to delete rows whose label style
+looks wrong. Before writing it I checked against the actual worksheet, and page 4
+had legitimate numeric labels: a label only rule would have deleted a real
+question. One false positive out of two.
 
-## 9. Added rate limiting, then it immediately blocked my own tests
+So the merge rule now requires one row's answer choices to be *contained inside*
+the other, and it only ever merges pairs. Everywhere else in the pipeline follows
+the same principle: flag it, re-read it, never delete a student's work on a guess.
 
-**Visual:** screenshot of the test run going red, then green.
+## Where it landed
 
-There was no rate limiting anywhere, so I added it: counters in Postgres rather
-than memory, because serverless spins up new processes constantly and an
-in-process counter would reset before it ever limited anything. The whole check
-is a single upsert so two simultaneous requests cannot both read the same count
-and both decide they are under the limit, which a test with ten concurrent
-requests confirms. Then my end to end suite went red, because it signs up far
-more than five times an hour from localhost and my own limit was throttling it.
-Now it is switchable, and only the test config switches it off.
-
----
-
-## 10. Made long packets read pages in parallel, for a smaller win than I expected
-
-**Visual:** screenshot of the worker log showing `reading 2 pages at a time`, or a
-timing comparison.
-
-I wanted to know if parallel page reads were worth it, so I checked the benchmark
-timings instead of guessing: 59% of the time is decode and 38% is prefill.
-Decode is bandwidth bound and overlaps almost for free, but prefill already
-saturates the GPU, which caps the whole thing at about 1.7x no matter how many
-pages I run at once. I also had to walk back my own advice on context size after
-checking the distribution: I said the reservation was mostly wasted based on the
-3,900 token average, but the densest page wanted 18,374, and sizing on the
-average would have truncated exactly the pages carrying the most questions.
-The sneaky part was resume, which tracked a high water page number, and "done up
-to N" stops being true the second pages finish out of order.
-
----
-
-## Posts still to write
-
-These are chunks from earlier in the project that I do not have visuals for. If
-you have old screenshots, they are worth writing up:
-
-- Building the browser side PDF rasterizer and Tesseract OCR pipeline
-- FSRS scheduling and the review session
-- The weakness dashboard and how topics get ranked
-- Moving classification onto the GPU worker
-- The extraction review editor and drag to create a question
+303 tests passing. The whole thing is Next.js, Postgres with pgvector for topic
+matching, Auth.js, and Ollama on my own hardware. The most useful thing I learned
+was to measure the distribution and not the average, which bit me twice: once on
+that truncation rule, and again when I sized a model's context window off the
+average page and nearly truncated exactly the pages carrying the most questions.
