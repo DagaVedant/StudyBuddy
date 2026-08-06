@@ -5,7 +5,7 @@
   "scripts": {
     "postinstall": "node scripts/copy-pdf-worker.mjs",
     "predev": "node scripts/copy-pdf-worker.mjs",
-    "prebuild": "node scripts/copy-pdf-worker.mjs",
+    "prebuild": "node scripts/copy-pdf-worker.mjs && npm run db:migrate:deploy",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate:deploy": "tsx scripts/migrate.ts --if-configured",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed-topics.ts",
     "db:embed": "tsx scripts/backfill-embeddings.ts",

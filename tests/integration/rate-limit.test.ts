@@ -126,3 +126,25 @@ describe('callerIp', () => {
     expect(callerIp(new Headers())).toBe('unknown')
   })
 })
+
+describe('when the counter itself fails', () => {
+  // This is not hypothetical. The table was missing from the deployed database
+  // once, and because the check runs before anything else the endpoint does,
+  // every upload returned a 500 without reaching a line of upload code.
+  const broken = {
+    execute: () => Promise.reject(new Error('relation "rate_limits" does not exist')),
+  } as unknown as Db
+
+  it('lets the request through rather than taking the endpoint down', async () => {
+    const decision = await consumeRateLimit(broken, rule, 'ip:db-is-down')
+
+    expect(decision.ok).toBe(true)
+    expect(decision.retryAfter).toBe(0)
+  })
+
+  it('still allows when the statement returns nothing', async () => {
+    const empty = { execute: () => Promise.resolve([]) } as unknown as Db
+
+    expect((await consumeRateLimit(empty, rule, 'ip:no-rows')).ok).toBe(true)
+  })
+})
