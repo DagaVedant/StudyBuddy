@@ -10,6 +10,7 @@ import {
   worksheetPages,
   worksheets,
 } from '@/lib/db/schema'
+import { normalizeMath } from '@/lib/questions/math'
 import { contentHashSource, normalizeForCompare } from '@/lib/questions/shape'
 import { checkpointJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
@@ -134,7 +135,19 @@ export async function persistQuestions(
 
   let created = 0
 
-  for (const question of extracted) {
+  for (const raw of extracted) {
+    // Normalised before hashing and before storing, so the hash matches what
+    // the student actually reads and the same question written two ways does
+    // not survive as two rows.
+    const question = {
+      ...raw,
+      prompt_text: normalizeMath(raw.prompt_text),
+      choices: raw.choices.map((choice) => ({
+        ...choice,
+        text: normalizeMath(choice.text),
+      })),
+    }
+
     const contentHash = createHash('sha256')
       .update(contentHashSource(question.prompt_text, question.choices))
       .digest('hex')
