@@ -19,6 +19,7 @@ export type ValidationCode =
   | 'choice_text_in_stem'
   | 'stem_looks_truncated'
   | 'stem_reads_like_passage'
+  | 'stem_is_not_a_question'
 
 export interface ValidationFlag {
   code: ValidationCode
@@ -88,6 +89,18 @@ export function modalChoiceCount(questions: ValidatableQuestion[]): number | nul
  * is the question working as designed.
  */
 const CUT_OFF = /[,;\-–—(\[]\s*$/
+
+/** Three or more ordinary words is enough to call something a sentence. */
+const PROSE = /[a-z]{3,}/g
+
+/**
+ * Any sign a calculation is being asked for.
+ *
+ * Needed because a real question can be almost wordless: "3.6 / 0.018 =" and
+ * "3(0.01) - 3(0.1) =" are genuine items on these papers. A first version of
+ * this check looked only for prose and would have condemned every one of them.
+ */
+const MATHS = /[=<>+−×÷≤≥]|\d+\s*[-*/]\s*\d+/
 const HAS_QUESTION_SHAPE = /[?:]/
 
 export function validateQuestion(
@@ -179,6 +192,20 @@ export function validateQuestion(
       code: 'stem_looks_truncated',
       detail: `stem ends "${stem.slice(-24)}"`,
       severity: 'low',
+    })
+  }
+
+  // Figure labels, page furniture and stray option letters get captured as
+  // questions: "C(3,y)nA(5,7) B(11,7)" off a diagram, "CONTINUE ON TO THE NEXT
+  // PAGE", a lone "(C)". None of them ask anything, and none of them contain
+  // either a sentence or a calculation. Measured across 714 stored questions
+  // this flags 23 rows and not one of them carries a printed number, which is
+  // the tell that a real question was never involved.
+  if ((stem.match(PROSE) ?? []).length < 3 && !MATHS.test(stem)) {
+    flags.push({
+      code: 'stem_is_not_a_question',
+      detail: `nothing asked: "${stem.slice(0, 40)}"`,
+      severity: 'high',
     })
   }
 
