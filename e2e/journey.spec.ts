@@ -43,13 +43,29 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
 
 test('dragging a region creates a question with its text filled in', async () => {
   const image = page.getByRole('img', { name: /Page 1 of/ })
+
+  // The handler reads the drag box off a ref on pointerup, and the box only
+  // exists if pointermove ran over a laid-out image. Dragging before the
+  // raster has decoded produced a zero-size box and silently created nothing,
+  // which is how this test started failing intermittently.
+  await expect(image).toBeVisible()
+  await image.evaluate((element: HTMLImageElement) =>
+    element.complete ? undefined : element.decode().catch(() => undefined),
+  )
+  await expect
+    .poll(async () => image.evaluate((el: HTMLImageElement) => el.naturalWidth))
+    .toBeGreaterThan(0)
+
   const box = await image.boundingBox()
   if (!box) throw new Error('page image has no layout box')
 
   await page.mouse.move(box.x + box.width * 0.05, box.y + box.height * 0.05)
   await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.12, {
+    steps: 8,
+  })
   await page.mouse.move(box.x + box.width * 0.95, box.y + box.height * 0.22, {
-    steps: 12,
+    steps: 8,
   })
   await page.mouse.up()
 
@@ -89,6 +105,25 @@ test('answer choices can be added and one marked correct', async () => {
   await expect(page.getByRole('radio', { name: 'Mark choice A correct' })).toBeChecked()
 
   await expect(page.getByText('Saved')).toBeVisible()
+})
+
+test('the verify flow shows a card and records a check', async () => {
+  const url = page.url()
+  const worksheetId = url.match(/worksheets\/([^/]+)\//)?.[1]
+  if (!worksheetId) throw new Error('no worksheet id in ' + url)
+
+  await page.goto(`/worksheets/${worksheetId}/verify`)
+
+  await expect(page.getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
+  await expect(page.getByRole('progressbar', { name: 'Questions checked' })).toBeVisible()
+  await expect(page.getByText(/0 of \d+ checked/)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Looks right' }).click()
+
+  // One question in this fixture, so accepting it finishes the worksheet.
+  await expect(page.getByText(/All \d+ questions checked/)).toBeVisible()
+
+  await page.goto(`/worksheets/${worksheetId}/review`)
 })
 
 test('confirming moves the worksheet to markup', async () => {
