@@ -10,6 +10,7 @@ import {
   worksheetPages,
   worksheets,
 } from '@/lib/db/schema'
+import { foldLeadInChoices } from '@/lib/questions/lead-in'
 import { normalizeMath } from '@/lib/questions/math'
 import { contentHashSource, normalizeForCompare } from '@/lib/questions/shape'
 import { checkpointJob } from '@/lib/queue'
@@ -119,7 +120,10 @@ export async function persistQuestions(
   pageId: string,
   raw: ExtractedQuestion[],
 ): Promise<number> {
-  const extracted = mergeSplitQuestions(raw)
+  // After the merge, not before: the union of two split rows is one of the two
+  // ways a question ends up holding both its options and the sentences they
+  // were built from, and it only exists once the merge has run.
+  const extracted = mergeSplitQuestions(raw).map(foldLeadInChoices)
   if (extracted.length === 0) return 0
 
   const existing = await db
