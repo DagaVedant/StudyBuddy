@@ -41,18 +41,28 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
   expect(natural).toBeGreaterThan(500)
 })
 
-// KNOWN FAILURE, and the cause is now narrowed to one thing.
+// KNOWN FAILURE. Everything below was measured, not guessed, and the pieces
+// still contradict each other:
 //
-// Instrumenting the handlers showed pointermove and pointerup both reach the
-// container while pointerdown never does, so dragStart is never set and the
-// box is null on release. Nothing in the component intercepts pointerdown: it
-// holds one such handler and calls neither stopPropagation nor preventDefault.
+//  - Logging the handlers: pointermove and pointerup both reach the container,
+//    pointerdown never does, so dragStart stays null and the box is null on
+//    release. The log sits above the event.button guard, so the handler body
+//    is genuinely not entered.
+//  - The component holds exactly one onPointerDown and calls neither
+//    stopPropagation nor preventDefault. Nothing in it intercepts the press.
+//  - Every ancestor of the image reports pointer-events: auto and visible.
+//  - locator.hover() times out after two minutes on "attempting hover action"
+//    having resolved the image, so Playwright's actionability check never
+//    passes either.
+//  - boundingBox() says the image spans x 24-784, y 16-999 in a 1280x720
+//    viewport, yet document.elementsFromPoint at a point well inside that
+//    returns only <html>.
 //
-// Replacing the press with locator.hover() then timed out after two minutes on
-// "attempting hover action", having resolved the image fine. Playwright only
-// hangs there when its actionability check never passes, which means something
-// is sitting over the page image and taking the pointer. Finding what covers
-// it is the remaining work; the drag itself is probably not at fault.
+// The last two are the contradiction worth chasing: the element is where the
+// box says it is, and the browser does not agree that anything is there. The
+// container is lg:sticky lg:top-4 and taller than the viewport, which is the
+// only unusual thing about its positioning. Moving the press inboard from the
+// corner changes nothing.
 test('dragging a region creates a question with its text filled in', async () => {
   const image = page.getByRole('img', { name: /Page 1 of/ })
 
@@ -61,10 +71,15 @@ test('dragging a region creates a question with its text filled in', async () =>
     element.complete ? undefined : element.decode().catch(() => undefined),
   )
 
+  await image.scrollIntoViewIfNeeded()
+
   const box = await image.boundingBox()
   if (!box) throw new Error('page image has no layout box')
 
-  await page.mouse.move(box.x + box.width * 0.05, box.y + box.height * 0.05)
+  const viewport = page.viewportSize()
+  console.log('BOX', JSON.stringify(box), 'VIEWPORT', JSON.stringify(viewport))
+
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.08)
   await page.mouse.down()
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.12, { steps: 8 })
   await page.mouse.move(box.x + box.width * 0.95, box.y + box.height * 0.22, { steps: 8 })
