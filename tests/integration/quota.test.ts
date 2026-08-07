@@ -155,4 +155,39 @@ describe('refundTrial', () => {
 
     expect(events[0].refunded).toBe(true)
   })
+
+  it('leaves the other kind of usage alone', async () => {
+    const userId = await makeUser(db)
+    await consumeTrial(db as Db, userId, 'worksheets', 1)
+    await consumeTrial(db as Db, userId, 'explanations', 1)
+
+    await refundTrial(db as Db, userId, 'worksheets', 1)
+
+    const events = await db
+      .select()
+      .from(usageEvents)
+      .where(eq(usageEvents.userId, userId))
+
+    const worksheet = events.find((event) => event.kind === 'extract_page')
+    const explanation = events.find((event) => event.kind === 'explain')
+
+    expect(worksheet?.refunded).toBe(true)
+    expect(explanation?.refunded).toBe(false)
+    expect((await getTrialState(db as Db, userId)).explanationsUsed).toBe(1)
+  })
+
+  it('marks no more events than the refunded amount covers', async () => {
+    const userId = await makeUser(db)
+    await consumeTrial(db as Db, userId, 'worksheets', 1)
+    await consumeTrial(db as Db, userId, 'worksheets', 1)
+
+    await refundTrial(db as Db, userId, 'worksheets', 1)
+
+    const events = await db
+      .select()
+      .from(usageEvents)
+      .where(eq(usageEvents.userId, userId))
+
+    expect(events.filter((event) => event.refunded)).toHaveLength(1)
+  })
 })
