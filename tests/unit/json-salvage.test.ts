@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseModelJson, salvageTruncatedJson } from '@/lib/ai/json'
+import { parseModelJson, repairLatexEscapes, salvageTruncatedJson } from '@/lib/ai/json'
 import { parseExtraction } from '@/lib/ai/types'
 
 function question(n: number, text = `Question ${n}`) {
@@ -53,6 +53,43 @@ describe('salvageTruncatedJson', () => {
   })
 })
 
+describe('repairLatexEscapes', () => {
+  // The two ways a model writing LaTeX breaks a reply, both from real runs.
+  it('keeps a fraction the parser would otherwise swallow', () => {
+    const reply = String.raw`{"prompt_text":"What is \frac{44}{11}?"}`
+    const parsed = JSON.parse(repairLatexEscapes(reply)) as { prompt_text: string }
+
+    expect(parsed.prompt_text).toBe(String.raw`What is \frac{44}{11}?`)
+  })
+
+  it('rescues a reply that would not have parsed at all', () => {
+    const reply = String.raw`{"prompt_text":"Find \sqrt{16} and \pi"}`
+    expect(() => JSON.parse(reply)).toThrow()
+
+    const parsed = JSON.parse(repairLatexEscapes(reply)) as { prompt_text: string }
+    expect(parsed.prompt_text).toBe(String.raw`Find \sqrt{16} and \pi`)
+  })
+
+  it('leaves a line break, a tab and an escaped quote alone', () => {
+    const reply = JSON.stringify({ prompt_text: 'She said "go".\nThen\tstopped.' })
+    const parsed = JSON.parse(repairLatexEscapes(reply)) as { prompt_text: string }
+
+    expect(parsed.prompt_text).toBe('She said "go".\nThen\tstopped.')
+  })
+
+  it('does not touch a backslash the model already escaped', () => {
+    const reply = JSON.stringify({ prompt_text: String.raw`A path: C:\frac` })
+    const parsed = JSON.parse(repairLatexEscapes(reply)) as { prompt_text: string }
+
+    expect(parsed.prompt_text).toBe(String.raw`A path: C:\frac`)
+  })
+
+  it('ignores anything outside a string', () => {
+    const reply = '{"a": 1, "b": [2, 3]}'
+    expect(repairLatexEscapes(reply)).toBe(reply)
+  })
+})
+
 describe('parseModelJson', () => {
   it('parses valid JSON without flagging truncation', () => {
     const result = parseModelJson(JSON.stringify({ questions: [question(1)] }))
@@ -63,6 +100,14 @@ describe('parseModelJson', () => {
     const full = JSON.stringify({ questions: [question(1), question(2)] })
     const result = parseModelJson(full.slice(0, full.length - 8))
     expect(result.truncated).toBe(true)
+  })
+
+  it('hands the extraction schema a fraction rather than a control character', () => {
+    const reply = String.raw`{"questions":[{"ordinal":1,"prompt_text":"Add \frac{1}{2}","question_type":"multiple_choice","choices":[{"label":"A","text":"\frac{3}{4}"}],"bbox":null,"has_figure":false}]}`
+    const { questions } = parseExtraction(parseModelJson(reply).value)
+
+    expect(questions[0].prompt_text).toBe(String.raw`Add \frac{1}{2}`)
+    expect(questions[0].choices[0].text).toBe(String.raw`\frac{3}{4}`)
   })
 
   it('throws only when nothing at all can be recovered', () => {

@@ -52,6 +52,34 @@ describe('normalizeMath', () => {
     expect(normalizeMath('\\alpha + 1')).toBe('alpha + 1')
   })
 
+  // The AMC8 question that shipped reading `?rac{44}{11}`: three fractions,
+  // every backslash-f already swallowed by JSON.parse before ingest saw it.
+  it('rebuilds a fraction a JSON parser ate', () => {
+    const eaten = JSON.parse(
+      '"What is the value of \\frac{44}{11}+\\frac{110}{44}+\\frac{44}{1100}?"',
+    )
+    expect(eaten).toContain(String.fromCharCode(12))
+    expect(normalizeMath(eaten)).toBe('What is the value of 44/11+110/44+44/1100?')
+  })
+
+  it('rebuilds the other commands that decode to a control character', () => {
+    const eaten = JSON.parse('"$3 \\times 4 \\neq 7$ and \\right)"')
+    expect(normalizeMath(eaten)).toBe('3 × 4 ≠ 7 and )')
+  })
+
+  it('leaves a real line break as a line break', () => {
+    expect(normalizeMath('Read the passage.\nnice work')).toBe(
+      'Read the passage.\nnice work',
+    )
+    expect(normalizeMath('Choose one.\nThe answer is 4.')).toBe(
+      'Choose one.\nThe answer is 4.',
+    )
+  })
+
+  it('reads a display fraction the same as an inline one', () => {
+    expect(normalizeMath('$\\dfrac{3}{4}$ and $\\tfrac{1}{2}$')).toBe('3/4 and 1/2')
+  })
+
   it('is idempotent, so re-running it changes nothing', () => {
     const once = normalizeMath('$\\frac{1}{2}\\%$ of \\(x^{2}\\)')
     expect(normalizeMath(once)).toBe(once)
@@ -64,8 +92,13 @@ describe('looksUnrendered', () => {
     expect(looksUnrendered('\\( x \\)')).toBe(true)
   })
 
+  it('spots a command a JSON parser ate', () => {
+    expect(looksUnrendered(JSON.parse('"\\frac{1}{2}"'))).toBe(true)
+  })
+
   it('passes clean text', () => {
     expect(looksUnrendered('1/2% of x^2')).toBe(false)
     expect(looksUnrendered('The ribbon costs $5.00.')).toBe(false)
+    expect(looksUnrendered('Two lines.\nStill clean.')).toBe(false)
   })
 })
