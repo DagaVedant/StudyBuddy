@@ -41,6 +41,11 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
   expect(natural).toBeGreaterThan(500)
 })
 
+// KNOWN FAILURE. Instrumenting the handlers showed pointermove and pointerup
+// both reach the container while pointerdown never does, so dragStart is never
+// set and the box is null on release. Nothing in the component intercepts
+// pointerdown: it holds exactly one such handler and calls neither
+// stopPropagation nor preventDefault. Cause not yet found.
 test('dragging a region creates a question with its text filled in', async () => {
   const image = page.getByRole('img', { name: /Page 1 of/ })
 
