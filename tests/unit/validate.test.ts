@@ -256,3 +256,41 @@ describe('planReview', () => {
     expect(plan.skippedPages).toEqual([1])
   })
 })
+
+describe('stem_is_not_a_question', () => {
+  // Coordinate labels lifted off a diagram, filed as their own question.
+  it('catches figure labels captured as a question', () => {
+    expect(codes(question({ promptText: 'C(3,y)nA(5,7) B(11,7)' }))).toContain(
+      'stem_is_not_a_question',
+    )
+  })
+
+  it('catches page furniture', () => {
+    expect(codes(question({ promptText: 'CONTINUE ON TO THE NEXT PAGE' }))).toContain(
+      'stem_is_not_a_question',
+    )
+    expect(codes(question({ promptText: 'FORM B' }))).toContain('stem_is_not_a_question')
+  })
+
+  it('catches a stray option letter', () => {
+    expect(codes(question({ promptText: '(C)' }))).toContain('stem_is_not_a_question')
+  })
+
+  // The reason the first version of this rule was wrong. These are real
+  // questions on a real paper and carry almost no words at all.
+  it('leaves a bare calculation alone', () => {
+    for (const stem of [
+      '3.6 ÷ 0.018 =',
+      '3(0.01) − 3(0.1) =',
+      '4 _ 2 ÷ 2 _ 1 =',
+      'Evaluate: |(−8) − 12 + (−17) − (−31)| − |24|',
+      'Simplify: 8x − (7 + 2.5x) + 2',
+    ]) {
+      expect(codes(question({ promptText: stem }))).not.toContain('stem_is_not_a_question')
+    }
+  })
+
+  it('leaves an ordinary worded question alone', () => {
+    expect(codes(question())).not.toContain('stem_is_not_a_question')
+  })
+})
