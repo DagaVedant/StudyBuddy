@@ -99,25 +99,22 @@
  * on the right frame, but only by accident. This says it on purpose.
  */
 @supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .mock {
-      animation: settle linear both;
-      animation-timeline: view();
-      /* Finishes while the panel is still arriving, so it is flat by the time
-         you are actually reading it. */
-      animation-range: entry 0% entry 45%;
-    }
+  .mock {
+    animation: settle linear both;
+    animation-timeline: view();
+    /* Finishes while the panel is still arriving, so it is flat by the time
+       you are actually reading it. */
+    animation-range: entry 0% entry 45%;
   }
 }
 
-/* The finished state, asserted. Same contract as the hero: motion off loses
-   the four seconds, never the content. */
-@media (prefers-reduced-motion: reduce) {
-  .mock {
-    animation: none;
-    transform: none;
-  }
-}
+/*
+ * No `prefers-reduced-motion` fallback, by the owner's decision — the tilt
+ * plays for everyone. It is a rotation on scroll, which is squarely the kind
+ * of motion that setting exists to suppress, so weigh that before treating
+ * its absence as an oversight. The `@supports` gate above is a browser
+ * capability check and is unrelated; leave it in place.
+ */
 
 /* ── the dashboard's own chrome ────────────────────────────── */
 
