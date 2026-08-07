@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 
 import type { Db } from '@/lib/dashboard/queries'
 import { usageEvents, users } from '@/lib/db/schema'
@@ -61,6 +61,10 @@ function limitFor(kind: TrialKind) {
   return kind === 'worksheets' ? TRIAL_WORKSHEET_LIMIT : TRIAL_EXPLANATION_LIMIT
 }
 
+function eventKindFor(kind: TrialKind) {
+  return kind === 'worksheets' ? 'extract_page' : 'explain'
+}
+
 export async function consumeTrial(
   db: Db,
   userId: string,
@@ -101,7 +105,7 @@ export async function consumeTrial(
 
   await db.insert(usageEvents).values({
     userId,
-    kind: kind === 'worksheets' ? 'extract_page' : 'explain',
+    kind: eventKindFor(kind),
     tierUsed: 'trial',
     quantity: amount,
   })
@@ -124,8 +128,36 @@ export async function refundTrial(
     .set({ [fieldFor(kind)]: sql`greatest(${column} - ${amount}, 0)` })
     .where(eq(users.id, userId))
 
-  await db
-    .update(usageEvents)
-    .set({ refunded: true })
-    .where(and(eq(usageEvents.userId, userId), eq(usageEvents.refunded, false)))
+  // Only the events this refund actually pays back: the matching kind, and no
+  // more of them than the refunded amount covers. Marking every unrefunded row
+  // for the account let a failed worksheet clear the user's explanation events
+  // too, so a later refund found nothing left to mark.
+  const pending = await db
+    .select({ id: usageEvents.id, quantity: usageEvents.quantity })
+    .from(usageEvents)
+    .where(
+      and(
+        eq(usageEvents.userId, userId),
+        eq(usageEvents.kind, eventKindFor(kind)),
+        eq(usageEvents.tierUsed, 'trial'),
+        eq(usageEvents.refunded, false),
+      ),
+    )
+    .orderBy(desc(usageEvents.createdAt))
+
+  const refunding: string[] = []
+  let covered = 0
+
+  for (const event of pending) {
+    if (covered >= amount) break
+    refunding.push(event.id)
+    covered += event.quantity
+  }
+
+  if (refunding.length > 0) {
+    await db
+      .update(usageEvents)
+      .set({ refunded: true })
+      .where(inArray(usageEvents.id, refunding))
+  }
 }
