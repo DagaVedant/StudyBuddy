@@ -7,6 +7,7 @@ import postgres from 'postgres'
 
 import { looksUnrendered } from '../lib/questions/math'
 import type { Db } from '../lib/dashboard/queries'
+import { repairPrintedNumbers } from '../lib/worker/repair-numbers'
 import { renumberQuestions } from '../lib/worker/renumber'
 
 /**
@@ -142,8 +143,9 @@ async function main() {
     if (empty.length) { console.log(`  EMPTY STEMS      ${empty.length}`); problems += 1 }
 
     if (FIX) {
+      const { repaired } = await repairPrintedNumbers(orm, String(sheet.id))
       const { renumbered } = await renumberQuestions(orm, String(sheet.id))
-      console.log(`  FIXED            renumbered ${renumbered} row(s)`)
+      console.log(`  FIXED            recovered ${repaired} number(s), renumbered ${renumbered} row(s)`)
     }
   }
 

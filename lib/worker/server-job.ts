@@ -6,6 +6,7 @@ import type { Db } from '@/lib/dashboard/queries'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, completeJob, failJob } from '@/lib/queue'
 import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
+import { repairPrintedNumbers } from '@/lib/worker/repair-numbers'
 import { renumberQuestions } from '@/lib/worker/renumber'
 import { runExtraction } from '@/lib/worker/ingest'
 
@@ -82,6 +83,7 @@ async function runOneServerJob(
 
     // Same repair the GPU path gets when it enters its verifying phase.
     await mergeDuplicateQuestions(db, job.worksheetId)
+    await repairPrintedNumbers(db, job.worksheetId)
     await renumberQuestions(db, job.worksheetId)
 
     const [worksheet] = await db
