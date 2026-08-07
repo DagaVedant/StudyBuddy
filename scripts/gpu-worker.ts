@@ -8,7 +8,6 @@ import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
 import { embed } from '../lib/embeddings'
 import { auditExtraction } from '../lib/worker/audit'
-import { concurrencyFor, mapWithConcurrency } from '../lib/worker/concurrency'
 import { planReview, type ReviewableQuestion } from '../lib/worker/review'
 
 const API = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
@@ -449,21 +448,10 @@ async function processJob(claim: ClaimResponse): Promise<void> {
     (page) => !done.has(page.pageNumber) && page.pageNumber > legacyHighWater,
   )
 
-  const slots = concurrencyFor({
-    pageCount: pages.length,
-    expectedQuestionCount: job.expectedQuestionCount ?? null,
-  })
-
-  if (slots > 1) {
-    log(`  reading ${slots} pages at a time (${todo.length} left of ${pages.length})`)
-  }
-
-  let stopped = false
-
   try {
-    await mapWithConcurrency(todo, slots, async (page) => {
-      if (shuttingDown || stopped) {
-        stopped = true
+    for (const page of todo) {
+      if (shuttingDown) {
+        log('shutting down mid-job; leaving it to be reclaimed')
         return
       }
 
@@ -513,11 +501,6 @@ async function processJob(claim: ClaimResponse): Promise<void> {
       )
 
       done.add(page.pageNumber)
-    })
-
-    if (stopped) {
-      log('shutting down mid-job; leaving it to be reclaimed')
-      return
     }
 
     if (attempted > 0 && pageFailures === attempted) {
