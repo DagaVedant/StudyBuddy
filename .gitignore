@@ -54,6 +54,18 @@ next-env.d.ts
 /public/pdf.worker.min.mjs
 /public/pdf.min.mjs
 
-# benchmark inputs and outputs (large PDFs, run artifacts)
-/benchmark/input
-/benchmark/results
+# benchmark inputs and outputs (large PDFs, run artifacts). The whole directory,
+# not just input/ and results/ — nothing under it is meant to be tracked, and a
+# file written straight to benchmark/ was slipping past the two narrower rules.
+/benchmark/
+
+# Claude Code's per-machine overrides. .claude/launch.json IS committed (it is
+# the shared dev-server config); settings.local.json holds local permissions and
+# env and is personal to whoever cloned this.
+/.claude/settings.local.json
+
+# local audit write-ups — kept on disk, deliberately not published
+/PRESHIP-AUDIT.md
+/AUDIT-ENGINEERING.md
+/FIXES.md
+/CLEANUP.md
