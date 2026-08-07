@@ -2,9 +2,12 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local', quiet: true })
 
+import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
 import { looksUnrendered } from '../lib/questions/math'
+import type { Db } from '../lib/dashboard/queries'
+import { renumberQuestions } from '../lib/worker/renumber'
 
 /**
  * Checks recently extracted worksheets for everything known to go wrong.
@@ -18,6 +21,15 @@ import { looksUnrendered } from '../lib/questions/math'
  *   AUDIT_LIMIT=10 npx tsx scripts/audit-worksheets.ts
  */
 const LIMIT = Number(process.env.AUDIT_LIMIT ?? 3)
+
+/**
+ * Renumbers as well as reports.
+ *
+ * Ordinals are safe to rewrite, because they are only a position. Duplicates
+ * are not touched even here: choosing which of two copies to destroy is a
+ * guess, and the review screen already lets the student delete the wrong one.
+ */
+const FIX = process.env.AUDIT_FIX === 'true'
 
 interface Row {
   ordinal: number
@@ -48,6 +60,9 @@ function runs(numbers: number[]): string {
 
 async function main() {
   const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 })
+  // renumberQuestions uses the query builder, so it needs a real Drizzle
+  // handle rather than the raw client the reporting queries use.
+  const orm = drizzle(sql) as unknown as Db
 
   const sheets = await sql`
     select id, title, status, page_count, expected_question_count as expected
@@ -125,6 +140,11 @@ async function main() {
     const noChoices = rows.filter((r) => r.choices === 0)
     console.log(`  choices          ${rows.length - noChoices.length}/${rows.length} have options`)
     if (empty.length) { console.log(`  EMPTY STEMS      ${empty.length}`); problems += 1 }
+
+    if (FIX) {
+      const { renumbered } = await renumberQuestions(orm, String(sheet.id))
+      console.log(`  FIXED            renumbered ${renumbered} row(s)`)
+    }
   }
 
   console.log(`\n${'='.repeat(66)}`)
