@@ -14,7 +14,7 @@ export default async function AppTopbar() {
     <header className="sticky top-0 z-50 border-b border-border bg-bg">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-4 sm:px-6">
         <Link
-          href="/dashboard"
+          href="/"
           className="flex shrink-0 items-center gap-2 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <Mark className="h-[18px] w-[18px] text-accent" />
