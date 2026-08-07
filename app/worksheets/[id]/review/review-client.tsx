@@ -117,11 +117,6 @@ export default function ReviewClient({
     [topics],
   )
 
-  const pageQuestions = useMemo(
-    () => questions.filter((question) => question.pageId === page?.id),
-    [questions, page?.id],
-  )
-
   useEffect(() => {
     const timers = saveTimers.current
     return () => {
@@ -270,7 +265,6 @@ export default function ReviewClient({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
-      {/* ---- Page image, with what was found drawn on it ---------------- */}
       <section aria-labelledby="page-heading" className="min-w-0">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="page-heading" className="truncate text-sm font-medium">
@@ -347,33 +341,11 @@ export default function ReviewClient({
             className="block h-auto w-full"
           />
 
-          {pageQuestions.map((question) =>
-            question.bbox ? (
-              <button
-                key={question.id}
-                type="button"
-                aria-label={`Question ${questionLabel(question)}`}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={() => focusQuestion(question.id)}
-                style={{
-                  left: pctX(question.bbox[0]),
-                  top: pctY(question.bbox[1]),
-                  width: pctX(question.bbox[2] - question.bbox[0]),
-                  height: pctY(question.bbox[3] - question.bbox[1]),
-                }}
-                className={`absolute rounded-sm border-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                  question.id === selectedId
-                    ? 'border-accent bg-accent/15'
-                    : 'border-accent/40 hover:bg-accent/10'
-                }`}
-              >
-                <span className="absolute -top-px left-0 -translate-y-full rounded-t bg-accent px-1 text-xs tabular-nums text-accent-fg">
-                  {questionLabel(question)}
-                </span>
-              </button>
-            ) : null,
-          )}
-
+          {/* Nothing is drawn over the extracted questions: the boxes the model
+              reports are loose enough that they framed the wrong lines as often
+              as the right ones, and the cards beside the page are where the
+              checking actually happens. The draft box below is still drawn,
+              because that one is the pointer the reader is dragging. */}
           {draft && (
             <div
               aria-hidden="true"
@@ -391,7 +363,6 @@ export default function ReviewClient({
         <p className="hint">Missed one? Drag a box around it on the page.</p>
       </section>
 
-      {/* ---- Extracted question cards ---------------------------------- */}
       <section aria-labelledby="questions-heading" className="min-w-0 space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="questions-heading" className="text-sm font-medium">
@@ -455,23 +426,27 @@ export default function ReviewClient({
                     </button>
                   </div>
 
+                  {/* One choice per line. Pills only fit choices that are a
+                      word or a number; a choice can be a whole rewritten
+                      sentence, and those used to run off the side of the card. */}
                   {question.choices.length > 0 && (
-                    <ul className="mt-2 flex flex-wrap gap-1.5 pl-8">
+                    <ul className="mt-2 space-y-0.5 pl-8 text-xs">
                       {question.choices.map((choice, index) => (
                         <li
                           key={index}
-                          className={`rounded-full border px-2 py-0.5 text-xs ${
-                            choice.isCorrect
-                              ? 'border-success text-success'
-                              : 'border-border text-muted'
+                          className={`flex gap-1.5 ${
+                            choice.isCorrect ? 'text-success' : 'text-muted'
                           }`}
                         >
-                          <span className="font-medium">
+                          <span className="shrink-0 font-medium">
                             {choiceLabel(choice.label)}.
-                          </span>{' '}
-                          <span className="max-w-32 truncate align-bottom">
+                          </span>
+                          <span className="line-clamp-2 min-w-0 flex-1 break-words">
                             {choice.text || 'blank'}
                           </span>
+                          {choice.isCorrect && (
+                            <span className="sr-only">correct answer</span>
+                          )}
                         </li>
                       ))}
                     </ul>
