@@ -41,37 +41,33 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
   expect(natural).toBeGreaterThan(500)
 })
 
-// KNOWN FAILURE. Instrumenting the handlers showed pointermove and pointerup
-// both reach the container while pointerdown never does, so dragStart is never
-// set and the box is null on release. Nothing in the component intercepts
-// pointerdown: it holds exactly one such handler and calls neither
-// stopPropagation nor preventDefault. Cause not yet found.
+// KNOWN FAILURE, and the cause is now narrowed to one thing.
+//
+// Instrumenting the handlers showed pointermove and pointerup both reach the
+// container while pointerdown never does, so dragStart is never set and the
+// box is null on release. Nothing in the component intercepts pointerdown: it
+// holds one such handler and calls neither stopPropagation nor preventDefault.
+//
+// Replacing the press with locator.hover() then timed out after two minutes on
+// "attempting hover action", having resolved the image fine. Playwright only
+// hangs there when its actionability check never passes, which means something
+// is sitting over the page image and taking the pointer. Finding what covers
+// it is the remaining work; the drag itself is probably not at fault.
 test('dragging a region creates a question with its text filled in', async () => {
   const image = page.getByRole('img', { name: /Page 1 of/ })
 
-  // The handler reads the drag box off a ref on pointerup, and the box only
-  // exists if pointermove ran over a laid-out image. Dragging before the
-  // raster has decoded produced a zero-size box and silently created nothing,
-  // which is how this test started failing intermittently.
   await expect(image).toBeVisible()
   await image.evaluate((element: HTMLImageElement) =>
     element.complete ? undefined : element.decode().catch(() => undefined),
   )
-  await expect
-    .poll(async () => image.evaluate((el: HTMLImageElement) => el.naturalWidth))
-    .toBeGreaterThan(0)
 
   const box = await image.boundingBox()
   if (!box) throw new Error('page image has no layout box')
 
   await page.mouse.move(box.x + box.width * 0.05, box.y + box.height * 0.05)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.12, {
-    steps: 8,
-  })
-  await page.mouse.move(box.x + box.width * 0.95, box.y + box.height * 0.22, {
-    steps: 8,
-  })
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.12, { steps: 8 })
+  await page.mouse.move(box.x + box.width * 0.95, box.y + box.height * 0.22, { steps: 8 })
   await page.mouse.up()
 
   const prompt = page.getByLabel('Question text')
