@@ -24,7 +24,7 @@ function destination(id: string, status: string): { href: string; cta: string } 
     case 'processing':
       return { href: `/worksheets/${id}/status`, cta: 'Processing' }
     case 'awaiting_review':
-      return { href: `/worksheets/${id}/review`, cta: 'Check questions' }
+      return { href: `/worksheets/${id}/verify`, cta: 'Check questions' }
     case 'failed':
       return { href: `/worksheets/${id}/status`, cta: 'See what happened' }
     default:
@@ -60,6 +60,9 @@ export default async function WorksheetsPage() {
       sourceType: worksheets.sourceType,
       createdAt: worksheets.createdAt,
       questionCount: sql<number>`count(distinct ${questions.id})::int`,
+      // Parenthesised deliberately: without it the cast binds to `false`
+      // rather than to the count, which parses and quietly counts nothing.
+      uncheckedCount: sql<number>`(count(distinct ${questions.id}) filter (where ${questions.userVerified} = false))::int`,
       missedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.outcome} = 'wrong')::int`,
       firstPageKey: sql<string | null>`min(${worksheetPages.imageKey})`,
     })
@@ -146,6 +149,12 @@ export default async function WorksheetsPage() {
                       <dt className="text-muted">Questions</dt>
                       <dd className="font-medium tabular-nums">{sheet.questionCount}</dd>
                     </div>
+                    {sheet.uncheckedCount > 0 && sheet.questionCount > 0 && (
+                      <div className="flex gap-1.5">
+                        <dt className="text-muted">Unchecked</dt>
+                        <dd className="font-medium tabular-nums">{sheet.uncheckedCount}</dd>
+                      </div>
+                    )}
                     {sheet.missedCount > 0 && (
                       <div className="flex gap-1.5">
                         <dt className="text-muted">Missed</dt>
