@@ -2,29 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import DashboardPreview from '@/components/dashboard-preview'
 import Hero from '@/components/hero'
 import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/limits'
-
-const PROMISES = [
-  {
-    term: 'Every question',
-    detail:
-      'Not just the ones you got wrong. A weak topic means nothing without knowing how many you saw.',
-    tint: 'bg-tint-mint',
-  },
-  {
-    term: 'Sorted by topic',
-    detail:
-      'Questions land in a subject tree, so the dashboard points at a skill rather than a worksheet.',
-    tint: 'bg-tint-peach',
-  },
-  {
-    term: 'Scheduled to stick',
-    detail:
-      'Spaced repetition brings a question back exactly when you are about to forget it.',
-    tint: 'bg-tint-lavender',
-  },
-]
 
 export default async function HomePage() {
   const session = await auth()
@@ -33,7 +13,7 @@ export default async function HomePage() {
   return (
     <main>
       <Hero>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-8 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
           <Link href="/signup" className="btn btn-primary sm:w-auto sm:px-8">
             Get started
           </Link>
@@ -42,20 +22,13 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <p className="hint mt-6">
+        <p className="hint mt-4">
           Free to start: {TRIAL_WORKSHEET_LIMIT} full worksheets processed by AI,
           no card and no setup.
         </p>
       </Hero>
 
-      <dl className="mx-auto grid w-full max-w-6xl gap-4 px-6 pb-24 sm:grid-cols-3">
-        {PROMISES.map((item) => (
-          <div key={item.term} className={`rounded-2xl p-6 ${item.tint}`}>
-            <dt className="font-semibold tracking-tight">{item.term}</dt>
-            <dd className="mt-2 text-sm text-pretty text-muted">{item.detail}</dd>
-          </div>
-        ))}
-      </dl>
+      <DashboardPreview />
     </main>
   )
 }

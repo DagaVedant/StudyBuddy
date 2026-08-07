@@ -247,3 +247,81 @@ body {
     transition: opacity 150ms ease-out;
   }
 }
+
+/*
+ * Route transitions.
+ *
+ * View-transition pseudo-elements are matched against the document, not a
+ * subtree, so they cannot live in a CSS Module — this is the one place they
+ * can go. The classes are handed out by <ViewTransition> props: `page` from
+ * app/layout.tsx, `topic-title` from the dashboard row and the topic heading.
+ *
+ * Budget: the whole thing is over inside 260ms. A route change should read as
+ * a cut that was softened, not as an animation the user has to wait through.
+ */
+:root {
+  --vt-out: 120ms;
+  --vt-in: 180ms;
+  --vt-morph: 240ms;
+}
+
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The wrapper is full-width on every route, so only its height changes between
+   pages. Letting the group animate that height keeps the outgoing snapshot from
+   being clipped off at the bottom when a long page gives way to a short one. */
+::view-transition-group(.page) {
+  animation-duration: var(--vt-in);
+  animation-timing-function: ease-out;
+}
+::view-transition-old(.page) {
+  animation: var(--vt-out) ease-out both vt-fade reverse;
+}
+::view-transition-new(.page) {
+  animation: var(--vt-in) ease-out both vt-fade;
+}
+
+/*
+ * A topic's name morphs out of its dashboard row into the heading on the topic
+ * page, so the two screens read as one object opened rather than two documents
+ * swapped.
+ *
+ * Snapshots are rasters, and this pair is 14px going on 24px — scaling the old
+ * one up would ghost. Instead the old snapshot is dropped and the new text is
+ * painted unscaled (`object-fit: none`) while the group carries it from the row
+ * to the heading. z-index keeps it over the page crossfade underneath.
+ */
+::view-transition-group(.topic-title) {
+  animation-duration: var(--vt-morph);
+  animation-timing-function: ease-out;
+  z-index: 1;
+}
+::view-transition-old(.topic-title) {
+  display: none;
+}
+::view-transition-new(.topic-title) {
+  animation: none;
+  object-fit: none;
+  object-position: left top;
+}
+
+/*
+ * Written as `reduce` rather than the `no-preference` guard used above: with no
+ * rules of ours the browser still runs its own 250ms crossfade, so the fallback
+ * has to actively zero the durations out. At 0s the swap is instant — a cut.
+ */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

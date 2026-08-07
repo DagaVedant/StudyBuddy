@@ -1,8 +1,11 @@
+import Mark from './mark'
+
 import styles from './hero.module.css'
 
 /**
  * The four topics the demo extracts. Kept honest on purpose: these are real
- * taxonomy names and they add up to the 24 the counter lands on.
+ * taxonomy names, each one is the topic of the matching question in
+ * QUESTIONS below, and they add up to the 24 the counter lands on.
  */
 const TOPICS = [
   { name: 'Ratio & proportion', count: 6 },
@@ -13,36 +16,44 @@ const TOPICS = [
 
 const TOTAL = TOPICS.reduce((sum, topic) => sum + topic.count, 0)
 
-/** Widths for the fake worksheet's text lines — irregular, like prose. */
+/** The three review peaks, as percentages of the curve's 160x90 box. */
+const REVIEWS = [
+  { left: '21.25%', top: '40%' },
+  { left: '38.75%', top: '46.7%' },
+  { left: '61.25%', top: '55.6%' },
+] as const
+
+/**
+ * The worksheet being read. These are verbatim stems from the 2024 SHSAT
+ * sample form in `benchmark/input` — one per topic above, in the same order,
+ * so the boxes that snap on and the pills that fly in describe each other.
+ * Placeholder bars would have shown the mechanism; the real sentences show
+ * the product.
+ */
 const QUESTIONS = [
-  ['92%', '70%'],
-  ['84%', '58%'],
-  ['96%', '64%'],
-  ['78%', '50%'],
+  'A child grows 1 1/4 inches in 1/3 of a year. What would be his yearly growth rate in inches per year?',
+  'If (3/5 − 1/2)x = 1/4 + 2/3, what is the value of x?',
+  'The narrator’s actions in paragraph 5 reveal that he is',
+  'In paragraph 3, the phrase “the butterflies of the sea” conveys the idea that',
 ] as const
 
 export default function Hero({ children }: { children: React.ReactNode }) {
   return (
-    <section className={`${styles.hero} px-6 pt-12 pb-16 sm:pt-20 sm:pb-24`}>
+    <section className={styles.hero}>
       <Curve />
 
-      <div className="mx-auto w-full max-w-6xl">
-        <p className="eyebrow">Practice, measured</p>
-
-        {/* Sized so the panel below it clears a ~700px viewport: the whole
-            point of this layout is both ideas above the fold. */}
-        <h1 className="display mt-3 text-[clamp(2.25rem,7vw,4.25rem)]">
-          Know what
-          <br />
-          you don&rsquo;t know
-        </h1>
-
-        <p className="mt-5 max-w-lg text-lg text-pretty text-muted">
-          Upload the worksheets you have already done. Every question gets pulled
-          out, tagged, and brought back before you forget it.
+      <div className={styles.stack}>
+        <p className={styles.brand}>
+          <Mark className={styles.mark} />
+          StudyBuddy
         </p>
 
-        <div className={`${styles.panel} mt-8 max-w-3xl`}>
+        <h1 className={styles.blurb}>
+          Turn the worksheets you have already done into a record of what you
+          actually know.
+        </h1>
+
+        <div className={styles.panel}>
           <div>
             <p className={styles.count} aria-hidden="true" />
             <span className="sr-only">
@@ -60,11 +71,9 @@ export default function Hero({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className={styles.sheet} aria-hidden="true">
-            {QUESTIONS.map((widths, index) => (
-              <div key={index} className={styles.q}>
-                {widths.map((width) => (
-                  <div key={width} className={styles.line} style={{ width }} />
-                ))}
+            {QUESTIONS.map((stem) => (
+              <div key={stem} className={styles.q}>
+                <p className={styles.stem}>{stem}</p>
                 <span className={styles.qbox} />
               </div>
             ))}
@@ -74,18 +83,15 @@ export default function Hero({ children }: { children: React.ReactNode }) {
 
         {children}
 
-        <p className={`${styles.caption} mt-12 max-w-md text-sm text-pretty text-muted`}>
+        <p className={`${styles.caption} text-sm text-pretty text-muted`}>
           Then each one comes back on the day you are about to lose it — that is
           the curve behind this page.
         </p>
+      </div>
 
-        <div
-          className="mt-3 flex justify-between text-xs uppercase tracking-[0.1em] text-muted"
-          aria-hidden="true"
-        >
-          <span>Today</span>
-          <span>Day 30</span>
-        </div>
+      <div className={styles.axis} aria-hidden="true">
+        <span>Today</span>
+        <span>Day 30</span>
       </div>
     </section>
   )
@@ -104,14 +110,24 @@ function Curve() {
           className={styles.area}
           d="M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76 L154,90 L6,90 Z"
         />
+        {/* The box is stretched to the viewport, so the stroke has to opt out
+            of that scaling or it renders ~9x too heavy on a wide screen. */}
         <path
           className={styles.curve}
+          vectorEffect="non-scaling-stroke"
           d="M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76"
         />
-        <circle className={styles.dot} cx="34" cy="36" r="1.8" />
-        <circle className={styles.dot} cx="62" cy="42" r="1.8" />
-        <circle className={styles.dot} cx="98" cy="50" r="1.8" />
       </svg>
+
+      {/* Review points as elements rather than SVG circles: a circle in a
+          stretched viewBox is an ellipse. */}
+      {REVIEWS.map((review) => (
+        <span
+          key={review.left}
+          className={styles.dot}
+          style={{ left: review.left, top: review.top }}
+        />
+      ))}
     </div>
   )
 }

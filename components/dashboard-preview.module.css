@@ -1,0 +1,222 @@
+/*
+ * Homepage section two — "the object".
+ *
+ * The hero argues; this section produces the evidence. It is a composed
+ * still of the real dashboard, and the three claims that used to sit here as
+ * tinted feature tiles are now numbered notes pinned to the places on that
+ * still where each one is visible.
+ *
+ * The motion is a tilt-settle: the panel starts leaning back under a
+ * perspective and lies down flat as you scroll it into view, like a sheet
+ * being set onto the page. It is driven by a view() timeline, so there is no
+ * observer, no client component, and nothing to hydrate — and where scroll
+ * timelines are unsupported the panel simply renders in its settled state,
+ * because the settled state is the one written on the element itself.
+ */
+
+/* 66rem, so the panel inside lands within a few pixels of the real
+   dashboard's own max-w-5xl content width. A mock wider than the screen it
+   is a mock of stops looking like that screen. */
+.section {
+  max-width: 66rem;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 7rem;
+}
+
+/* No character cap: uncapped it sets on one line on a desktop and breaks at
+   its own comma on a phone, which is the only break in the sentence that
+   does not split a phrase. */
+.title {
+  margin: 0.375rem 0 0;
+  font-size: clamp(1.75rem, 3.6vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.lede {
+  max-width: 36rem;
+  margin: 0.875rem 0 0;
+}
+
+/* ── the object ────────────────────────────────────────────── */
+
+/*
+ * The perspective belongs to the parent. Declared on the animated element
+ * itself it would apply *before* that element's own transform in the
+ * rendering order and the tilt would come out flat.
+ *
+ * 1600px is a long lens on purpose: at hero distances the keystone becomes a
+ * stunt. The top edge ends up ~4% narrower than the bottom, which is enough
+ * to read as depth and not enough to notice as a trick.
+ */
+.stage {
+  margin-top: 2.5rem;
+  perspective: 1600px;
+}
+
+.mock {
+  /*
+   * A still of the app, not the app. It contains a picture of the primary
+   * button, so it has to refuse the pointer outright — otherwise it is a
+   * target that looks live, invites a click and does nothing. Nothing inside
+   * is focusable, so this closes the last way in.
+   */
+  pointer-events: none;
+  /* The base rule is the finished state. Everything below only ever takes it
+     away from here and puts it back. */
+  transform: none;
+  /* Hinged along its bottom edge, so it lays down rather than swinging. */
+  transform-origin: 50% 100%;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  /* Matches the real dashboard's ground: the cards inside are --surface and
+     have to lift off something darker, exactly as they do in the app. */
+  background: var(--bg);
+  box-shadow: 0 32px 64px -40px oklch(0% 0 0 / 0.45);
+}
+
+@media (min-width: 48rem) {
+  .mock {
+    padding: 1.5rem;
+  }
+}
+
+@keyframes settle {
+  from {
+    transform: rotateX(6deg) scale(0.97);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/*
+ * Gated on support rather than left to fall back: with no scroll timeline an
+ * un-gated `animation-duration: auto` resolves to 0s, which happens to land
+ * on the right frame, but only by accident. This says it on purpose.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .mock {
+      animation: settle linear both;
+      animation-timeline: view();
+      /* Finishes while the panel is still arriving, so it is flat by the time
+         you are actually reading it. */
+      animation-range: entry 0% entry 45%;
+    }
+  }
+}
+
+/* The finished state, asserted. Same contract as the hero: motion off loses
+   the four seconds, never the content. */
+@media (prefers-reduced-motion: reduce) {
+  .mock {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* ── the dashboard's own chrome ────────────────────────────── */
+
+/* Deliberately nowrap: wrapped, the button drops to its own line at full
+   text width and starts competing with the hero's real call to action. */
+.bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.screen {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+/* A picture of `.btn.btn-primary`, not the button itself. */
+.cta {
+  padding: 0.4375rem 0.875rem;
+  border-radius: 0.75rem;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (min-width: 48rem) {
+  .screen {
+    font-size: 1.5rem;
+  }
+
+  .cta {
+    padding: 0.5rem 1rem;
+    font-size: 0.9375rem;
+  }
+}
+
+/* The narrow column of the bottom row. Below the breakpoint the still is
+   already tall enough, and this panel is the one idea the notes do not
+   depend on. */
+.aside {
+  display: none;
+}
+
+@media (min-width: 48rem) {
+  .aside {
+    display: block;
+  }
+}
+
+/* ── the notes ─────────────────────────────────────────────── */
+
+.pin {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.notes {
+  display: grid;
+  gap: 1.25rem;
+  margin: 2.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 48rem) {
+  .notes {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2.25rem;
+    margin-top: 3rem;
+  }
+}
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+/* The pin's optical centre against the first line of the note. */
+.note .pin {
+  margin-top: 0.1875rem;
+}
+
+.term {
+  font-weight: 600;
+  color: var(--fg);
+}

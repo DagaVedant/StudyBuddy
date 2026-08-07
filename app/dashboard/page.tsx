@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { ViewTransition } from 'react'
 
 import { auth } from '@/auth'
 import { AccuracyLabel, Meter } from '@/components/meter'
@@ -159,9 +160,20 @@ export default async function DashboardPage() {
                         className="block py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       >
                         <div className="flex items-baseline justify-between gap-3">
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                            {topic.topicName}
-                          </span>
+                          {/* Pairs with the <h1> on /topics/[topicId]; see the
+                              .topic-title rules in globals.css. Only this list
+                              claims the name — the other panels can repeat a
+                              topic, and two live elements sharing one
+                              view-transition-name breaks the morph. */}
+                          <ViewTransition
+                            name={`topic-title-${topic.topicId}`}
+                            share="topic-title"
+                            default="none"
+                          >
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                              {topic.topicName}
+                            </span>
+                          </ViewTransition>
                           <AccuracyLabel
                             accuracy={topic.accuracy}
                             ranked
