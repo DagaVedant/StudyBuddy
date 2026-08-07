@@ -141,3 +141,65 @@ export function duplicatePrintedNumbers(
     .map(([number]) => number)
     .sort((a, b) => a - b)
 }
+
+/**
+ * How damaged a transcription looks, lower being better.
+ *
+ * Used only to choose between two rows that are already known to be the same
+ * question. The markers are the ones real re-reads produced: a bare underscore
+ * where a fraction bar was, a digit stranded from its denominator, and a
+ * shorter body that stopped early.
+ */
+function damage(question: DuplicateCandidate, expectedChoices: number): number {
+  const text = question.promptText
+  let score = 0
+
+  score += (text.match(/(?:^|\s)_(?:\s|$)/g) ?? []).length * 3
+  score += (text.match(/_\s*\d/g) ?? []).length * 2
+  if (question.choices.length !== expectedChoices) score += 4
+  if (text.trim().length < 25) score += 5
+
+  return score
+}
+
+/**
+ * Folds two rows that claim the same printed number.
+ *
+ * A number appears once on a real paper, so two rows carrying the same one are
+ * the same question stored twice. This is the shape the review pass produced
+ * before it stopped re-saving whole pages: the same question read a second
+ * time, transcribed slightly differently, and therefore hashed differently.
+ *
+ * Separate from the prompt-based rule above, which cannot see these because
+ * the two texts do not match. Kept narrow in the same way: pairs only, and the
+ * survivor is whichever transcription is less damaged rather than whichever
+ * arrived first, because the better copy was sometimes the later one.
+ */
+export function planNumberDuplicateMerges(
+  questions: DuplicateCandidate[],
+  expectedChoices: number,
+): MergePlan[] {
+  const byNumber = new Map<number, DuplicateCandidate[]>()
+
+  for (const question of questions) {
+    if (question.printedNumber === null) continue
+    byNumber.set(question.printedNumber, [
+      ...(byNumber.get(question.printedNumber) ?? []),
+      question,
+    ])
+  }
+
+  const plans: MergePlan[] = []
+
+  for (const [printedNumber, group] of byNumber) {
+    if (group.length !== 2) continue
+
+    const [a, b] = group
+    const keep = damage(a, expectedChoices) <= damage(b, expectedChoices) ? a : b
+    const drop = keep === a ? b : a
+
+    plans.push({ keepId: keep.id, dropId: drop.id, printedNumber })
+  }
+
+  return plans
+}
