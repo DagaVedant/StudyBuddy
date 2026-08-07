@@ -60,9 +60,10 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
 //
 // The last two are the contradiction worth chasing: the element is where the
 // box says it is, and the browser does not agree that anything is there. The
-// container is lg:sticky lg:top-4 and taller than the viewport, which is the
-// only unusual thing about its positioning. Moving the press inboard from the
-// corner changes nothing.
+// container is lg:sticky lg:top-4, but that is ruled out: forcing it to
+// position: static leaves the hit test still returning <html>. Moving the
+// press inboard from the corner changes nothing either. Whatever it is, the
+// two APIs disagree about where this element is, independent of positioning.
 test('dragging a region creates a question with its text filled in', async () => {
   const image = page.getByRole('img', { name: /Page 1 of/ })
 
