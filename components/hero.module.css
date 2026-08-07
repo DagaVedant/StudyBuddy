@@ -202,7 +202,7 @@
  * `translate` is an independent property the animation never touches, and it
  * composes on top.
  */
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+@media (hover: hover) {
   .panel {
     transition:
       translate 150ms ease-out,
@@ -463,46 +463,17 @@
 }
 
 /*
- * Motion off: the finished state, immediately. Every value the sequence
- * would have arrived at is asserted here, so nothing is lost — only the
- * four seconds it took to get there.
+ * There is deliberately no `prefers-reduced-motion` fallback here.
+ *
+ * This sequence used to collapse to its finished state when the OS asked for
+ * reduced motion; the owner's decision is that it should play for everyone.
+ * Be aware of what that costs before restoring the guard or removing this
+ * note: the read-head travels the full sheet, the pills slide, and the dots
+ * scale up — the kinds of movement the setting exists to suppress for people
+ * with vestibular disorders.
+ *
+ * If it is ever reinstated, the cheaper version is to keep the sequence and
+ * strip only the movement: cross-fade the pills and dots in place, drop the
+ * beam, leave the counter and the curve's brighten alone. The story survives
+ * without anything traversing the screen.
  */
-@media (prefers-reduced-motion: reduce) {
-  .brand,
-  .blurb,
-  .plot,
-  .dot,
-  .panel,
-  .count,
-  .topic,
-  .qbox,
-  .caption {
-    animation: none;
-  }
-
-  .brand,
-  .blurb {
-    opacity: 1;
-  }
-
-  .plot {
-    opacity: 0.45;
-  }
-  .topic,
-  .caption {
-    opacity: 1;
-  }
-  .dot {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  .qbox {
-    opacity: 0.4;
-  }
-  .count {
-    --sb-questions: 24;
-  }
-  .beam {
-    display: none;
-  }
-}

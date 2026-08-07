@@ -238,14 +238,13 @@ body {
   opacity: 1;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .theme-knob {
-    transition: transform 200ms ease-out;
-  }
-  .theme-sun,
-  .theme-moon {
-    transition: opacity 150ms ease-out;
-  }
+/* Unconditional: this app plays its motion regardless of the OS preference. */
+.theme-knob {
+  transition: transform 200ms ease-out;
+}
+.theme-sun,
+.theme-moon {
+  transition: opacity 150ms ease-out;
 }
 
 /*
@@ -313,15 +312,8 @@ body {
 }
 
 /*
- * Written as `reduce` rather than the `no-preference` guard used above: with no
- * rules of ours the browser still runs its own 250ms crossfade, so the fallback
- * has to actively zero the durations out. At 0s the swap is instant — a cut.
+ * No reduced-motion cut here either, by the owner's decision: route changes
+ * crossfade and the topic title morphs for everyone. Note that removing this
+ * guard is not neutral — with no rules at all the browser still runs its own
+ * ~250ms crossfade, so an instant cut has to be asserted, never assumed.
  */
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation-duration: 0s !important;
-    animation-delay: 0s !important;
-  }
-}
