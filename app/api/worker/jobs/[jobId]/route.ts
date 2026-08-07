@@ -116,8 +116,13 @@ export async function POST(request: Request, { params }: Params) {
         console.log(`[dedupe] folded ${merged} duplicate question(s) on ${job.worksheetId}`)
       }
 
-      // After the merge, so it numbers what survives rather than leaving a
-      // hole where a folded row used to be.
+    }
+
+    // Numbered at the end of verifying rather than the start: the audit and
+    // the review pass both still add and replace rows after the merge, and
+    // anything they write takes the next free ordinal, which put a re-read
+    // question at 135 on a 114 question paper.
+    if (body.phase === 'classifying') {
       const { renumbered } = await renumberQuestions(client, job.worksheetId)
       if (renumbered > 0) {
         console.log(`[renumber] reordered ${renumbered} question(s) on ${job.worksheetId}`)
@@ -178,7 +183,20 @@ export async function POST(request: Request, { params }: Params) {
       )
     }
 
-    const restored = await persistQuestions(client, job, target.id, body.questions)
+    // Only the questions standing in for a deleted row get written. Saving
+    // the whole page again looked harmless because persistQuestions skips
+    // anything whose content hash already exists, but a second read rarely
+    // reproduces a page character for character: "1/4" came back as "_ 1",
+    // "11-13" gained a space. Those hash differently, so every re-read page
+    // quietly added a second copy of questions that were never in doubt.
+    const wanted = new Set(
+      replaceable
+        .map((row) => row.printedNumber)
+        .filter((n): n is number => n !== null),
+    )
+    const replacements = body.questions.filter((question) => wanted.has(question.ordinal))
+
+    const restored = await persistQuestions(client, job, target.id, replacements)
 
     return NextResponse.json({
       ok: true,
