@@ -87,7 +87,6 @@ export async function claimJob(
   workerId: string | null = null,
   now: Date = new Date(),
 ): Promise<ClaimedJob | null> {
-
   const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS).toISOString()
   const claimedAt = now.toISOString()
 
@@ -296,5 +295,5 @@ export async function markWorkerOffline(db: Db, name: string): Promise<void> {
   await db
     .update(gpuWorkers)
     .set({ status: 'offline', jobsInFlight: 0 })
-    .where(and(eq(gpuWorkers.name, name)))
+    .where(eq(gpuWorkers.name, name))
 }

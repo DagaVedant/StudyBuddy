@@ -160,7 +160,7 @@ export async function applyClassification(
       ? candidates.find((candidate) => candidate.slug === result.topic_slug)
       : undefined
 
-  const confident = Boolean(chosen) && result.confidence >= CONFIDENCE_FLOOR
+  const confident = result.confidence >= CONFIDENCE_FLOOR
 
   if (chosen && confident) {
     const [topic] = await db

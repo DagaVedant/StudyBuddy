@@ -281,7 +281,6 @@ async function recoverMissingQuestions(
 
       log(`  audit: page ${page.pageNumber} re-read for ${target.expect.join(', ')}`)
     } catch (error) {
-
       log(`  audit: page ${page.pageNumber} retry failed — ${(error as Error).message}`)
     }
   }
@@ -455,7 +454,6 @@ async function processJob(claim: ClaimResponse): Promise<void> {
         return
       }
 
-
       const imageResponse = await api(`/api/worker/pages/${page.id}`)
       if (!imageResponse.ok) {
         throw new Error(`Could not fetch page ${page.pageNumber} (${imageResponse.status})`)
@@ -481,7 +479,6 @@ async function processJob(claim: ClaimResponse): Promise<void> {
           pageNumber: page.pageNumber,
         })
       } catch (error) {
-
         pageFailures += 1
         lastError = (error as Error).message
         log(`  page ${page.pageNumber}: extraction failed — ${lastError}`)
@@ -577,7 +574,6 @@ async function main(): Promise<void> {
 
       await processJob(claim)
     } catch (error) {
-
       log(`poll error: ${(error as Error).message} — retrying in ${backoff / 1000}s`)
       await new Promise((resolve) => setTimeout(resolve, backoff))
       backoff = Math.min(backoff * 2, BACKOFF_MAX_MS)

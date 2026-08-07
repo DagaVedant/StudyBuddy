@@ -54,7 +54,6 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-4 text-sm text-muted">{children}</p>
 }
 
-
 export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')

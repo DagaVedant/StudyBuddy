@@ -95,7 +95,6 @@ export default function SettingsClient({
         </p>
       )}
 
-      {/* ---------------------------------------------------------------- */}
       <section
         aria-labelledby="trial-heading"
         className="card p-4"
@@ -118,7 +117,6 @@ export default function SettingsClient({
         </p>
       </section>
 
-      {/* ---------------------------------------------------------------- */}
       <section
         aria-labelledby="cloud-heading"
         className="card p-4"
@@ -223,7 +221,6 @@ export default function SettingsClient({
         )}
       </section>
 
-      {/* ---------------------------------------------------------------- */}
       <section
         aria-labelledby="ollama-heading"
         className="card p-4"
