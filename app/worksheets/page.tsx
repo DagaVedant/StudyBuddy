@@ -47,6 +47,17 @@ const STATUS_LABEL: Record<string, string> = {
   failed: 'Failed',
 }
 
+/**
+ * A stored row that is actually a question.
+ *
+ * True when it reads like a sentence or asks for a calculation. Shared by
+ * every count on this page so they cannot disagree with each other.
+ */
+const IS_QUESTION = sql`(
+  ${questions.promptText} ~ '([a-z]{3,}.*){3}'
+  or ${questions.promptText} ~ '[=<>+*/×÷≤≥−]|[0-9]+[[:space:]]*[-][[:space:]]*[0-9]+'
+)`
+
 export default async function WorksheetsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -69,13 +80,12 @@ export default async function WorksheetsPage() {
       // page furniture, and not one carrying a printed number. Kept as a
       // display rule rather than a delete, because the same test applied at
       // ingest rejected real questions.
-      questionCount: sql<number>`count(distinct ${questions.id}) filter (where
-        ${questions.promptText} ~ '([a-z]{3,}.*){3}'
-        or ${questions.promptText} ~ '[=<>+*/×÷≤≥−]|[0-9]+[[:space:]]*[-][[:space:]]*[0-9]+'
-      )::int`,
-      // Parenthesised deliberately: without it the cast binds to `false`
-      // rather than to the count, which parses and quietly counts nothing.
-      uncheckedCount: sql<number>`(count(distinct ${questions.id}) filter (where ${questions.userVerified} = false))::int`,
+      //
+      // Both counts share it deliberately. Filtering one and not the other put
+      // "Questions 25" beside "Unchecked 26" on the same card.
+      questionCount: sql<number>`count(distinct ${questions.id}) filter (where ${IS_QUESTION})::int`,
+      uncheckedCount: sql<number>`(count(distinct ${questions.id}) filter (
+        where ${questions.userVerified} = false and ${IS_QUESTION}))::int`,
       missedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.outcome} = 'wrong')::int`,
       firstPageKey: sql<string | null>`min(${worksheetPages.imageKey})`,
     })
