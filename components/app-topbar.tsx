@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import { auth, signOut } from '@/auth'
 
+import Mark from './mark'
 import NavLinks from './nav-links'
 import ThemeToggle from './theme-toggle'
 
@@ -16,7 +17,7 @@ export default async function AppTopbar() {
           href="/dashboard"
           className="flex shrink-0 items-center gap-2 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          <Mark />
+          <Mark className="h-[18px] w-[18px] text-accent" />
           <span className="text-[0.9375rem] font-semibold tracking-tight">
             StudyBuddy
           </span>
@@ -42,20 +43,5 @@ export default async function AppTopbar() {
         </div>
       </div>
     </header>
-  )
-}
-
-function Mark() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      className="h-[18px] w-[18px] text-accent"
-    >
-      <rect x="0" y="0" width="7" height="7" rx="1.5" fill="currentColor" />
-      <rect x="9" y="0" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.35" />
-      <rect x="0" y="9" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.35" />
-      <rect x="9" y="9" width="7" height="7" rx="1.5" fill="currentColor" />
-    </svg>
   )
 }

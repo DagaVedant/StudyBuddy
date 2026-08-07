@@ -1,0 +1,245 @@
+import { AccuracyLabel, Meter } from './meter'
+import { MIN_ATTEMPTS } from '@/lib/dashboard/ranking'
+
+import styles from './dashboard-preview.module.css'
+
+/**
+ * Homepage section two — the dashboard, shown rather than described.
+ *
+ * The numbers below are a consistent fiction: the four subject/topic
+ * breakdowns add up to the 218 in the header, the weakest rows are in the
+ * order `rankWeaknesses` would actually put them (Wilson lower bound on the
+ * error rate, not raw percentage), and the meters are the real `<Meter>`
+ * component, so the colour bands are the product's own thresholds rather
+ * than a mock-up's guess.
+ */
+
+const STATS = [
+  { label: 'Due now', value: 12, tint: 'bg-tint-mint', link: true, pin: 3 },
+  { label: 'Due this week', value: 41, tint: 'bg-tint-peach' },
+  { label: 'Questions tracked', value: 218, tint: 'bg-tint-lavender', pin: 1 },
+  { label: 'Worksheets', value: 9, tint: 'bg-tint-butter' },
+] as const
+
+/** correct + wrong + unsure == attempts, in every row. */
+const WEAKEST = [
+  {
+    name: 'Nonlinear functions',
+    path: 'SAT Math › Advanced Math › Nonlinear functions',
+    correct: 6,
+    unsure: 2,
+    wrong: 6,
+  },
+  {
+    name: 'Ratios, rates, and proportional relationships',
+    path: 'SAT Math › Problem-Solving and Data Analysis › Ratios, rates, and proportional relationships',
+    correct: 11,
+    unsure: 3,
+    wrong: 5,
+  },
+  {
+    name: 'Command of evidence: textual',
+    path: 'SAT Reading and Writing › Information and Ideas › Command of evidence: textual',
+    correct: 11,
+    unsure: 2,
+    wrong: 4,
+  },
+  {
+    name: 'Right triangles and trigonometry',
+    path: 'SAT Math › Geometry and Trigonometry › Right triangles and trigonometry',
+    correct: 9,
+    unsure: 0,
+    wrong: 3,
+  },
+] as const
+
+/** Alphabetical, the way `rollUp` sorts. Attempts total the 218 above. */
+const SUBJECTS = [
+  { name: 'Algebra 1', correct: 28, attempts: 32 },
+  { name: 'SAT Math', correct: 71, attempts: 104 },
+  { name: 'SAT Reading and Writing', correct: 65, attempts: 82 },
+] as const
+
+const FRAGILE = [
+  { name: 'Words in context', unsureRate: 38 },
+  { name: 'Percentages', unsureRate: 31 },
+  { name: 'Transitions', unsureRate: 27 },
+] as const
+
+const NOTES = [
+  {
+    term: 'Every question',
+    detail:
+      'Not just the ones you got wrong. 218 counted is what makes 43% on nonlinear functions mean something instead of nothing.',
+  },
+  {
+    term: 'Sorted by topic',
+    detail:
+      'Each question lands somewhere in a subject tree, so the grey line under a row names a skill rather than the worksheet it came from.',
+  },
+  {
+    term: 'Scheduled to stick',
+    detail:
+      'Spaced repetition sets the day each question comes back. Twelve of them are due today, and that number is the whole to-do list.',
+  },
+] as const
+
+const PERCENT = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  maximumFractionDigits: 0,
+})
+
+export default function DashboardPreview() {
+  return (
+    <section className={styles.section} aria-labelledby="preview-title">
+      <p className="eyebrow">The dashboard</p>
+      <h2 id="preview-title" className={styles.title}>
+        After nine worksheets, it looks like this.
+      </h2>
+      <p className={`${styles.lede} text-pretty text-muted`}>
+        Every question you have marked, rolled up into the topics that are
+        actually costing you marks — and a queue of what to review today.
+      </p>
+
+      <div className={styles.stage}>
+        <div className={styles.mock} aria-hidden="true">
+          <div className={styles.bar}>
+            <span className={styles.screen}>Dashboard</span>
+            <span className={styles.cta}>Upload a Worksheet</span>
+          </div>
+
+          <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {STATS.map((stat) => (
+              <div
+                key={stat.label}
+                className={`rounded-2xl px-4 py-3.5 ${stat.tint}`}
+              >
+                <dt className="flex items-center gap-1.5 text-sm text-muted">
+                  {'pin' in stat && <span className={styles.pin}>{stat.pin}</span>}
+                  {stat.label}
+                </dt>
+                <dd className="mt-1 text-2xl font-extrabold tabular-nums text-fg">
+                  {'link' in stat ? (
+                    <span className="text-accent underline underline-offset-4">
+                      {stat.value}
+                    </span>
+                  ) : (
+                    stat.value
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="card mt-4 p-4">
+            <h3 className="flex items-center gap-1.5 text-sm font-medium">
+              <span className={styles.pin}>2</span>
+              Weakest topics
+            </h3>
+            <p className="hint mb-3 text-pretty">
+              Ranked by how confident we can be that the misses are real, not by
+              raw percentage. A topic needs {MIN_ATTEMPTS} attempts before it
+              appears here.
+            </p>
+            <ul className="divide-y divide-border">
+              {WEAKEST.map((topic) => {
+                const attempts = topic.correct + topic.unsure + topic.wrong
+                const accuracy = topic.correct / attempts
+
+                return (
+                  <li key={topic.name} className="py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {topic.name}
+                      </span>
+                      <AccuracyLabel
+                        accuracy={accuracy}
+                        ranked
+                        attempts={attempts}
+                      />
+                    </div>
+                    <p className="truncate text-xs text-muted">{topic.path}</p>
+                    <div className="mt-2">
+                      <Meter accuracy={accuracy} label={topic.name} />
+                    </div>
+                    <p className="mt-1 text-xs tabular-nums text-muted">
+                      {topic.wrong} missed of {attempts}
+                      {topic.unsure > 0 && ` · ${topic.unsure} unsure`}
+                    </p>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="card p-4">
+              <h3 className="text-sm font-medium">By subject</h3>
+              <p className="hint mb-3">
+                Rolled up from every question you have marked.
+              </p>
+              <ul className="space-y-3">
+                {SUBJECTS.map((subject) => {
+                  const accuracy = subject.correct / subject.attempts
+
+                  return (
+                    <li key={subject.name}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="truncate text-sm">{subject.name}</span>
+                        <span className="shrink-0 text-sm tabular-nums text-muted">
+                          {PERCENT.format(accuracy)}
+                        </span>
+                      </div>
+                      <div className="mt-1.5">
+                        <Meter accuracy={accuracy} label={subject.name} />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+
+            <div className={`card p-4 ${styles.aside}`}>
+              <h3 className="text-sm font-medium">Right but guessed</h3>
+              <p className="hint mb-3 text-pretty">
+                High accuracy with a high unsure rate is fragile, not strong.
+              </p>
+              <ul className="space-y-2">
+                {FRAGILE.map((topic) => (
+                  <li key={topic.name} className="flex items-baseline gap-3">
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {topic.name}
+                    </span>
+                    <span className="shrink-0 text-sm tabular-nums text-muted">
+                      {topic.unsureRate}% guessed
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* The mock above is hidden from assistive tech — it is a picture of a
+          screen, and read out it is a wall of invented numbers. This sentence
+          and the notes below carry what it is there to say. */}
+      <p className="sr-only">
+        An example dashboard: 218 questions tracked across 9 worksheets, 12 due
+        for review today, and a ranked list of the weakest topics with an
+        accuracy meter on each.
+      </p>
+
+      <ol className={styles.notes}>
+        {NOTES.map((note, index) => (
+          <li key={note.term} className={styles.note}>
+            <span className={styles.pin}>{index + 1}</span>
+            <p className="text-sm text-pretty text-muted">
+              <b className={styles.term}>{note.term}.</b> {note.detail}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
