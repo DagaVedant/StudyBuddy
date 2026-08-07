@@ -16,6 +16,7 @@ import {
 import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
 import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
+import { repairPrintedNumbers } from '@/lib/worker/repair-numbers'
 import { renumberQuestions } from '@/lib/worker/renumber'
 import { persistQuestions } from '@/lib/worker/ingest'
 import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
@@ -123,6 +124,13 @@ export async function POST(request: Request, { params }: Params) {
     // anything they write takes the next free ordinal, which put a re-read
     // question at 135 on a 114 question paper.
     if (body.phase === 'classifying') {
+      // Before renumbering, because a recovered printed number changes where
+      // its question belongs in the order.
+      const { repaired } = await repairPrintedNumbers(client, job.worksheetId)
+      if (repaired > 0) {
+        console.log(`[numbers] recovered ${repaired} printed number(s) on ${job.worksheetId}`)
+      }
+
       const { renumbered } = await renumberQuestions(client, job.worksheetId)
       if (renumbered > 0) {
         console.log(`[renumber] reordered ${renumbered} question(s) on ${job.worksheetId}`)
