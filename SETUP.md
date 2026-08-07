@@ -213,17 +213,21 @@ The token must match exactly, or every claim returns 401.
 
 ### Reading pages one at a time
 
-Pages are read sequentially, and there is no setting to change that.
+Pages are read one at a time. Parallel reads were tried and removed.
 
-Parallel reads were tried and pulled. They were 1.7x faster on a 59 page
-packet and cost nothing in extraction accuracy (114 of 114 questions found,
-none missing). What broke was the order: a question's ordinal is assigned when
-its row is written, so pages finishing out of order handed lower numbers to
-later pages, and the review screen showed the student a list in the wrong
-order labelled with numbers matching nothing on the page.
+They were 1.7x faster on a 59 page packet and cost nothing in extraction
+accuracy, but a question's ordinal was assigned as its row was written, so
+pages finishing out of order handed lower numbers to later pages and two pages
+saving at the same moment claimed the same number. The student opened a
+worksheet listed out of order, labelled with numbers matching nothing on the
+page, with a value used twice.
 
-Turning it back on means assigning ordinals by page and position rather than
-by arrival. Until then `OLLAMA_MAX_PARALLEL_PAGES` does nothing.
+Ordinals are now assigned from the page and position after reading finishes,
+so that particular objection is gone. The code is not, and bringing it back
+means writing it again deliberately rather than flipping a switch.
+
+`OLLAMA_NUM_PARALLEL` on the Ollama server no longer does anything for this
+app and can be set back to 1.
 
 ### The review pass (recommended)
 
