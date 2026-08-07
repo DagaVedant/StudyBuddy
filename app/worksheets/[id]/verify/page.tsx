@@ -88,15 +88,13 @@ export default async function VerifyPage({ params }: Params) {
     }
   })
 
-  // Doubtful questions first. Somebody who stops after twenty cards should
-  // have spent those twenty on the ones most likely to be wrong, which
-  // matters more than showing the paper in order.
-  const ordered = [...items].sort((a, b) => {
-    const doubtA = a.concerns.length > 0 ? 0 : 1
-    const doubtB = b.concerns.length > 0 ? 0 : 1
-    if (doubtA !== doubtB) return doubtA - doubtB
-    return a.ordinal - b.ordinal
-  })
+  // Paper order, so card one is question one. Doubtful questions used to come
+  // first, on the theory that a student who stops early should spend their
+  // cards where the reading is most likely wrong. In practice opening on
+  // question 25 reads as a bug: there is nothing to compare against yet, so
+  // the jump looks like the wrong worksheet rather than like triage. The
+  // concern banner still marks the doubtful ones as they come round.
+  const ordered = items
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
