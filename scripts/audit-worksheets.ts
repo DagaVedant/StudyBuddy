@@ -7,7 +7,9 @@ import postgres from 'postgres'
 
 import { looksUnrendered } from '../lib/questions/math'
 import type { Db } from '../lib/dashboard/queries'
+import { recoverCarriedChoices } from '../lib/worker/carried-choices'
 import { mergeDuplicateQuestions } from '../lib/worker/dedupe'
+import { joinSplitQuestions } from '../lib/worker/join-splits'
 import { repairPrintedNumbers } from '../lib/worker/repair-numbers'
 import { renumberQuestions } from '../lib/worker/renumber'
 
@@ -147,11 +149,18 @@ async function main() {
     console.log(`  COUNT SHOWN      ${rows.length}${expected ? ` (paper has ${expected})` : ''}`)
 
     if (FIX) {
+      // Joined first, for the same reason the job does it first: a question
+      // split over a page break is two rows until it is one, and the number
+      // repair and the renumber both work off the count.
+      const { joined } = await joinSplitQuestions(orm, String(sheet.id))
+      const { recovered } = await recoverCarriedChoices(orm, String(sheet.id))
       const { repaired } = await repairPrintedNumbers(orm, String(sheet.id))
       const { merged } = await mergeDuplicateQuestions(orm, String(sheet.id))
       const { renumbered } = await renumberQuestions(orm, String(sheet.id))
       console.log(
-        `  FIXED            recovered ${repaired} number(s), merged ${merged} duplicate(s), renumbered ${renumbered} row(s)`,
+        `  FIXED            rejoined ${joined} split(s), recovered options for ${recovered}, ` +
+          `recovered ${repaired} number(s), merged ${merged} duplicate(s), ` +
+          `renumbered ${renumbered} row(s)`,
       )
     }
   }
