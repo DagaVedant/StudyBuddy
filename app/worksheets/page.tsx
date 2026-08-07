@@ -59,7 +59,20 @@ export default async function WorksheetsPage() {
       pageCount: worksheets.pageCount,
       sourceType: worksheets.sourceType,
       createdAt: worksheets.createdAt,
-      questionCount: sql<number>`count(distinct ${questions.id})::int`,
+      // Counts questions, not everything stored. Page furniture and figure
+      // labels get captured as rows: "CONTINUE TO THE NEXT PAGE", "FORM B",
+      // the coordinate labels off a diagram. Showing 26 for a 25 question
+      // paper made the student go hunting for a mistake that was ours.
+      //
+      // A row counts when it reads like a sentence or asks for a calculation.
+      // Checked against every stored question: this drops 23 rows, all of them
+      // page furniture, and not one carrying a printed number. Kept as a
+      // display rule rather than a delete, because the same test applied at
+      // ingest rejected real questions.
+      questionCount: sql<number>`count(distinct ${questions.id}) filter (where
+        ${questions.promptText} ~ '([a-z]{3,}.*){3}'
+        or ${questions.promptText} ~ '[=<>+*/×÷≤≥−]|[0-9]+[[:space:]]*[-][[:space:]]*[0-9]+'
+      )::int`,
       // Parenthesised deliberately: without it the cast binds to `false`
       // rather than to the count, which parses and quietly counts nothing.
       uncheckedCount: sql<number>`(count(distinct ${questions.id}) filter (where ${questions.userVerified} = false))::int`,
