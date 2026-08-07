@@ -16,6 +16,14 @@ const TOPICS = [
 
 const TOTAL = TOPICS.reduce((sum, topic) => sum + topic.count, 0)
 
+/**
+ * Decay, reset, decay again — each reset buying longer than the last. Shared
+ * by the drawn line and the highlight that runs along it, so the two can
+ * never drift apart.
+ */
+const CURVE =
+  'M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76'
+
 /** The three review peaks, as percentages of the curve's 160x90 box. */
 const REVIEWS = [
   { left: '21.25%', top: '40%' },
@@ -115,9 +123,13 @@ function Curve() {
         <path
           className={styles.curve}
           vectorEffect="non-scaling-stroke"
-          d="M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76"
+          d={CURVE}
         />
       </svg>
+
+      {/* Draws the line on, then runs a band of light back along it. */}
+      <div className={styles.wipe} />
+      <div className={styles.sweep} />
 
       {/* Review points as elements rather than SVG circles: a circle in a
           stretched viewBox is an ellipse. */}
