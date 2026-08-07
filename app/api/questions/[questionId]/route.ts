@@ -46,6 +46,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (input.ordinal !== undefined) patch.ordinal = input.ordinal
     if (input.bbox !== undefined) patch.bbox = input.bbox ?? null
     if (input.pageId !== undefined) patch.pageId = input.pageId ?? null
+    if (input.userVerified !== undefined) patch.userVerified = input.userVerified
 
     if (input.correctAnswer !== undefined) {
       patch.correctAnswer = input.correctAnswer ?? null

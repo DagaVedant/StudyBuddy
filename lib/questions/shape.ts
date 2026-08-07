@@ -32,6 +32,8 @@ export const questionInputSchema = z.object({
   correctAnswer: z.string().trim().max(2000).nullish(),
   choices: z.array(choiceSchema).max(12).default([]),
   topicId: z.string().min(1).nullish(),
+  /** Set when a person has confirmed the question was scanned correctly. */
+  userVerified: z.boolean().optional(),
 })
 
 export function normalizeForCompare(value: string): string {

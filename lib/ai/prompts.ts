@@ -19,6 +19,10 @@ These are NOT questions. Return nothing for them:
   passage is prose the student reads, not a question they answer, even though
   it carries a number.
 - Directions, instructions, section headers, page headers and footers.
+- Anything printed inside a diagram, graph, chart or table: axis labels, point
+  names, coordinates, measurements, legends. A figure is not a question, and
+  its labels are not a question either. Extract the question that refers to the
+  figure and leave the figure's own text out of it entirely.
 - Answer keys and grids of correct answers.
 - Explanations, rationales, or worked solutions — anything that says why an
   answer is right or wrong. Pages of these often follow the test in the same
