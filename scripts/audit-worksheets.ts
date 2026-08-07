@@ -10,6 +10,7 @@ import type { Db } from '../lib/dashboard/queries'
 import { recoverCarriedChoices } from '../lib/worker/carried-choices'
 import { mergeDuplicateQuestions } from '../lib/worker/dedupe'
 import { joinSplitQuestions } from '../lib/worker/join-splits'
+import { repairUnrenderedMath } from '../lib/worker/repair-math'
 import { repairPrintedNumbers } from '../lib/worker/repair-numbers'
 import { renumberQuestions } from '../lib/worker/renumber'
 
@@ -157,10 +158,12 @@ async function main() {
       const { repaired } = await repairPrintedNumbers(orm, String(sheet.id))
       const { merged } = await mergeDuplicateQuestions(orm, String(sheet.id))
       const { renumbered } = await renumberQuestions(orm, String(sheet.id))
+      // Last, because it hashes the text each earlier stage might have moved.
+      const { repaired: rendered } = await repairUnrenderedMath(orm, String(sheet.id))
       console.log(
         `  FIXED            rejoined ${joined} split(s), recovered options for ${recovered}, ` +
           `recovered ${repaired} number(s), merged ${merged} duplicate(s), ` +
-          `renumbered ${renumbered} row(s)`,
+          `renumbered ${renumbered} row(s), re-rendered maths in ${rendered} row(s)`,
       )
     }
   }

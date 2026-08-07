@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 
+import { parseModelJson } from './json'
 import {
   CLASSIFY_JSON_SCHEMA,
   CLASSIFY_SYSTEM,
@@ -65,7 +66,10 @@ export class AnthropicProvider implements AIProvider {
       .map((block) => block.text)
       .join('')
 
-    return JSON.parse(text)
+    // Through the shared parser like every other provider. A schema-shaped
+    // response is still a string the model wrote, so it carries the same
+    // LaTeX escapes that quietly destroy a fraction.
+    return parseModelJson(text).value
   }
 
   async extractQuestions(page: PageInput): Promise<ExtractedQuestion[]> {
