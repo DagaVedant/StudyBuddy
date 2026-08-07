@@ -7,6 +7,7 @@ import postgres from 'postgres'
 
 import { looksUnrendered } from '../lib/questions/math'
 import type { Db } from '../lib/dashboard/queries'
+import { mergeDuplicateQuestions } from '../lib/worker/dedupe'
 import { repairPrintedNumbers } from '../lib/worker/repair-numbers'
 import { renumberQuestions } from '../lib/worker/renumber'
 
@@ -142,10 +143,16 @@ async function main() {
     console.log(`  choices          ${rows.length - noChoices.length}/${rows.length} have options`)
     if (empty.length) { console.log(`  EMPTY STEMS      ${empty.length}`); problems += 1 }
 
+    // What the card in the worksheets list shows.
+    console.log(`  COUNT SHOWN      ${rows.length}${expected ? ` (paper has ${expected})` : ''}`)
+
     if (FIX) {
       const { repaired } = await repairPrintedNumbers(orm, String(sheet.id))
+      const { merged } = await mergeDuplicateQuestions(orm, String(sheet.id))
       const { renumbered } = await renumberQuestions(orm, String(sheet.id))
-      console.log(`  FIXED            recovered ${repaired} number(s), renumbered ${renumbered} row(s)`)
+      console.log(
+        `  FIXED            recovered ${repaired} number(s), merged ${merged} duplicate(s), renumbered ${renumbered} row(s)`,
+      )
     }
   }
 

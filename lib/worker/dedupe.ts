@@ -2,7 +2,8 @@ import { eq, inArray } from 'drizzle-orm'
 
 import type { Db } from '@/lib/dashboard/queries'
 import { answerChoices, questions } from '@/lib/db/schema'
-import { planDuplicateMerges } from '@/lib/questions/duplicates'
+import { planDuplicateMerges, planNumberDuplicateMerges } from '@/lib/questions/duplicates'
+import { modalChoiceCount } from '@/lib/questions/validate'
 
 /**
  * Folds a question the extractor emitted twice back into one row.
@@ -53,14 +54,30 @@ export async function mergeDuplicateQuestions(
     ])
   }
 
-  const plans = planDuplicateMerges(
-    rows.map((row) => ({
-      id: row.id,
-      printedNumber: row.printedNumber,
-      promptText: row.promptText,
-      choices: byQuestion.get(row.id) ?? [],
-    })),
-  )
+  const candidates = rows.map((row) => ({
+    id: row.id,
+    printedNumber: row.printedNumber,
+    promptText: row.promptText,
+    choices: byQuestion.get(row.id) ?? [],
+  }))
+
+  const expectedChoices =
+    modalChoiceCount(
+      candidates.map((c) => ({
+        printedNumber: c.printedNumber,
+        promptText: c.promptText,
+        questionType: 'multiple_choice',
+        choices: c.choices,
+      })),
+    ) ?? 4
+
+  // Two passes over different evidence. The first catches a question split in
+  // two, which shares its text; the second catches one stored twice, which
+  // shares its printed number but not its text.
+  const plans = [
+    ...planDuplicateMerges(candidates),
+    ...planNumberDuplicateMerges(candidates, expectedChoices),
+  ]
 
   for (const plan of plans) {
     // The surviving row takes the number the phantom was occupying, which
