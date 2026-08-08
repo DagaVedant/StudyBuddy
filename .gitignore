@@ -69,3 +69,8 @@ next-env.d.ts
 /AUDIT-ENGINEERING.md
 /FIXES.md
 /CLEANUP.md
+
+# throwaway one-off scripts. Written to answer a single question against the
+# live database and abandoned; three of them were sitting untracked at once,
+# one `git add -A` away from the history.
+/scripts/_tmp-*
