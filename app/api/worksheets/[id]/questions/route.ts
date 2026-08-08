@@ -77,8 +77,9 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   const input = parsed.data
+  const choices = input.choices ?? []
 
-  const contentHash = hashQuestion(input.promptText, input.choices)
+  const contentHash = hashQuestion(input.promptText, choices)
 
   const questionId = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -98,9 +99,9 @@ export async function POST(request: Request, { params }: Params) {
       })
       .returning({ id: questions.id })
 
-    if (input.choices.length > 0) {
+    if (choices.length > 0) {
       await tx.insert(answerChoices).values(
-        input.choices.map((choice) => ({
+        choices.map((choice) => ({
           questionId: row.id,
           label: choice.label,
           text: choice.text,

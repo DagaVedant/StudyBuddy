@@ -46,7 +46,16 @@ export const questionInputSchema = z.object({
   ]),
   bbox: bboxSchema.nullish(),
   correctAnswer: z.string().trim().max(2000).nullish(),
-  choices: z.array(choiceSchema).max(12).default([]),
+  /**
+   * Optional rather than `.default([])`, because this schema is also used
+   * through `.partial()` by the PATCH route, and `.partial()` does not
+   * suppress a default: a body that never mentions choices still parsed to
+   * `[]`, which that route reads as "replace the choices with none". The
+   * verify screen sends exactly `{ userVerified: true }`, so confirming that a
+   * question had been read correctly deleted every one of its answers.
+   * Creators supply `?? []` themselves.
+   */
+  choices: z.array(choiceSchema).max(12).optional(),
   topicId: z.string().min(1).nullish(),
   /** Set when a person has confirmed the question was scanned correctly. */
   userVerified: z.boolean().optional(),

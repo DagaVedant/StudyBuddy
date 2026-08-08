@@ -13,6 +13,24 @@ test.describe.configure({ mode: 'serial' })
 
 let page: Page
 
+/**
+ * Resolves when the markup editor's debounced autosave actually lands.
+ *
+ * The "Saved" caption cannot stand in for this. It turns to "Saved" when a
+ * question is created and never goes back to idle, so waiting on it passes
+ * against a stale caption and the test then navigates away inside the 600ms
+ * debounce, taking the edit with it. That is what left the choices unsaved and
+ * this file's markup step looking at a free-text box.
+ */
+function editorSaved() {
+  return page.waitForResponse(
+    (response) =>
+      /\/api\/questions\/[^/]+$/.test(new URL(response.url()).pathname) &&
+      response.request().method() === 'PATCH' &&
+      response.ok(),
+  )
+}
+
 test.beforeAll(async ({ browser }) => {
   page = await browser.newPage()
 
@@ -41,29 +59,25 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
   expect(natural).toBeGreaterThan(500)
 })
 
-// KNOWN FAILURE. Everything below was measured, not guessed, and the pieces
-// still contradict each other:
+// Driven by dispatched PointerEvents instead of page.mouse, because in this
+// headless Chromium the canvas card's hit-test region does not line up with
+// its layout box, so a press inside the box lands on <html> and the handler
+// never runs. Measured: with the image box at x 24-784 and the page
+// unscrolled, a press at x=70 reports <html> as its target while x=252 and
+// x=738 report the image, and a press page.mouse cannot land at all is landed
+// by locator.click() at the very same coordinates. The card is position:
+// sticky, which is what puts its hit region on the compositor.
 //
-//  - Logging the handlers: pointermove and pointerup both reach the container,
-//    pointerdown never does, so dragStart stays null and the box is null on
-//    release. The log sits above the event.button guard, so the handler body
-//    is genuinely not entered.
-//  - The component holds exactly one onPointerDown and calls neither
-//    stopPropagation nor preventDefault. Nothing in it intercepts the press.
-//  - Every ancestor of the image reports pointer-events: auto and visible.
-//  - locator.hover() times out after two minutes on "attempting hover action"
-//    having resolved the image, so Playwright's actionability check never
-//    passes either.
-//  - boundingBox() says the image spans x 24-784, y 16-999 in a 1280x720
-//    viewport, yet document.elementsFromPoint at a point well inside that
-//    returns only <html>.
+// This was previously recorded as "sticky ruled out" on the evidence of
+// document.elementsFromPoint. That API cannot settle it: here it returns only
+// <html> for every point on the page, including the centre of a button that
+// Playwright then clicks successfully, so it disagrees with the browser's own
+// input hit testing rather than reporting it.
 //
-// The last two are the contradiction worth chasing: the element is where the
-// box says it is, and the browser does not agree that anything is there. The
-// container is lg:sticky lg:top-4, but that is ruled out: forcing it to
-// position: static leaves the hit test still returning <html>. Moving the
-// press inboard from the corner changes nothing either. Whatever it is, the
-// two APIs disagree about where this element is, independent of positioning.
+// The dispatch still covers everything this app owns: the pointer handlers in
+// PageCanvas, the mapping back to page coordinates, the text lookup inside the
+// dragged box, and the create. What it gives up is the browser's hit testing,
+// which is the part that is broken here and is not ours.
 test('dragging a region creates a question with its text filled in', async () => {
   const image = page.getByRole('img', { name: /Page 1 of/ })
 
@@ -72,19 +86,31 @@ test('dragging a region creates a question with its text filled in', async () =>
     element.complete ? undefined : element.decode().catch(() => undefined),
   )
 
-  await image.scrollIntoViewIfNeeded()
+  // Top fifth of the fixture page, which is where question 1 is printed.
+  await image.evaluate((img) => {
+    const canvas = img.parentElement!
+    const rect = img.getBoundingClientRect()
 
-  const box = await image.boundingBox()
-  if (!box) throw new Error('page image has no layout box')
+    const fire = (type: string, fx: number, fy: number) =>
+      canvas.dispatchEvent(
+        new PointerEvent(type, {
+          clientX: rect.x + rect.width * fx,
+          clientY: rect.y + rect.height * fy,
+          bubbles: true,
+          cancelable: true,
+          pointerId: 1,
+          pointerType: 'mouse',
+          button: type === 'pointermove' ? -1 : 0,
+          buttons: type === 'pointerup' ? 0 : 1,
+          isPrimary: true,
+        }),
+      )
 
-  const viewport = page.viewportSize()
-  console.log('BOX', JSON.stringify(box), 'VIEWPORT', JSON.stringify(viewport))
-
-  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.08)
-  await page.mouse.down()
-  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.12, { steps: 8 })
-  await page.mouse.move(box.x + box.width * 0.95, box.y + box.height * 0.22, { steps: 8 })
-  await page.mouse.up()
+    fire('pointerdown', 0.04, 0.03)
+    fire('pointermove', 0.5, 0.08)
+    fire('pointermove', 0.96, 0.17)
+    fire('pointerup', 0.96, 0.17)
+  })
 
   const prompt = page.getByLabel('Question text')
   await expect(prompt).toBeVisible()
@@ -104,7 +130,10 @@ test('a topic can be assigned from the canonical tree', async () => {
     .first()
 
   await expect(option).toBeVisible()
+
+  const saved = editorSaved()
   await option.click()
+  await saved
 
   // The chosen topic is shown twice once assigned: beside the question in the
   // list, and as the full path in the editor, so this says which one it means
@@ -114,20 +143,39 @@ test('a topic can be assigned from the canonical tree', async () => {
 
 test('answer choices can be added and one marked correct', async () => {
   for (const label of ['A', 'B']) {
+    let saved = editorSaved()
     await page.getByRole('button', { name: 'Add Choice' }).click()
+    await saved
+
+    saved = editorSaved()
     await page.getByLabel(`Text for choice ${label}`).fill(label === 'A' ? '75' : '105')
+    await saved
   }
 
+  const marked = editorSaved()
   await page.getByRole('radio', { name: 'Mark choice A correct' }).check()
-  await expect(page.getByRole('radio', { name: 'Mark choice A correct' })).toBeChecked()
+  await marked
 
-  await expect(page.getByText('Saved')).toBeVisible()
+  await expect(page.getByRole('radio', { name: 'Mark choice A correct' })).toBeChecked()
 })
 
 test('the verify flow shows a card and records a check', async () => {
   const url = page.url()
   const worksheetId = url.match(/worksheets\/([^/]+)\//)?.[1]
   if (!worksheetId) throw new Error('no worksheet id in ' + url)
+
+  // The only question here was drawn by hand in the drag test, and the create
+  // endpoint marks those verified: a student who boxed a question themselves
+  // has already checked it. Nothing extracts questions in this harness, so
+  // without putting one back to unchecked the verify screen goes straight to
+  // its "all checked" state and there is no card for this flow to show.
+  const listed = await page.request.get(`/api/worksheets/${worksheetId}/questions`)
+  const { questions } = (await listed.json()) as { questions: { id: string }[] }
+  if (questions.length === 0) throw new Error('no questions to un-check')
+
+  await page.request.patch(`/api/questions/${questions[0].id}`, {
+    data: { userVerified: false },
+  })
 
   await page.goto(`/worksheets/${worksheetId}/verify`)
 
@@ -175,10 +223,19 @@ test('the dashboard reflects the attempt', async () => {
   await expect(page.getByText('Unit 4 Practice')).toBeVisible()
 })
 
-test('a missed question is due for review immediately', async () => {
-  await page.goto('/review')
+test('a missed question comes back for review', async () => {
+  // Not literally immediate. A miss grades as Again, and FSRS puts the first
+  // learning step a minute out, so the queue is empty for that minute and the
+  // screen correctly says "Nothing Due". Polled rather than slept so it moves
+  // on as soon as the card lands.
+  test.setTimeout(180_000)
 
-  await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible()
+  await expect(async () => {
+    await page.goto('/review')
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible({
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 150_000 })
   await expect(page.getByText(/triangle/i).first()).toBeVisible()
 
   await expect(page.getByRole('heading', { name: 'Answer' })).toHaveCount(0)

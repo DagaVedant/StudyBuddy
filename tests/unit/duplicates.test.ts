@@ -5,6 +5,25 @@ import {
   planDuplicateMerges,
   planNumberDuplicateMerges,
 } from '@/lib/questions/duplicates-plan'
+import { questionInputSchema } from '@/lib/questions/shape'
+
+describe('questionInputSchema through partial()', () => {
+  it('leaves choices absent when a patch does not mention them', () => {
+    // The PATCH route reads a present `choices` as "replace them with this".
+    // A `.default([])` here survived `.partial()`, so a body that never
+    // mentioned choices arrived as `[]` and deleted every answer on the
+    // question. The verify screen sends exactly this body.
+    const parsed = questionInputSchema.partial().parse({ userVerified: true })
+    expect(parsed.choices).toBeUndefined()
+  })
+
+  it('still accepts choices when they are given', () => {
+    const parsed = questionInputSchema.partial().parse({
+      choices: [{ label: 'A', text: '75', isCorrect: true }],
+    })
+    expect(parsed.choices).toHaveLength(1)
+  })
+})
 
 const COMBINE = 'What is the best way to combine these sentences to clarify the relationship between ideas?'
 
