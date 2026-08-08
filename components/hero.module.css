@@ -1,16 +1,16 @@
 /*
- * Homepage hero — "ground and figure".
+ * Homepage hero: "ground and figure".
  *
  * Two layers. The forgetting curve is the ground: present from the first
  * frame but dim, so it reads as atmosphere. The extraction demo is the
  * figure, running in a panel on top of it. When the extraction finishes the
- * curve comes up to full and its review points light underneath — the
+ * curve comes up to full and its review points light underneath, the
  * explanation arrives as a change in the background rather than as a second
  * screen.
  *
  * The whole sequence is CSS. No JavaScript, no observer, no client
  * component: the page stays a Server Component and the motion cannot fail
- * to start. It plays once on load and rests in its finished state — a
+ * to start. It plays once on load and rests in its finished state, a
  * looping hero is exhausting on the second visit.
  */
 
@@ -48,7 +48,7 @@
   text-align: center;
   /* The panel's deal is a real 3D move; without a perspective on the parent
      the rotations flatten into a shear and the whole thing reads as a slide.
-     Long lens on purpose — short ones turn the arrival into a stunt. */
+     Long lens on purpose; short ones turn the arrival into a stunt. */
   perspective: 1500px;
 }
 
@@ -131,7 +131,7 @@
   }
 }
 
-/* Held back until the line that bounds it has been drawn — a fill with no
+/* Held back until the line that bounds it has been drawn; a fill with no
    edge yet reads as a stain rather than as the area under a curve. */
 .area {
   fill: var(--accent);
@@ -158,7 +158,7 @@
  * The line draws itself with a shutter, not with stroke-dashoffset.
  *
  * The obvious implementation fails here: `pathLength` normalisation does not
- * survive `vector-effect: non-scaling-stroke` — the dash is computed against
+ * survive `vector-effect: non-scaling-stroke`; the dash is computed against
  * the rendered length instead of the declared 100, so a dasharray meant to
  * span the path tiles across it and the line appears in fragments. A shutter
  * the colour of the page, retreating to the right, reveals the same geometry
@@ -186,7 +186,7 @@
 
 /*
  * A band of light travelling the width of the chart, timed to arrive with the
- * brighten — the flourish that says the curve is the point, now that the
+ * brighten, the flourish that says the curve is the point, now that the
  * extraction has finished making it.
  */
 .sweep {
@@ -263,7 +263,7 @@
  * The panel arrives the way a card is dealt onto a table: from far back and
  * below, pitched over on two axes at once, swinging flat and overshooting a
  * few degrees past level before it settles. Rotation on its own reads as a
- * PowerPoint transition, so every part of it is tied to something physical —
+ * PowerPoint transition, so every part of it is tied to something physical:
  * it travels in z as well as y, the roll and the pitch resolve together, and
  * the overshoot is what sells the weight.
  */
@@ -286,7 +286,7 @@
 }
 
 /*
- * A pointer response so the panel answers to being pointed at — 2px, which is
+ * A pointer response so the panel answers to being pointed at: 2px, which is
  * under the threshold of notice until it is missing. It has to move `translate`
  * rather than `transform`: the `deal` animation above holds `transform: none`
  * with fill-mode `both` after it finishes, and an animation's fill beats a
@@ -326,7 +326,7 @@
     opacity: 1;
   }
   72% {
-    /* past level, then back — a card does not stop dead on the table */
+    /* past level, then back; a card does not stop dead on the table */
     transform: translate3d(0, 0, 0) rotateX(-4deg) rotateZ(1.5deg) scale(1.012);
   }
   100% {
@@ -346,7 +346,7 @@
   animation: count 1.9s cubic-bezier(0.16, 1, 0.3, 1) 1.4s both;
 }
 
-/* The real sentence lives in a visually-hidden sibling — generated content
+/* The real sentence lives in a visually-hidden sibling; generated content
    is not reliably announced, selectable, or translatable. */
 .count::after {
   content: counter(sb) ' questions';
@@ -438,7 +438,7 @@
 }
 
 /*
- * Real question text, set small — the sheet is a document seen at a distance,
+ * Real question text, set small; the sheet is a document seen at a distance,
  * not a reading surface, so it is sized to read as prose at a glance and to
  * stay within about three lines in the narrow column. `--fg` rather than
  * `--muted`: worksheet ink is black, and greying it would push the sheet back
@@ -446,7 +446,7 @@
  */
 .stem {
   margin: 0;
-  /* Big enough to actually read — the point of using real questions here is
+  /* Big enough to actually read; the point of using real questions here is
      credibility, and text you have to squint at is still a wireframe. */
   font-size: 0.8125rem;
   line-height: 1.45;
@@ -498,7 +498,7 @@
     opacity: 1;
   }
   87% {
-    /* settles rather than vanishing — the evidence stays on screen */
+    /* settles rather than vanishing; the evidence stays on screen */
     opacity: 0.4;
   }
   100% {
@@ -569,7 +569,7 @@
  * reduced motion; the owner's decision is that it should play for everyone.
  * Be aware of what that costs before restoring the guard or removing this
  * note: the read-head travels the full sheet, the pills slide, and the dots
- * scale up — the kinds of movement the setting exists to suppress for people
+ * scale up, the kinds of movement the setting exists to suppress for people
  * with vestibular disorders.
  *
  * If it is ever reinstated, the cheaper version is to keep the sequence and

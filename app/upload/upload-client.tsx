@@ -88,7 +88,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
       if (!incoming?.length) return
       setError(null)
       // Built outside the updater: calling setTitle inside setFiles' updater
-      // is a side effect React is free to drop, and does — the default title
+      // is a side effect React is free to drop, and does; the default title
       // silently never applied.
       const next = [...files, ...Array.from(incoming)]
       setFiles(next)
@@ -151,7 +151,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
       router.push(result.next)
     } catch (cause) {
       // Covers our own CancelledError and the DOMException fetch throws on
-      // abort — either way the user asked for this, so it is not an error.
+      // abort. Either way the user asked for this, so it is not an error.
       if (controller.signal.aborted) return
 
       setProgress(null)
@@ -196,7 +196,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
 
         <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2 sm:flex-row">
           {/* Input precedes its label so `peer-*` can surface focus on the
-              visible control — an sr-only input's own focus ring is invisible. */}
+              visible control; an sr-only input's own focus ring is invisible. */}
           <div className="sm:flex-1">
             <input
               id={cameraId}

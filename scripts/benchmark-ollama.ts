@@ -19,7 +19,7 @@ const WORKSHEET_SVG = `
     .q { font: 26px Georgia, serif; fill: #111; }
     .c { font: 24px Georgia, serif; fill: #222; }
   </style>
-  <text x="70" y="90" class="h">Geometry — Unit 4 Practice</text>
+  <text x="70" y="90" class="h">Geometry: Unit 4 Practice</text>
 
   <text x="70" y="180" class="q">1. In triangle ABC, angle A = 40 and angle B = 65.</text>
   <text x="70" y="215" class="q">   What is the measure of angle C?</text>

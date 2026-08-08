@@ -13,6 +13,6 @@ import type * as schema from './schema'
  *
  * This lived in `lib/dashboard/queries.ts` until 2026-08-07, which meant the
  * queue, the quota, the rate limiter and the worker all imported the dashboard
- * — a feature module — in order to name a database handle.
+ * (a feature module) in order to name a database handle.
  */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>

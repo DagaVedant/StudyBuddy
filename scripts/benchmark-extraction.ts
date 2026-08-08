@@ -168,7 +168,7 @@ async function runModel(
  * Scores kept from earlier batches.
  *
  * The report is rewritten from scratch on every model, so a run limited to the
- * offloaded models would otherwise erase the small ones — and comparing them is
+ * offloaded models would otherwise erase the small ones, and comparing them is
  * the entire point of the exercise. Re-running a model replaces its old score
  * rather than showing it twice.
  */
@@ -201,7 +201,7 @@ function report(scores: ModelScore[], baseline?: ModelScore): string {
   const expectedCount = EXPECTED_TOTAL - EXPECTED_FROM + 1
 
   lines.push(
-    `# Extraction benchmark — pages ${FROM_PAGE}-${TO_PAGE}, ` +
+    `# Extraction benchmark: pages ${FROM_PAGE}-${TO_PAGE}, ` +
       `questions ${EXPECTED_FROM}-${EXPECTED_TOTAL} (${expectedCount})\n`,
   )
   lines.push(
@@ -260,7 +260,7 @@ async function main() {
   await mkdir(OUT, { recursive: true })
 
   // Rebuilds the table from saved results alone. Needed after re-grading an
-  // existing set against a different page range, and after abandoning a run —
+  // existing set against a different page range, and after abandoning a run:
   // the report is only written when a model finishes, so without this the last
   // scores on disk would have no way to reach it. Deliberately ahead of model
   // discovery, so it does not require Ollama to be up.
@@ -288,8 +288,8 @@ async function main() {
     throw new Error(`No vision models matched BENCH_ONLY=${only}.`)
   }
 
-  // An offloaded model can take hours, so a run that dies partway — the machine
-  // sleeping is enough — must not throw away the ones already measured. Set
+  // An offloaded model can take hours, so a run that dies partway (the machine
+  // sleeping is enough) must not throw away the ones already measured. Set
   // BENCH_FORCE=1 to score a model again anyway.
   const finished = await previousScores(new Set())
   const finishedNames = new Set(finished.map((s) => s.model))
@@ -356,7 +356,7 @@ async function main() {
     await writeFile(join(OUT, 'report.md'), report(scores, baseline))
   }
 
-  console.log(`done — ${join(OUT, 'report.md')}`)
+  console.log(`done: ${join(OUT, 'report.md')}`)
 }
 
 main().catch((e) => {

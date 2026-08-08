@@ -1,5 +1,5 @@
 /*
- * Homepage section two — "the object".
+ * Homepage section two: "the object".
  *
  * The hero argues; this section produces the evidence. It is a composed
  * still of the real dashboard, and the three claims that used to sit here as
@@ -9,7 +9,7 @@
  * The motion is a tilt-settle: the panel starts leaning back under a
  * perspective and lies down flat as you scroll it into view, like a sheet
  * being set onto the page. It is driven by a view() timeline, so there is no
- * observer, no client component, and nothing to hydrate — and where scroll
+ * observer, no client component, and nothing to hydrate, and where scroll
  * timelines are unsupported the panel simply renders in its settled state,
  * because the settled state is the one written on the element itself.
  */
@@ -59,7 +59,7 @@
 .mock {
   /*
    * A still of the app, not the app. It contains a picture of the primary
-   * button, so it has to refuse the pointer outright — otherwise it is a
+   * button, so it has to refuse the pointer outright; otherwise it is a
    * target that looks live, invites a click and does nothing. Nothing inside
    * is focusable, so this closes the last way in.
    */
@@ -109,7 +109,7 @@
 }
 
 /*
- * No `prefers-reduced-motion` fallback, by the owner's decision — the tilt
+ * No `prefers-reduced-motion` fallback, by the owner's decision; the tilt
  * plays for everyone. It is a rotation on scroll, which is squarely the kind
  * of motion that setting exists to suppress, so weigh that before treating
  * its absence as an oversight. The `@supports` gate above is a browser

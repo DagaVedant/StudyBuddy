@@ -106,8 +106,8 @@ test('a topic can be assigned from the canonical tree', async () => {
   await expect(option).toBeVisible()
   await option.click()
 
-  // The chosen topic is shown twice once assigned — beside the question in the
-  // list, and as the full path in the editor — so this says which one it means
+  // The chosen topic is shown twice once assigned: beside the question in the
+  // list, and as the full path in the editor, so this says which one it means
   // rather than failing for matching both.
   await expect(page.getByText(/Triangle angle sum/).first()).toBeVisible()
 })

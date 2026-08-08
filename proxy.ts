@@ -15,7 +15,7 @@ export const proxy = auth((req) => {
 
   if (pathname.startsWith('/admin')) {
     if (!isAuthed) return NextResponse.redirect(new URL('/signin', req.nextUrl))
-    // Admin is an operations role only (spec §2.1) — 404 rather than 403 so the
+    // Admin is an operations role only (spec §2.1): 404 rather than 403 so the
     // console isn't discoverable by probing.
     if (!isAdmin) return NextResponse.rewrite(new URL('/not-found', req.nextUrl))
     return NextResponse.next()

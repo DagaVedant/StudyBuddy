@@ -64,7 +64,7 @@ export async function joinSplitQuestions(
     // Rehashed because the row is no longer the content it was hashed from.
     // Left stale, the joined question would not match itself, and a later
     // re-read of either page would sail past the duplicate check and store a
-    // second copy — the failure the review pass already caused once.
+    // second copy, the failure the review pass already caused once.
     const contentHash = hashQuestion(keep.promptText, drop.choices)
 
     await db

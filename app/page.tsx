@@ -10,7 +10,7 @@ export default async function HomePage() {
 
   /*
    * Signed in, this page is reachable from the topbar mark, so it stays on
-   * the pitch rather than redirecting to the dashboard — but the calls to
+   * the pitch rather than redirecting to the dashboard, but the calls to
    * action are for people who do not have an account yet, so they give way
    * to the one door a signed-in reader still wants.
    */

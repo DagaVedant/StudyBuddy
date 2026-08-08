@@ -10,7 +10,7 @@ const JSON_ESCAPE_LETTERS = new Set(['b', 'f', 'n', 'r', 't', 'u'])
  * for LaTeX anyway the result lands in one of two states. `\sqrt` and `\pi`
  * are not escapes at all, so the whole response fails to parse and a page of
  * questions is lost. `\frac` and `\times` are worse: they parse, silently, and
- * `\frac{44}{11}` becomes a form feed followed by `rac{44}{11}` — a question
+ * `\frac{44}{11}` becomes a form feed followed by `rac{44}{11}`, a question
  * that reaches the student as gibberish with nothing anywhere reporting a
  * problem. Both are the same repair, applied before the parse rather than
  * after a throw, because the second case never throws.

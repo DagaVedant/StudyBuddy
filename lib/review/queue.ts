@@ -105,7 +105,7 @@ export async function getDueCards(
   }
 
   // Both of these arrive newest first, so the first entry for a question is
-  // the one to keep — which is what `.find()` was picking out.
+  // the one to keep, which is what `.find()` was picking out.
   const lastAttemptFor = new Map<string, (typeof lastAttempts)[number]>()
   for (const attempt of lastAttempts) {
     if (!lastAttemptFor.has(attempt.questionId)) {

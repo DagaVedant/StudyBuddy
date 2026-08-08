@@ -17,7 +17,7 @@ import { applyAnswerKey } from '../lib/worker/answer-key'
  * The Edison run stored 288 questions across fourteen sheets without a single
  * correct answer between them, because the stage meant to read the key was
  * declared and never implemented. The keys were on the pages the whole time, so
- * nothing needs re-extracting — only re-reading.
+ * nothing needs re-extracting, only re-reading.
  *
  *   npx tsx scripts/backfill-answer-keys.ts             # every worksheet
  *   npx tsx scripts/backfill-answer-keys.ts edison_     # titles with this prefix

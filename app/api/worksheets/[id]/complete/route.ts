@@ -101,8 +101,8 @@ export async function POST(_request: Request, { params }: Params) {
   })
 
   // Runs once this response has gone out. There is no separate worker process
-  // for Tier B to poll from — the extraction runs against the student's own
-  // key, reachable directly from here — so this request is what starts it.
+  // for Tier B to poll from. The extraction runs against the student's own
+  // key, reachable directly from here, so this request is what starts it.
   after(() => drainServerQueue(db))
 
   return NextResponse.json({

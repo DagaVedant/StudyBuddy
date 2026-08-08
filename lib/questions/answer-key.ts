@@ -12,8 +12,8 @@
  *   1. D  2. C  3. A  4. C  5. B      a grid, usually under an "ANSWER KEY" heading
  *   12. Answer: B                     one line per worked solution
  *
- * Being wrong here is expensive — a wrong key marks a right answer wrong, and
- * the student has no way to tell it was the paper's fault — so both readers are
+ * Being wrong here is expensive: a wrong key marks a right answer wrong, and
+ * the student has no way to tell it was the paper's fault, so both readers are
  * deliberately literal, and anything the two disagree about is thrown away
  * rather than guessed at.
  */
@@ -102,8 +102,8 @@ export function parseAnswerKey(pageText: string): Map<number, string> {
  * Folds the keys found on each page into one, dropping any number the pages
  * disagree about.
  *
- * Papers print the same answers twice — once as a grid, once alongside the
- * worked solutions — so agreement across pages is ordinary and a contradiction
+ * Papers print the same answers twice, once as a grid, once alongside the
+ * worked solutions, so agreement across pages is ordinary and a contradiction
  * is a signal that something was misread.
  */
 export function mergeAnswerKeys(keys: Map<number, string>[]): Map<number, string> {

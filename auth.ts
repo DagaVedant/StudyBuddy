@@ -21,7 +21,7 @@ interface UserClaims {
 /**
  * Reads the account's current claims, re-deriving admin status from
  * ADMIN_EMAILS on every login so that removing an email demotes the account
- * (spec §2.1). Admin additionally requires a verified email — otherwise anyone
+ * (spec §2.1). Admin additionally requires a verified email; otherwise anyone
  * who registers an unverified account at an admin address would inherit it.
  */
 async function syncUserClaims(userId: string): Promise<UserClaims> {
@@ -98,7 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .where(eq(users.email, email))
           .limit(1)
 
-        // Account exists but was created via OAuth — no password to check.
+        // Account exists but was created via OAuth, so no password to check.
         if (!user?.passwordHash) return null
 
         const valid = await bcrypt.compare(password, user.passwordHash)

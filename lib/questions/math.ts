@@ -18,7 +18,7 @@
  *
  * `{"prompt":"\frac{44}{11}"}` is well-formed JSON. `\f` is a form feed, so
  * `JSON.parse` returns a control character followed by `rac` and the fraction
- * is destroyed before anything here can see it — no throw, no warning, just a
+ * is destroyed before anything here can see it: no throw, no warning, just a
  * question the student reads as `?rac{44}{11}`. Only `b f n r t u` collide;
  * every other letter makes the parse fail loudly instead.
  *

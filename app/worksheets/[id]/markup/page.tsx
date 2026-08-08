@@ -29,8 +29,8 @@ export default async function MarkupPage({
   if (!worksheet || worksheet.userId !== session.user.id) notFound()
 
   // Marking a worksheet is a one-time thing: you sat the paper once, so there
-  // is one set of outcomes to record. Coming back here — from a bookmark, the
-  // back button, a stale tab — used to offer the whole flow again and write a
+  // is one set of outcomes to record. Coming back here (from a bookmark, the
+  // back button, a stale tab) used to offer the whole flow again and write a
   // second attempt per question, which moves the review schedule on answers
   // the student never actually gave. Every link into this page is dropped once
   // the marks exist; this is the guard behind them.

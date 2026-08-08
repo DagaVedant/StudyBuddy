@@ -35,7 +35,7 @@ export interface OllamaCallStats {
   promptDurationNs: number
   evalDurationNs: number
   totalDurationNs: number
-  /** Time spent bringing the model into memory — large when it is offloaded. */
+  /** Time spent bringing the model into memory; large when it is offloaded. */
   loadDurationNs: number
 }
 
@@ -66,7 +66,7 @@ export interface OllamaOptions {
    * Model used to sanity-check extracted questions, defaulting to textModel.
    *
    * Its job is judging whether a question came out whole, which is far easier
-   * than reading the page was, so a small fast model is the right tool — this
+   * than reading the page was, so a small fast model is the right tool. This
    * runs over every question on the worksheet.
    */
   reviewModel?: string
@@ -75,7 +75,7 @@ export interface OllamaOptions {
    * How many times to ask before giving up on a page.
    *
    * Benchmarking found empty replies on roughly a quarter of pages for some
-   * models, and each one silently costs every question on that page — the
+   * models, and each one silently costs every question on that page; the
    * audit only sees gaps in the printed numbering it was given, so a page
    * that returns nothing at all leaves nothing behind to notice. One retry
    * recovered every such page in the sample.
@@ -127,7 +127,7 @@ export class OllamaProvider implements RawAIProvider {
     //
     // Not lower, though. The densest page measured wanted 10,182 prompt tokens
     // and hit the 8,192 output cap, so ~18.4k is the real worst case rather
-    // than the ~3.9k average — sizing this off the average would quietly
+    // than the ~3.9k average; sizing this off the average would quietly
     // truncate exactly the pages that carry the most questions.
     this.contextTokens = options.contextTokens ?? 24_576
     this.maxOutputTokens = options.maxOutputTokens ?? 8_192
@@ -225,7 +225,7 @@ export class OllamaProvider implements RawAIProvider {
       const { value, truncated } = parseModelJson(content)
       if (truncated) {
         console.warn(
-          `[ollama] reply truncated at ${content.length} chars — salvaged the complete entries`,
+          `[ollama] reply truncated at ${content.length} chars; salvaged the complete entries`,
         )
       }
 

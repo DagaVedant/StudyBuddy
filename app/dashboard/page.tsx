@@ -159,7 +159,7 @@ export default async function DashboardPage() {
                         <div className="flex items-baseline justify-between gap-3">
                           {/* Pairs with the <h1> on /topics/[topicId]; see the
                               .topic-title rules in globals.css. Only this list
-                              claims the name — the other panels can repeat a
+                              claims the name; the other panels can repeat a
                               topic, and two live elements sharing one
                               view-transition-name breaks the morph. */}
                           <ViewTransition

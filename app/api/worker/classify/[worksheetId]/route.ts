@@ -13,7 +13,7 @@ type Params = { params: Promise<{ worksheetId: string }> }
 /**
  * Hands back the questions still needing a topic, and nothing more.
  *
- * Shortlisting used to happen here, which meant embedding here — and this
+ * Shortlisting used to happen here, which meant embedding here, and this
  * server cannot load the embedding model. The worker embeds these itself and
  * posts the vectors to ./shortlist to get candidates back.
  */
@@ -68,7 +68,7 @@ const resultsSchema = z.object({
         questionId: z.string().min(1),
         classification: classificationSchema,
         // The shortlist the worker actually classified against, sent back so
-        // this route does not have to rebuild it — which it cannot do without
+        // this route does not have to rebuild it, which it cannot do without
         // an embedding model.
         candidates: z.array(candidateSchema).max(64),
         // Consulted only when the result is coarse enough to raise a proposal.

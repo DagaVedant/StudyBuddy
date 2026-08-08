@@ -50,7 +50,7 @@ async function main() {
   await sql`update worksheets set status = 'queued' where id = ${sheet.id}`
 
   console.log(
-    `"${sheet.title}" — cleared ${cleared} topic assignments, queued classification only.`,
+    `"${sheet.title}": cleared ${cleared} topic assignments, queued classification only.`,
   )
   await sql.end()
 }

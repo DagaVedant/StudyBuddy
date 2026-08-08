@@ -518,7 +518,7 @@ export function flattenTaxonomy(roots: TopicNode[] = TAXONOMY): FlatTopic[] {
     const slug = parentSlug ? `${parentSlug}.${segment}` : segment
 
     if (seen.has(slug)) {
-      throw new Error(`Duplicate topic slug "${slug}" — rename one of the siblings.`)
+      throw new Error(`Duplicate topic slug "${slug}"; rename one of the siblings.`)
     }
     seen.add(slug)
 

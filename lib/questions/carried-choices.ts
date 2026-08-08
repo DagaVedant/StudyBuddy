@@ -5,7 +5,7 @@
  * both halves. Often it returns one: a bare block of options with no question
  * above it is not a question, so the model drops it, and the stem at the foot
  * of the previous page keeps no record that its answers ever existed. On the
- * AMC8 2024 paper that is four of the five splits — questions 5, 14, 18 and 23
+ * AMC8 2024 paper that is four of the five splits: questions 5, 14, 18 and 23
  * each lost every option they had, and no second row was ever written to join.
  *
  * The options are still on the page, in the text layer, above the first
@@ -24,7 +24,7 @@ export interface CarriedChoice {
  * sentence.
  *
  * Deliberately demands prose after the number. Papers are full of lines like
- * "5 2 6 5" and "8 14 10" — distances written along a diagram — and treating
+ * "5 2 6 5" and "8 14 10" (distances written along a diagram) and treating
  * one of those as the first question would hide a genuine carried-over block
  * behind it.
  */
@@ -61,7 +61,7 @@ function firstQuestionAt(text: string): number {
  * Pulls the options a question left behind on the page after it.
  *
  * Returns null unless the page opens with one complete, consecutive run of
- * options — A, B, C and so on from the top — printed above everything else on
+ * options (A, B, C and so on from the top) printed above everything else on
  * the page. Anything less is left alone: these options are about to be handed
  * to a question that currently has none, and handing it the wrong ones is
  * worse than leaving it visibly incomplete for the student to fix.

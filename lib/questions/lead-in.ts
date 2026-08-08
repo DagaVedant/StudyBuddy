@@ -11,9 +11,9 @@ const NUMERIC = /^\d+$/
 /**
  * Puts numbered source sentences back into the stem they were printed under.
  *
- * A revising-and-editing question prints its raw material as a numbered list —
+ * A revising-and-editing question prints its raw material as a numbered list:
  * "1. The International Space Station has been inhabited by crew members since
- * 2000." — and then offers lettered options built out of it. Read as a flat
+ * 2000." Then it offers lettered options built out of it. Read as a flat
  * list of labelled lines, the two are indistinguishable, and the extractor
  * hands back all seven as though the student had seven options to choose from.
  *
@@ -23,7 +23,7 @@ const NUMERIC = /^\d+$/
  * the numbers are the material above it.
  *
  * The numbered lines are moved rather than dropped. They are what the stem is
- * pointing at — "combine these sentences" means nothing without them — and a
+ * pointing at ("combine these sentences" means nothing without them) and a
  * question that has quietly lost its subject is worse than one with too many
  * options, because the extra options are visible in review and the missing
  * sentences are not.
@@ -39,8 +39,8 @@ export function foldLeadInChoices<T extends FoldableQuestion>(question: T): T {
   const numbered = question.choices.filter((choice) => NUMERIC.test(choice.label.trim()))
 
   // Two letters is the floor for calling something an answer list, which keeps
-  // this away from a question whose options really are numbered — those carry
-  // no letters at all — and away from a single stray label.
+  // this away from a question whose options really are numbered (those carry
+  // no letters at all) and away from a single stray label.
   if (lettered.length < 2 || numbered.length === 0) return question
 
   const stem = question.prompt_text.trim()

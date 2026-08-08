@@ -182,7 +182,7 @@ export async function failJob(
     .where(eq(processingJobs.id, jobId))
     .limit(1)
 
-  // `force` is for a failure retrying can never fix — e.g. Tier B discovering
+  // `force` is for a failure retrying can never fix, e.g. Tier B discovering
   // the student's API key is gone. Spreading that over the normal 3-attempt
   // retry schedule just delays the student seeing it and wastes claims on a
   // job that was never going to succeed.

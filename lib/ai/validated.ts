@@ -14,7 +14,7 @@ import {
  * inside each provider, which meant it happened four times out of five: the
  * interface promised `ExtractedQuestion[]` and the mock returned whatever it
  * liked, because a type cannot make a promise a class does not keep. Moving it
- * here makes the guarantee structural — a `RawAIProvider` returns `unknown`,
+ * here makes the guarantee structural: a `RawAIProvider` returns `unknown`,
  * and the only way to reach an `AIProvider` is through this function.
  *
  * Resolve every provider through here, including in scripts. A provider that

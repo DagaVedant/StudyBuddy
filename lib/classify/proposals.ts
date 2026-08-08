@@ -10,7 +10,7 @@ export type AcceptOutcome =
 /**
  * Turns a proposal into a real topic.
  *
- * Accepting used to only flip the proposal's status, which nothing read — the
+ * Accepting used to only flip the proposal's status, which nothing read; the
  * queue looked like it worked and the tree never changed, so the same
  * proposal would be raised again by the next question that did not fit.
  *

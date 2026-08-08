@@ -18,7 +18,7 @@ const geistSans = Geist({
 
 // One weight, because one weight is painted: the hero wordmark, at 800. This
 // is declared in the root layout, so next/font preloads every weight listed
-// here on every route — three files were being fetched to use one.
+// here on every route; three files were being fetched to use one.
 const archivo = Archivo({
   variable: '--font-archivo',
   subsets: ['latin'],
@@ -28,7 +28,7 @@ const archivo = Archivo({
 export const metadata: Metadata = {
   /*
    * Without this the generated OG card resolves against VERCEL_URL, which is
-   * the deployment-specific host — and behind Deployment Protection a crawler
+   * the deployment-specific host, and behind Deployment Protection a crawler
    * fetching it gets a 401, so the card silently fails to unfurl. The site's
    * own configured URL is the only one guaranteed to be public.
    */
@@ -72,7 +72,7 @@ export default function RootLayout({
             Route changes crossfade the page body. `update` (not enter/exit) is
             the right trigger: this wrapper persists across navigations, so what
             React sees is a mutation inside it rather than a mount. `default`
-            stays "none" so nothing fires on unrelated transitions — Suspense
+            stays "none" so nothing fires on unrelated transitions; Suspense
             reveals, router.refresh() after a review rating, and so on.
 
             The topbar sits outside this on purpose: it is never snapshotted, so

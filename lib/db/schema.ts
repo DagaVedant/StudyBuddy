@@ -542,7 +542,7 @@ export const usageEvents = pgTable(
  * In Postgres rather than memory because the app runs on serverless functions:
  * each invocation may be a fresh process, so an in-process counter would reset
  * constantly and limit nothing. One row per subject per action, reused across
- * windows rather than accumulating history — this table answers "how many so
+ * windows rather than accumulating history; this table answers "how many so
  * far", and nothing needs it to remember yesterday.
  */
 export const rateLimits = pgTable('rate_limits', {

@@ -21,7 +21,7 @@ export function throwIfCancelled(signal?: AbortSignal): void {
 /**
  * Races work that cannot itself be interrupted against the cancel signal.
  *
- * The underlying task keeps running — this only stops us waiting on it — so
+ * The underlying task keeps running (this only stops us waiting on it) so
  * callers that use this should also stop the real work where they can (by
  * tearing down the worker that owns it, say). The listener is removed once
  * either side settles so long loops do not accumulate them.
@@ -35,7 +35,7 @@ export function untilCancelled<T>(work: Promise<T>, signal?: AbortSignal): Promi
     signal.addEventListener('abort', onAbort, { once: true })
 
     // Detached in the same turn the work settles, rather than in a trailing
-    // .finally() — that leaves the listener attached for an extra microtask
+    // .finally(), which leaves the listener attached for an extra microtask
     // after the caller has already moved on.
     const cleanup = () => signal.removeEventListener('abort', onAbort)
 

@@ -16,7 +16,7 @@ export interface MergePlan {
    * Number the surviving row should end up with.
    *
    * The phantom is built from material printed above the real question, so it
-   * takes the lower number and pushes the real one up by one — which then
+   * takes the lower number and pushes the real one up by one, which then
    * collides with the next question along. Handing the lower number back
    * repairs the whole run, not just the count.
    */
@@ -166,8 +166,8 @@ function similarity(left: string, right: string): number {
  * How alike two prompts must be before one of them may be deleted.
  *
  * Set high on purpose. Two consecutive questions on a maths paper share most of
- * their scaffolding — "what value of x satisfies 3x - 7 = 20" against "what
- * value of x satisfies 5(x - 3) = 2x + 9" already scores about 0.42 — so
+ * their scaffolding: "what value of x satisfies 3x - 7 = 20" against "what
+ * value of x satisfies 5(x - 3) = 2x + 9" already scores about 0.42, so
  * anything permissive here deletes real questions. A genuine second read of one
  * question differs by a symbol or two and scores well above this.
  */
@@ -208,7 +208,7 @@ function damage(question: DuplicateCandidate, expectedChoices: number): number {
  *
  * The number alone is never enough. A page whose printed numbers the extractor
  * failed to read comes back numbered 1..n by position, and those collide with
- * the real 1..n of the page before it — six collisions on one Edison sheet,
+ * the real 1..n of the page before it: six collisions on one Edison sheet,
  * six real questions deleted, and every count-based check reporting success
  * afterwards because the totals still added up. So the texts have to agree as
  * well: a number held by two questions that read differently means one of them

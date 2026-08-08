@@ -108,12 +108,12 @@ export async function POST(request: Request, { params }: Params) {
     // Repaired before the audit reads the numbering, so it audits a repaired
     // run rather than chasing a gap a phantom row created.
     //
-    // Both phases run the same passes in the same order — see
-    // lib/worker/pipeline.ts — and the set only widens. Verifying holds the
+    // Both phases run the same passes in the same order (see
+    // lib/worker/pipeline.ts) and the set only widens. Verifying holds the
     // numbering back because the audit and the review pass are still writing
     // rows after it. Classifying is the run that matters: a split only becomes
     // visible once both halves are stored, and on the AMC8 paper neither half
-    // existed at the end of verifying — the stem and the orphaned options were
+    // existed at the end of verifying: the stem and the orphaned options were
     // both recovered by the audit re-read, which runs after it. Repeating the
     // passes is safe; the second run finds nothing left to do.
     await runRepairPasses(db, job.worksheetId, {

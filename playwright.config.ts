@@ -5,7 +5,7 @@ import { E2E_DATABASE_URL } from './e2e/support/database'
 const PORT = 3100
 // Auth.js's Server Actions (signIn/signOut) infer the host from request
 // headers regardless of what the browser actually navigated to, and that
-// inference lands on "localhost" here — so the app is pinned to the same
+// inference lands on "localhost" here, so the app is pinned to the same
 // host to avoid a same-origin-but-different-cookie-domain mismatch.
 const BASE_URL = `http://localhost:${PORT}`
 
@@ -58,7 +58,7 @@ export default defineConfig({
       NEXT_PUBLIC_APP_URL: BASE_URL,
       WORKER_API_TOKEN: 'e2e-worker-token',
       BLOB_READ_WRITE_TOKEN: '',
-      // Unlocks app/api/test/* — routes the E2E harness reads/writes test
+      // Unlocks app/api/test/*: routes the E2E harness reads/writes test
       // state through, since they share the app's own DB connection instead
       // of opening a second one (see e2e/support/database.ts).
       ENABLE_TEST_ENDPOINTS: 'true',
