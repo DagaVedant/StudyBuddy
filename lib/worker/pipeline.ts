@@ -1,4 +1,5 @@
 import type { Db } from '@/lib/db/types'
+import { applyAnswerKey } from '@/lib/worker/answer-key'
 import { recoverCarriedChoices } from '@/lib/worker/carried-choices'
 import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
 import { joinSplitQuestions } from '@/lib/worker/join-splits'
@@ -31,9 +32,20 @@ import { repairPrintedNumbers } from '@/lib/worker/repair-numbers'
  *             where its question belongs in the order.
  *   merge     after the number repair, so the surviving row can inherit the
  *             number the phantom was occupying.
- *   renumber  last, because every pass above it adds, drops or moves rows.
+ *   renumber  after everything that adds, drops or moves rows.
+ *   answers   last, and only here: it matches the paper's key on the printed
+ *             number, so it has to run once every pass that can change a
+ *             printed number has finished.
  */
-const ORDER = ['join', 'carried', 'math', 'numbers', 'merge', 'renumber'] as const
+const ORDER = [
+  'join',
+  'carried',
+  'math',
+  'numbers',
+  'merge',
+  'renumber',
+  'answers',
+] as const
 
 export type RepairPass = (typeof ORDER)[number]
 
@@ -44,6 +56,7 @@ export interface RepairCounts {
   repaired: number
   merged: number
   renumbered: number
+  answered: number
 }
 
 const NONE: RepairCounts = {
@@ -53,6 +66,7 @@ const NONE: RepairCounts = {
   repaired: 0,
   merged: 0,
   renumbered: 0,
+  answered: 0,
 }
 
 export interface RepairOptions {
@@ -125,6 +139,12 @@ export async function runRepairPasses(
         if (renumbered > 0) note(`[renumber] reordered ${renumbered} question(s)`)
         break
       }
+      case 'answers': {
+        const { answered } = await applyAnswerKey(db, worksheetId)
+        counts.answered = answered
+        if (answered > 0) note(`[key] answered ${answered} question(s) from the paper`)
+        break
+      }
     }
   }
 
@@ -137,7 +157,8 @@ export async function runRepairPasses(
  * Numbering is deliberately left out: the audit and the review pass both still
  * add and replace rows after this point, and anything they write takes the next
  * free ordinal — which is what put a re-read question at 135 on a 114 question
- * paper. Renumbering happens once, at the end, in {@link FINAL_PASSES}.
+ * paper. Renumbering happens once, at the end, in {@link FINAL_PASSES}, and the
+ * answer key with it, since it can only match once the numbers have settled.
  */
 export const VERIFYING_PASSES = ['join', 'carried', 'math', 'merge'] as const
 
