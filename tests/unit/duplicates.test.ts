@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { duplicatePrintedNumbers, planDuplicateMerges } from '@/lib/questions/duplicates'
+import {
+  duplicatePrintedNumbers,
+  planDuplicateMerges,
+  planNumberDuplicateMerges,
+} from '@/lib/questions/duplicates'
 
 const COMBINE = 'What is the best way to combine these sentences to clarify the relationship between ideas?'
 
@@ -149,6 +153,114 @@ describe('planDuplicateMerges', () => {
     const plans = planDuplicateMerges([
       { id: 'only', printedNumber: 1, promptText: COMBINE, choices: OPTIONS },
     ])
+
+    expect(plans).toEqual([])
+  })
+})
+
+const FOUR = [
+  { label: 'A', text: '4' },
+  { label: 'B', text: '6' },
+  { label: 'C', text: '9' },
+  { label: 'D', text: '12' },
+]
+
+describe('planNumberDuplicateMerges', () => {
+  it('folds one question read twice and transcribed differently', () => {
+    const plans = planNumberDuplicateMerges(
+      [
+        {
+          id: 'clean',
+          printedNumber: 5,
+          promptText: 'A ball is dropped from the top of a tower, and its height above the ground after t seconds is given by the expression shown.',
+          choices: FOUR,
+        },
+        {
+          id: 'damaged',
+          printedNumber: 5,
+          promptText: 'A ball is dropped from the top of a tower, and its height above the _ after t seconds is given by the expression shown.',
+          choices: FOUR.slice(0, 2),
+        },
+      ],
+      4,
+    )
+
+    expect(plans).toHaveLength(1)
+    expect(plans[0].keepId).toBe('clean')
+    expect(plans[0].dropId).toBe('damaged')
+    expect(plans[0].printedNumber).toBe(5)
+  })
+
+  // The Edison failure. A page whose printed numbers the extractor could not
+  // read comes back numbered from 1 by position, colliding with the page
+  // before it. Deleting on the number alone destroyed six real questions on one
+  // sheet and every count-based check still reported success.
+  it('leaves two different questions that were handed the same number', () => {
+    const plans = planNumberDuplicateMerges(
+      [
+        {
+          id: 'page1',
+          printedNumber: 3,
+          promptText: 'What value of x satisfies 3x - 7 = 20?',
+          choices: FOUR,
+        },
+        {
+          id: 'page2',
+          printedNumber: 3,
+          promptText: 'What value of x satisfies 5(x - 3) = 2x + 9?',
+          choices: FOUR,
+        },
+      ],
+      4,
+    )
+
+    expect(plans).toEqual([])
+  })
+
+  it('leaves two questions sharing a number and nothing else', () => {
+    const plans = planNumberDuplicateMerges(
+      [
+        {
+          id: 'geometry',
+          printedNumber: 8,
+          promptText: 'Two parallel lines are cut by a transversal. One angle measures 65 degrees. What is its co-interior angle?',
+          choices: FOUR,
+        },
+        {
+          id: 'counting',
+          printedNumber: 8,
+          promptText: 'A pizza shop offers 7 toppings. How many different 3-topping pizzas can be made?',
+          choices: FOUR,
+        },
+      ],
+      4,
+    )
+
+    expect(plans).toEqual([])
+  })
+
+  it('still refuses to act on three or more rows sharing a number', () => {
+    const same = 'A rectangular stage has a length that is 7 feet more than its width.'
+    const plans = planNumberDuplicateMerges(
+      [
+        { id: 'a', printedNumber: 2, promptText: same, choices: FOUR },
+        { id: 'b', printedNumber: 2, promptText: same, choices: FOUR },
+        { id: 'c', printedNumber: 2, promptText: same, choices: FOUR },
+      ],
+      4,
+    )
+
+    expect(plans).toEqual([])
+  })
+
+  it('does not collide unnumbered rows with each other', () => {
+    const plans = planNumberDuplicateMerges(
+      [
+        { id: 'a', printedNumber: null, promptText: 'One question.', choices: FOUR },
+        { id: 'b', printedNumber: null, promptText: 'Another question.', choices: FOUR },
+      ],
+      4,
+    )
 
     expect(plans).toEqual([])
   })
