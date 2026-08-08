@@ -11,7 +11,11 @@ import {
 import { foldLeadInChoices } from '@/lib/questions/lead-in'
 import { normalizeMath } from '@/lib/questions/math'
 import { reflowText } from '@/lib/questions/reflow'
-import { hashQuestion, normalizeForCompare } from '@/lib/questions/shape'
+import {
+  hashQuestion,
+  normalizeChoiceLabel,
+  normalizeForCompare,
+} from '@/lib/questions/shape'
 import { checkpointJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
 
@@ -119,10 +123,28 @@ export async function persistQuestions(
   pageId: string,
   raw: ExtractedQuestion[],
 ): Promise<number> {
+  // Labels first, before anything reads one. Four of the five providers parse
+  // their own output through the extraction schema, which normalises the label
+  // on the way; a provider that does not — the mock does not — hands its rows
+  // straight to the insert below. The result was options stored as `A. 60`
+  // instead of `A`, and a malformed label does not merely look wrong: it is a
+  // single letter that every downstream test demands. `foldLeadInChoices` and
+  // `labelStyle` both match /^[a-z]$/, so a stuck-together label silently
+  // switches off the lead-in fold and the duplicate merge, and the answer key
+  // cannot find the option the paper marked. One normalisation here covers
+  // every provider and both routes into this function.
+  const labelled = raw.map((question) => ({
+    ...question,
+    choices: question.choices.map((choice) => ({
+      ...choice,
+      label: normalizeChoiceLabel(choice.label),
+    })),
+  }))
+
   // After the merge, not before: the union of two split rows is one of the two
   // ways a question ends up holding both its options and the sentences they
   // were built from, and it only exists once the merge has run.
-  const extracted = mergeSplitQuestions(raw).map(foldLeadInChoices)
+  const extracted = mergeSplitQuestions(labelled).map(foldLeadInChoices)
   if (extracted.length === 0) return 0
 
   const existing = await db

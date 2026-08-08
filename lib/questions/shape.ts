@@ -8,9 +8,23 @@ export function choiceLabel(raw: string): string {
   return raw.trim().replace(/^\(|[).\s]+$/g, '') || raw.trim()
 }
 
+/**
+ * A choice's label, reduced to the label itself.
+ *
+ * The extractor sometimes returns the whole option in this field — `A. 60`
+ * rather than `A` — and everything downstream then treats the option text as
+ * part of its own name: the review screen renders "A. 60. 60", and the answer
+ * key cannot tell which option the paper marked correct, because it is looking
+ * for `C` and finding `C. 53`. A letter followed by its punctuation and then
+ * more text is a label with its option stuck to it, so the letter is taken and
+ * the rest dropped. Numeric labels are left alone — a paper that answers with
+ * sentence numbers means them literally.
+ */
 export function normalizeChoiceLabel(label: string): string {
   const cleaned = label.trim().replace(/^[([]+/, '').replace(/[.)\]\s]+$/, '')
-  return (cleaned || label.trim()).slice(0, 8)
+  const letterOnly = /^([A-Za-z])\s*[.):\]]\s*\S/.exec(cleaned)
+
+  return (letterOnly?.[1] ?? (cleaned || label.trim())).slice(0, 8)
 }
 
 export const choiceSchema = z.object({
