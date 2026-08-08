@@ -14,18 +14,10 @@ import {
 } from './prompts'
 import { parseModelJson } from './json'
 import {
-  classificationSchema,
-  explanationSchema,
-  parseExtraction,
-  reviewResultSchema,
-  type AIProvider,
-  type Classification,
   type ExecutionSite,
   type ExplainInput,
-  type ExtractedQuestion,
-  type Explanation,
   type PageInput,
-  type QuestionReview,
+  type RawAIProvider,
   type ReviewCandidate,
   type TopicCandidate,
 } from './types'
@@ -102,7 +94,7 @@ export interface OllamaOptions {
   onStats?: (stats: OllamaCallStats) => void
 }
 
-export class OllamaProvider implements AIProvider {
+export class OllamaProvider implements RawAIProvider {
   readonly name = 'ollama' as const
   readonly supportsVision = true
   readonly executionSite: ExecutionSite
@@ -243,7 +235,7 @@ export class OllamaProvider implements AIProvider {
     }
   }
 
-  async extractQuestions(page: PageInput): Promise<ExtractedQuestion[]> {
+  async extractQuestions(page: PageInput): Promise<unknown> {
     const raw = await this.chat(
       this.visionModel,
       EXTRACTION_SYSTEM,
@@ -252,13 +244,13 @@ export class OllamaProvider implements AIProvider {
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return parseExtraction(raw).questions
+    return raw
   }
 
   async classifyTopic(
     promptText: string,
     candidates: TopicCandidate[],
-  ): Promise<Classification> {
+  ): Promise<unknown> {
     const raw = await this.chat(
       this.textModel,
       CLASSIFY_SYSTEM,
@@ -267,10 +259,10 @@ export class OllamaProvider implements AIProvider {
       CLASSIFY_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return classificationSchema.parse(raw)
+    return raw
   }
 
-  async explain(input: ExplainInput): Promise<Explanation> {
+  async explain(input: ExplainInput): Promise<unknown> {
     const raw = await this.chat(
       this.textModel,
       EXPLAIN_SYSTEM,
@@ -279,11 +271,11 @@ export class OllamaProvider implements AIProvider {
       EXPLAIN_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return explanationSchema.parse(raw)
+    return raw
   }
 
-  async reviewQuestions(candidates: ReviewCandidate[]): Promise<QuestionReview[]> {
-    if (candidates.length === 0) return []
+  async reviewQuestions(candidates: ReviewCandidate[]): Promise<unknown> {
+    if (candidates.length === 0) return { verdicts: [] }
 
     const raw = await this.chat(
       this.reviewModel,
@@ -293,16 +285,7 @@ export class OllamaProvider implements AIProvider {
       REVIEW_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    // A malformed review means no opinion, not a failed worksheet. This runs
-    // after the questions are already saved, so refusing to parse should cost
-    // the student a second look, never the upload.
-    const parsed = reviewResultSchema.safeParse(raw)
-    if (!parsed.success) {
-      console.warn('[ollama] could not read the review reply, treating as no opinion')
-      return []
-    }
-
-    return parsed.data.verdicts
+    return raw
   }
 
   async listModels(): Promise<string[]> {

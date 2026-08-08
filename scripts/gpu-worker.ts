@@ -6,6 +6,7 @@ import sharp from 'sharp'
 
 import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
+import { validated } from '../lib/ai/validated'
 import { embed } from '../lib/embeddings'
 import { auditExtraction } from '../lib/worker/audit'
 import { planReview, type ReviewableQuestion } from '../lib/worker/review'
@@ -54,7 +55,7 @@ interface ClaimResponse {
   depth?: { pending: number; running: number }
 }
 
-const provider = new OllamaProvider({
+const ollama = new OllamaProvider({
   baseUrl: OLLAMA_URL,
   visionModel: VISION_MODEL,
   textModel: VISION_MODEL,
@@ -62,6 +63,12 @@ const provider = new OllamaProvider({
   executionSite: 'operator_gpu',
   timeoutMs: 15 * 60_000,
 })
+
+// Wrapped, like every other consumer: the provider returns the model's own
+// JSON and `validated` is what turns it into something safe to post upstream.
+// `ollama` stays in scope only for listModels, which is Ollama's own call and
+// not part of the provider contract.
+const provider = validated(ollama)
 
 let shuttingDown = false
 
@@ -136,8 +143,10 @@ async function reviewExtractedQuestions(
   const { questions } = (await response.json()) as { questions: ReviewableQuestion[] }
   if (questions.length === 0) return
 
-  const plan = await planReview(questions, (candidates) =>
-    provider.reviewQuestions(candidates),
+  const plan = await planReview(questions, async (candidates) =>
+    // Optional on the contract: a provider that cannot review is not a failure,
+    // and no opinion is the same answer as an unreadable one.
+    (await provider.reviewQuestions?.(candidates)) ?? [],
   )
 
   if (plan.suspects.length === 0) return
@@ -541,7 +550,7 @@ async function main(): Promise<void> {
   log(`  api:    ${API}`)
   log(`  ollama: ${OLLAMA_URL} (${VISION_MODEL})`)
 
-  const models = await provider.listModels().catch(() => {
+  const models = await ollama.listModels().catch(() => {
     throw new Error(`Cannot reach Ollama at ${OLLAMA_URL}. Is it running?`)
   })
 

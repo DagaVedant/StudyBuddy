@@ -105,6 +105,10 @@ export const classificationSchema = z.object({
 
 export type Classification = z.infer<typeof classificationSchema>
 
+export function parseClassification(raw: unknown): Classification {
+  return classificationSchema.parse(raw)
+}
+
 export const explanationSchema = z.object({
   body_md: z.string().min(1).max(6000),
 
@@ -112,6 +116,10 @@ export const explanationSchema = z.object({
 })
 
 export type Explanation = z.infer<typeof explanationSchema>
+
+export function parseExplanation(raw: unknown): Explanation {
+  return explanationSchema.parse(raw)
+}
 
 export interface ReviewCandidate {
   /** The number printed on the page, which is how the verdict points back. */
@@ -134,6 +142,24 @@ export const reviewResultSchema = z.object({
 })
 
 export type QuestionReview = z.infer<typeof questionReviewSchema>
+
+/**
+ * A review reply, or no opinion.
+ *
+ * A malformed review means no opinion, not a failed worksheet: it runs after
+ * the questions are already saved, so refusing to parse should cost the student
+ * a second look, never the upload.
+ */
+export function parseReview(raw: unknown): QuestionReview[] {
+  const parsed = reviewResultSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    console.warn('[ai] could not read the review reply, treating as no opinion')
+    return []
+  }
+
+  return parsed.data.verdicts
+}
 
 export interface PageInput {
 
@@ -162,14 +188,30 @@ export interface ExplainInput {
   studentAnswer: string | null
 }
 
-export interface AIProvider {
+interface ProviderIdentity {
   readonly name: ProviderName
   readonly supportsVision: boolean
   readonly executionSite: ExecutionSite
+}
 
-  extractQuestions(page: PageInput): Promise<ExtractedQuestion[]>
-  classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<Classification>
-  explain(input: ExplainInput): Promise<Explanation>
+/**
+ * What a model actually hands back: its own JSON, decoded but not checked.
+ *
+ * Every method returns `unknown` on purpose. The old contract had providers
+ * return `ExtractedQuestion[]` — the *output* type of the zod schema — so the
+ * signature read as "already validated" while nothing enforced it. Four of the
+ * five providers happened to validate inside themselves and one did not, and
+ * the type system had no opinion either way. That is how options reached the
+ * database labelled `A. 60` instead of `A`, which silently switched off the
+ * lead-in fold, the duplicate merge, and the answer key.
+ *
+ * A provider implements this. Nobody consumes it directly — {@link validated}
+ * turns it into an {@link AIProvider}, and that is what callers hold.
+ */
+export interface RawAIProvider extends ProviderIdentity {
+  extractQuestions(page: PageInput): Promise<unknown>
+  classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown>
+  explain(input: ExplainInput): Promise<unknown>
 
   /**
    * A second opinion on whether extracted questions came out whole.
@@ -179,6 +221,20 @@ export interface AIProvider {
    * "no opinion" rather than as a failure, and a provider that cannot do it is
    * not a worse provider.
    */
+  reviewQuestions?(candidates: ReviewCandidate[]): Promise<unknown>
+}
+
+/**
+ * The same provider with everything it returns already checked.
+ *
+ * The only shape callers should ever hold. Obtained from {@link validated}, so
+ * a value of this type has been through the schemas by construction rather
+ * than by the good manners of whoever wrote the provider.
+ */
+export interface AIProvider extends ProviderIdentity {
+  extractQuestions(page: PageInput): Promise<ExtractedQuestion[]>
+  classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<Classification>
+  explain(input: ExplainInput): Promise<Explanation>
   reviewQuestions?(candidates: ReviewCandidate[]): Promise<QuestionReview[]>
 }
 

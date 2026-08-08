@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GeminiProvider, geminiSchema } from '@/lib/ai/gemini'
+import { validated } from '@/lib/ai/validated'
 import { OpenAIProvider } from '@/lib/ai/openai'
 import { OpenRouterProvider } from '@/lib/ai/openrouter'
 import { EXTRACTION_JSON_SCHEMA } from '@/lib/ai/prompts'
@@ -103,7 +104,7 @@ describe('GeminiProvider', () => {
     const { calls, fetchImpl } = recorder(geminiReply(oneQuestion))
     const provider = new GeminiProvider('AIza-test', 'gemini-2.5-flash', fetchImpl)
 
-    const questions = await provider.extractQuestions(page)
+    const questions = await validated(provider).extractQuestions(page)
 
     expect(questions).toHaveLength(1)
     expect(calls[0].url).toContain('gemini-2.5-flash:generateContent')

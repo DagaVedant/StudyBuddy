@@ -1,20 +1,17 @@
 import {
   ProviderUnavailable,
-  type AIProvider,
-  type Classification,
   type ExplainInput,
-  type ExtractedQuestion,
-  type Explanation,
   type PageInput,
+  type RawAIProvider,
   type TopicCandidate,
 } from './types'
 
-export class MockProvider implements AIProvider {
+export class MockProvider implements RawAIProvider {
   readonly name = 'mock' as const
   readonly supportsVision = true
   readonly executionSite = 'server' as const
 
-  async extractQuestions(page: PageInput): Promise<ExtractedQuestion[]> {
+  async extractQuestions(page: PageInput): Promise<unknown> {
 
     const lines = page.text
       .split('\n')
@@ -22,41 +19,48 @@ export class MockProvider implements AIProvider {
       .filter((line) => /^\s*\d+[.)]\s+/.test(line))
       .slice(0, 40)
 
+    // Shaped like a model reply rather than like the parsed result, because
+    // that is what a provider returns now: `validated` does the parsing, and
+    // the mock has to go through it like everything else.
     if (lines.length === 0) {
-      return [
-        {
-          ordinal: 1,
-          prompt_text: `Sample question from page ${page.pageNumber}`,
-          question_type: 'multiple_choice',
-          choices: [
-            { label: 'A', text: 'First option' },
-            { label: 'B', text: 'Second option' },
-          ],
-          bbox: [0, 0, Math.min(page.width, 100), Math.min(page.height, 100)],
-          has_figure: false,
-        },
-      ]
+      return {
+        questions: [
+          {
+            ordinal: 1,
+            prompt_text: `Sample question from page ${page.pageNumber}`,
+            question_type: 'multiple_choice',
+            choices: [
+              { label: 'A', text: 'First option' },
+              { label: 'B', text: 'Second option' },
+            ],
+            bbox: [0, 0, Math.min(page.width, 100), Math.min(page.height, 100)],
+            has_figure: false,
+          },
+        ],
+      }
     }
 
-    return lines.map((line, index) => ({
-      ordinal: index + 1,
-      prompt_text: line.replace(/^\s*\d+[.)]\s+/, ''),
-      question_type: 'multiple_choice' as const,
-      choices: [
-        { label: 'A', text: 'Option A' },
-        { label: 'B', text: 'Option B' },
-        { label: 'C', text: 'Option C' },
-        { label: 'D', text: 'Option D' },
-      ],
-      bbox: null,
-      has_figure: false,
-    }))
+    return {
+      questions: lines.map((line, index) => ({
+        ordinal: index + 1,
+        prompt_text: line.replace(/^\s*\d+[.)]\s+/, ''),
+        question_type: 'multiple_choice' as const,
+        choices: [
+          { label: 'A', text: 'Option A' },
+          { label: 'B', text: 'Option B' },
+          { label: 'C', text: 'Option C' },
+          { label: 'D', text: 'Option D' },
+        ],
+        bbox: null,
+        has_figure: false,
+      })),
+    }
   }
 
   async classifyTopic(
     promptText: string,
     candidates: TopicCandidate[],
-  ): Promise<Classification> {
+  ): Promise<unknown> {
     if (candidates.length === 0) {
       return {
         topic_slug: null,
@@ -104,7 +108,7 @@ export class MockProvider implements AIProvider {
     }
   }
 
-  async explain(input: ExplainInput): Promise<Explanation> {
+  async explain(input: ExplainInput): Promise<unknown> {
     const chosen = input.studentAnswer
     const correct = input.correctAnswer ?? 'not recorded'
 
@@ -117,23 +121,23 @@ export class MockProvider implements AIProvider {
   }
 }
 
-export class NullProvider implements AIProvider {
+export class NullProvider implements RawAIProvider {
   readonly name = 'null' as const
   readonly supportsVision = false
   readonly executionSite = 'server' as const
 
-  async extractQuestions(_page: PageInput): Promise<ExtractedQuestion[]> {
+  async extractQuestions(_page: PageInput): Promise<unknown> {
     throw new ProviderUnavailable()
   }
 
   async classifyTopic(
     _promptText: string,
     _candidates: TopicCandidate[],
-  ): Promise<Classification> {
+  ): Promise<unknown> {
     throw new ProviderUnavailable()
   }
 
-  async explain(_input: ExplainInput): Promise<Explanation> {
+  async explain(_input: ExplainInput): Promise<unknown> {
     throw new ProviderUnavailable()
   }
 }

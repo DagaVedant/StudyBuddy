@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { MockProvider } from '@/lib/ai/mock'
+import { validated } from '@/lib/ai/validated'
 import type { ResolvedProvider } from '@/lib/ai/resolve'
 import type { Db } from '@/lib/db/types'
 import { processingJobs, worksheetPages, worksheets } from '@/lib/db/schema'
@@ -34,7 +35,7 @@ afterAll(async () => {
 })
 
 const asServer: (db: Db, userId: string) => Promise<ResolvedProvider> = async () => ({
-  provider: new MockProvider(),
+  provider: validated(new MockProvider()),
   tier: 'cloud',
   executor: 'server',
 })
@@ -166,7 +167,7 @@ describe('drainServerQueue', () => {
     })
 
     const noLongerCloud: typeof asServer = async () => ({
-      provider: new MockProvider(),
+      provider: validated(new MockProvider()),
       tier: 'free',
       executor: 'none',
     })

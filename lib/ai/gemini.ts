@@ -11,21 +11,15 @@ import {
   extractionUserText,
 } from './prompts'
 import {
-  classificationSchema,
-  explanationSchema,
-  parseExtraction,
-  type AIProvider,
-  type Classification,
   type ExplainInput,
-  type ExtractedQuestion,
-  type Explanation,
   type PageInput,
+  type RawAIProvider,
   type TopicCandidate,
 } from './types'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
-export class GeminiProvider implements AIProvider {
+export class GeminiProvider implements RawAIProvider {
   readonly name = 'google' as const
   readonly supportsVision = true
   readonly executionSite = 'server' as const
@@ -93,7 +87,7 @@ export class GeminiProvider implements AIProvider {
     return parseModelJson(text).value
   }
 
-  async extractQuestions(page: PageInput): Promise<ExtractedQuestion[]> {
+  async extractQuestions(page: PageInput): Promise<unknown> {
     const raw = await this.generate(
       EXTRACTION_SYSTEM,
       [
@@ -108,30 +102,30 @@ export class GeminiProvider implements AIProvider {
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return parseExtraction(raw).questions
+    return raw
   }
 
   async classifyTopic(
     promptText: string,
     candidates: TopicCandidate[],
-  ): Promise<Classification> {
+  ): Promise<unknown> {
     const raw = await this.generate(
       CLASSIFY_SYSTEM,
       [{ text: classifyUserText(promptText, candidates) }],
       CLASSIFY_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return classificationSchema.parse(raw)
+    return raw
   }
 
-  async explain(input: ExplainInput): Promise<Explanation> {
+  async explain(input: ExplainInput): Promise<unknown> {
     const raw = await this.generate(
       EXPLAIN_SYSTEM,
       [{ text: explainUserText(input) }],
       EXPLAIN_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return explanationSchema.parse(raw)
+    return raw
   }
 }
 
