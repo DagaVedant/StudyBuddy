@@ -69,6 +69,7 @@ next-env.d.ts
 /AUDIT-ENGINEERING.md
 /FIXES.md
 /CLEANUP.md
+/EXTRACTION-FAILURES.md
 
 # throwaway one-off scripts. Written to answer a single question against the
 # live database and abandoned; three of them were sitting untracked at once,
