@@ -1,11 +1,10 @@
 import { asc, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import type { Db } from '@/lib/db/types'
 import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import { joinSplitQuestions } from '@/lib/worker/join-splits'
 
-import { createTestDb, type TestDb } from '../helpers/db'
+import { asDb, createTestDb, type TestDb } from '../helpers/db'
 import { makeUser, makeWorksheet } from '../helpers/factories'
 
 let db: TestDb
@@ -19,7 +18,7 @@ beforeAll(async () => {
 
 afterAll(async () => { await close() })
 
-const client = () => db as unknown as Db
+const client = () => asDb(db)
 
 const OPTIONS = [
   { label: 'A', text: '8' },

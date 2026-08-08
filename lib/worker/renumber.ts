@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
 import { questions, worksheetPages } from '@/lib/db/schema'
+import { duplicatePrintedNumbers } from '@/lib/questions/duplicates-plan'
 
 /**
  * Rewrites every question's ordinal from where it sits on the paper.
@@ -19,11 +20,17 @@ import { questions, worksheetPages } from '@/lib/db/schema'
  *
  * Safe here because nothing downstream exists yet: the student has not reached
  * markup, so no attempt or review card points at these rows.
+ *
+ * It also reports any printed number claimed by more than one question. That is
+ * not something to correct here, because this pass would happily give both rows
+ * a clean consecutive ordinal and hide it: two questions printed as 14 is the
+ * signature of a solutions page read as a second copy of the paper, and the
+ * caller needs to see it rather than have it smoothed over.
  */
 export async function renumberQuestions(
   db: Db,
   worksheetId: string,
-): Promise<{ renumbered: number }> {
+): Promise<{ renumbered: number; duplicateNumbers: number[] }> {
   const rows = await db
     .select({
       id: questions.id,
@@ -36,7 +43,9 @@ export async function renumberQuestions(
     .where(eq(questions.worksheetId, worksheetId))
     .orderBy(asc(questions.ordinal))
 
-  if (rows.length === 0) return { renumbered: 0 }
+  if (rows.length === 0) return { renumbered: 0, duplicateNumbers: [] }
+
+  const duplicateNumbers = duplicatePrintedNumbers(rows)
 
   const ordered = [...rows].sort((a, b) => {
     // Page first. A question with no page lands at the end rather than the
@@ -64,5 +73,5 @@ export async function renumberQuestions(
     renumbered += 1
   }
 
-  return { renumbered }
+  return { renumbered, duplicateNumbers }
 }

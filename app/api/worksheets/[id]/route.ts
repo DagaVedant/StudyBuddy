@@ -1,9 +1,9 @@
-import { and, eq, isNotNull } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
-import { questions, worksheetPages, worksheets } from '@/lib/db/schema'
+import { worksheetPages, worksheets } from '@/lib/db/schema'
 import { storage } from '@/lib/storage'
 
 type Params = { params: Promise<{ id: string }> }
@@ -26,16 +26,10 @@ export async function DELETE(_request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const [pageKeys, figureKeys] = await Promise.all([
-    db
-      .select({ imageKey: worksheetPages.imageKey })
-      .from(worksheetPages)
-      .where(eq(worksheetPages.worksheetId, id)),
-    db
-      .select({ figureImageKey: questions.figureImageKey })
-      .from(questions)
-      .where(and(eq(questions.worksheetId, id), isNotNull(questions.figureImageKey))),
-  ])
+  const pageKeys = await db
+    .select({ imageKey: worksheetPages.imageKey })
+    .from(worksheetPages)
+    .where(eq(worksheetPages.worksheetId, id))
 
   // The row delete cascades every dependent table (pages, questions, answer
   // choices, attempts, review cards, jobs; see lib/db/schema.ts). Stored
@@ -44,12 +38,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   // because a file happened to already be gone.
   await db.delete(worksheets).where(eq(worksheets.id, id))
 
-  await Promise.allSettled([
-    ...pageKeys.map((page) => storage.remove(page.imageKey)),
-    ...figureKeys
-      .filter((question): question is { figureImageKey: string } => Boolean(question.figureImageKey))
-      .map((question) => storage.remove(question.figureImageKey)),
-  ])
+  await Promise.allSettled(pageKeys.map((page) => storage.remove(page.imageKey)))
 
   return NextResponse.json({ ok: true })
 }

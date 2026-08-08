@@ -12,8 +12,7 @@ async function main() {
 
   const rows = await sql`
     update users
-    set trial_worksheets_used = 0, trial_pages_used = 0,
-        trial_explanations_used = 0
+    set trial_worksheets_used = 0, trial_explanations_used = 0
     where email = ${email}
     returning email
   `

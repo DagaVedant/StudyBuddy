@@ -11,6 +11,11 @@ import { pagesForJob } from '@/lib/worker/ingest'
 const claimSchema = z.object({
   workerName: z.string().trim().min(1).max(100),
   modelName: z.string().trim().max(200).nullish(),
+  // How many jobs the worker is already running. Only the worker knows; this
+  // route used to write 0 and then 1 regardless, which made the column say
+  // "idle" for a machine part-way through a 114 question paper. Optional so an
+  // older worker binary still claims successfully, at its previous accuracy.
+  jobsInFlight: z.number().int().min(0).max(64).default(0),
 })
 
 export async function POST(request: Request) {
@@ -24,9 +29,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { workerName, modelName } = parsed.data
+  const { workerName, modelName, jobsInFlight } = parsed.data
 
-  const workerId = await heartbeat(db, workerName, modelName ?? null, 0)
+  const workerId = await heartbeat(db, workerName, modelName ?? null, jobsInFlight)
   const job = await claimJob(db, 'operator_gpu', workerId)
 
   if (!job) {
@@ -34,7 +39,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ job: null, depth })
   }
 
-  await heartbeat(db, workerName, modelName ?? null, 1)
+  await heartbeat(db, workerName, modelName ?? null, jobsInFlight + 1)
 
   // Sent so the worker can size its own concurrency: how much of the paper
   // there is decides whether reading pages in parallel is worth the memory.

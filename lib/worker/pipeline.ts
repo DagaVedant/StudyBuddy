@@ -1,7 +1,7 @@
 import type { Db } from '@/lib/db/types'
 import { applyAnswerKey } from '@/lib/worker/answer-key'
-import { recoverCarriedChoices } from '@/lib/worker/carried-choices'
-import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
+import { recoverCarriedChoices } from '@/lib/worker/carried-choices-apply'
+import { mergeDuplicateQuestions } from '@/lib/worker/duplicates-apply'
 import { joinSplitQuestions } from '@/lib/worker/join-splits'
 import { renumberQuestions } from '@/lib/worker/renumber'
 import { repairUnrenderedMath } from '@/lib/worker/repair-math'
@@ -57,6 +57,12 @@ export interface RepairCounts {
   merged: number
   renumbered: number
   answered: number
+  /**
+   * Printed numbers two questions both claim after every repair has run. Not a
+   * count of work done: it is what the renumber pass could not reconcile, and
+   * the tell that a solutions page was read as a second copy of the paper.
+   */
+  duplicateNumbers: number[]
 }
 
 const NONE: RepairCounts = {
@@ -67,6 +73,7 @@ const NONE: RepairCounts = {
   merged: 0,
   renumbered: 0,
   answered: 0,
+  duplicateNumbers: [],
 }
 
 export interface RepairOptions {
@@ -93,7 +100,8 @@ export async function runRepairPasses(
 ): Promise<RepairCounts> {
   const wanted = new Set<RepairPass>(options.only ?? ORDER)
   const log = options.log === undefined ? '' : options.log
-  const counts: RepairCounts = { ...NONE }
+  // Fresh array rather than the one on NONE, which every caller would share.
+  const counts: RepairCounts = { ...NONE, duplicateNumbers: [] }
 
   const note = (message: string) => {
     if (log !== null) console.log(`${log}${message} on ${worksheetId}`)
@@ -134,9 +142,13 @@ export async function runRepairPasses(
         break
       }
       case 'renumber': {
-        const { renumbered } = await renumberQuestions(db, worksheetId)
+        const { renumbered, duplicateNumbers } = await renumberQuestions(db, worksheetId)
         counts.renumbered = renumbered
+        counts.duplicateNumbers = duplicateNumbers
         if (renumbered > 0) note(`[renumber] reordered ${renumbered} question(s)`)
+        if (duplicateNumbers.length > 0) {
+          note(`[renumber] printed number(s) claimed twice: ${duplicateNumbers.join(', ')}`)
+        }
         break
       }
       case 'answers': {

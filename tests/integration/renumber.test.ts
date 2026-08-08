@@ -1,11 +1,10 @@
 import { asc, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import type { Db } from '@/lib/db/types'
 import { questions, worksheetPages } from '@/lib/db/schema'
 import { renumberQuestions } from '@/lib/worker/renumber'
 
-import { createTestDb, type TestDb } from '../helpers/db'
+import { asDb, createTestDb, type TestDb } from '../helpers/db'
 import { makeUser, makeWorksheet } from '../helpers/factories'
 
 let db: TestDb
@@ -19,7 +18,7 @@ beforeAll(async () => {
 
 afterAll(async () => { await close() })
 
-const client = () => db as unknown as Db
+const client = () => asDb(db)
 
 async function seed(
   spec: { page: number; printed: number | null; ordinal: number }[],
@@ -125,12 +124,29 @@ describe('renumberQuestions', () => {
       { page: 1, printed: 2, ordinal: 2 },
     ])
 
-    expect(await renumberQuestions(client(), id)).toEqual({ renumbered: 0 })
+    expect(await renumberQuestions(client(), id)).toEqual({
+      renumbered: 0,
+      duplicateNumbers: [],
+    })
   })
 
   it('handles a worksheet with no questions', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
-    expect(await renumberQuestions(client(), worksheetId)).toEqual({ renumbered: 0 })
+    expect(await renumberQuestions(client(), worksheetId)).toEqual({
+      renumbered: 0,
+      duplicateNumbers: [],
+    })
+  })
+
+  it('reports a printed number two questions both claim', async () => {
+    const id = await seed([
+      { page: 1, printed: 14, ordinal: 1 },
+      { page: 2, printed: 14, ordinal: 2 },
+      { page: 2, printed: 15, ordinal: 3 },
+    ])
+
+    const { duplicateNumbers } = await renumberQuestions(client(), id)
+    expect(duplicateNumbers).toEqual([14])
   })
 })

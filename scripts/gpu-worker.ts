@@ -72,6 +72,12 @@ const provider = validated(ollama)
 
 let shuttingDown = false
 
+// What the dashboard's "jobs in flight" column reports. The loop below takes
+// one job at a time, so this is 0 or 1 today, but it is counted rather than
+// assumed: the server has no way to know, and hardcoding it there is what made
+// the column always read 0.
+let jobsInFlight = 0
+
 function log(message: string): void {
   console.log(`[${new Date().toISOString()}] ${message}`)
 }
@@ -536,7 +542,11 @@ async function heartbeatLoop(): Promise<void> {
   while (!shuttingDown) {
     await api('/api/worker/heartbeat', {
       method: 'POST',
-      body: JSON.stringify({ workerName: WORKER_NAME, modelName: VISION_MODEL }),
+      body: JSON.stringify({
+        workerName: WORKER_NAME,
+        modelName: VISION_MODEL,
+        jobsInFlight,
+      }),
     }).catch(() => {})
 
     await new Promise((resolve) => setTimeout(resolve, HEARTBEAT_MS))
@@ -566,7 +576,11 @@ async function main(): Promise<void> {
     try {
       const response = await api('/api/worker/claim', {
         method: 'POST',
-        body: JSON.stringify({ workerName: WORKER_NAME, modelName: VISION_MODEL }),
+        body: JSON.stringify({
+          workerName: WORKER_NAME,
+          modelName: VISION_MODEL,
+          jobsInFlight,
+        }),
       })
 
       if (!response.ok) {
@@ -581,7 +595,12 @@ async function main(): Promise<void> {
         continue
       }
 
-      await processJob(claim)
+      jobsInFlight += 1
+      try {
+        await processJob(claim)
+      } finally {
+        jobsInFlight -= 1
+      }
     } catch (error) {
       log(`poll error: ${(error as Error).message}, retrying in ${backoff / 1000}s`)
       await new Promise((resolve) => setTimeout(resolve, backoff))

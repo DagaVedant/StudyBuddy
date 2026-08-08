@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  formatInterval,
   previewIntervals,
   scheduleFromOutcome,
   scheduleFromReview,
@@ -106,5 +107,22 @@ describe('previewIntervals', () => {
     expect(preview.again.getTime()).toBeLessThanOrEqual(preview.hard.getTime())
     expect(preview.hard.getTime()).toBeLessThanOrEqual(preview.good.getTime())
     expect(preview.good.getTime()).toBeLessThanOrEqual(preview.easy.getTime())
+  })
+})
+
+describe('formatInterval', () => {
+  const at = (ms: number) => formatInterval(new Date(NOW.getTime() + ms), NOW)
+
+  it('picks one unit per magnitude', () => {
+    expect(at(10 * 60_000)).toBe('10 min')
+    expect(at(5 * 3600_000)).toBe('5 h')
+    expect(at(3 * 24 * 3600_000)).toBe('3 d')
+    expect(at(90 * 24 * 3600_000)).toBe('3 mo')
+    expect(at(730 * 24 * 3600_000)).toBe('2 y')
+  })
+
+  it('floors anything already due', () => {
+    expect(at(0)).toBe('<1 min')
+    expect(at(-60_000)).toBe('<1 min')
   })
 })

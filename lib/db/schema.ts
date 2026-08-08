@@ -65,6 +65,11 @@ export const questionType = pgEnum('question_type', [
   'grid_in',
 ])
 
+// `pdf_key` and `ai_derived` are not yet produced. The answer-key pass writes
+// `user_key` for a key found on the paper, and nothing solves a question that
+// has no key at all, which is what `ai_derived` is for (spec §6.4). Kept for
+// the same reason as `job_stage` below: removing an enum value is a migration,
+// not an edit. The review screen already badges `ai_derived` when it appears.
 export const answerSource = pgEnum('answer_source', [
   'user_key',
   'pdf_key',
@@ -100,6 +105,11 @@ export const jobStatus = pgEnum('job_status', [
 
 export const jobPriority = pgEnum('job_priority', ['high', 'normal', 'low'])
 
+// `answer_key` and `classify` are not yet produced: the answer key is applied
+// as a repair pass inside the extract job and classification runs from its own
+// route, so neither is ever a job stage of its own. They stay because dropping
+// a value from a Postgres enum means rebuilding the type and every column using
+// it, which is a real migration to buy back two unused labels.
 export const jobStage = pgEnum('job_stage', [
   'extract',
   'answer_key',
@@ -108,6 +118,13 @@ export const jobStage = pgEnum('job_stage', [
 ])
 
 export const workerStatus = pgEnum('worker_status', ['online', 'offline', 'draining'])
+
+/**
+ * What a student is complaining about. `worksheet` covers the reading as a
+ * whole (questions missed, pages skipped, numbering wrong); `explanation`
+ * covers one generated answer.
+ */
+export const reportKind = pgEnum('report_kind', ['worksheet', 'explanation'])
 
 export const cardState = pgEnum('card_state', ['new', 'learning', 'review', 'relearning'])
 
@@ -131,10 +148,12 @@ export const users = pgTable('users', {
 
   role: userRole('role').default('student').notNull(),
 
-  aiTier: aiTier('ai_tier').default('trial').notNull(),
-
+  // No `ai_tier` here. Which tier an account runs on is decided by
+  // `resolveProvider`, from the credentials it actually holds and what the
+  // trial has left, and is recorded per worksheet in `worksheets.tier_used`.
+  // A column alongside it was a second answer to the same question that
+  // nothing ever wrote, so it said `trial` for everyone forever.
   trialWorksheetsUsed: integer('trial_worksheets_used').default(0).notNull(),
-  trialPagesUsed: integer('trial_pages_used').default(0).notNull(),
   trialExplanationsUsed: integer('trial_explanations_used').default(0).notNull(),
 
   createdAt: createdAt(),
@@ -266,7 +285,6 @@ export const questions = pgTable(
     questionType: questionType('question_type').notNull(),
 
     bbox: jsonb('bbox').$type<BBox | null>(),
-    figureImageKey: text('figure_image_key'),
 
     correctAnswer: text('correct_answer'),
     answerSource: answerSource('answer_source').default('none').notNull(),
@@ -420,6 +438,50 @@ export const explanations = pgTable(
     generatedAt: createdAt(),
   },
   (t) => [index('explanations_question_idx').on(t.questionId)],
+)
+
+/**
+ * What a student told us was wrong, in their own words.
+ *
+ * Kept as rows rather than a log file because the useful question is "which
+ * worksheet keeps getting reported", and that is a group-by, not a grep. The
+ * target columns are deliberately nullable and independent: a worksheet report
+ * ("this is missing half the questions") names no question, and an explanation
+ * report names all three.
+ *
+ * Nothing here is deleted when it is dealt with. `resolvedAt` is set instead,
+ * so a worksheet reported twice for the same reason still shows both.
+ */
+export const reports = pgTable(
+  'reports',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    kind: reportKind('kind').notNull(),
+
+    worksheetId: text('worksheet_id').references(() => worksheets.id, {
+      onDelete: 'cascade',
+    }),
+    questionId: text('question_id').references(() => questions.id, {
+      onDelete: 'cascade',
+    }),
+    explanationId: text('explanation_id').references(() => explanations.id, {
+      onDelete: 'cascade',
+    }),
+
+    message: text('message'),
+
+    createdAt: createdAt(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  },
+  (t) => [
+    // The admin page reads newest first and filters to the unresolved ones.
+    index('reports_created_idx').on(t.createdAt),
+    index('reports_worksheet_idx').on(t.worksheetId),
+  ],
 )
 
 export const reviewCards = pgTable(

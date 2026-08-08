@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseCarriedChoices } from '@/lib/questions/carried-choices'
+import { parseCarriedChoices } from '@/lib/questions/carried-choices-plan'
 
 /**
  * The head of AMC8 2024 page 4, verbatim. Question 14's stem is at the foot of

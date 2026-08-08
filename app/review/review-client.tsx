@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import ReportButton from '@/components/report-button'
 import { reflowText } from '@/lib/questions/reflow'
 import type { ReviewItem } from '@/lib/review/queue'
 
@@ -200,15 +201,6 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
 
         <p className="whitespace-pre-line text-pretty">{reflowText(item.promptText)}</p>
 
-        {item.figureImageKey && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`/api/files/${item.figureImageKey}`}
-            alt="Figure for this question"
-            className="mt-4 max-h-64 w-auto rounded-xl border border-border"
-          />
-        )}
-
         {item.choices.length > 0 && (
           <ul className="mt-4 space-y-1.5">
             {item.choices.map((choice) => (
@@ -265,9 +257,18 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
             <div>
               <h2 className="text-sm font-medium">Explanation</h2>
               {explanationFor(item) ? (
-                <p className="mt-1 whitespace-pre-line text-pretty text-sm">
-                  {explanationFor(item)}
-                </p>
+                <>
+                  <p className="mt-1 whitespace-pre-line text-pretty text-sm">
+                    {explanationFor(item)}
+                  </p>
+                  <div className="mt-2">
+                    <ReportButton
+                      target={{ kind: 'explanation', questionId: item.questionId }}
+                      label="This explanation looks wrong"
+                      placeholder="What is wrong with it?"
+                    />
+                  </div>
+                </>
               ) : (
                 <div className="mt-1">
                   <button
@@ -312,6 +313,9 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
               >
                 <span className="font-medium">{rating.label}</span>
                 <span className="text-xs text-muted">{rating.hint}</span>
+                <span className="text-xs tabular-nums text-muted">
+                  {item.intervals[rating.value]}
+                </span>
               </button>
             ))}
           </div>

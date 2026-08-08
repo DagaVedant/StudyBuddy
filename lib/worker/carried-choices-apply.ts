@@ -2,7 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 
 import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
-import { parseCarriedChoices } from '@/lib/questions/carried-choices'
+import { parseCarriedChoices } from '@/lib/questions/carried-choices-plan'
 import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { sortWithinPage } from '@/lib/questions/page-order'
 import {

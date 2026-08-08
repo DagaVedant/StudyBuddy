@@ -3,7 +3,7 @@ import type { TextItem } from 'pdfjs-dist/types/src/display/api'
 
 import type { TextLine } from '@/lib/db/schema'
 import { RASTER_DPI, RASTER_MAX_EDGE } from '@/lib/upload/limits'
-import { pageInRange, type PageRange } from '@/lib/upload/page-range'
+import { countInRange, pageInRange, type PageRange } from '@/lib/upload/page-range'
 
 import { throwIfCancelled } from './abort'
 
@@ -159,10 +159,12 @@ export async function rasterizePdf(
 
   const pages: RasterPage[] = []
 
-  let plannedTotal = 0
-  for (let n = 1; n <= pdf.numPages; n += 1) {
-    if (pageInRange(offset + n, range)) plannedTotal += 1
-  }
+  // How many pages this document contributes to the range: the running count
+  // through its last page, less the count through the page before its first.
+  // `offset` is what earlier files in the same upload already consumed, so the
+  // range is stated in whole-upload page numbers, not per-file ones.
+  const plannedTotal =
+    countInRange(offset + pdf.numPages, range) - countInRange(offset, range)
 
   let rendered = 0
 

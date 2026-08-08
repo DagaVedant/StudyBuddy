@@ -1,28 +1,21 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  EMBEDDING_DIMENSIONS,
-  cosineSimilarity,
-  embed,
-} from '@/lib/embeddings'
+import { EMBEDDING_DIMENSIONS, embed } from '@/lib/embeddings'
 
-describe('cosineSimilarity', () => {
-  it('is 1 for identical vectors', () => {
-    expect(cosineSimilarity([1, 0, 1], [1, 0, 1])).toBeCloseTo(1)
-  })
-
-  it('is 0 for orthogonal vectors', () => {
-    expect(cosineSimilarity([1, 0], [0, 1])).toBeCloseTo(0)
-  })
-
-  it('handles zero vectors without dividing by zero', () => {
-    expect(cosineSimilarity([0, 0], [1, 1])).toBe(0)
-  })
-
-  it('returns 0 on a dimension mismatch rather than throwing', () => {
-    expect(cosineSimilarity([1, 2, 3], [1, 2])).toBe(0)
-  })
-})
+/**
+ * Local to this file on purpose. Production never compares two vectors in
+ * JavaScript: every similarity search goes through pgvector's `<=>` against an
+ * HNSW index, in `lib/classify`. This exists only so the test below can state
+ * what "related" means without a database.
+ *
+ * A plain dot product, because `embed` returns unit vectors (the test above
+ * asserts that) and for those the two are the same number.
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0
+  for (let i = 0; i < a.length; i += 1) dot += a[i] * b[i]
+  return dot
+}
 
 describe('embed (real MiniLM model)', () => {
   it(

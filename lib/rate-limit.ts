@@ -27,6 +27,13 @@ export const UPLOAD_LIMIT: LimitRule = { action: 'upload', limit: 30, windowSeco
 /** Explanations, which cost a model call each. */
 export const EXPLAIN_LIMIT: LimitRule = { action: 'explain', limit: 60, windowSeconds: 3600 }
 
+/**
+ * Reporting something as wrong. Loose enough that a student working through a
+ * badly read worksheet can flag every question on it, tight enough that the
+ * admin queue cannot be filled by one account in a loop.
+ */
+export const REPORT_LIMIT: LimitRule = { action: 'report', limit: 40, windowSeconds: 3600 }
+
 export function limitKey(rule: LimitRule, subject: string): string {
   return `${rule.action}:${subject.slice(0, 180)}`
 }

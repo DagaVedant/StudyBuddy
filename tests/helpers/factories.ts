@@ -58,6 +58,8 @@ interface QuestionSpec {
   promptText?: string
   topicId?: string | null
   choices?: { label: string; text: string; isCorrect?: boolean }[]
+  contentHash?: string
+  embedding?: number[]
 }
 
 export async function makeQuestion(
@@ -75,6 +77,8 @@ export async function makeQuestion(
       promptText: spec.promptText ?? 'Solve for x.',
       questionType: spec.choices?.length ? 'multiple_choice' : 'free_response',
       userVerified: true,
+      ...(spec.contentHash ? { contentHash: spec.contentHash } : {}),
+      ...(spec.embedding ? { embedding: spec.embedding } : {}),
     })
     .returning({ id: questions.id })
 

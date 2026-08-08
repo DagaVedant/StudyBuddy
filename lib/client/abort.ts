@@ -10,10 +10,6 @@ export class CancelledError extends Error {
   }
 }
 
-export function isCancelled(error: unknown): boolean {
-  return error instanceof CancelledError
-}
-
 export function throwIfCancelled(signal?: AbortSignal): void {
   if (signal?.aborted) throw new CancelledError()
 }
