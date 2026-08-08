@@ -120,7 +120,8 @@ export default async function StatusPage({
           </p>
 
           <p className="hint">
-            This page updates on refresh. Safe to close: nothing is lost.
+            This page updates itself every minute. Safe to close: nothing is
+            lost.
           </p>
 
           <div className="mt-6">

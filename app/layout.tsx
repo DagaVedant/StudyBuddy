@@ -5,6 +5,7 @@ import { SessionProvider } from 'next-auth/react'
 import { ViewTransition } from 'react'
 
 import AppTopbar from '@/components/app-topbar'
+import AutoRefresh from '@/components/auto-refresh'
 import { themeInitScript } from '@/components/theme-toggle'
 import { appBaseUrl } from '@/lib/app-url'
 
@@ -83,6 +84,7 @@ export default function RootLayout({
             </div>
           </ViewTransition>
         </SessionProvider>
+        <AutoRefresh />
         <Analytics />
       </body>
     </html>
