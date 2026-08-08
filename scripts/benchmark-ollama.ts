@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 
 import { OllamaProvider } from '../lib/ai/ollama'
+import { validated } from '../lib/ai/validated'
 import type { TopicCandidate } from '../lib/ai/types'
 
 const WORKSHEET_SVG = `
@@ -88,17 +89,22 @@ async function main() {
   const baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
   const visionModel = process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b'
 
-  const provider = new OllamaProvider({
+  const raw = new OllamaProvider({
     baseUrl,
     visionModel,
     textModel: visionModel,
     executionSite: 'operator_gpu',
   })
 
+  // listModels is Ollama's own, not part of the provider contract, so it is
+  // asked of the raw client; everything the benchmark measures goes through
+  // the wrapper, the same as production.
+  const provider = validated(raw)
+
   console.log(`Ollama: ${baseUrl}`)
   console.log(`Model:  ${visionModel}\n`)
 
-  const models = await provider.listModels()
+  const models = await raw.listModels()
   if (!models.includes(visionModel)) {
     throw new Error(`${visionModel} is not pulled. Have: ${models.join(', ')}`)
   }

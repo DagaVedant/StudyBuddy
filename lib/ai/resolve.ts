@@ -16,7 +16,8 @@ import {
   isCloudProvider,
   type CloudProvider,
 } from './providers'
-import type { AIProvider } from './types'
+import type { AIProvider, RawAIProvider } from './types'
+import { validated } from './validated'
 
 export { CLOUD_PROVIDERS, DEFAULT_CLOUD_MODEL, type CloudProvider }
 
@@ -55,7 +56,7 @@ export async function resolveProvider(
 
   if (cloud) {
     if (mockEnabled()) {
-      return { provider: new MockProvider(), tier: 'cloud', executor: 'server' }
+      return { provider: validated(new MockProvider()), tier: 'cloud', executor: 'server' }
     }
 
     const apiKey = openApiKey({
@@ -77,7 +78,7 @@ export async function resolveProvider(
 
   if (user?.role === 'admin') {
     return {
-      provider: mockEnabled() ? new MockProvider() : new NullProvider(),
+      provider: validated(mockEnabled() ? new MockProvider() : new NullProvider()),
       tier: 'trial',
       executor: 'operator_gpu',
     }
@@ -86,20 +87,35 @@ export async function resolveProvider(
   const worksheetsUsed = user?.trialWorksheetsUsed ?? 0
   if (worksheetsUsed < TRIAL_WORKSHEET_LIMIT) {
     return {
-      provider: mockEnabled() ? new MockProvider() : new NullProvider(),
+      provider: validated(mockEnabled() ? new MockProvider() : new NullProvider()),
       tier: 'trial',
       executor: 'operator_gpu',
     }
   }
 
-  return { provider: new NullProvider(), tier: 'free', executor: 'none' }
+  return { provider: validated(new NullProvider()), tier: 'free', executor: 'none' }
 }
 
+/**
+ * A cloud provider, already wrapped.
+ *
+ * Wrapping here rather than at each call site is the point: `validated` is the
+ * only route from a `RawAIProvider` to an `AIProvider`, so a provider added to
+ * the switch below cannot reach a caller unchecked.
+ */
 export function cloudProvider(
   provider: CloudProvider,
   apiKey: string,
   model?: string,
 ): AIProvider {
+  return validated(rawCloudProvider(provider, apiKey, model))
+}
+
+function rawCloudProvider(
+  provider: CloudProvider,
+  apiKey: string,
+  model?: string,
+): RawAIProvider {
   const chosen = model || DEFAULT_CLOUD_MODEL[provider]
 
   switch (provider) {

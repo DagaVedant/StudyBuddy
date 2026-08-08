@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { validated } from '@/lib/ai/validated'
 import { MockProvider, NullProvider } from '@/lib/ai/mock'
 import { OllamaProvider } from '@/lib/ai/ollama'
 import {
@@ -182,7 +183,7 @@ describe('output schemas', () => {
 })
 
 describe('MockProvider', () => {
-  const provider = new MockProvider()
+  const provider = validated(new MockProvider())
 
   it('extracts numbered questions from the page text', async () => {
     const questions = await provider.extractQuestions(
@@ -274,7 +275,7 @@ describe('OllamaProvider', () => {
       }) as unknown as typeof fetch,
     })
 
-    const questions = await provider.extractQuestions(page('1. Find angle C.'))
+    const questions = await validated(provider).extractQuestions(page('1. Find angle C.'))
 
     expect(questions[0].prompt_text).toBe('Find angle C.')
     expect(captured.model).toBe('qwen2.5vl:7b')

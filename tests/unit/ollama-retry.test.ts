@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { OllamaProvider } from '@/lib/ai/ollama'
+import { validated } from '@/lib/ai/validated'
 
 const page = {
   image: new Uint8Array([1, 2, 3]),
@@ -54,7 +55,7 @@ describe('OllamaProvider empty-reply retry', () => {
   it('asks again when the model generates nothing', async () => {
     const { bodies, fetchImpl } = scripted(['', JSON.stringify(oneQuestion)])
 
-    const questions = await provider(fetchImpl).extractQuestions(page)
+    const questions = await validated(provider(fetchImpl)).extractQuestions(page)
 
     expect(bodies).toHaveLength(2)
     expect(questions).toHaveLength(1)
@@ -100,7 +101,7 @@ describe('OllamaProvider empty-reply retry', () => {
   it('accepts a page that really has no questions without retrying it', async () => {
     const { bodies, fetchImpl } = scripted([JSON.stringify({ questions: [] })])
 
-    const questions = await provider(fetchImpl).extractQuestions(page)
+    const questions = await validated(provider(fetchImpl)).extractQuestions(page)
 
     expect(questions).toEqual([])
     expect(bodies).toHaveLength(1)

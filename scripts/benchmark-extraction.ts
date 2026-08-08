@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 
 import { OllamaProvider, type OllamaCallStats } from '../lib/ai/ollama'
+import { validated } from '../lib/ai/validated'
 import { rasterizePdfPages, type RasterizedPage } from './benchmark/rasterize-pdf'
 import { scoreRun, type ModelScore, type PageRun } from './benchmark/score'
 
@@ -91,7 +92,7 @@ async function runModel(
   // calls.
   const statsLog: OllamaCallStats[] = []
 
-  const provider = new OllamaProvider({
+  const raw = new OllamaProvider({
     baseUrl: OLLAMA,
     visionModel: candidate.model,
     textModel: candidate.model,
@@ -102,6 +103,8 @@ async function runModel(
       statsLog.push(s)
     },
   })
+
+  const provider = validated(raw)
 
   const runs: PageRun[] = []
 

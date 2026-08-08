@@ -14,21 +14,15 @@ import {
 } from './prompts'
 import {
   ProviderRefused,
-  classificationSchema,
-  explanationSchema,
-  parseExtraction,
-  type AIProvider,
-  type Classification,
   type ExplainInput,
-  type ExtractedQuestion,
-  type Explanation,
   type PageInput,
+  type RawAIProvider,
   type TopicCandidate,
 } from './types'
 
 const DEFAULT_MODEL = 'claude-opus-5'
 
-export class AnthropicProvider implements AIProvider {
+export class AnthropicProvider implements RawAIProvider {
   readonly name = 'anthropic' as const
   readonly supportsVision = true
   readonly executionSite = 'server' as const
@@ -72,7 +66,7 @@ export class AnthropicProvider implements AIProvider {
     return parseModelJson(text).value
   }
 
-  async extractQuestions(page: PageInput): Promise<ExtractedQuestion[]> {
+  async extractQuestions(page: PageInput): Promise<unknown> {
     const raw = await this.complete(
       EXTRACTION_SYSTEM,
       [
@@ -89,13 +83,13 @@ export class AnthropicProvider implements AIProvider {
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return parseExtraction(raw).questions
+    return raw
   }
 
   async classifyTopic(
     promptText: string,
     candidates: TopicCandidate[],
-  ): Promise<Classification> {
+  ): Promise<unknown> {
     const raw = await this.complete(
       CLASSIFY_SYSTEM,
       [{ type: 'text', text: classifyUserText(promptText, candidates) }],
@@ -103,10 +97,10 @@ export class AnthropicProvider implements AIProvider {
       2000,
     )
 
-    return classificationSchema.parse(raw)
+    return raw
   }
 
-  async explain(input: ExplainInput): Promise<Explanation> {
+  async explain(input: ExplainInput): Promise<unknown> {
     const raw = await this.complete(
       EXPLAIN_SYSTEM,
       [{ type: 'text', text: explainUserText(input) }],
@@ -114,6 +108,6 @@ export class AnthropicProvider implements AIProvider {
       4000,
     )
 
-    return explanationSchema.parse(raw)
+    return raw
   }
 }

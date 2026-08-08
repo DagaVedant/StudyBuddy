@@ -11,15 +11,9 @@ import {
   extractionUserText,
 } from './prompts'
 import {
-  classificationSchema,
-  explanationSchema,
-  parseExtraction,
-  type AIProvider,
-  type Classification,
   type ExplainInput,
-  type ExtractedQuestion,
-  type Explanation,
   type PageInput,
+  type RawAIProvider,
   type TopicCandidate,
 } from './types'
 
@@ -30,11 +24,11 @@ export interface ChatCompletionsOptions {
   label?: string
   headers?: Record<string, string>
   fetchImpl?: typeof fetch
-  name?: AIProvider['name']
+  name?: RawAIProvider['name']
 }
 
-export class OpenAIProvider implements AIProvider {
-  readonly name: AIProvider['name']
+export class OpenAIProvider implements RawAIProvider {
+  readonly name: RawAIProvider['name']
   readonly supportsVision = true
   readonly executionSite = 'server' as const
 
@@ -103,7 +97,7 @@ export class OpenAIProvider implements AIProvider {
     return parseModelJson(text).value
   }
 
-  async extractQuestions(page: PageInput): Promise<ExtractedQuestion[]> {
+  async extractQuestions(page: PageInput): Promise<unknown> {
     const dataUrl = `data:${page.mediaType};base64,${Buffer.from(page.image).toString('base64')}`
 
     const raw = await this.chat(
@@ -116,13 +110,13 @@ export class OpenAIProvider implements AIProvider {
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return parseExtraction(raw).questions
+    return raw
   }
 
   async classifyTopic(
     promptText: string,
     candidates: TopicCandidate[],
-  ): Promise<Classification> {
+  ): Promise<unknown> {
     const raw = await this.chat(
       CLASSIFY_SYSTEM,
       classifyUserText(promptText, candidates),
@@ -130,10 +124,10 @@ export class OpenAIProvider implements AIProvider {
       CLASSIFY_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return classificationSchema.parse(raw)
+    return raw
   }
 
-  async explain(input: ExplainInput): Promise<Explanation> {
+  async explain(input: ExplainInput): Promise<unknown> {
     const raw = await this.chat(
       EXPLAIN_SYSTEM,
       explainUserText(input),
@@ -141,6 +135,6 @@ export class OpenAIProvider implements AIProvider {
       EXPLAIN_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
-    return explanationSchema.parse(raw)
+    return raw
   }
 }
