@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { UPLOAD_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
@@ -27,7 +26,7 @@ export async function POST(request: Request) {
   // shared school connection should not have one student's stack of homework
   // lock out everyone else on it.
   const allowance = await consumeRateLimit(
-    db as unknown as Db,
+    db,
     UPLOAD_LIMIT,
     `user:${session.user.id}`,
   )

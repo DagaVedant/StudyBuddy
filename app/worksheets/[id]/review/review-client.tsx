@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import TopicPicker, { type TopicChoice } from '@/components/topic-picker'
 import type { BBox, TextLine } from '@/lib/db/schema'
+import { reflowText } from '@/lib/questions/reflow'
 import { choiceLabel } from '@/lib/questions/shape'
 
 export interface EditablePage {
@@ -421,7 +422,7 @@ export default function ReviewClient({
                       className="min-w-0 flex-1 text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     >
                       <span className="line-clamp-3 whitespace-pre-line">
-                        {question.promptText || 'Untitled question'}
+                        {reflowText(question.promptText) || 'Untitled question'}
                       </span>
                     </button>
                   </div>

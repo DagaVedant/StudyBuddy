@@ -11,7 +11,6 @@ import {
   getOverview,
   getRecentWorksheets,
   getTopicStats,
-  type Db,
 } from '@/lib/dashboard/queries'
 import {
   MIN_ATTEMPTS,
@@ -59,14 +58,13 @@ export default async function DashboardPage() {
   if (!session?.user?.id) redirect('/signin')
 
   const userId = session.user.id
-  const client = db as unknown as Db
 
   const [overview, rawStats, trend, recent, distractors] = await Promise.all([
-    getOverview(client, userId),
-    getTopicStats(client, userId),
-    getAccuracyTrend(client, userId),
-    getRecentWorksheets(client, userId),
-    getDistractorPatterns(client, userId),
+    getOverview(db, userId),
+    getTopicStats(db, userId),
+    getAccuracyTrend(db, userId),
+    getRecentWorksheets(db, userId),
+    getDistractorPatterns(db, userId),
   ])
 
   const taxonomy = flattenTaxonomy()
@@ -361,7 +359,12 @@ export default async function DashboardPage() {
                     href={
                       sheet.status === 'awaiting_review'
                         ? `/worksheets/${sheet.id}/review`
-                        : `/worksheets/${sheet.id}/markup`
+                        : // Marking is a one-time step, so a worksheet that has
+                          // been marked leads to practice rather than back into
+                          // a flow that has nothing left to record.
+                          sheet.markedCount > 0
+                          ? '/review'
+                          : `/worksheets/${sheet.id}/markup`
                     }
                     className="min-w-0 flex-1 truncate text-sm text-accent underline underline-offset-2"
                   >

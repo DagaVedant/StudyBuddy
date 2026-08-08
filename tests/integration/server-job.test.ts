@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { MockProvider } from '@/lib/ai/mock'
 import type { ResolvedProvider } from '@/lib/ai/resolve'
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { processingJobs, worksheetPages, worksheets } from '@/lib/db/schema'
 import { claimJob, enqueueJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
@@ -15,6 +15,13 @@ import { makeUser, makeWorksheet } from '../helpers/factories'
 let db: TestDb
 let close: () => Promise<void>
 
+/*
+ * These tests write through the real storage driver, which with no blob token
+ * configured means real PNGs under .uploads/. Without this, every run left its
+ * pages behind: 1,088 files had accumulated before anyone looked.
+ */
+const written: string[] = []
+
 beforeAll(async () => {
   const harness = await createTestDb()
   db = harness.db
@@ -22,6 +29,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
+  await Promise.all(written.map((key) => storage.remove(key).catch(() => {})))
   await close()
 })
 
@@ -40,6 +48,7 @@ async function makePage(worksheetId: string, hasImage: boolean) {
       'base64',
     )
     await storage.put(key, onePixelPng, 'image/png')
+    written.push(key)
   }
 
   const [row] = await db

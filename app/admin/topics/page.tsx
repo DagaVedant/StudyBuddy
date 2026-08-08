@@ -7,7 +7,6 @@ import { acceptTopicProposal } from '@/lib/classify/proposals'
 import { db } from '@/lib/db'
 import { questions, topicProposals, topics } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
-import type { Db } from '@/lib/dashboard/queries'
 
 export const metadata = { title: 'Topic Proposals · StudyBuddy' }
 
@@ -16,7 +15,6 @@ export default async function AdminTopicsPage() {
   if (!session?.user?.id) redirect('/signin')
   if (session.user.role !== 'admin') notFound()
 
-  const client = db as unknown as Db
 
   const proposals = await db
     .select({
@@ -35,9 +33,9 @@ export default async function AdminTopicsPage() {
     .limit(100)
 
   const [worker, gpuDepth, serverDepth] = await Promise.all([
-    workerStatus(client),
-    queueDepth(client, 'operator_gpu'),
-    queueDepth(client, 'server'),
+    workerStatus(db),
+    queueDepth(db, 'operator_gpu'),
+    queueDepth(db, 'server'),
   ])
 
   async function resolve(formData: FormData) {
@@ -50,7 +48,7 @@ export default async function AdminTopicsPage() {
     const action = String(formData.get('action'))
 
     if (action === 'accept') {
-      const outcome = await acceptTopicProposal(client, id)
+      const outcome = await acceptTopicProposal(db, id)
       if (!outcome.ok) {
         console.warn(`[admin] could not accept proposal ${id}: ${outcome.reason}`)
       }

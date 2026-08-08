@@ -121,8 +121,6 @@
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: var(--font-archivo), var(--font-geist-sans), ui-sans-serif,
-    system-ui, sans-serif;
 }
 
 body {
@@ -138,23 +136,7 @@ body {
  * @apply-ing one another.
  */
 @layer components {
-  /*
-   * Headline type: heavy, uppercase, tightly tracked, set large.
-   *
-   * Only for the one line that names a screen. Applied to a paragraph it
-   * becomes shouting, and at small sizes the tight tracking closes up the
-   * counters and hurts legibility.
-   */
-  .display {
-    font-family: var(--font-display);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 0.92;
-    text-transform: uppercase;
-    text-wrap: balance;
-  }
-
-  /** The small label that sits above a display heading. */
+  /** The small label that sits above a heading. */
   .eyebrow {
     @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted;
   }

@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { ExtractedQuestion } from '@/lib/ai/types'
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import { persistQuestions } from '@/lib/worker/ingest'
 

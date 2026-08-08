@@ -2,7 +2,6 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, heartbeat, queueDepth } from '@/lib/queue'
@@ -25,18 +24,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const client = db as unknown as Db
   const { workerName, modelName } = parsed.data
 
-  const workerId = await heartbeat(client, workerName, modelName ?? null, 0)
-  const job = await claimJob(client, 'operator_gpu', workerId)
+  const workerId = await heartbeat(db, workerName, modelName ?? null, 0)
+  const job = await claimJob(db, 'operator_gpu', workerId)
 
   if (!job) {
-    const depth = await queueDepth(client, 'operator_gpu')
+    const depth = await queueDepth(db, 'operator_gpu')
     return NextResponse.json({ job: null, depth })
   }
 
-  await heartbeat(client, workerName, modelName ?? null, 1)
+  await heartbeat(db, workerName, modelName ?? null, 1)
 
   // Sent so the worker can size its own concurrency: how much of the paper
   // there is decides whether reading pages in parallel is worth the memory.
@@ -55,6 +53,6 @@ export async function POST(request: Request) {
       expectedQuestionCount: worksheet?.expectedQuestionCount ?? null,
       checkpoint: job.checkpoint,
     },
-    pages: await pagesForJob(client, job.worksheetId),
+    pages: await pagesForJob(db, job.worksheetId),
   })
 }

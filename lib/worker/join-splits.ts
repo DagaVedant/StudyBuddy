@@ -1,10 +1,9 @@
-import { createHash } from 'node:crypto'
+import { eq } from 'drizzle-orm'
 
-import { asc, eq, inArray } from 'drizzle-orm'
-
-import type { Db } from '@/lib/dashboard/queries'
-import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
-import { contentHashSource } from '@/lib/questions/shape'
+import { answerChoices, questions } from '@/lib/db/schema'
+import type { Db } from '@/lib/db/types'
+import { loadQuestionsWithChoices } from '@/lib/questions/load'
+import { hashQuestion } from '@/lib/questions/shape'
 import { planPageSplitJoins, type SplitHalf } from '@/lib/questions/split-pages'
 import { modalChoiceCount } from '@/lib/questions/validate'
 
@@ -29,56 +28,19 @@ export async function joinSplitQuestions(
   db: Db,
   worksheetId: string,
 ): Promise<{ joined: number }> {
-  const rows = await db
-    .select({
-      id: questions.id,
-      ordinal: questions.ordinal,
-      printedNumber: questions.printedNumber,
-      promptText: questions.promptText,
-      questionType: questions.questionType,
-      bbox: questions.bbox,
-      pageNumber: worksheetPages.pageNumber,
-    })
-    .from(questions)
-    .leftJoin(worksheetPages, eq(worksheetPages.id, questions.pageId))
-    .where(eq(questions.worksheetId, worksheetId))
-    .orderBy(asc(questions.ordinal))
+  const rows = await loadQuestionsWithChoices(db, worksheetId)
 
   if (rows.length < 2) return { joined: 0 }
-
-  const choiceRows = await db
-    .select({
-      questionId: answerChoices.questionId,
-      label: answerChoices.label,
-      text: answerChoices.text,
-    })
-    .from(answerChoices)
-    .where(
-      inArray(
-        answerChoices.questionId,
-        rows.map((row) => row.id),
-      ),
-    )
-
-  const byQuestion = new Map<string, { label: string; text: string }[]>()
-  for (const choice of choiceRows) {
-    byQuestion.set(choice.questionId, [
-      ...(byQuestion.get(choice.questionId) ?? []),
-      { label: choice.label, text: choice.text },
-    ])
-  }
 
   const candidates: SplitHalf[] = rows.map((row) => ({
     id: row.id,
     pageNumber: row.pageNumber,
     position: row.ordinal,
-    // bbox is [x0, y0, x1, y1]; the top edge is what puts a question in
-    // reading order down the page.
-    top: Array.isArray(row.bbox) ? row.bbox[1] : null,
+    top: row.top,
     printedNumber: row.printedNumber,
     promptText: row.promptText,
     questionType: row.questionType,
-    choices: byQuestion.get(row.id) ?? [],
+    choices: row.choices,
   }))
 
   const plans = planPageSplitJoins(candidates, {
@@ -103,9 +65,7 @@ export async function joinSplitQuestions(
     // Left stale, the joined question would not match itself, and a later
     // re-read of either page would sail past the duplicate check and store a
     // second copy — the failure the review pass already caused once.
-    const contentHash = createHash('sha256')
-      .update(contentHashSource(keep.promptText, drop.choices))
-      .digest('hex')
+    const contentHash = hashQuestion(keep.promptText, drop.choices)
 
     await db
       .update(questions)

@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { reflowText } from '@/lib/questions/reflow'
+
 export interface VerifiableQuestion {
   id: string
   printedNumber: number | null
@@ -159,7 +161,9 @@ export function VerifyClient({
             {label}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="whitespace-pre-line text-pretty">{question.promptText}</p>
+            <p className="whitespace-pre-line text-pretty">
+              {reflowText(question.promptText)}
+            </p>
             {question.pageNumber !== null && (
               <p className="hint mt-1">Read from page {question.pageNumber}.</p>
             )}

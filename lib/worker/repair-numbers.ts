@@ -1,6 +1,6 @@
 import { asc, eq } from 'drizzle-orm'
 
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { questions, worksheetPages, worksheets } from '@/lib/db/schema'
 import { inferPrintedNumbers } from '@/lib/questions/infer-numbers'
 

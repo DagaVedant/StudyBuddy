@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import { reflowText } from '@/lib/questions/reflow'
 import type { ReviewItem } from '@/lib/review/queue'
 
 type Rating = 'again' | 'hard' | 'good' | 'easy'
@@ -197,7 +198,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
           </p>
         )}
 
-        <p className="whitespace-pre-line text-pretty">{item.promptText}</p>
+        <p className="whitespace-pre-line text-pretty">{reflowText(item.promptText)}</p>
 
         {item.figureImageKey && (
           // eslint-disable-next-line @next/next/no-img-element

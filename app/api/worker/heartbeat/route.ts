@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { heartbeat, markWorkerOffline, queueDepth } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
@@ -24,18 +23,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const client = db as unknown as Db
   const { workerName, modelName, jobsInFlight, shuttingDown } = parsed.data
 
   if (shuttingDown) {
-    await markWorkerOffline(client, workerName)
+    await markWorkerOffline(db, workerName)
     return NextResponse.json({ ok: true })
   }
 
-  await heartbeat(client, workerName, modelName ?? null, jobsInFlight)
+  await heartbeat(db, workerName, modelName ?? null, jobsInFlight)
 
   return NextResponse.json({
     ok: true,
-    depth: await queueDepth(client, 'operator_gpu'),
+    depth: await queueDepth(db, 'operator_gpu'),
   })
 }

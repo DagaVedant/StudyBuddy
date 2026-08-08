@@ -1,12 +1,11 @@
-import { createHash } from 'node:crypto'
+import { asc, eq } from 'drizzle-orm'
 
-import { asc, eq, inArray } from 'drizzle-orm'
-
-import type { Db } from '@/lib/dashboard/queries'
 import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
+import type { Db } from '@/lib/db/types'
 import { parseCarriedChoices } from '@/lib/questions/carried-choices'
+import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { sortWithinPage } from '@/lib/questions/page-order'
-import { contentHashSource, normalizeForCompare } from '@/lib/questions/shape'
+import { hashQuestion, normalizeForCompare } from '@/lib/questions/shape'
 import { modalChoiceCount, validateQuestion } from '@/lib/questions/validate'
 
 /**
@@ -46,51 +45,11 @@ export async function recoverCarriedChoices(
 
   if (pages.length < 2) return { recovered: 0 }
 
-  const rows = await db
-    .select({
-      id: questions.id,
-      ordinal: questions.ordinal,
-      printedNumber: questions.printedNumber,
-      promptText: questions.promptText,
-      questionType: questions.questionType,
-      bbox: questions.bbox,
-      pageNumber: worksheetPages.pageNumber,
-    })
-    .from(questions)
-    .leftJoin(worksheetPages, eq(worksheetPages.id, questions.pageId))
-    .where(eq(questions.worksheetId, worksheetId))
-    .orderBy(asc(questions.ordinal))
+  const rows = await loadQuestionsWithChoices(db, worksheetId)
 
   if (rows.length === 0) return { recovered: 0 }
 
-  const choiceRows = await db
-    .select({
-      questionId: answerChoices.questionId,
-      label: answerChoices.label,
-      text: answerChoices.text,
-    })
-    .from(answerChoices)
-    .where(
-      inArray(
-        answerChoices.questionId,
-        rows.map((row) => row.id),
-      ),
-    )
-
-  const byQuestion = new Map<string, { label: string; text: string }[]>()
-  for (const choice of choiceRows) {
-    byQuestion.set(choice.questionId, [
-      ...(byQuestion.get(choice.questionId) ?? []),
-      { label: choice.label, text: choice.text },
-    ])
-  }
-
-  const candidates = rows.map((row) => ({
-    ...row,
-    top: Array.isArray(row.bbox) ? row.bbox[1] : null,
-    position: row.ordinal,
-    choices: byQuestion.get(row.id) ?? [],
-  }))
+  const candidates = rows.map((row) => ({ ...row, position: row.ordinal }))
 
   const expectedCount = modalChoiceCount(candidates)
 
@@ -148,9 +107,7 @@ export async function recoverCarriedChoices(
       })),
     )
 
-    const contentHash = createHash('sha256')
-      .update(contentHashSource(target.promptText, carried))
-      .digest('hex')
+    const contentHash = hashQuestion(target.promptText, carried)
 
     await db
       .update(questions)

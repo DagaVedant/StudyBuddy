@@ -4,7 +4,6 @@ import { z } from 'zod'
 
 import { classificationSchema } from '@/lib/ai/types'
 import { applyClassification, isEmbedding } from '@/lib/classify'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { questionTopics, questions, worksheets } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
@@ -91,7 +90,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const client = db as unknown as Db
 
   const [worksheet] = await db
     .select({ id: worksheets.id })
@@ -123,7 +121,7 @@ export async function POST(request: Request, { params }: Params) {
 
     try {
       const outcome = await applyClassification(
-        client,
+        db,
         question,
         entry.candidates,
         entry.classification,

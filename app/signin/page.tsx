@@ -8,8 +8,6 @@ import { signInWithCredentials, signInWithGoogle } from '@/lib/auth/actions'
 import type { FormState } from '@/lib/auth/actions'
 
 const ERRORS: Record<string, string> = {
-  InvalidVerificationLink: 'That verification link is not valid.',
-  VerificationExpired: 'That verification link has expired. Sign up again to get a new one.',
   OAuthAccountNotLinked: 'That email is already registered with a password. Sign in with your password instead.',
 }
 

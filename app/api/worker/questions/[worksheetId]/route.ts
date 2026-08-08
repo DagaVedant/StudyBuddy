@@ -1,8 +1,9 @@
-import { asc, eq, inArray } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
-import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
+import { worksheetPages } from '@/lib/db/schema'
+import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ worksheetId: string }> }
@@ -28,41 +29,9 @@ export async function GET(request: Request, { params }: Params) {
     .where(eq(worksheetPages.worksheetId, worksheetId))
     .orderBy(asc(worksheetPages.pageNumber))
 
-  const rows = await db
-    .select({
-      id: questions.id,
-      pageId: questions.pageId,
-      printedNumber: questions.printedNumber,
-      promptText: questions.promptText,
-      questionType: questions.questionType,
-    })
-    .from(questions)
-    .where(eq(questions.worksheetId, worksheetId))
-    .orderBy(asc(questions.ordinal))
+  const rows = await loadQuestionsWithChoices(db, worksheetId)
 
   if (rows.length === 0) return NextResponse.json({ questions: [] })
-
-  const choiceRows = await db
-    .select({
-      questionId: answerChoices.questionId,
-      label: answerChoices.label,
-      text: answerChoices.text,
-    })
-    .from(answerChoices)
-    .where(
-      inArray(
-        answerChoices.questionId,
-        rows.map((row) => row.id),
-      ),
-    )
-
-  const choicesFor = new Map<string, { label: string; text: string }[]>()
-  for (const choice of choiceRows) {
-    choicesFor.set(choice.questionId, [
-      ...(choicesFor.get(choice.questionId) ?? []),
-      { label: choice.label, text: choice.text },
-    ])
-  }
 
   const pageNumberFor = new Map(pages.map((page) => [page.id, page.pageNumber]))
 
@@ -75,7 +44,7 @@ export async function GET(request: Request, { params }: Params) {
         printedNumber: row.printedNumber,
         promptText: row.promptText,
         questionType: row.questionType,
-        choices: choicesFor.get(row.id) ?? [],
+        choices: row.choices.map((choice) => ({ label: choice.label, text: choice.text })),
       })),
   })
 }

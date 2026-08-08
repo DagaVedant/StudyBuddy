@@ -1,7 +1,6 @@
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm'
-import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 
-import * as schema from '@/lib/db/schema'
+import { unwrapDriverRows as rows } from '@/lib/db/rows'
 import {
   attempts,
   questionTopics,
@@ -10,15 +9,9 @@ import {
   topics,
   worksheets,
 } from '@/lib/db/schema'
+import type { Db } from '@/lib/db/types'
 
 import type { TopicStats } from './ranking'
-
-export type Db = PgDatabase<PgQueryResultHKT, typeof schema>
-
-function rows<T>(result: unknown): T[] {
-  if (Array.isArray(result)) return result as T[]
-  return ((result as { rows?: T[] }).rows ?? []) as T[]
-}
 
 export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[]> {
   const result = await db
@@ -144,6 +137,8 @@ export interface RecentWorksheet {
   createdAt: Date
   questionCount: number
   wrongCount: number
+  /** Marks recorded from the markup flow, which a worksheet only gets once. */
+  markedCount: number
 }
 
 export async function getRecentWorksheets(
@@ -160,6 +155,7 @@ export async function getRecentWorksheets(
       createdAt: worksheets.createdAt,
       questionCount: sql<number>`count(distinct ${questions.id})::int`,
       wrongCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.outcome} = 'wrong')::int`,
+      markedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.source} = 'markup')::int`,
     })
     .from(worksheets)
     .leftJoin(questions, eq(questions.worksheetId, worksheets.id))
@@ -179,6 +175,7 @@ export async function getRecentWorksheets(
     ...row,
     questionCount: Number(row.questionCount),
     wrongCount: Number(row.wrongCount),
+    markedCount: Number(row.markedCount),
   }))
 }
 

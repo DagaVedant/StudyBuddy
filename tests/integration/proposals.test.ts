@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { acceptTopicProposal, slugify } from '@/lib/classify/proposals'
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { questionTopics, topicProposals, topics } from '@/lib/db/schema'
 
 import { createTestDb, type TestDb } from '../helpers/db'

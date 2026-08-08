@@ -30,9 +30,8 @@ both.
 
 ## 2. Secrets (1 min)
 
-`.env.local` ships with working development values, so you can skip this to get
-running locally. **Do it before deploying**, though — those defaults are in the
-repo's history and are not secret.
+`.env.example` is the only `.env` file in the repo — copy it to `.env.local`
+and generate your own secrets. Never commit the result.
 
 ```bash
 npm run gen:secrets
@@ -65,8 +64,8 @@ What each does:
 
 | Command | Effect |
 |---|---|
-| `db:migrate` | Enables pgvector, creates 19 tables |
-| `db:seed` | Loads 290 topics (233 classifiable leaves) |
+| `db:migrate` | Enables pgvector, creates 20 tables |
+| `db:seed` | Loads 341 topics (276 classifiable leaves) |
 | `db:embed` | Computes topic embeddings — auto-classification needs these |
 
 `db:embed` downloads a ~23MB model on first run and takes a minute or two.
@@ -289,6 +288,29 @@ npm run worker                       # optional, powers the free trial
 
 ---
 
+## Operator scripts
+
+Not in `package.json` — these are ad-hoc, run with `npx tsx` against whatever
+`DATABASE_URL` is in your `.env.local`. Several of them write.
+
+| Script | What it does |
+|---|---|
+| `audit-worksheets.ts` | Checks recent worksheets for every failure mode known to have shipped: gaps, duplicates, ordinals out of paper order, unrendered maths. `AUDIT_FIX=true` also repairs them, using the same passes the job runs. |
+| `diagnose-worksheet.ts` | The last 8 worksheets with their page, text and question counts. First stop when an upload looks wrong. |
+| `tally-questions.ts <title-prefix>` | Question counts per worksheet matching the prefix. |
+| `peek-page.ts <title-prefix> [page…]` | Dumps a page's stored OCR text — what the model actually saw. |
+| `topic-gaps.ts` | How many questions are tagged, and which topics the classifier is reaching for. |
+| `check-account.ts` | Every user's role, verification state and trial usage, plus the configured `ADMIN_EMAILS`. |
+| `check-worksheet-attempts.ts <title>` | The attempts recorded against one worksheet. |
+| `reset-trial.ts <email>` | **Writes.** Puts an account's trial counters back to zero. |
+| `requeue-worksheet.ts [<id\|title>\|--all]` | **Writes.** Re-enqueues processing. Defaults to `--all`. |
+| `reextract-worksheet.ts <id\|title>` | **Writes.** Deletes the extracted questions and reads the pages again. |
+| `reclassify-worksheet.ts <id\|title>` | **Writes.** Drops the topic tags and re-runs classification only. |
+| `try-prompt.ts <title-prefix> [page…]` | Runs a page through Ollama directly, for prompt work. Needs no database write. |
+| `benchmark-extraction.ts` | Scores a model against the marked-up benchmark corpus. |
+
+---
+
 ## Things that will bite you
 
 **Nothing works and every page 500s.** `DATABASE_URL` is wrong or migrations
@@ -296,11 +318,8 @@ never ran. Check the Vercel function logs.
 
 **Uploads work, images are blank.** No `BLOB_READ_WRITE_TOKEN` in production.
 
-**Signup succeeds but you cannot sign in.** Email is unverified. Locally the
-link is in the terminal; in production you need Resend.
-
-**Admin link never appears.** The email must be verified *and* in
-`ADMIN_EMAILS`. Sign out and back in — the role is computed at login.
+**Admin link never appears.** The email must be in `ADMIN_EMAILS`. Sign out and
+back in — the role is computed at login.
 
 **Uploads sit at "Working on It" forever.** No GPU worker is running. Either
 start it, or let the trial run out and it falls through to the manual editor.
@@ -321,10 +340,10 @@ start it, or let the trial run out and it falls through to the manual editor.
   where there is no worker to ask. Those questions are saved and reviewable,
   they just do not land under a topic, so they do not reach the weakness
   dashboard. Fixing it means either a hosted embedding API or routing Tier B
-  through a worker; both need the 290 topic embeddings recomputed with
+  through a worker; both need the 341 topic embeddings recomputed with
   whatever model replaces the current one, since vectors from different
   models are not comparable.
-- **Rate limiting covers signup, verification email, upload and explain only.**
+- **Rate limiting covers signup, upload and explain only.**
   Everything else — rating a card, editing a question, saving credentials — is
   unbounded. Those all need a session and only touch the caller's own rows, so
   the exposure is small, but it is not zero.

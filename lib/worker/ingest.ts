@@ -1,9 +1,7 @@
-import { createHash } from 'node:crypto'
-
 import { asc, eq } from 'drizzle-orm'
 
 import type { AIProvider, ExtractedQuestion } from '@/lib/ai/types'
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import {
   answerChoices,
   questions,
@@ -12,7 +10,8 @@ import {
 } from '@/lib/db/schema'
 import { foldLeadInChoices } from '@/lib/questions/lead-in'
 import { normalizeMath } from '@/lib/questions/math'
-import { contentHashSource, normalizeForCompare } from '@/lib/questions/shape'
+import { reflowText } from '@/lib/questions/reflow'
+import { hashQuestion, normalizeForCompare } from '@/lib/questions/shape'
 import { checkpointJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
 
@@ -145,16 +144,17 @@ export async function persistQuestions(
     // not survive as two rows.
     const question = {
       ...raw,
-      prompt_text: normalizeMath(raw.prompt_text),
+      // Reflowed after the maths, never before: the recovery of an eaten
+      // command reads a line break followed by letters, and joining the lines
+      // first would leave it nothing to find.
+      prompt_text: reflowText(normalizeMath(raw.prompt_text)),
       choices: raw.choices.map((choice) => ({
         ...choice,
-        text: normalizeMath(choice.text),
+        text: reflowText(normalizeMath(choice.text)),
       })),
     }
 
-    const contentHash = createHash('sha256')
-      .update(contentHashSource(question.prompt_text, question.choices))
-      .digest('hex')
+    const contentHash = hashQuestion(question.prompt_text, question.choices)
 
     if (seen.has(contentHash)) continue
     seen.add(contentHash)

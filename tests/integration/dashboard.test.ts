@@ -6,8 +6,8 @@ import {
   getOverview,
   getRecentWorksheets,
   getTopicStats,
-  type Db,
 } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { rankWeaknesses } from '@/lib/dashboard/ranking'
 
 import { createTestDb, type TestDb } from '../helpers/db'

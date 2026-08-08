@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { processingJobs, questions, worksheets } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
@@ -35,7 +34,6 @@ export default async function StatusPage({
     redirect(`/worksheets/${id}/review`)
   }
 
-  const client = db as unknown as Db
 
   const [job] = await db
     .select()
@@ -45,8 +43,8 @@ export default async function StatusPage({
     .limit(1)
 
   const [worker, depth, found] = await Promise.all([
-    workerStatus(client),
-    queueDepth(client, job?.executor ?? 'operator_gpu'),
+    workerStatus(db),
+    queueDepth(db, job?.executor ?? 'operator_gpu'),
     db
       .select({ id: questions.id })
       .from(questions)
@@ -117,7 +115,7 @@ export default async function StatusPage({
                 : phase === 'classifying'
                   ? 'Sorting the questions into topics.'
                   : 'Checking every question was picked up, and going back over anything that was missed.'
-              : 'Queued. The processing machine is offline right now, so this will start when it comes back. You can close this page; we will email you.'}
+              : 'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page — the worksheet will be waiting on your dashboard.'}
             {depth.pending > 1 && ` ${depth.pending} worksheets ahead of yours.`}
           </p>
 

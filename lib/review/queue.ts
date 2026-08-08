@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, lte } from 'drizzle-orm'
 
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import {
   answerChoices,
   attempts,
@@ -94,11 +94,38 @@ export async function getDueCards(
       .orderBy(desc(explanations.generatedAt)),
   ])
 
+  // Indexed once instead of scanned four times per card. Each of the four
+  // lists below was searched linearly for every card in the queue, so the
+  // work grew with the product of the two rather than their sum.
+  const choicesFor = new Map<string, typeof choices>()
+  for (const choice of choices) {
+    const list = choicesFor.get(choice.questionId)
+    if (list) list.push(choice)
+    else choicesFor.set(choice.questionId, [choice])
+  }
+
+  // Both of these arrive newest first, so the first entry for a question is
+  // the one to keep — which is what `.find()` was picking out.
+  const lastAttemptFor = new Map<string, (typeof lastAttempts)[number]>()
+  for (const attempt of lastAttempts) {
+    if (!lastAttemptFor.has(attempt.questionId)) {
+      lastAttemptFor.set(attempt.questionId, attempt)
+    }
+  }
+
+  const explanationFor = new Map<string, (typeof explanationRows)[number]>()
+  for (const row of explanationRows) {
+    if (!explanationFor.has(row.questionId)) explanationFor.set(row.questionId, row)
+  }
+
+  const topicNameFor = new Map<string, string>()
+  for (const row of topicRows) {
+    if (!topicNameFor.has(row.questionId)) topicNameFor.set(row.questionId, row.name)
+  }
+
   return cards.map((card) => {
-    const last = lastAttempts.find((attempt) => attempt.questionId === card.questionId)
-    const explanation = explanationRows.find(
-      (row) => row.questionId === card.questionId,
-    )
+    const last = lastAttemptFor.get(card.questionId)
+    const explanation = explanationFor.get(card.questionId)
 
     return {
       cardId: card.cardId,
@@ -108,16 +135,13 @@ export async function getDueCards(
       figureImageKey: card.figureImageKey,
       correctAnswer: card.correctAnswer,
       answerSource: card.answerSource,
-      choices: choices
-        .filter((choice) => choice.questionId === card.questionId)
-        .map((choice) => ({
-          id: choice.id,
-          label: choice.label,
-          text: choice.text,
-          isCorrect: choice.isCorrect,
-        })),
-      topicName:
-        topicRows.find((row) => row.questionId === card.questionId)?.name ?? null,
+      choices: (choicesFor.get(card.questionId) ?? []).map((choice) => ({
+        id: choice.id,
+        label: choice.label,
+        text: choice.text,
+        isCorrect: choice.isCorrect,
+      })),
+      topicName: topicNameFor.get(card.questionId) ?? null,
       lastOutcome: last?.outcome ?? null,
       lastChoiceId: last?.selectedChoiceId ?? null,
       lastFreeText: last?.freeTextAnswer ?? null,

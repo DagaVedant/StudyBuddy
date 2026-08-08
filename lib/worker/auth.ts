@@ -1,16 +1,12 @@
 import { timingSafeEqual } from 'node:crypto'
 
+import { clientIp } from '@/lib/http/client-ip'
+
 function safeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a)
   const right = Buffer.from(b)
   if (left.length !== right.length) return false
   return timingSafeEqual(left, right)
-}
-
-function clientIp(request: Request): string | null {
-  const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0].trim()
-  return request.headers.get('x-real-ip')
 }
 
 export type WorkerAuth =
@@ -36,7 +32,9 @@ export function authenticateWorker(request: Request): WorkerAuth {
     .filter(Boolean)
 
   if (allowed.length > 0) {
-    const ip = clientIp(request)
+    // Null, not a placeholder: a caller we cannot identify must not match an
+    // allowlist entry.
+    const ip = clientIp(request.headers)
     if (!ip || !allowed.includes(ip)) {
       return { ok: false, status: 403, message: 'Worker credential not valid from here.' }
     }
