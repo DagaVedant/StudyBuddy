@@ -1,4 +1,4 @@
-# StudyBuddy — Product & Technical Spec
+# StudyBuddy: Product & Technical Spec
 
 **Status:** Draft v1, agreed via requirements interview
 **Date:** 2026-07-31
@@ -13,7 +13,7 @@ A web app where a student uploads practice worksheets (PDFs, scans, phone photos
 
 - Turn a pile of finished worksheets into a durable, searchable record of what the student knows and doesn't.
 - Make "what should I study next" answerable with data instead of vibes.
-- Be genuinely usable with **zero cost to the operator** — every AI-powered path is funded by the user's own API key or their own local GPU.
+- Be genuinely usable with **zero cost to the operator**: every AI-powered path is funded by the user's own API key or their own local GPU.
 
 ### Non-goals (v1)
 
@@ -30,7 +30,7 @@ Two roles: **student** (everyone) and **admin** (the two operators). Public sign
 
 - **Age gate:** 13+ only, enforced at signup (date-of-birth entry, not a checkbox). This keeps us out of COPPA entirely. Users under 13 are refused.
 - **Auth:** Auth.js (NextAuth v5) with two providers:
-  - Google OAuth (primary — one tap, most students have an account)
+  - Google OAuth (primary; one tap, most students have an account)
   - Email + password (fallback for school-blocked Google)
 - Email verification required for password accounts.
 - No parent/teacher/observer roles exist in the data model. If sharing is ever wanted, it comes back as a read-only public dashboard link, not an account type.
@@ -45,7 +45,7 @@ Two admins: **Vedant** and **Avya**.
 ADMIN_EMAILS=vedant@example.com,avya@example.com
 ```
 
-On login, if the verified email matches the list, `users.role` is set to `admin`. Removing an email demotes on next login. There is no UI to grant admin — that would be a privilege-escalation surface for zero benefit at this scale.
+On login, if the verified email matches the list, `users.role` is set to `admin`. Removing an email demotes on next login. There is no UI to grant admin; that would be a privilege-escalation surface for zero benefit at this scale.
 
 **Admin capabilities:**
 
@@ -60,7 +60,7 @@ On login, if the verified email matches the list, `users.role` is set to `admin`
 
 **Limits that still apply to admins**, deliberately:
 
-- Per-page file size and image dimension caps — these are crash/abuse guards, not quotas, and bypassing them buys nothing.
+- Per-page file size and image dimension caps: these are crash/abuse guards, not quotas, and bypassing them buys nothing.
 - **Admin GPU jobs default to a low-priority lane.** An unlimited-length upload is exactly the thing that would stall every trial user behind it, so admin bulk jobs yield to Tier 0 jobs unless explicitly marked `priority=high`. This is the whole reason `processing_jobs.priority` exists.
 - Admins cannot read other users' questions, uploads, or answers. Admin is an *operations* role, not a superuser over student data. The proposal queue shows the proposed topic name and the source question text only.
 
@@ -68,13 +68,13 @@ On login, if the verified email matches the list, `users.role` is set to `admin`
 
 ---
 
-## 3. The AI provider model — the core architectural constraint
+## 3. The AI provider model: the core architectural constraint
 
-The operator pays for no metered AI. Cloud LLM/vision calls are funded entirely by the user. The one exception is a **fixed-size trial** run on operator-owned hardware (an RTX 5080), whose only marginal cost is electricity — it cannot scale into a surprise bill.
+The operator pays for no metered AI. Cloud LLM/vision calls are funded entirely by the user. The one exception is a **fixed-size trial** run on operator-owned hardware (an RTX 5080), whose only marginal cost is electricity, so it cannot scale into a surprise bill.
 
 This produces **four operating tiers**, and the entire app must work in all of them.
 
-| Feature | **0 — Trial** (operator GPU) | **A — Free** (after trial) | **B — Cloud key** | **C — Ollama** |
+| Feature | **Tier 0: Trial** (operator GPU) | **Tier A: Free** (after trial) | **Tier B: Cloud key** | **Tier C: Ollama** |
 |---|---|---|---|---|
 | Requirement | none | none | Anthropic/OpenAI key | Ollama installed |
 | Cost to student | free | free | their API bill | free (their GPU) |
@@ -95,15 +95,15 @@ This produces **four operating tiers**, and the entire app must work in all of t
 | Limit | 3 worksheets / 20 explanations, **lifetime** | none | their wallet | none |
 | Where AI runs | operator GPU worker | nowhere | server | browser |
 
-**The bolded rows are the product.** Review, the dashboard, and attempt history are identical on every tier. AI only affects *how questions get in* and *whether explanations exist*. A Tier A user who hand-enters 200 questions gets the complete experience — which is what makes the free tier a real product rather than a paywall.
+**The bolded rows are the product.** Review, the dashboard, and attempt history are identical on every tier. AI only affects *how questions get in* and *whether explanations exist*. A Tier A user who hand-enters 200 questions gets the complete experience, which is what makes the free tier a real product rather than a paywall.
 
 Trial output is permanent: worksheets spent on Tier 0 leave behind questions, topics, and explanations that persist forever, long after the allowance is gone.
 
-Topic-proposal embeddings are the exception to the whole tier system — they run **in the student's browser on every tier** (§7.3), so they work when the operator GPU is offline *and* the user has no key.
+Topic-proposal embeddings are the exception to the whole tier system: they run **in the student's browser on every tier** (§7.3), so they work when the operator GPU is offline *and* the user has no key.
 
-### 3.1 Tier 0 — the trial, on operator hardware
+### 3.1 Tier 0: the trial, on operator hardware
 
-Every new account gets **3 worksheets of real AI extraction, once — a lifetime allowance, not monthly.** The point is that a student sees the entire loop work (extract → mark → explain → review → dashboard) before being asked to set up a key or install Ollama. It is the single biggest conversion lever in the funnel.
+Every new account gets **3 worksheets of real AI extraction, once: a lifetime allowance, not monthly.** The point is that a student sees the entire loop work (extract → mark → explain → review → dashboard) before being asked to set up a key or install Ollama. It is the single biggest conversion lever in the funnel.
 
 **The unit is a worksheet, not a page.** This was originally metered in pages, at 10. That was wrong for the actual material: a real SHSAT or SAT practice form is over 100 pages, so a page allowance was exhausted inside a fraction of one upload and the student never reached the part of the product that sells it. A worksheet costs one unit whether it has 1 page or 75, and the per-upload page cap (§4) is what bounds the operator's exposure instead.
 
@@ -112,12 +112,12 @@ Every new account gets **3 worksheets of real AI extraction, once — a lifetime
 - When exhausted, the account drops to Tier A until they configure a key or Ollama.
 - Counted in `usage_events` and enforced server-side at job creation, never client-side.
 
-### 3.2 Tier A — free tier after the trial
+### 3.2 Tier A: free tier after the trial
 
 Not a paywall screen. A real, complete product minus AI:
 
 1. Browser rasterizes the PDF (pdf.js) into page PNGs.
-2. Tesseract.js OCRs each page **client-side** — files never leave the device for this step.
+2. Tesseract.js OCRs each page **client-side**, so files never leave the device for this step.
 3. Student uses a **manual question editor**: drag-select regions of the page image / text to define question boundaries, type or accept the OCR'd prompt, add answer choices, mark the correct answer.
 4. Student assigns a topic from the canonical tree via a searchable dropdown.
 5. **Everything downstream still works:** attempts, FSRS scheduling, review sessions, the weakness dashboard.
@@ -126,7 +126,7 @@ What they don't get: automatic extraction, automatic topic classification, and A
 
 ### 3.3 The operator GPU worker
 
-The 5080 sits on a home machine behind a residential connection. It is **never exposed to the internet** — no tunnel, no port forwarding, no inbound surface. It uses a **pull model**:
+The 5080 sits on a home machine behind a residential connection. It is **never exposed to the internet**: no tunnel, no port forwarding, no inbound surface. It uses a **pull model**:
 
 ```
 1. App enqueues a job row (status='pending', executor='operator_gpu')
@@ -136,15 +136,15 @@ The 5080 sits on a home machine behind a residential connection. It is **never e
 5. Heartbeats every 30s so the app knows whether the GPU is alive
 ```
 
-**When the GPU is offline** (PC asleep, rebooting, gaming, internet down): jobs **queue rather than fail**. The student is told their worksheet is queued and gets an in-app + email notification when processing finishes. No user is ever hard-blocked by the operator's machine being off — the trade is latency, not availability.
+**When the GPU is offline** (PC asleep, rebooting, gaming, internet down): jobs **queue rather than fail**. The student is told their worksheet is queued and gets an in-app + email notification when processing finishes. No user is ever hard-blocked by the operator's machine being off; the trade is latency, not availability.
 
 The UI shows a live worker-status indicator and a rough ETA derived from queue depth. If the GPU has been down beyond a threshold, the upload screen offers "process it manually instead" as an escape hatch into the Tier A editor.
 
-**Model:** Qwen2.5-VL 7B, quantized, comfortably within 16GB VRAM. It is meaningfully worse than Claude or GPT vision on skewed phone photos and dense multi-column layouts — the extraction review step (§4, Stage 5) absorbs that, and trial-tier UI should set expectations honestly rather than implying frontier quality.
+**Model:** Qwen2.5-VL 7B, quantized, comfortably within 16GB VRAM. It is meaningfully worse than Claude or GPT vision on skewed phone photos and dense multi-column layouts; the extraction review step (§4, Stage 5) absorbs that, and trial-tier UI should set expectations honestly rather than implying frontier quality.
 
 **Scaling path:** the same pull-worker architecture runs unchanged against a rented GPU box (Runpod/Vast) if volume outgrows one card. Nothing in the app couples to the hardware being in a bedroom.
 
-#### 3.3.1 Egress protection — hiding the home IP
+#### 3.3.1 Egress protection: hiding the home IP
 
 The pull model means nothing connects *in*. But the worker still connects *out* to the job API and the blob host, and both see a residential IP in their logs. Users never see it; Vercel, the blob CDN, and anyone with access to those logs do.
 
@@ -152,7 +152,7 @@ The pull model means nothing connects *in*. But the worker still connects *out* 
 
 ```
 Home PC (worker container)
-   │  WireGuard / Tailscale — the container's ONLY route
+   │  WireGuard / Tailscale, the container's ONLY route
    ▼
 VPS exit node (static IP you own)
    │  outbound HTTPS
@@ -163,11 +163,11 @@ Job API  +  Blob host        ← these only ever see the VPS IP
 Requirements:
 
 - The worker container's network namespace has **exactly one route: the tunnel.** No split tunneling.
-- **Fail closed.** If the tunnel drops, the worker loses all connectivity and stops claiming jobs. It must never fall back to the home interface — that's the failure mode that silently leaks the IP you set this up to hide.
+- **Fail closed.** If the tunnel drops, the worker loses all connectivity and stops claiming jobs. It must never fall back to the home interface; that's the failure mode that silently leaks the IP you set this up to hide.
 - **DNS through the tunnel too**, or resolution leaks the destinations even when traffic doesn't.
 - Jobs queue during an outage exactly as they do when the PC is off. No new failure mode.
 
-**The real payoff is not privacy — it's a static IP you control.** Once egress is pinned to one address, the job API can **IP-allowlist the worker credential**. That upgrades the stolen-credential threat from "attacker claims jobs and reads student uploads" to "attacker has a credential that only works from a machine they don't have." Defense in depth, not just masking.
+**The real payoff is not privacy: it's a static IP you control.** Once egress is pinned to one address, the job API can **IP-allowlist the worker credential**. That upgrades the stolen-credential threat from "attacker claims jobs and reads student uploads" to "attacker has a credential that only works from a machine they don't have." Defense in depth, not just masking.
 
 **Alternatives considered:**
 
@@ -176,10 +176,10 @@ Requirements:
 | Commercial VPN with a dedicated IP (Mullvad etc.) | Works, ~$5–10/mo, no VPS to maintain. But static IPs aren't always guaranteed, which breaks the allowlist payoff. |
 | Cloudflare Zero Trust dedicated egress IP | Clean and managed, but a paid Zero Trust tier for one worker is overkill. |
 | Cloudflare Tunnel | **Wrong tool.** Tunnels solve inbound exposure; we have none. Adds surface without benefit. |
-| Do nothing | Defensible — only your own providers see it, never users. But it costs $5/mo to remove the question entirely and gain IP allowlisting. |
+| Do nothing | Defensible, since only your own providers see it, never users. But it costs $5/mo to remove the question entirely and gain IP allowlisting. |
 | Rented GPU box | Solves it completely and defeats the point of using the 5080. This is the v2 path anyway. |
 
-### 3.4 Tier C — Ollama, and its honest constraint
+### 3.4 Tier C: Ollama, and its honest constraint
 
 The server **cannot reach** a user's `localhost:11434`. Only their browser can. Consequences we accept and must design around:
 
@@ -202,10 +202,10 @@ interface AIProvider {
 }
 ```
 
-- `AnthropicProvider` / `OpenAIProvider` — server-side, key from encrypted store.
-- `OllamaProvider` — browser-side, base URL + model name from user settings.
-- `OperatorGpuProvider` — Tier 0. Enqueues rather than calls; resolves when the pull-worker writes results back. Quota-checked before enqueue.
-- `NullProvider` — Tier A. Every method throws `ProviderUnavailable`, and the UI routes to manual flows instead. Not an error state — a supported mode.
+- `AnthropicProvider` / `OpenAIProvider`: server-side, key from encrypted store.
+- `OllamaProvider`: browser-side, base URL + model name from user settings.
+- `OperatorGpuProvider`: Tier 0. Enqueues rather than calls; resolves when the pull-worker writes results back. Quota-checked before enqueue.
+- `NullProvider`: Tier A. Every method throws `ProviderUnavailable`, and the UI routes to manual flows instead. Not an error state, but a supported mode.
 
 The **pipeline definition is shared**; only the executor differs. Server jobs, browser-orchestrated jobs, and operator-GPU jobs run the same stage sequence against the same DB.
 
@@ -214,10 +214,10 @@ The **pipeline definition is shared**; only the executor differs. Server jobs, b
 Background jobs need the key server-side, so client-only storage is not viable for Tier B.
 
 - Keys are encrypted at rest with AES-256-GCM under a server-held master key (env var / KMS), per-row IV.
-- Keys are **never** returned to the client after save — settings shows `sk-ant-…4f2a` only.
+- Keys are **never** returned to the client after save; settings shows `sk-ant-…4f2a` only.
 - Never logged, never included in error reports or traces.
 - User can revoke/replace at any time; revoking wipes the ciphertext row.
-- Ollama base URLs are stored in plaintext (not a secret) but validated against a localhost/private-range allowlist to prevent using us as an SSRF proxy — and since Ollama calls run in the browser anyway, the server never dials them.
+- Ollama base URLs are stored in plaintext (not a secret) but validated against a localhost/private-range allowlist to prevent using us as an SSRF proxy, and since Ollama calls run in the browser anyway, the server never dials them.
 
 ---
 
@@ -225,48 +225,48 @@ Background jobs need the key server-side, so client-only storage is not viable f
 
 All tiers share stages 1–2. Stages 3+ diverge by tier.
 
-**Stage 1 — Ingest & rasterize (browser, all tiers)**
+**Stage 1: Ingest & rasterize (browser, all tiers)**
 PDF or image in → pdf.js rasterizes to page PNGs at ~150 DPI → upload page images to Vercel Blob → create `worksheet` + `worksheet_pages` rows.
-Per-upload cap: **75 pages** — enough for a full practice form, since that is the material this exists for. Rejected above that with a clear message; anything larger gets split, which is also better for the queue. Admins exempt (§2.1).
+Per-upload cap: **75 pages**, enough for a full practice form, since that is the material this exists for. Rejected above that with a clear message; anything larger gets split, which is also better for the queue. Admins exempt (§2.1).
 
-**Stage 2 — Text layer (all tiers)**
+**Stage 2: Text layer (all tiers)**
 - Born-digital PDF: extract the embedded text layer (free, exact).
 - Scanned/photo: Tesseract.js in-browser OCR.
 - Tier B/C with a vision model: OCR text is still captured as a cheap prior, but the vision model reads the page image directly for better results on figures and messy photos.
 
-**Stage 3 — Question segmentation**
+**Stage 3: Question segmentation**
 - Tier 0: job enqueued; operator GPU worker runs Qwen2.5-VL 7B against the page images and writes structured questions back.
 - Tier B: server job sends page image + OCR text to the vision model, returns structured questions.
 - Tier C: same prompt, executed browser-side against Ollama.
-- Tier A: skipped — manual editor.
+- Tier A: skipped, manual editor.
 
 Output per question: prompt text, question type (`multiple_choice` / `free_response` / `true_false` / `fill_blank` / `grid_in`), answer choices with labels, bounding box on the page, and a cropped image if the question contains a figure.
 
-**Stage 4 — Answer key resolution** (precedence order)
-1. Explicit key uploaded by the student (second file or typed-in list) — `answer_source = 'user_key'`
-2. Key detected inside the PDF (trailing answer page / inline key) — `answer_source = 'pdf_key'`
-3. AI solves it — `answer_source = 'ai_derived'`
-4. Nothing — `answer_source = 'none'`
+**Stage 4: Answer key resolution** (precedence order)
+1. Explicit key uploaded by the student (second file or typed-in list): `answer_source = 'user_key'`
+2. Key detected inside the PDF (trailing answer page / inline key): `answer_source = 'pdf_key'`
+3. AI solves it: `answer_source = 'ai_derived'`
+4. Nothing: `answer_source = 'none'`
 
-**`ai_derived` answers are visibly badged** in the UI ("AI-derived — not from an answer key") with a "this looks wrong" report button. We do not present model output as ground truth.
+**`ai_derived` answers are visibly badged** in the UI ("AI-derived, not from an answer key") with a "this looks wrong" report button. We do not present model output as ground truth.
 
-**Stage 5 — Extraction review (mandatory, all tiers)**
+**Stage 5: Extraction review (mandatory, all tiers)**
 Nothing commits to the main question set until the student confirms. They see extracted questions side-by-side with the page image and can edit text, fix choices, split a merged question, merge a split one, or delete junk. This is the quality gate that keeps garbage out of the dashboard.
 
-**Stage 6 — Topic classification**
-Every question gets a topic — not just wrong ones (see §6.1). Tier A does this manually during review; Tiers B/C do it automatically with a manual override always available.
+**Stage 6: Topic classification**
+Every question gets a topic, not just wrong ones (see §6.1). Tier A does this manually during review; Tiers B/C do it automatically with a manual override always available.
 
-**Stage 7 — Markup (the "which did I get wrong" flow)**
+**Stage 7: Markup (the "which did I get wrong" flow)**
 See §5.3.
 
-**Stage 8 — Explanations**
-Generated **on demand, then cached forever** — only when the student opens a question in review. Explanations are grounded in the student's *actual* answer, so they address the specific misconception rather than just re-solving the problem.
+**Stage 8: Explanations**
+Generated **on demand, then cached forever**, only when the student opens a question in review. Explanations are grounded in the student's *actual* answer, so they address the specific misconception rather than just re-solving the problem.
 
 ### The four AI calls
 
 Four distinct model calls, with different costs, prompts, and failure modes. Every one goes through the provider abstraction (§3.5), so the same call works server-side, browser-side, or on the GPU worker.
 
-#### Call 1 — Extraction (vision)
+#### Call 1: Extraction (vision)
 
 **In:** page PNG + OCR text as a hint.
 **Out:** schema-validated JSON, rejected on mismatch.
@@ -286,13 +286,13 @@ Four distinct model calls, with different costs, prompts, and failure modes. Eve
 
 *Failure mode:* merging two questions into one, or wrongly splitting a multi-part question. Worst on dense two-column layouts. Absorbed by extraction review (Stage 5).
 
-#### Call 2 — Answer derivation
+#### Call 2: Answer derivation
 
-Only fires when no answer key exists. Result is stored with `answer_source='ai_derived'` — provenance lives on the row, not just in one rendered badge.
+Only fires when no answer key exists. Result is stored with `answer_source='ai_derived'`; provenance lives on the row, not just in one rendered badge.
 
 *Failure mode:* confidently wrong on multi-step math. Mitigated by visible badging and a report button, not by pretending the problem is solved. A v1.5 upgrade is self-consistency: solve 3×, surface only when runs agree.
 
-#### Call 3 — Topic classification
+#### Call 3: Topic classification
 
 The model **never names a topic.** It picks from a shortlist:
 
@@ -310,9 +310,9 @@ On abstain or low confidence: the question is tagged to the nearest **ancestor**
 
 *Why this shape:* a model free to invent names produces "Triangles", "Triangle Properties", and "Geometry: Triangles" across three uploads, and the weakness ranking becomes silently meaningless. Forced-choice plus explicit abstain is what keeps the taxonomy stable.
 
-#### Call 4 — Explanation
+#### Call 4: Explanation
 
-On demand, cached forever. Fires the first time a student opens the question in review — so we only spend on questions actually studied.
+On demand, cached forever. Fires the first time a student opens the question in review, so we only spend on questions actually studied.
 
 **In:** the question, the correct answer, **and the answer the student actually gave.**
 **Out:** markdown explanation targeting that specific error.
@@ -334,25 +334,25 @@ Tiers 0 and B share one queue with an `executor` discriminator; the operator wor
 ## 5. Screens & flows
 
 ### 5.1 Onboarding
-Signup → age gate → straight into the **trial**. No AI configuration is asked for up front — the fastest path to a first upload is the point of Tier 0. The account starts on Tier 0 with 3 worksheets available.
+Signup → age gate → straight into the **trial**. No AI configuration is asked for up front; the fastest path to a first upload is the point of Tier 0. The account starts on Tier 0 with 3 worksheets available.
 
-AI setup ("Choose how StudyBuddy thinks" — Cloud key / Ollama / stay free) surfaces at two moments instead: when the trial runs low (1 worksheet left), and any time from settings. Each option carries an honest description of what works and what doesn't, with a live connection test.
+AI setup ("Choose how StudyBuddy thinks": Cloud key / Ollama / stay free) surfaces at two moments instead: when the trial runs low (1 worksheet left), and any time from settings. Each option carries an honest description of what works and what doesn't, with a live connection test.
 
-### 5.2 Upload — full walkthrough
+### 5.2 Upload: full walkthrough
 
 Mobile-first; phone photos are a primary input.
 
-**Step 1 — Pick files.** Camera capture on mobile, drag-drop on desktop, multi-page batching. Optional subject hint ("SAT Math") that narrows the classifier's candidate shortlist later.
+**Step 1: Pick files.** Camera capture on mobile, drag-drop on desktop, multi-page batching. Optional subject hint ("SAT Math") that narrows the classifier's candidate shortlist later.
 
-**Step 2 — Browser rasterizes.** `pdf.js` converts each page to a ~150 DPI PNG, client-side, on every tier. This is a security decision as much as a performance one: **the server and the GPU worker never touch a raw PDF**, which removes the entire PDF-parser attack surface from the operator's home machine. Cap: 75 pages per upload (admins exempt, §2.1).
+**Step 2: Browser rasterizes.** `pdf.js` converts each page to a ~150 DPI PNG, client-side, on every tier. This is a security decision as much as a performance one: **the server and the GPU worker never touch a raw PDF**, which removes the entire PDF-parser attack surface from the operator's home machine. Cap: 75 pages per upload (admins exempt, §2.1).
 
-**Optional page range.** The upload screen takes an optional first/last page. Practice material routinely bundles a test with its answer key and a full explanations section — one real SHSAT form is 59 pages of test followed by 53 pages of rationales, and extracting all 112 produced 81 items that were not questions. Filtering afterwards cannot recover that cost, since the pages have already been rendered, uploaded, read, and sent to the GPU. So the range is applied **before rasterization**: an excluded page is never decoded, never drawn to a canvas, never encoded, never uploaded, and never processed. Page numbers are document-wide, so a range means the same thing whether the student picked one PDF or several files, and pages keep their **original** numbering — extracting pages 60–112 stores them as 60–112, not 1–53.
+**Optional page range.** The upload screen takes an optional first/last page. Practice material routinely bundles a test with its answer key and a full explanations section: one real SHSAT form is 59 pages of test followed by 53 pages of rationales, and extracting all 112 produced 81 items that were not questions. Filtering afterwards cannot recover that cost, since the pages have already been rendered, uploaded, read, and sent to the GPU. So the range is applied **before rasterization**: an excluded page is never decoded, never drawn to a canvas, never encoded, never uploaded, and never processed. Page numbers are document-wide, so a range means the same thing whether the student picked one PDF or several files, and pages keep their **original** numbering, so extracting pages 60–112 stores them as 60–112, not 1–53.
 
-**Step 3 — Page images upload** to blob storage via signed URLs. `worksheet` + `worksheet_pages` rows created.
+**Step 3: Page images upload** to blob storage via signed URLs. `worksheet` + `worksheet_pages` rows created.
 
-**Step 4 — Text layer.** Born-digital → embedded text extraction (exact, free). Scan/photo → `tesseract.js` in-browser OCR. On vision tiers the OCR text is kept as a cheap prior while the model reads the image directly.
+**Step 4: Text layer.** Born-digital → embedded text extraction (exact, free). Scan/photo → `tesseract.js` in-browser OCR. On vision tiers the OCR text is kept as a cheap prior while the model reads the image directly.
 
-**Step 5 — Extraction**, per tier:
+**Step 5: Extraction**, per tier:
 
 | Tier | Behavior |
 |---|---|
@@ -361,26 +361,26 @@ Mobile-first; phone photos are a primary input.
 | **C** | Browser drives `localhost:11434` page by page. **Tab must stay open**; checkpointed so closing resumes rather than restarts. |
 | **A** | Skipped → manual editor. |
 
-**Step 6 — Answer key resolution** via the precedence chain (Stage 4). AI-derived answers get the `ai_derived` badge and a report button.
+**Step 6: Answer key resolution** via the precedence chain (Stage 4). AI-derived answers get the `ai_derived` badge and a report button.
 
-**Step 7 — Extraction review.** Mandatory on every tier. Questions shown beside the page image; student fixes text, corrects choices, splits merged questions, merges split ones, deletes junk. Nothing commits until confirmed. This gate is what makes a 7B model acceptable on the trial tier.
+**Step 7: Extraction review.** Mandatory on every tier. Questions shown beside the page image; student fixes text, corrects choices, splits merged questions, merges split ones, deletes junk. Nothing commits until confirmed. This gate is what makes a 7B model acceptable on the trial tier.
 
-**Step 8 — Markup** (§5.3): outcome per question, then answer capture for the wrong ones.
+**Step 8: Markup** (§5.3): outcome per question, then answer capture for the wrong ones.
 
-**Step 9 — Cards created.** Every question gets an FSRS `review_card`. Wrong → due immediately. Unsure → short interval. Correct → long interval.
+**Step 9: Cards created.** Every question gets an FSRS `review_card`. Wrong → due immediately. Unsure → short interval. Correct → long interval.
 
 **Tier-specific state on this screen:**
 - **Tier 0:** remaining trial pages, GPU worker status, queue depth + ETA, processing-location disclosure (§8).
-- **Tier 0, worker offline:** "queued — we'll notify you," plus a "do it manually instead" escape hatch.
+- **Tier 0, worker offline:** "queued, we'll notify you," plus a "do it manually instead" escape hatch.
 - **Tier A:** manual-editor path, with a prompt to add a key or Ollama.
 - **Tier C:** "keep this tab open" warning.
 
-### 5.3 Markup — "which ones did you get wrong?"
+### 5.3 Markup: "which ones did you get wrong?"
 Per the agreed flow, marking happens in two steps:
 
-**Step 1 — outcome, per question:** `Correct` / `Unsure` (got it right but guessed) / `Wrong`. Fast, one tap each, designed to fly through 40 questions.
+**Step 1, outcome per question:** `Correct` / `Unsure` (got it right but guessed) / `Wrong`. Fast, one tap each, designed to fly through 40 questions.
 
-**Step 2 — answer capture:** for every question marked `Wrong` (and optionally `Unsure`), prompt for the answer they actually gave — tap the choice for multiple-choice, short text field otherwise.
+**Step 2, answer capture:** for every question marked `Wrong` (and optionally `Unsure`), prompt for the answer they actually gave: tap the choice for multiple-choice, short text field otherwise.
 
 `Unsure` is tracked as a distinct outcome, not folded into correct. It's a leading indicator of a weak topic and feeds both the dashboard and FSRS scheduling.
 
@@ -392,34 +392,34 @@ FSRS-scheduled queue of due questions, plus free browsing by topic. Each card sh
 Three questions it must answer: *What am I bad at? What should I do right now? Am I improving?*
 
 **Top strip**
-- **Due for review** — the primary CTA
+- **Due for review**, the primary CTA
 - Questions tracked / worksheets uploaded
 - Study streak
 - Trial pages remaining (Tier 0) or AI status (other tiers)
 
-**Panel 1 — Weakest topics** *(the centerpiece)*
+**Panel 1: Weakest topics** *(the centerpiece)*
 
 Ranked rows: topic path, accuracy, attempt count, unsure rate, trend arrow, "Review these" button.
 
-> `Geometry › Triangles › Angle Relationships` — **38%** (8/21) ↓ · 4 unsure
+> `Geometry › Triangles › Angle Relationships` · **38%** (8/21) ↓ · 4 unsure
 
 Ranking math, with two guards:
 - **Minimum 5 attempts** before a topic is eligible to be called a weakness.
 - Rank by **Wilson score lower bound** of the error rate, not raw percentage.
 
-Without both, "1 wrong out of 1" outranks "12 wrong out of 40" and the dashboard confidently sends the student to study something they've seen once. Topics below the floor render in a distinct "not enough data yet" state — never green, never red.
+Without both, "1 wrong out of 1" outranks "12 wrong out of 40" and the dashboard confidently sends the student to study something they've seen once. Topics below the floor render in a distinct "not enough data yet" state, never green, never red.
 
-**Panel 2 — Subject drilldown.** Expandable tree, `Math → Geometry → Triangles → Angle Relationships`, accuracy at every level rolled up from children. Color-coded with an explicit neutral state for low-n.
+**Panel 2: Subject drilldown.** Expandable tree, `Math → Geometry → Triangles → Angle Relationships`, accuracy at every level rolled up from children. Color-coded with an explicit neutral state for low-n.
 
-**Panel 3 — Accuracy over time.** Weekly line chart, toggleable overall vs. per-subject. Answers "is any of this working."
+**Panel 3: Accuracy over time.** Weekly line chart, toggleable overall vs. per-subject. Answers "is any of this working."
 
-**Panel 4 — Unsure rate.** Tracked as its own signal. A topic at 85% accuracy with a 40% unsure rate is *fragile*, not strong — the student is guessing correctly. This is the signal most study tools discard by collapsing "unsure" into "correct."
+**Panel 4: Unsure rate.** Tracked as its own signal. A topic at 85% accuracy with a 40% unsure rate is *fragile*, not strong; the student is guessing correctly. This is the signal most study tools discard by collapsing "unsure" into "correct."
 
-**Panel 5 — Review forecast.** Cards due today / this week, broken down by topic. FSRS-driven.
+**Panel 5: Review forecast.** Cards due today / this week, broken down by topic. FSRS-driven.
 
-**Panel 6 — Recent worksheets.** Score, date, topic breakdown, resume link. Includes anything currently sitting in the GPU queue.
+**Panel 6: Recent worksheets.** Score, date, topic breakdown, resume link. Includes anything currently sitting in the GPU queue.
 
-**Panel 7 — Distractor patterns** *(nice-to-have, v1 if cheap).* Which wrong answers the student gravitates toward. "You pick the supplementary angle in 6 of 9 misses" is more actionable than any topic-level score, and it falls out of the `selected_choice_id` data we already capture.
+**Panel 7: Distractor patterns** *(nice-to-have, v1 if cheap).* Which wrong answers the student gravitates toward. "You pick the supplementary angle in 6 of 9 misses" is more actionable than any topic-level score, and it falls out of the `selected_choice_id` data we already capture.
 
 ---
 
@@ -429,7 +429,7 @@ Postgres (Neon) + pgvector. Drizzle ORM.
 
 ### 6.1 Key decision: one question table, attempts on top
 
-The original design had a separate "wrong questions" database. **We're not doing that**, because the dashboard needs a denominator — "Triangles: 8 wrong" is meaningless without knowing whether it's 8 of 10 or 8 of 60, and a wrong-only table systematically ranks *frequently-appearing* topics as weaknesses.
+The original design had a separate "wrong questions" database. **We're not doing that**, because the dashboard needs a denominator: "Triangles: 8 wrong" is meaningless without knowing whether it's 8 of 10 or 8 of 60, and a wrong-only table systematically ranks *frequently-appearing* topics as weaknesses.
 
 Instead: **every question is stored and topic-tagged; an `attempt` row records the outcome.** "Wrong questions" is a filtered view, not a table.
 
@@ -499,24 +499,24 @@ Same question appearing across two worksheets is common (practice books repeat).
 - Exact: normalized `content_hash` (lowercased, whitespace/punctuation-collapsed prompt + choices).
 - Near: embedding cosine similarity above a threshold → offer to merge during extraction review, never auto-merge silently.
 
-Merged questions keep one `review_card` and accumulate attempts — which is exactly right, since repeated exposure to the same problem is signal.
+Merged questions keep one `review_card` and accumulate attempts, which is exactly right, since repeated exposure to the same problem is signal.
 
 ---
 
 ## 7. Topic taxonomy
 
-**Model: hybrid — fixed canonical tree, AI maps onto it, unmapped questions go to a review queue.**
+**Model: hybrid. Fixed canonical tree, AI maps onto it, unmapped questions go to a review queue.**
 
 Free-form AI topic naming was rejected: it produces "Triangles", "Triangle Properties", and "Geometry: Triangles" as three topics across three uploads, which silently destroys the dashboard.
 
 ### 7.1 Seeded trees (v1)
 
-1. **SAT Math** — College Board's published domains/skills (Algebra, Advanced Math, Problem-Solving & Data Analysis, Geometry & Trigonometry).
-2. **SAT Reading & Writing** — Information & Ideas, Craft & Structure, Expression of Ideas, Standard English Conventions.
-3. **HS Math** — Algebra 1 → Geometry → Algebra 2 → Precalculus, ~150 leaves.
-4. **ELA** — grammar/mechanics, rhetoric, reading comprehension skills.
+1. **SAT Math**: College Board's published domains/skills (Algebra, Advanced Math, Problem-Solving & Data Analysis, Geometry & Trigonometry).
+2. **SAT Reading & Writing**: Information & Ideas, Craft & Structure, Expression of Ideas, Standard English Conventions.
+3. **HS Math**: Algebra 1 → Geometry → Algebra 2 → Precalculus, ~150 leaves.
+4. **ELA**: grammar/mechanics, rhetoric, reading comprehension skills.
 
-Science (Bio/Chem/Physics) and AP frameworks are deferred — largest authoring effort, most diagram-dependent.
+Science (Bio/Chem/Physics) and AP frameworks are deferred: largest authoring effort, most diagram-dependent.
 
 ### 7.2 Classification
 
@@ -526,7 +526,7 @@ Classifier is given the question plus a **shortlist** of candidate leaves (narro
 - Proposals are deduped by embedding similarity against existing topics and other pending proposals before surfacing.
 - An admin (you) reviews the proposal queue and either merges into an existing leaf or promotes it into the canonical tree.
 
-### 7.3 Embeddings — resolved
+### 7.3 Embeddings: resolved
 
 Two things need vectors: narrowing the candidate-leaf shortlist for the classifier, and deduping topic proposals against existing topics.
 
@@ -542,10 +542,10 @@ Embeddings are computed **wherever the question is created**, using that same mo
 
 Why this and not a cloud embedding model:
 
-- **Zero cost, permanently** — no metered API on any tier.
+- **Zero cost, permanently**: no metered API on any tier.
 - **Closes a real hole:** Anthropic has no embeddings API, so a Tier B user with an Anthropic key would otherwise have had no embedding source at all.
 - **Runs on terrible hardware.** WASM+SIMD, tens of milliseconds for a short string on a low-end Chromebook; one-time 23MB download cached in IndexedDB. WebGPU used automatically when present.
-- **Works when the operator GPU is offline** and the user has no key — the one AI-adjacent capability with no external dependency.
+- **Works when the operator GPU is offline** and the user has no key: the one AI-adjacent capability with no external dependency.
 
 384 dimensions is weaker than a frontier embedding model, but the task is distinguishing "Triangles" from "Triangle Similarity" within a curated tree of a few hundred leaves. That's well within its range.
 
@@ -556,26 +556,26 @@ Why this and not a cloud embedding model:
 **Security**
 - API keys encrypted at rest (AES-256-GCM), never returned to client, never logged.
 - All queries scoped by `user_id`; row-level authorization enforced in the data layer, not just the UI.
-- Signed, short-lived URLs for blob access — page images are user schoolwork and must not be publicly enumerable.
+- Signed, short-lived URLs for blob access: page images are user schoolwork and must not be publicly enumerable.
 - Rate limits per user on upload and job creation to protect our own storage/DB even though AI is user-funded.
 - Operator GPU worker authenticates with a dedicated service credential over outbound HTTPS only. **No inbound ports, no tunnel, no public endpoint on the home network.** Credential is rotatable and scoped to queue-claim + result-write.
 - Trial quota is enforced **server-side at enqueue time**. A client cannot mint free GPU jobs.
 
 **Privacy**
 - Tier A/C: page content never leaves the device for OCR (browser-side Tesseract) or embeddings.
-- **Tier 0 disclosure (required):** trial uploads are transmitted to and processed on **operator-controlled hardware**. The privacy policy must state this plainly — that page images are sent to a machine we operate, retained only for the duration of the job, processed by a local model, and **never used for training**. This must be visible at the point of upload, not buried in the policy.
+- **Tier 0 disclosure (required):** trial uploads are transmitted to and processed on **operator-controlled hardware**. The privacy policy must state this plainly: that page images are sent to a machine we operate, retained only for the duration of the job, processed by a local model, and **never used for training**. This must be visible at the point of upload, not buried in the policy.
 - Operator worker deletes its local copy of page images immediately on job completion; no local retention.
 - Original PDFs are **deleted after processing**; we retain page images and per-question figure crops (required for geometry/graph questions on the review page).
 - Full account deletion wipes blobs and rows.
 
 **Performance**
 - Markup screen must handle a 40-question worksheet without lag; virtualize long lists.
-- Dashboard aggregates precomputed or materialized — no per-page-load full scans of `attempts`.
+- Dashboard aggregates precomputed or materialized: no per-page-load full scans of `attempts`.
 - Mobile-first; usable on a phone in a school hallway.
 
 **Operator GPU threat model**
 
-The single most important property: **users never control the prompt.** They upload an image; the worker applies the operator's own fixed prompt template with a strict output schema. There is no passthrough, no chat endpoint, no system-prompt override. The GPU cannot be repurposed as a free LLM — it can only extract questions from images.
+The single most important property: **users never control the prompt.** They upload an image; the worker applies the operator's own fixed prompt template with a strict output schema. There is no passthrough, no chat endpoint, no system-prompt override. The GPU cannot be repurposed as a free LLM; it can only extract questions from images.
 
 | Threat | Mitigation |
 |---|---|
@@ -593,7 +593,7 @@ The single most important property: **users never control the prompt.** They upl
 | Student data sitting on a home machine | Page images fetched to a temp dir, deleted on job completion or failure; full-disk encryption assumed; no logs containing page content |
 
 **Cost to operator**
-- **No metered AI spend.** The only AI cost is electricity on the 5080, bounded by a hard 10-page lifetime trial per account — spend cannot scale unexpectedly with signups, only queue latency can.
+- **No metered AI spend.** The only AI cost is electricity on the 5080, bounded by a hard 10-page lifetime trial per account, so spend cannot scale unexpectedly with signups, only queue latency can.
 - Bounded storage via the delete-PDF policy and a per-upload page cap.
 - Embeddings cost nothing on any tier (§7.3).
 
@@ -601,7 +601,7 @@ The single most important property: **users never control the prompt.** They upl
 
 ## 9. Scope
 
-### v1 — the complete core loop
+### v1: the complete core loop
 
 - Auth (Google + email/password), 13+ age gate
 - Upload → rasterize → OCR/vision extract → **extraction review** → commit
@@ -620,12 +620,12 @@ The single most important property: **users never control the prompt.** They upl
 
 ### v2
 
-- AI-generated practice questions **with verification** — generate, then independently re-solve (plus symbolic/numeric check for math) and only surface questions where the runs agree. Deferred deliberately: unverified generated math is wrong often enough to actively harm a student.
+- AI-generated practice questions **with verification**: generate, then independently re-solve (plus symbolic/numeric check for math) and only surface questions where the runs agree. Deferred deliberately: unverified generated math is wrong often enough to actively harm a student.
 - Pricing/billing on the platform
 - Science and AP taxonomies
 - Chat-with-tutor on a specific question
 - Shareable read-only dashboard link
-- Move the GPU worker to rented hardware (Runpod/Vast) if queue latency becomes the limiting factor — no app changes required, same pull-worker contract
+- Move the GPU worker to rented hardware (Runpod/Vast) if queue latency becomes the limiting factor; no app changes required, same pull-worker contract
 - Multiple GPU workers claiming from one queue (the schema already supports it via `claimed_by`)
 
 ---
@@ -639,7 +639,7 @@ The single most important property: **users never control the prompt.** They upl
 - **pdf.js** (rasterization) + **tesseract.js** (browser OCR)
 - **ts-fsrs** (scheduling)
 - **@huggingface/transformers** + `Xenova/all-MiniLM-L6-v2` (embeddings, browser + Node)
-- Durable queue for Tier 0/B background jobs (Vercel Queue / QStash / Inngest — decide at build time; must support an external pull-worker, or fall back to a Postgres-backed queue with `SELECT ... FOR UPDATE SKIP LOCKED`)
+- Durable queue for Tier 0/B background jobs (Vercel Queue / QStash / Inngest; decide at build time; must support an external pull-worker, or fall back to a Postgres-backed queue with `SELECT ... FOR UPDATE SKIP LOCKED`)
 - **Operator worker:** Node script + Ollama (or vLLM) running **Qwen2.5-VL 7B** on an RTX 5080, containerized
 - **Egress:** Tailscale (or raw WireGuard) from the worker container to a ~$5/mo VPS exit node with a static IP (§3.3.1)
 - **Resend** (or similar) for job-completion email
@@ -653,7 +653,7 @@ The single most important property: **users never control the prompt.** They upl
 |---|---|---|
 | Extraction quality on phone photos is the make-or-break variable | **High** | Mandatory extraction review; build and iterate this stage first against real worksheets |
 | `ai_derived` answers are confidently wrong; student memorizes the error | **High** | Visible provenance badge + report button; self-consistency check as a v1.5 upgrade |
-| ~~**The trial runs the weakest model on the first impression**~~ — **benchmarked 2026-07-31 and cleared.** Qwen2.5-VL 7B on the RTX 5080: **5/5 questions extracted in 6.0s** on a synthetic geometry/algebra page, **4/4 topics classified correctly** (~0.9s each), and a misconception-targeted explanation in 1.5s. Re-benchmark on real scanned and phone-photo pages before launch — the synthetic page is clean, which is the easy case | Low–Medium | `npm run benchmark:ollama` re-runs it; extraction review still absorbs errors |
+| ~~**The trial runs the weakest model on the first impression**~~: **benchmarked 2026-07-31 and cleared.** Qwen2.5-VL 7B on the RTX 5080: **5/5 questions extracted in 6.0s** on a synthetic geometry/algebra page, **4/4 topics classified correctly** (~0.9s each), and a misconception-targeted explanation in 1.5s. Re-benchmark on real scanned and phone-photo pages before launch, since the synthetic page is clean, which is the easy case | Low–Medium | `npm run benchmark:ollama` re-runs it; extraction review still absorbs errors |
 | Signup spike floods one GPU; trial users wait hours | Medium | Queue depth shown with honest ETA; per-user concurrency limit of 1 job; rented-GPU path is a config change |
 | Operator PC/internet down for an extended period | Medium | Jobs queue rather than fail; heartbeat drives status UI; manual-editor escape hatch after a threshold |
 | Ollama tab-must-stay-open UX feels broken | Medium | Explicit messaging, per-page checkpointing, resumable jobs |
@@ -664,20 +664,20 @@ The single most important property: **users never control the prompt.** They upl
 
 ---
 
-## 12. Assumptions I made — flag any you disagree with
+## 12. Assumptions I made: flag any you disagree with
 
 1. **Mobile-first** design, since phone photos are a primary input.
-2. Dedup is **within a single user's data only** — no cross-user question pooling (avoids a copyright and privacy surface).
+2. Dedup is **within a single user's data only**, with no cross-user question pooling (avoids a copyright and privacy surface).
 3. `Unsure` is a first-class outcome distinct from correct/wrong, feeding both dashboard and scheduling.
-4. Per-upload cap of **75 pages** — a full practice form fits in one upload.
-5. The admin topic-proposal queue is **you**, via a simple internal page — not a public moderation system.
+4. Per-upload cap of **75 pages**, since a full practice form fits in one upload.
+5. The admin topic-proposal queue is **you**, via a simple internal page, not a public moderation system.
 6. Answer-key extraction from inside a PDF requires an AI tier; Tier A users must type keys manually or skip them.
-7. **The trial bundles 20 AI explanations alongside the 3 worksheets.** You specified "10 pages once" — but extraction alone doesn't show the payoff, and explanations are the thing that sells the product. Adjust the number if you disagree.
-8. The trial is a **lifetime** allowance, not monthly — otherwise it's a free tier with a rate limit, and your GPU carries the product forever.
+7. **The trial bundles 20 AI explanations alongside the 3 worksheets.** You specified "10 pages once", but extraction alone doesn't show the payoff, and explanations are the thing that sells the product. Adjust the number if you disagree.
+8. The trial is a **lifetime** allowance, not monthly; otherwise it's a free tier with a rate limit, and your GPU carries the product forever.
 9. Trial worksheets are consumed at **enqueue**, not on success. Failed jobs are refunded automatically; this prevents quota-farming via deliberate failures.
-10. Completion notifications are **in-app + email**. Email needs a transactional provider (Resend) — small addition, not previously discussed.
-11. **I need Vedant's and Avya's actual email addresses** to populate `ADMIN_EMAILS`. Spec'd as config so this doesn't block anything — placeholders for now.
-12. "Unlimited upload length" for admins bypasses the **page-count cap only** — per-page size and dimension caps still apply, since those are crash guards rather than quotas.
+10. Completion notifications are **in-app + email**. Email needs a transactional provider (Resend), a small addition, not previously discussed.
+11. **I need Vedant's and Avya's actual email addresses** to populate `ADMIN_EMAILS`. Spec'd as config so this doesn't block anything, with placeholders for now.
+12. "Unlimited upload length" for admins bypasses the **page-count cap only**; per-page size and dimension caps still apply, since those are crash guards rather than quotas.
 13. Admin is an operations role, **not** a superuser over student data. Admins see the proposal queue and worker console, not other people's questions or answers. Say so if you wanted otherwise.
 14. Egress protection assumes you're willing to run a ~$5/mo VPS. If not, the fallback is a commercial VPN with a dedicated IP, or accepting that your own providers see your home IP (users never do).
 
@@ -689,15 +689,15 @@ The single most important property: **users never control the prompt.** They upl
 2. Upload → rasterize → page images → OCR (Tier A end-to-end, no AI at all)
 3. Manual question editor + extraction review UI
 4. Markup flow + attempts
-5. FSRS review + dashboard — **at this point Tier A is a shippable product**
+5. FSRS review + dashboard, **at this point Tier A is a shippable product**
 6. Provider abstraction + durable queue + Tier B (cloud keys, server jobs)
-7. **Operator GPU worker + Tier 0 trial** (pull-worker, heartbeat, quota, priority lanes, notifications) — reuses the queue from step 6. Set up the VPS exit node and IP allowlist here, before the worker ever runs unprotected.
+7. **Operator GPU worker + Tier 0 trial** (pull-worker, heartbeat, quota, priority lanes, notifications), reusing the queue from step 6. Set up the VPS exit node and IP allowlist here, before the worker ever runs unprotected.
 8. Tier C (Ollama, browser execution) on the same abstraction
 9. MiniLM embeddings (browser + Node + worker)
 10. Automatic topic classification + proposal queue
 11. Explanations
 12. Polish, retention jobs, privacy disclosures
 
-**Benchmark gate (step 7): PASSED on 2026-07-31.** `scripts/benchmark-ollama.ts` ran Qwen2.5-VL 7B against a synthetic worksheet page on the RTX 5080 — 5/5 questions extracted in 6.0s, 4/4 topics classified correctly, misconception-aware explanation generated. Tier 0 is viable; proceed with the queue.
+**Benchmark gate (step 7): PASSED on 2026-07-31.** `scripts/benchmark-ollama.ts` ran Qwen2.5-VL 7B against a synthetic worksheet page on the RTX 5080: 5/5 questions extracted in 6.0s, 4/4 topics classified correctly, misconception-aware explanation generated. Tier 0 is viable; proceed with the queue.
 
-Caveat: the benchmark page is clean, machine-rendered text. **Re-run against a real scan and a real phone photo before launch** — that is where a 7B model actually struggles, and the result there is what decides whether the trial helps or hurts.
+Caveat: the benchmark page is clean, machine-rendered text. **Re-run against a real scan and a real phone photo before launch**, since that is where a 7B model actually struggles, and the result there is what decides whether the trial helps or hurts.

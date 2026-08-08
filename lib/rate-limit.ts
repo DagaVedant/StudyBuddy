@@ -21,7 +21,7 @@ export interface LimitRule {
 /** Signing up: keyed by IP, because there is no account yet to key on. */
 export const SIGNUP_LIMIT: LimitRule = { action: 'signup', limit: 5, windowSeconds: 3600 }
 
-/** Uploading. Generous — a real student may have a stack of worksheets. */
+/** Uploading. Generous: a real student may have a stack of worksheets. */
 export const UPLOAD_LIMIT: LimitRule = { action: 'upload', limit: 30, windowSeconds: 3600 }
 
 /** Explanations, which cost a model call each. */

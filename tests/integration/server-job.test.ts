@@ -43,7 +43,7 @@ const asServer: (db: Db, userId: string) => Promise<ResolvedProvider> = async ()
 async function makePage(worksheetId: string, hasImage: boolean) {
   const key = `test-pages/${worksheetId}.png`
   if (hasImage) {
-    // A 1x1 PNG is enough — MockProvider never actually decodes the bytes.
+    // A 1x1 PNG is enough; MockProvider never actually decodes the bytes.
     const onePixelPng = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
       'base64',
@@ -76,8 +76,8 @@ describe('drainServerQueue', () => {
    * This is the gap the whole module exists to close: nothing polled for
    * `executor: 'server'` jobs, so a Tier B upload (student's own cloud key)
    * enqueued and then sat there forever. Proves a queued job actually gets
-   * processed end to end — extracted, classified (against an empty topic
-   * set here, which just means every question abstains), and completed —
+   * processed end to end: extracted, classified (against an empty topic
+   * set here, which just means every question abstains), and completed,
    * without a second call finding anything left to do.
    */
   it(
@@ -129,7 +129,7 @@ describe('drainServerQueue', () => {
 
   /*
    * A permanent failure must mark the worksheet failed so the student sees
-   * it rather than the status page spinning forever — but must NOT touch
+   * it rather than the status page spinning forever, but must NOT touch
    * trial accounting the way the operator_gpu failure path does, since Tier
    * B never draws from the trial in the first place.
    */

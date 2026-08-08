@@ -95,7 +95,7 @@ async function main() {
   await sql.end()
 
   console.log(`\nSeeded: ${inserted} inserted, ${updated} updated.`)
-  console.log('Embeddings are left NULL — run `npm run db:embed` to backfill')
+  console.log('Embeddings are left NULL; run `npm run db:embed` to backfill')
   console.log('them before enabling auto-classification.')
 }
 

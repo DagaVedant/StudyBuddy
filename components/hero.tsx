@@ -17,7 +17,7 @@ const TOPICS = [
 const TOTAL = TOPICS.reduce((sum, topic) => sum + topic.count, 0)
 
 /**
- * Decay, reset, decay again — each reset buying longer than the last. Shared
+ * Decay, reset, decay again, each reset buying longer than the last. Shared
  * by the drawn line and the highlight that runs along it, so the two can
  * never drift apart.
  */
@@ -33,7 +33,7 @@ const REVIEWS = [
 
 /**
  * The worksheet being read. These are verbatim stems from the 2024 SHSAT
- * sample form in `benchmark/input` — one per topic above, in the same order,
+ * sample form in `benchmark/input`: one per topic above, in the same order,
  * so the boxes that snap on and the pills that fly in describe each other.
  * Placeholder bars would have shown the mechanism; the real sentences show
  * the product.
@@ -92,7 +92,7 @@ export default function Hero({ children }: { children: React.ReactNode }) {
         {children}
 
         <p className={`${styles.caption} text-sm text-pretty text-muted`}>
-          Then each one comes back on the day you are about to lose it — that is
+          Then each one comes back on the day you are about to lose it. That is
           the curve behind this page.
         </p>
       </div>
@@ -107,7 +107,7 @@ export default function Hero({ children }: { children: React.ReactNode }) {
 
 /**
  * Ebbinghaus, roughly: memory decays, a review resets it, and each reset
- * buys longer than the last. Schematic rather than plotted — it is stretched
+ * buys longer than the last. Schematic rather than plotted; it is stretched
  * to the viewport width, so it carries the shape and not the numbers.
  */
 function Curve() {

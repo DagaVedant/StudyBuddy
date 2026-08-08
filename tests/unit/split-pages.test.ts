@@ -96,7 +96,7 @@ describe('planPageSplitJoins', () => {
   })
 
   it('leaves an orphan that is really a question in its own right', () => {
-    // Same shape — first on the page, full option list — but it asks something,
+    // Same shape (first on the page, full option list) but it asks something,
     // so the options are its own.
     expect(join([STEM, { ...ORPHAN, promptText: NEXT.promptText }])).toHaveLength(0)
   })

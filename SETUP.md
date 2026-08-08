@@ -7,7 +7,7 @@ Budget: about 20 minutes to local, another 15 to deployed.
 
 ---
 
-## 1. Database (5 min) — this is the only hard blocker
+## 1. Database (5 min): this is the only hard blocker
 
 You need Postgres with the `pgvector` extension.
 
@@ -23,14 +23,14 @@ You need Postgres with the `pgvector` extension.
 
 Open `.env.local` and replace the `DATABASE_URL` line with it.
 
-You do **not** need to create tables or enable pgvector by hand — step 3 does
+You do **not** need to create tables or enable pgvector by hand; step 3 does
 both.
 
 ---
 
 ## 2. Secrets (1 min)
 
-`.env.example` is the only `.env` file in the repo — copy it to `.env.local`
+`.env.example` is the only `.env` file in the repo, so copy it to `.env.local`
 and generate your own secrets. Never commit the result.
 
 ```bash
@@ -66,7 +66,7 @@ What each does:
 |---|---|
 | `db:migrate` | Enables pgvector, creates 20 tables |
 | `db:seed` | Loads 341 topics (276 classifiable leaves) |
-| `db:embed` | Computes topic embeddings — auto-classification needs these |
+| `db:embed` | Computes topic embeddings; auto-classification needs these |
 
 `db:embed` downloads a ~23MB model on first run and takes a minute or two.
 
@@ -90,7 +90,7 @@ The repo is already initialised and committed locally. You just need a remote.
 
 1. Go to **https://github.com/new**
 2. Name it `studybuddy`. **Private** unless you want it public.
-3. Do **not** tick "Add a README", ".gitignore", or a licence — the repo
+3. Do **not** tick "Add a README", ".gitignore", or a licence, because the repo
    already has them and it will conflict.
 4. Create it, then run what GitHub shows you, which will be:
 
@@ -130,7 +130,7 @@ Should print only `.env.example`.
 
 5. Deploy.
 
-### 6a. File storage — required in production
+### 6a. File storage: required in production
 
 Page images are written to local disk when `BLOB_READ_WRITE_TOKEN` is empty.
 That works locally and **silently loses every image on Vercel**, because
@@ -151,21 +151,21 @@ The GPU worker uses this value, as do the OAuth callbacks.
 ### Google sign-in and sign-up
 
 **Set this up.** It is the recommended way in and the only one that proves a
-user owns their address — see "Why there is no email set-up step" below.
+user owns their address. See "Why there is no email set-up step" below.
 "Continue with Google" leads on both
-`/signin` and `/signup` — it's the same button either way, since Google never
+`/signin` and `/signup`: it's the same button either way, since Google never
 distinguishes the two: a first-time click creates the account automatically.
 
 1. **https://console.cloud.google.com/apis/credentials**
 2. If prompted, configure the **OAuth consent screen** first (External, app
    name, your support email). While it's in **Testing** status, only accounts
-   you add under **Test users** can complete the flow — everyone else sees an
+   you add under **Test users** can complete the flow; everyone else sees an
    "app not verified" block screen. Either add test users or click
    **Publish App** once you're ready for real users (personal-use Google
    accounts do not require Google's verification review for a small app like
    this).
 3. Create OAuth client ID → Web application
-4. Authorised redirect URIs — add both:
+4. Authorised redirect URIs. Add both:
    - `http://localhost:3000/api/auth/callback/google`
    - `https://your-project.vercel.app/api/auth/callback/google`
 5. Put the client ID and secret into `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`,
@@ -176,17 +176,17 @@ distinguishes the two: a first-time click creates the account automatically.
 
 There is no email at all. Sending to arbitrary addresses needs a domain you
 own, so that SPF and DKIM records can be published for it, and a free
-`*.vercel.app` subdomain cannot carry those records — no provider will accept
+`*.vercel.app` subdomain cannot carry those records, and no provider will accept
 it. Rather than ship a signup flow that only works for one inbox, the app does
 without.
 
 The consequence: **Google is the only way to prove an address**, so it is the
 recommended way in. A password account is created ready to use and is never
-verified, which also means there is no password reset — nothing can send one.
+verified, which also means there is no password reset; nothing can send one.
 
 ---
 
-## 8. Your GPU (optional — powers the free trial)
+## 8. Your GPU (optional; powers the free trial)
 
 This is what makes Tier 0 work: new accounts get 3 full worksheets of real AI
 extraction without any setup on their side.
@@ -231,7 +231,7 @@ app and can be set back to 1.
 ### The review pass (recommended)
 
 After the pages are read, the worker checks whether each question came out
-whole — not whether the numbering is complete, which the audit already covers,
+whole, not whether the numbering is complete, which the audit already covers,
 but whether the stem is a fragment, options are missing, or the choices belong
 to a different question. Anything doubtful sends that page back to the vision
 model, and a question is only replaced if the second read actually returns it.
@@ -245,7 +245,7 @@ OLLAMA_REVIEW_MODEL="gpt-oss:20b"
 
 Measured against a real 114-question extraction, `gpt-oss:20b` raised **no**
 false alarms. The default (whatever `OLLAMA_VISION_MODEL` is set to, normally
-`qwen2.5vl:7b`) called two sound questions broken — both stems that their own
+`qwen2.5vl:7b`) called two sound questions broken: both stems that their own
 answer options finish, which is ordinary phrasing on a real test. A reviewer
 that cries wolf costs re-reads, so pull the bigger one if you have the disk:
 
@@ -254,7 +254,7 @@ ollama pull gpt-oss:20b
 ```
 
 It never sees an image, so it does not need to be a vision model. Leaving it
-unset is safe — the pass still runs, just noisier. No re-read ever deletes a
+unset is safe; the pass still runs, just noisier. No re-read ever deletes a
 question outright, and at most 30% of a worksheet's pages are re-read, so an
 extraction that is wrong throughout fails fast to the review screen instead of
 taking twice as long to arrive equally wrong.
@@ -262,7 +262,7 @@ taking twice as long to arrive equally wrong.
 ### Hiding your home IP (spec §3.3.1)
 
 Your worker's outbound requests reveal your home IP to Vercel and the blob
-host — not to users, but it is in their logs. If that matters, route the
+host, not to users, but it is in their logs. If that matters, route the
 worker's egress through a cheap VPS acting as a Tailscale exit node, then set
 `WORKER_ALLOWED_IPS` to that VPS's address so a stolen token is useless from
 anywhere else.
@@ -290,7 +290,7 @@ npm run worker                       # optional, powers the free trial
 
 ## Operator scripts
 
-Not in `package.json` — these are ad-hoc, run with `npx tsx` against whatever
+Not in `package.json`: these are ad-hoc, run with `npx tsx` against whatever
 `DATABASE_URL` is in your `.env.local`. Several of them write.
 
 | Script | What it does |
@@ -298,7 +298,7 @@ Not in `package.json` — these are ad-hoc, run with `npx tsx` against whatever
 | `audit-worksheets.ts` | Checks recent worksheets for every failure mode known to have shipped: gaps, duplicates, ordinals out of paper order, unrendered maths. `AUDIT_FIX=true` also repairs them, using the same passes the job runs. |
 | `diagnose-worksheet.ts` | The last 8 worksheets with their page, text and question counts. First stop when an upload looks wrong. |
 | `tally-questions.ts <title-prefix>` | Question counts per worksheet matching the prefix. |
-| `peek-page.ts <title-prefix> [page…]` | Dumps a page's stored OCR text — what the model actually saw. |
+| `peek-page.ts <title-prefix> [page…]` | Dumps a page's stored OCR text, what the model actually saw. |
 | `topic-gaps.ts` | How many questions are tagged, and which topics the classifier is reaching for. |
 | `check-account.ts` | Every user's role, verification state and trial usage, plus the configured `ADMIN_EMAILS`. |
 | `check-worksheet-attempts.ts <title>` | The attempts recorded against one worksheet. |
@@ -319,7 +319,7 @@ never ran. Check the Vercel function logs.
 **Uploads work, images are blank.** No `BLOB_READ_WRITE_TOKEN` in production.
 
 **Admin link never appears.** The email must be in `ADMIN_EMAILS`. Sign out and
-back in — the role is computed at login.
+back in; the role is computed at login.
 
 **Uploads sit at "Working on It" forever.** No GPU worker is running. Either
 start it, or let the trial run out and it falls through to the manual editor.
@@ -336,7 +336,7 @@ start it, or let the trial run out and it falls through to the manual editor.
 - **Tier B uploads come back untagged.** Auto-classification needs an
   embedding, and the embedding model needs a native runtime that a serverless
   host does not have. The GPU worker does its own embedding, so trial uploads
-  are classified normally — but Tier B runs the extraction on the server,
+  are classified normally, but Tier B runs the extraction on the server,
   where there is no worker to ask. Those questions are saved and reviewable,
   they just do not land under a topic, so they do not reach the weakness
   dashboard. Fixing it means either a hosted embedding API or routing Tier B
@@ -344,7 +344,7 @@ start it, or let the trial run out and it falls through to the manual editor.
   whatever model replaces the current one, since vectors from different
   models are not comparable.
 - **Rate limiting covers signup, upload and explain only.**
-  Everything else — rating a card, editing a question, saving credentials — is
+  Everything else (rating a card, editing a question, saving credentials) is
   unbounded. Those all need a session and only touch the caller's own rows, so
   the exposure is small, but it is not zero.
 - **A trial explanation needs the GPU worker running.** It is queued rather

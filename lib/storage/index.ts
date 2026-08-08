@@ -54,7 +54,7 @@ const blobDriver: StorageDriver = {
   name: 'vercel-blob',
 
   async put(key, body, contentType) {
-    // The store this app was provisioned with is private-access-only —
+    // The store this app was provisioned with is private-access-only:
     // uploading with access: 'public' is rejected outright, not just
     // served without a public URL. Reads go through the SDK's own
     // authenticated get() below rather than a bare public URL fetch.

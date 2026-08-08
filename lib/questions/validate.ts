@@ -5,7 +5,7 @@ import { normalizeForCompare } from '@/lib/questions/shape'
  *
  * The audit already catches a page that produced nothing, because a gap in the
  * printed numbering is visible from the numbers alone. What it cannot see is a
- * question that arrived looking fine and is wrong inside — a stem that stops
+ * question that arrived looking fine and is wrong inside: a stem that stops
  * mid-sentence, choices that belong to the question above, two options where
  * the paper has four. Benchmarking put that at roughly one row in ten even for
  * the model that scored best on coverage, so it is not a rare case.
@@ -25,9 +25,9 @@ export interface ValidationFlag {
   code: ValidationCode
   detail: string
   /**
-   * high  — the row is broken on its face; a re-read can only improve it.
-   * low   — reads oddly, but plenty of real questions do. Worth a look, not
-   *         worth acting on alone.
+   * high: the row is broken on its face; a re-read can only improve it.
+   * low:  reads oddly, but plenty of real questions do. Worth a look, not
+   *       worth acting on alone.
    */
   severity: 'high' | 'low'
 }
@@ -45,8 +45,8 @@ const CHOICE_BEARING = new Set(['multiple_choice', 'true_false'])
 /**
  * The most common choice count on the worksheet.
  *
- * A paper is internally consistent — every multiple-choice question on it
- * tends to offer the same number of options — so the sheet can say what
+ * A paper is internally consistent: every multiple-choice question on it
+ * tends to offer the same number of options, so the sheet can say what
  * "complete" means instead of it being hardcoded. Returns null when there is
  * no clear winner, in which case the count is simply not checked.
  */
@@ -83,8 +83,8 @@ export function modalChoiceCount(questions: ValidatableQuestion[]): number | nul
  * Marks that a stem was cut off rather than merely left open.
  *
  * Deliberately not "ends without punctuation": on this kind of paper a great
- * many stems are sentence openers finished by the options — "...affect the
- * tone of the excerpt by" — and treating those as damaged flagged a fifth of a
+ * many stems are sentence openers finished by the options ("...affect the
+ * tone of the excerpt by") and treating those as damaged flagged a fifth of a
  * clean extraction. A trailing comma or dash is a cut; a trailing preposition
  * is the question working as designed.
  */
@@ -174,7 +174,7 @@ export function validateQuestion(
 
     // A choice repeated inside the stem is the signature of the extractor
     // swallowing the options into the question text and then listing them
-    // again — the shape the page-3 split produced.
+    // again, the shape the page-3 split produced.
     if (text.length >= 12 && normalizedStem.includes(text)) {
       flags.push({
         code: 'choice_text_in_stem',
@@ -226,7 +226,7 @@ export function validateQuestion(
  * Whether the flags justify spending a re-read on this question.
  *
  * One high-severity flag is enough on its own. Low-severity ones are only
- * suggestive, so it takes two to act — a stem that merely ends without
+ * suggestive, so it takes two to act: a stem that merely ends without
  * punctuation is not worth re-reading a page over.
  */
 export function worthRereading(flags: ValidationFlag[]): boolean {

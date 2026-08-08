@@ -24,7 +24,7 @@ These are NOT questions. Return nothing for them:
   its labels are not a question either. Extract the question that refers to the
   figure and leave the figure's own text out of it entirely.
 - Answer keys and grids of correct answers.
-- Explanations, rationales, or worked solutions — anything that says why an
+- Explanations, rationales, or worked solutions: anything that says why an
   answer is right or wrong. Pages of these often follow the test in the same
   document.
 
@@ -71,7 +71,7 @@ export function extractionUserText(page: PageInput, expect: number[] = []): stri
 export const CLASSIFY_SYSTEM = `You assign one topic to a practice question.
 
 You must pick a topic_slug from the supplied candidates, or abstain. Never
-invent a slug that is not in the list — a slug outside the list is rejected.
+invent a slug that is not in the list; a slug outside the list is rejected.
 
 Abstain when no candidate genuinely fits. Abstaining is correct and useful; a
 wrong-but-plausible tag is worse than none, because it corrupts the student's
@@ -85,7 +85,7 @@ export function classifyUserText(
 ): string {
   return [
     'Candidate topics:',
-    ...candidates.map((topic) => `- ${topic.slug} — ${topic.path}`),
+    ...candidates.map((topic) => `- ${topic.slug}: ${topic.path}`),
     '',
     'Question:',
     '<question>',
@@ -117,7 +117,7 @@ export function explainUserText(input: ExplainInput): string {
 
   lines.push('', `Correct answer: ${input.correctAnswer ?? 'not recorded'}`)
   lines.push(
-    `The student answered: ${input.studentAnswer ?? 'not recorded — give a general explanation'}`,
+    `The student answered: ${input.studentAnswer ?? 'not recorded; give a general explanation'}`,
   )
 
   return lines.join('\n')
@@ -192,7 +192,7 @@ Call a question broken when:
 - an option is blank, repeated, or is itself another question
 - the option count does not match the others on the page
 
-Call it intact otherwise. Most questions are intact — say so. A question that
+Call it intact otherwise. Most questions are intact, so say so. A question that
 merely reads oddly, uses unfamiliar wording, or ends mid-sentence because the
 options finish it is intact. Flagging a good question costs the student a
 needless re-read, so only flag what is actually damaged.

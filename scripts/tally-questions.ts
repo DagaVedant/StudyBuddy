@@ -19,7 +19,7 @@ async function main() {
   `
   if (!worksheet) throw new Error(`no worksheet matching "${prefix}"`)
 
-  console.log(`${worksheet.title} — ${worksheet.page_count} pages\n`)
+  console.log(`${worksheet.title}: ${worksheet.page_count} pages\n`)
 
   const rows = await sql`
     select p.page_number, count(q.id)::int as n

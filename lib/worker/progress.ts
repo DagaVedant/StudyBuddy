@@ -4,7 +4,7 @@
  * Reading the pages is the long part but not the last part: afterwards the
  * audit re-reads whatever the extraction missed, and then every question gets
  * a topic. Both of those used to run with progress already at 1, so the bar
- * sat full — sometimes for a while — while the app still had work to do, which
+ * sat full, sometimes for a while, while the app still had work to do, which
  * reads as a hang. Reading now stops short and leaves the rest of the bar for
  * the stages that follow.
  */

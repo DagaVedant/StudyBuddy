@@ -14,7 +14,7 @@ import { normalizeChoiceLabel } from '../lib/questions/shape'
  *
  * `normalizeChoiceLabel` now reduces "A. 60" to "A" as options are ingested, but
  * rows written before that keep the old value, and both the review screen and
- * the dashboard render `{label}. {text}` — so a student reads "A. 60. 60", and
+ * the dashboard render `{label}. {text}`, so a student reads "A. 60. 60", and
  * nothing matching on the label can find it.
  *
  *   npx tsx scripts/repair-choice-labels.ts            # report only

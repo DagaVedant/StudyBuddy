@@ -74,7 +74,7 @@ export async function shortlistByVector(
 }
 
 /**
- * Embeds here and then searches — so this only works where the model can
+ * Embeds here and then searches, so this only works where the model can
  * load. Callers on a host without it (Vercel) should take the vector from
  * somewhere that can, via shortlistByVector.
  *

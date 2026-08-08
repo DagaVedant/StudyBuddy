@@ -15,20 +15,20 @@ type Resolver = (db: Db, userId: string) => Promise<ResolvedProvider>
  *
  * The GPU worker is a separate long-running process that polls
  * `/api/worker/claim`, which only ever asks for `executor: 'operator_gpu'`
- * work — nothing was polling for `executor: 'server'`, so a Tier B upload
+ * work: nothing was polling for `executor: 'server'`, so a Tier B upload
  * enqueued a job and then sat there forever. There is no persistent process
  * for Tier B to poll from: the extraction runs against the student's own key,
  * reachable directly from the server, so it does not need an external worker
- * at all — it needs someone to call `claimJob(db, 'server')`.
+ * at all; it needs someone to call `claimJob(db, 'server')`.
  *
  * Called from `after()` in the complete route, so it runs once the response
- * has already gone back to the student — extraction can take minutes on a
+ * has already gone back to the student; extraction can take minutes on a
  * large worksheet, and nothing about the existing flow expects the upload
  * request itself to block on that (Tier 0 doesn't; the browser is sent to a
  * status page that polls).
  *
- * Drains the whole `server` queue rather than claiming one job, up to `limit`
- * — a single trigger is the only thing that runs this, so if enqueue ever
+ * Drains the whole `server` queue rather than claiming one job, up to `limit`.
+ * A single trigger is the only thing that runs this, so if enqueue ever
  * outpaces one-job-per-trigger processing (e.g. a burst of uploads, or a
  * backlog from retried failures), jobs would otherwise wait for the next
  * unrelated upload to happen to trigger a claim.
@@ -98,7 +98,7 @@ async function runOneServerJob(
   } catch (error) {
     const { permanent } = await failJob(db, job.id, (error as Error).message)
     // Tier B never draws from the trial, so unlike the operator_gpu path
-    // there is no refund to issue here — the student's own key paid for
+    // there is no refund to issue here; the student's own key paid for
     // whatever ran before the failure.
     if (permanent) {
       await db

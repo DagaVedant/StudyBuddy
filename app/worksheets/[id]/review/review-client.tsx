@@ -410,7 +410,7 @@ export default function ReviewClient({
                   question.id === selectedId ? 'border-accent' : 'border-transparent'
                 }`}
               >
-                {/* Summary — what the AI actually pulled off the page. */}
+                {/* Summary: what the AI actually pulled off the page. */}
                 <div className="p-3">
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 shrink-0 rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium tabular-nums text-accent">
@@ -478,7 +478,7 @@ export default function ReviewClient({
                   </div>
                 </div>
 
-                {/* Editor — only when something needs correcting. */}
+                {/* Editor: only when something needs correcting. */}
                 {expanded && (
                   <div className="space-y-4 border-t border-border p-3">
                     <div>

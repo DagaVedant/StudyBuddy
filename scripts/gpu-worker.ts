@@ -21,7 +21,7 @@ const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b'
  * Defaults to the vision model so the worker runs with nothing extra pulled.
  * Measured on a real extraction, gpt-oss:20b was the better reviewer: it
  * matched the default on damaged questions and raised no false alarms, where
- * the 7b called two sound questions broken — both of them stems finished by
+ * the 7b called two sound questions broken: both of them stems finished by
  * their own options, the same shape that fooled the text checks before they
  * were narrowed. A reviewer that cries wolf costs re-reads, so it is worth
  * setting this.
@@ -154,7 +154,7 @@ async function reviewExtractedQuestions(
   log(
     `  review: ${plan.suspects.length} of ${questions.length} question(s) look wrong` +
       `${plan.modelConsulted ? '' : ' (cheap checks only, reviewer unavailable)'}` +
-      ` — re-reading ${plan.reread.length} page(s)`,
+      `, re-reading ${plan.reread.length} page(s)`,
   )
 
   if (plan.skippedPages.length > 0) {
@@ -209,7 +209,7 @@ async function reviewExtractedQuestions(
       } | null
 
       log(
-        `  review: page ${page.pageNumber} re-read — ` +
+        `  review: page ${page.pageNumber} re-read: ` +
           `replaced ${outcome?.replaced ?? 0}, kept ${outcome?.kept ?? 0} as-is`,
       )
     } catch (error) {
@@ -239,7 +239,7 @@ async function recoverMissingQuestions(
   // and the student is about to see one too many on the review screen.
   if (audit.extra.length > 0) {
     log(
-      `  audit: ${audit.found} found but only ${audit.expected} expected — ` +
+      `  audit: ${audit.found} found but only ${audit.expected} expected: ` +
         `numbered past the end: ${audit.extra.join(', ')} (check for duplicates)`,
     )
   }
@@ -249,7 +249,7 @@ async function recoverMissingQuestions(
   log(
     `  audit: ${audit.found} found` +
       `${audit.expected ? ` of ${audit.expected}` : ''}, ` +
-      `missing ${audit.missing.join(', ')} — re-reading ${audit.retry.length} page(s)`,
+      `missing ${audit.missing.join(', ')}, re-reading ${audit.retry.length} page(s)`,
   )
 
   const byNumber = new Map(pages.map((page) => [page.pageNumber, page]))
@@ -290,7 +290,7 @@ async function recoverMissingQuestions(
 
       log(`  audit: page ${page.pageNumber} re-read for ${target.expect.join(', ')}`)
     } catch (error) {
-      log(`  audit: page ${page.pageNumber} retry failed — ${(error as Error).message}`)
+      log(`  audit: page ${page.pageNumber} retry failed: ${(error as Error).message}`)
     }
   }
 }
@@ -319,7 +319,7 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
     try {
       items.push({ questionId: question.id, embedding: await embed(question.promptText) })
     } catch (error) {
-      log(`  classify: could not embed a question — ${(error as Error).message}`)
+      log(`  classify: could not embed a question: ${(error as Error).message}`)
     }
   }
 
@@ -352,7 +352,7 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
       const classification = await provider.classifyTopic(promptText, entry.candidates)
 
       // The server raises a topic proposal when the match comes back coarse,
-      // and dedupes proposals by embedding — another vector it cannot compute
+      // and dedupes proposals by embedding, another vector it cannot compute
       // itself, so it is sent along.
       const proposedName = classification.suggested_name ?? promptText.slice(0, 80)
 
@@ -363,7 +363,7 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
         proposalEmbedding: await embed(proposedName),
       })
     } catch (error) {
-      log(`  classify: "${promptText.slice(0, 40)}" failed — ${(error as Error).message}`)
+      log(`  classify: "${promptText.slice(0, 40)}" failed: ${(error as Error).message}`)
     }
   }
 
@@ -385,7 +385,7 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
 /**
  * Explains one question for an account whose only model is this GPU.
  *
- * The server cannot reach here — the worker dials out and nothing listens —
+ * The server cannot reach here (the worker dials out and nothing listens)
  * so a trial explanation has to be collected rather than requested, the same
  * way extraction is.
  */
@@ -428,14 +428,14 @@ async function processJob(claim: ClaimResponse): Promise<void> {
   const job = claim.job!
   const pages = claim.pages ?? []
   // A set, not a high-water mark. Pages finish out of order once more than
-  // one is in flight, so "everything up to N is done" stops being true — and
+  // one is in flight, so "everything up to N is done" stops being true, and
   // a crash would silently skip whatever was still running below N.
   const done = new Set<number>(job.checkpoint?.donePages ?? [])
   const legacyHighWater = job.checkpoint?.lastPageNumber ?? 0
 
   // Not every job is a worksheet. Claiming is shared, so the stage decides.
   if (job.stage === 'explain') {
-    log(`claimed ${job.id} — explanation (attempt ${job.attemptCount})`)
+    log(`claimed ${job.id}: explanation (attempt ${job.attemptCount})`)
     try {
       await processExplainJob(job)
     } catch (error) {
@@ -446,7 +446,7 @@ async function processJob(claim: ClaimResponse): Promise<void> {
     return
   }
 
-  log(`claimed ${job.id} — ${pages.length} pages (attempt ${job.attemptCount})`)
+  log(`claimed ${job.id}: ${pages.length} pages (attempt ${job.attemptCount})`)
 
   let attempted = 0
   let pageFailures = 0
@@ -490,7 +490,7 @@ async function processJob(claim: ClaimResponse): Promise<void> {
       } catch (error) {
         pageFailures += 1
         lastError = (error as Error).message
-        log(`  page ${page.pageNumber}: extraction failed — ${lastError}`)
+        log(`  page ${page.pageNumber}: extraction failed, ${lastError}`)
       }
 
       await postJob(job.id, {
@@ -583,7 +583,7 @@ async function main(): Promise<void> {
 
       await processJob(claim)
     } catch (error) {
-      log(`poll error: ${(error as Error).message} — retrying in ${backoff / 1000}s`)
+      log(`poll error: ${(error as Error).message}, retrying in ${backoff / 1000}s`)
       await new Promise((resolve) => setTimeout(resolve, backoff))
       backoff = Math.min(backoff * 2, BACKOFF_MAX_MS)
     }

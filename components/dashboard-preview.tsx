@@ -4,7 +4,7 @@ import { MIN_ATTEMPTS } from '@/lib/dashboard/ranking'
 import styles from './dashboard-preview.module.css'
 
 /**
- * Homepage section two — the dashboard, shown rather than described.
+ * Homepage section two: the dashboard, shown rather than described.
  *
  * The numbers below are a consistent fiction: the four subject/topic
  * breakdowns add up to the 218 in the header, the weakest rows are in the
@@ -98,7 +98,7 @@ export default function DashboardPreview() {
       </h2>
       <p className={`${styles.lede} text-pretty text-muted`}>
         Every question you have marked, rolled up into the topics that are
-        actually costing you marks — and a queue of what to review today.
+        actually costing you marks, and a queue of what to review today.
       </p>
 
       <div className={styles.stage}>
@@ -221,7 +221,7 @@ export default function DashboardPreview() {
         </div>
       </div>
 
-      {/* The mock above is hidden from assistive tech — it is a picture of a
+      {/* The mock above is hidden from assistive tech; it is a picture of a
           screen, and read out it is a wall of invented numbers. This sentence
           and the notes below carry what it is there to say. */}
       <p className="sr-only">

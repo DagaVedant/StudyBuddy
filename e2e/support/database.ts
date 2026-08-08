@@ -21,7 +21,7 @@ interface Journal {
  * This hardcoded 0000_init.sql for long enough that three later migrations
  * (trial_worksheets_used, printed_number/expected_question_count, the
  * openrouter/google provider enum values) were silently missing from every
- * E2E run — invisibly, since a missing column only surfaces the moment some
+ * E2E run, invisibly, since a missing column only surfaces the moment some
  * code tries to write to it, which for trial_worksheets_used is the very
  * first signup. That's most of what "16 E2E specs are failing" actually was.
  */

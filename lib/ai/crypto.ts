@@ -13,7 +13,7 @@ export interface SealedKey {
 function masterKey(): Buffer {
   const raw = process.env.CREDENTIALS_ENC_KEY
   if (!raw) {
-    throw new Error('CREDENTIALS_ENC_KEY is not set — cannot handle API keys.')
+    throw new Error('CREDENTIALS_ENC_KEY is not set; cannot handle API keys.')
   }
 
   const key = Buffer.from(raw, 'base64')

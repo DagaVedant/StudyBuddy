@@ -57,7 +57,7 @@ export default async function StatusPage({
   const phase = phaseFor(progress)
 
   // The count is a running total during reading, so it can pass what the
-  // student told us the paper holds — a misread number, or the same question
+  // student told us the paper holds: a misread number, or the same question
   // picked up twice. Showing "115 of 114" reads as a bug, and the number is
   // not the useful thing at that point anyway: what matters is that the audit
   // is now going back over it. So once we are at or past the stated total, the
@@ -115,7 +115,7 @@ export default async function StatusPage({
                 : phase === 'classifying'
                   ? 'Sorting the questions into topics.'
                   : 'Checking every question was picked up, and going back over anything that was missed.'
-              : 'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page — the worksheet will be waiting on your dashboard.'}
+              : 'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page; the worksheet will be waiting on your dashboard.'}
             {depth.pending > 1 && ` ${depth.pending} worksheets ahead of yours.`}
           </p>
 

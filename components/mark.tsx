@@ -1,5 +1,5 @@
 /**
- * The StudyBuddy mark: four quarters, two filled — the split between what
+ * The StudyBuddy mark: four quarters, two filled, the split between what
  * you have got right and what you have not.
  */
 export default function Mark({ className }: { className?: string }) {

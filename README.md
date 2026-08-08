@@ -1,7 +1,7 @@
 # StudyBuddy
 
 Upload the practice worksheets you've already done. StudyBuddy pulls out every
-question, tracks which ones you got wrong, and tells you what to study next —
+question, tracks which ones you got wrong, and tells you what to study next,
 with a spaced-repetition schedule that actually sticks.
 
 Full product and technical spec: [`spec.md`](./spec.md).
@@ -14,7 +14,7 @@ Full product and technical spec: [`spec.md`](./spec.md).
 
 You need Postgres with `pgvector`. [Neon](https://neon.tech) has a free tier and
 takes about two minutes. Put the **pooled** connection string in `.env.local` as
-`DATABASE_URL` — everything else in that file already has a working default.
+`DATABASE_URL`. Everything else in that file already has a working default.
 
 ```bash
 npm install
@@ -30,7 +30,7 @@ auto-classification needs to build its candidate shortlist.
 
 ### 2. Optional: your own GPU
 
-The operator GPU worker powers the free trial. It only ever dials **out** — no
+The operator GPU worker powers the free trial. It only ever dials **out**: no
 inbound port, no tunnel, nothing listening on your network.
 
 ```bash
@@ -53,13 +53,13 @@ The tier only changes how questions get off the page.
 
 | Tier | Requires | Extraction | Explanations |
 |---|---|---|---|
-| **0 — Trial** | nothing | operator GPU, 3 worksheets lifetime | 20 |
-| **A — Free** | nothing | manual editor + browser OCR | — |
-| **B — Cloud key** | Anthropic/OpenAI key | server-side vision model | unlimited |
-| **C — Ollama** | Ollama running | student's own GPU, in-browser | unlimited |
+| **0 (Trial)** | nothing | operator GPU, 3 worksheets lifetime | 20 |
+| **A (Free)** | nothing | manual editor + browser OCR | none |
+| **B (Cloud key)** | Anthropic/OpenAI key | server-side vision model | unlimited |
+| **C (Ollama)** | Ollama running | student's own GPU, in-browser | unlimited |
 
 Tier C runs in the browser because a server cannot reach a student's
-`localhost` — which also means the tab has to stay open. That's a permanent
+`localhost`, which also means the tab has to stay open. That's a permanent
 constraint of the design, not a bug.
 
 ---
@@ -75,7 +75,7 @@ constraint of the design, not a bug.
 | `npm run benchmark:ollama` | Benchmark the local vision model |
 | `npm run db:studio` | Browse the database |
 
-Tests run against **PGlite** — real Postgres compiled to WASM — so the full
+Tests run against **PGlite**, real Postgres compiled to WASM, so the full
 migration and every query is exercised without Docker or a live database.
 
 ---
@@ -103,5 +103,5 @@ fixed template with a schema-validated output. That's what stops the GPU being
 repurposed as a general-purpose LLM, and there are tests asserting it.
 
 **Every question is stored and topic-tagged, not just the wrong ones.** The
-weakness dashboard needs a denominator — "8 wrong" means nothing without
+weakness dashboard needs a denominator: "8 wrong" means nothing without
 knowing whether it's 8 of 10 or 8 of 60.

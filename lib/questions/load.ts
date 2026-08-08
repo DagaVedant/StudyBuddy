@@ -18,7 +18,7 @@ export interface LoadedQuestion {
   promptText: string
   questionType: string
   bbox: BBox | null
-  /** The top edge of the bbox — what puts a question in reading order. */
+  /** The top edge of the bbox: what puts a question in reading order. */
   top: number | null
   contentHash: string | null
   userVerified: boolean
@@ -30,8 +30,8 @@ export interface LoadedQuestion {
 /**
  * A worksheet's questions in paper order, each holding its own options.
  *
- * Six places wrote these same twenty lines — select the questions, select the
- * options with one `inArray`, group them into a Map — and then four of those
+ * Six places wrote these same twenty lines: select the questions, select the
+ * options with one `inArray`, group them into a Map. Then four of those
  * six went on to scan the flat option list with `.find()` once per row, which
  * is O(n·m) over 114 questions and their options.
  *

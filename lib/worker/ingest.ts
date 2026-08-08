@@ -125,7 +125,7 @@ export async function persistQuestions(
 ): Promise<number> {
   // Labels first, before anything reads one. Four of the five providers parse
   // their own output through the extraction schema, which normalises the label
-  // on the way; a provider that does not — the mock does not — hands its rows
+  // on the way; a provider that does not (the mock does not) hands its rows
   // straight to the insert below. The result was options stored as `A. 60`
   // instead of `A`, and a malformed label does not merely look wrong: it is a
   // single letter that every downstream test demands. `foldLeadInChoices` and

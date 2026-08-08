@@ -141,7 +141,7 @@ export async function POST(request: Request) {
   }
 
   // A trial account's model is the operator's GPU, which sits behind a home
-  // connection and only ever dials out — this server cannot call it. So the
+  // connection and only ever dials out; this server cannot call it. So the
   // work is queued for the worker to collect, exactly as extraction is.
   //
   // Until this existed the request fell through to a provider that always

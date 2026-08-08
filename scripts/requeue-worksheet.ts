@@ -24,7 +24,7 @@ async function main() {
   `
 
   if (stranded.length === 0) {
-    console.log('Nothing stranded — every worksheet with pages has questions or a live job.')
+    console.log('Nothing stranded: every worksheet with pages has questions or a live job.')
     await sql.end()
     return
   }

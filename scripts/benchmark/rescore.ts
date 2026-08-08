@@ -7,7 +7,7 @@ import { scoreRun, type ModelScore, type PageRun } from './score'
  * Re-grades already-saved runs against a narrower page range.
  *
  * Each raw file keeps every page's extraction, so narrowing the benchmark to a
- * subset does not mean re-running the models that already finished — their
+ * subset does not mean re-running the models that already finished; their
  * answers for those pages are on disk. Without this, a short run of two extra
  * models could only be compared against a table scored on a different slice of
  * the paper, which is not a comparison at all.

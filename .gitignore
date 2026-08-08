@@ -30,7 +30,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files — .env.example IS committed; real secrets are not
+# env files. .env.example IS committed; real secrets are not
 .env*
 !.env.example
 
@@ -55,7 +55,7 @@ next-env.d.ts
 /public/pdf.min.mjs
 
 # benchmark inputs and outputs (large PDFs, run artifacts). The whole directory,
-# not just input/ and results/ — nothing under it is meant to be tracked, and a
+# not just input/ and results/. Nothing under it is meant to be tracked, and a
 # file written straight to benchmark/ was slipping past the two narrower rules.
 /benchmark/
 
@@ -64,7 +64,7 @@ next-env.d.ts
 # env and is personal to whoever cloned this.
 /.claude/settings.local.json
 
-# local audit write-ups — kept on disk, deliberately not published
+# local audit write-ups: kept on disk, deliberately not published
 /PRESHIP-AUDIT.md
 /AUDIT-ENGINEERING.md
 /FIXES.md

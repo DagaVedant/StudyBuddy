@@ -43,7 +43,7 @@ async function main() {
 
   await sql`update worksheets set status = 'queued' where id = ${sheet.id}`
 
-  console.log(`"${sheet.title}" — ${sheet.pages} pages, removed ${removed} old questions, queued.`)
+  console.log(`"${sheet.title}": ${sheet.pages} pages, removed ${removed} old questions, queued.`)
   await sql.end()
 }
 

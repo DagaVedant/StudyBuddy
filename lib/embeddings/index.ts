@@ -10,7 +10,7 @@ let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
  *
  * @huggingface/transformers pulls in onnxruntime-node, which dlopen()s a
  * native .so. A top-level import therefore takes down every route that
- * transitively reaches this file — including ones that never embed anything —
+ * transitively reaches this file, including ones that never embed anything,
  * the moment that library is missing, which is exactly what happens on a
  * serverless host that did not trace the binary into the bundle. Keeping the
  * import inside the function means only code that actually needs an embedding

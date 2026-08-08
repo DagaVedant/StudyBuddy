@@ -97,7 +97,7 @@ export function planPageSplitJoins(
     if (!asksSomething(head)) continue
 
     // The options half: a full set of answers under something that asks
-    // nothing — a figure caption, a stray coordinate, a bare label.
+    // nothing: a figure caption, a stray coordinate, a bare label.
     if (tail.choices.length < 2) continue
     if (!asksNothing(tail)) continue
 

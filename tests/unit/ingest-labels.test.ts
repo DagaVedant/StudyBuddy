@@ -4,7 +4,7 @@ import type { ExtractedQuestion } from '@/lib/ai/types'
 import { persistQuestions } from '@/lib/worker/ingest'
 
 /**
- * A provider that skips the extraction schema — the mock does exactly this —
+ * A provider that skips the extraction schema (the mock does exactly this)
  * hands its rows straight to persistQuestions, so the label normalisation has
  * to live there rather than in each provider.
  */

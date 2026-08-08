@@ -198,14 +198,14 @@ interface ProviderIdentity {
  * What a model actually hands back: its own JSON, decoded but not checked.
  *
  * Every method returns `unknown` on purpose. The old contract had providers
- * return `ExtractedQuestion[]` — the *output* type of the zod schema — so the
+ * return `ExtractedQuestion[]` (the *output* type of the zod schema) so the
  * signature read as "already validated" while nothing enforced it. Four of the
  * five providers happened to validate inside themselves and one did not, and
  * the type system had no opinion either way. That is how options reached the
  * database labelled `A. 60` instead of `A`, which silently switched off the
  * lead-in fold, the duplicate merge, and the answer key.
  *
- * A provider implements this. Nobody consumes it directly — {@link validated}
+ * A provider implements this. Nobody consumes it directly; {@link validated}
  * turns it into an {@link AIProvider}, and that is what callers hold.
  */
 export interface RawAIProvider extends ProviderIdentity {
@@ -217,7 +217,7 @@ export interface RawAIProvider extends ProviderIdentity {
    * A second opinion on whether extracted questions came out whole.
    *
    * Optional because it is worth doing only where a second model is already
-   * paid for and idle — the operator's GPU. Callers must treat its absence as
+   * paid for and idle: the operator's GPU. Callers must treat its absence as
    * "no opinion" rather than as a failure, and a provider that cannot do it is
    * not a worse provider.
    */

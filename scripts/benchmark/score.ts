@@ -57,7 +57,7 @@ export interface ModelScore {
  * across the pages given, which makes the sequence its own ground truth and
  * keeps the range gradeable without labelling pages by hand.
  *
- * expectedFrom exists so a slice out of the middle of a paper can be scored —
+ * expectedFrom exists so a slice out of the middle of a paper can be scored:
  * grading pages 42-58 against 1..114 would count the entire first half as
  * missing.
  */

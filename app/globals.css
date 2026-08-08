@@ -41,12 +41,12 @@
      red toward pink, which reads as decorative rather than as an error. */
   --danger: oklch(52% 0.19 24);
   --success: oklch(56% 0.14 158);
-  /* Status ramp for accuracy meters — reserved for state, never for series
+  /* Status ramp for accuracy meters: reserved for state, never for series
      identity, and always paired with a printed number. */
   --warning: oklch(62% 0.15 55);
   --caution: oklch(68% 0.12 90);
 
-  /* Dashboard stat-tile identity only — not a general-purpose palette. */
+  /* Dashboard stat-tile identity only, not a general-purpose palette. */
   --tint-mint: oklch(93% 0.05 165);
   --tint-peach: oklch(92% 0.055 55);
   --tint-lavender: oklch(93% 0.035 300);
@@ -71,7 +71,7 @@
     --warning: oklch(74% 0.13 55);
     --caution: oklch(78% 0.11 92);
 
-    /* Deepened and desaturated, not inverted — a light pastel fill would
+    /* Deepened and desaturated, not inverted; a light pastel fill would
        read as a glare on a dark ground, so these stay dark with a hint of
        hue instead. */
     --tint-mint: oklch(26% 0.045 165);
@@ -175,7 +175,7 @@ body {
   }
 
   /* Soft Pastels' card treatment: generously rounded, shadow over hairline
-     border so tiles feel lifted rather than boxed in. No padding baked in —
+     border so tiles feel lifted rather than boxed in. No padding baked in:
      a divided list wants its outer wrapper padding-free, so callers add
      their own (usually p-4). */
   .card {
@@ -233,7 +233,7 @@ body {
  * Route transitions.
  *
  * View-transition pseudo-elements are matched against the document, not a
- * subtree, so they cannot live in a CSS Module — this is the one place they
+ * subtree, so they cannot live in a CSS Module; this is the one place they
  * can go. The classes are handed out by <ViewTransition> props: `page` from
  * app/layout.tsx, `topic-title` from the dashboard row and the topic heading.
  *
@@ -274,7 +274,7 @@ body {
  * page, so the two screens read as one object opened rather than two documents
  * swapped.
  *
- * Snapshots are rasters, and this pair is 14px going on 24px — scaling the old
+ * Snapshots are rasters, and this pair is 14px going on 24px, so scaling the old
  * one up would ghost. Instead the old snapshot is dropped and the new text is
  * painted unscaled (`object-fit: none`) while the group carries it from the row
  * to the heading. z-index keeps it over the page crossfade underneath.
@@ -296,6 +296,6 @@ body {
 /*
  * No reduced-motion cut here either, by the owner's decision: route changes
  * crossfade and the topic title morphs for everyone. Note that removing this
- * guard is not neutral — with no rules at all the browser still runs its own
+ * guard is not neutral; with no rules at all the browser still runs its own
  * ~250ms crossfade, so an instant cut has to be asserted, never assumed.
  */

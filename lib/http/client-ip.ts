@@ -2,8 +2,8 @@
  * Best-effort caller IP, read the one way.
  *
  * Behind Vercel the left-most `x-forwarded-for` entry is the client, with
- * `x-real-ip` as the fallback. This lived twice — once in the worker auth, once
- * in the rate limiter — with the same header parsing and quietly different
+ * `x-real-ip` as the fallback. This lived twice, once in the worker auth, once
+ * in the rate limiter, with the same header parsing and quietly different
  * answers when neither header is present, which is the case that actually
  * matters: one was making an allow/deny decision on it.
  *
