@@ -5,7 +5,11 @@ import type { Db } from '@/lib/db/types'
 import { parseCarriedChoices } from '@/lib/questions/carried-choices'
 import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { sortWithinPage } from '@/lib/questions/page-order'
-import { hashQuestion, normalizeForCompare } from '@/lib/questions/shape'
+import {
+  hashQuestion,
+  normalizeChoiceLabel,
+  normalizeForCompare,
+} from '@/lib/questions/shape'
 import { modalChoiceCount, validateQuestion } from '@/lib/questions/validate'
 
 /**
@@ -98,10 +102,13 @@ export async function recoverCarriedChoices(
     const first = sortWithinPage(byPage.get(page.pageNumber) ?? [])[0]
     if (first && fingerprint(first.choices) === fingerprint(carried)) continue
 
+    // Normalised even though the parser only ever produces a single letter, so
+    // that every row reaching this table has been through the same function
+    // rather than relying on each writer to be careful.
     await db.insert(answerChoices).values(
       carried.map((choice) => ({
         questionId: target.id,
-        label: choice.label,
+        label: normalizeChoiceLabel(choice.label),
         text: choice.text,
         isCorrect: false,
       })),
