@@ -131,6 +131,18 @@ export function VerifyClient({
         >
           Back to the worksheet
         </Link>
+
+        {/* Also here, not only beside the cards. Having just checked every
+            question against the paper is the moment a student is best placed
+            to say the reading missed whole ones, and this screen is where
+            they land to find out there were only three. */}
+        <div className="mt-4 border-t border-border pt-4">
+          <ReportButton
+            target={{ kind: 'worksheet', worksheetId }}
+            label="Something is wrong with this whole worksheet"
+            placeholder="Missing questions, wrong pages, numbering off?"
+          />
+        </div>
       </div>
     )
   }
