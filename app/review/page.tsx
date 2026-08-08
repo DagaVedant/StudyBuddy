@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
-import type { Db } from '@/lib/dashboard/queries'
 import { getDueCards } from '@/lib/review/queue'
 
 import ReviewSession from './review-client'
@@ -14,7 +13,7 @@ export default async function ReviewPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-  const queue = await getDueCards(db as unknown as Db, session.user.id, 20)
+  const queue = await getDueCards(db, session.user.id, 20)
 
   if (queue.length === 0) {
     return (

@@ -1,11 +1,10 @@
-import { createHash } from 'node:crypto'
+import { eq } from 'drizzle-orm'
 
-import { asc, eq, inArray } from 'drizzle-orm'
-
-import type { Db } from '@/lib/dashboard/queries'
 import { answerChoices, questions } from '@/lib/db/schema'
+import type { Db } from '@/lib/db/types'
+import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { normalizeMath } from '@/lib/questions/math'
-import { contentHashSource } from '@/lib/questions/shape'
+import { hashQuestion } from '@/lib/questions/shape'
 
 /**
  * Re-normalises stored question text.
@@ -24,41 +23,14 @@ export async function repairUnrenderedMath(
   db: Db,
   worksheetId: string,
 ): Promise<{ repaired: number }> {
-  const rows = await db
-    .select({
-      id: questions.id,
-      promptText: questions.promptText,
-    })
-    .from(questions)
-    .where(eq(questions.worksheetId, worksheetId))
-    .orderBy(asc(questions.ordinal))
+  const rows = await loadQuestionsWithChoices(db, worksheetId)
 
   if (rows.length === 0) return { repaired: 0 }
-
-  const choiceRows = await db
-    .select({
-      id: answerChoices.id,
-      questionId: answerChoices.questionId,
-      label: answerChoices.label,
-      text: answerChoices.text,
-    })
-    .from(answerChoices)
-    .where(
-      inArray(
-        answerChoices.questionId,
-        rows.map((row) => row.id),
-      ),
-    )
-
-  const choicesFor = new Map<string, typeof choiceRows>()
-  for (const choice of choiceRows) {
-    choicesFor.set(choice.questionId, [...(choicesFor.get(choice.questionId) ?? []), choice])
-  }
 
   let repaired = 0
 
   for (const row of rows) {
-    const choices = choicesFor.get(row.id) ?? []
+    const choices = row.choices
     const promptText = normalizeMath(row.promptText)
     const fixedChoices = choices.map((choice) => ({
       ...choice,
@@ -75,14 +47,10 @@ export async function repairUnrenderedMath(
         .where(eq(answerChoices.id, choice.id))
     }
 
-    const contentHash = createHash('sha256')
-      .update(
-        contentHashSource(
-          promptText,
-          fixedChoices.map((choice) => ({ text: choice.fixed })),
-        ),
-      )
-      .digest('hex')
+    const contentHash = hashQuestion(
+      promptText,
+      fixedChoices.map((choice) => ({ text: choice.fixed })),
+    )
 
     await db
       .update(questions)

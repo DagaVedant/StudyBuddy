@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { processingJobs } from '@/lib/db/schema'
 import {
   CLAIM_TTL_MS,

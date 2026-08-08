@@ -1,7 +1,8 @@
 import { and, eq, sql } from 'drizzle-orm'
 
-import type { Db } from '@/lib/dashboard/queries'
+import { unwrapDriverRows } from '@/lib/db/rows'
 import { gpuWorkers, processingJobs } from '@/lib/db/schema'
+import type { Db } from '@/lib/db/types'
 
 export type JobExecutor = 'server' | 'browser' | 'operator_gpu'
 export type JobStage = 'extract' | 'answer_key' | 'classify' | 'explain'
@@ -123,18 +124,16 @@ export async function claimJob(
     returning j.id, j.worksheet_id, j.user_id, j.stage, j.attempt_count, j.checkpoint
   `)
 
-  const rows = (Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows) as
-    | {
-        id: string
-        worksheet_id: string
-        user_id: string
-        stage: JobStage
-        attempt_count: number
-        checkpoint: Record<string, unknown> | null
-      }[]
-    | undefined
+  const rows = unwrapDriverRows<{
+    id: string
+    worksheet_id: string
+    user_id: string
+    stage: JobStage
+    attempt_count: number
+    checkpoint: Record<string, unknown> | null
+  }>(result)
 
-  const row = rows?.[0]
+  const row = rows[0]
   if (!row) return null
 
   return {

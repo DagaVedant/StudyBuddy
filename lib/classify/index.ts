@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, sql } from 'drizzle-orm'
 
 import type { AIProvider, TopicCandidate } from '@/lib/ai/types'
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { questionTopics, questions, topicProposals, topics } from '@/lib/db/schema'
 import { EMBEDDING_DIMENSIONS, embed } from '@/lib/embeddings'
 import { flattenTaxonomy } from '@/lib/taxonomy/trees'

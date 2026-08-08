@@ -91,6 +91,20 @@ export default async function ReviewPage({
     textLines: page.textLines ?? [],
   }))
 
+  // Grouped once. Scanning both flat lists per question was two linear passes
+  // over every choice and every topic row for each of 114 questions.
+  const choicesFor = new Map<string, { label: string; text: string; isCorrect: boolean }[]>()
+  for (const { questionId, label, text, isCorrect } of choiceRows) {
+    const list = choicesFor.get(questionId)
+    if (list) list.push({ label, text, isCorrect })
+    else choicesFor.set(questionId, [{ label, text, isCorrect }])
+  }
+
+  const topicFor = new Map<string, string>()
+  for (const row of topicRows) {
+    if (!topicFor.has(row.questionId)) topicFor.set(row.questionId, row.topicId)
+  }
+
   const initialQuestions: EditableQuestion[] = questionRows.map((question) => ({
     id: question.id,
     pageId: question.pageId,
@@ -100,11 +114,8 @@ export default async function ReviewPage({
     questionType: question.questionType,
     bbox: question.bbox,
     correctAnswer: question.correctAnswer,
-    choices: choiceRows
-      .filter((choice) => choice.questionId === question.id)
-      .map(({ label, text, isCorrect }) => ({ label, text, isCorrect })),
-    topicId:
-      topicRows.find((row) => row.questionId === question.id)?.topicId ?? null,
+    choices: choicesFor.get(question.id) ?? [],
+    topicId: topicFor.get(question.id) ?? null,
   }))
 
   const overCount = worksheet.expectedQuestionCount

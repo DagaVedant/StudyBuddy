@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { isEmbedding, shortlistByVector } from '@/lib/classify'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
@@ -51,7 +50,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const client = db as unknown as Db
   const batch = []
 
   for (const item of parsed.data.items) {
@@ -59,7 +57,7 @@ export async function POST(request: Request, { params }: Params) {
 
     batch.push({
       questionId: item.questionId,
-      candidates: await shortlistByVector(client, item.embedding, worksheet.subjectHint),
+      candidates: await shortlistByVector(db, item.embedding, worksheet.subjectHint),
     })
   }
 

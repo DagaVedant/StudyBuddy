@@ -113,7 +113,7 @@ export default function SettingsClient({
           Trial uploads are processed on hardware we operate. Pages are sent
           there, kept only while the job runs, and never used for training.
           {!workerOnline &&
-            ' That machine is offline right now. Uploads will queue and you will be notified when they finish.'}
+            ' That machine is offline right now. Uploads will queue and start when it comes back.'}
         </p>
       </section>
 

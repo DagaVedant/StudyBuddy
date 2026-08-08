@@ -62,6 +62,30 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'No matching questions' }, { status: 400 })
   }
 
+  // One set of marks per paper. The page behind this route stops offering the
+  // flow once marks exist, but a tab left open since before that still holds a
+  // live form, and a second post would write a second attempt per question and
+  // push every review card forward on answers nobody gave.
+  const [already] = await db
+    .select({ id: attempts.id })
+    .from(attempts)
+    .innerJoin(questions, eq(questions.id, attempts.questionId))
+    .where(
+      and(
+        eq(questions.worksheetId, worksheetId),
+        eq(attempts.userId, guard.userId),
+        eq(attempts.source, 'markup'),
+      ),
+    )
+    .limit(1)
+
+  if (already) {
+    return NextResponse.json(
+      { error: 'This worksheet was already marked', next: '/dashboard' },
+      { status: 409 },
+    )
+  }
+
   const validChoices = await db
     .select({ id: answerChoices.id, questionId: answerChoices.questionId })
     .from(answerChoices)

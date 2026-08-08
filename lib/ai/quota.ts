@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { usageEvents, users } from '@/lib/db/schema'
 
 import { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT } from './limits'

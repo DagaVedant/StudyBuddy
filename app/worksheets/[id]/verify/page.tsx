@@ -1,9 +1,10 @@
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
-import { answerChoices, questions, worksheetPages, worksheets } from '@/lib/db/schema'
+import { worksheets } from '@/lib/db/schema'
+import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { modalChoiceCount, validateQuestion, worthRereading } from '@/lib/questions/validate'
 
 import { VerifyClient, type VerifiableQuestion } from './verify-client'
@@ -26,49 +27,7 @@ export default async function VerifyPage({ params }: Params) {
 
   if (!worksheet) notFound()
 
-  const rows = await db
-    .select({
-      id: questions.id,
-      ordinal: questions.ordinal,
-      printedNumber: questions.printedNumber,
-      promptText: questions.promptText,
-      questionType: questions.questionType,
-      userVerified: questions.userVerified,
-      pageNumber: worksheetPages.pageNumber,
-    })
-    .from(questions)
-    .leftJoin(worksheetPages, eq(worksheetPages.id, questions.pageId))
-    .where(eq(questions.worksheetId, id))
-    .orderBy(asc(questions.ordinal))
-
-  const choiceRows = rows.length
-    ? await db
-        .select({
-          questionId: answerChoices.questionId,
-          label: answerChoices.label,
-          text: answerChoices.text,
-        })
-        .from(answerChoices)
-        .where(
-          inArray(
-            answerChoices.questionId,
-            rows.map((row) => row.id),
-          ),
-        )
-    : []
-
-  const choicesFor = new Map<string, { label: string; text: string }[]>()
-  for (const choice of choiceRows) {
-    choicesFor.set(choice.questionId, [
-      ...(choicesFor.get(choice.questionId) ?? []),
-      { label: choice.label, text: choice.text },
-    ])
-  }
-
-  const shaped = rows.map((row) => ({
-    ...row,
-    choices: choicesFor.get(row.id) ?? [],
-  }))
+  const shaped = await loadQuestionsWithChoices(db, id)
 
   // The paper decides what a complete answer list looks like, so the flags
   // below mean the same thing they do during extraction.

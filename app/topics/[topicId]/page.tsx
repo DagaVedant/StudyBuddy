@@ -15,6 +15,7 @@ import {
   topics,
   worksheets,
 } from '@/lib/db/schema'
+import { reflowText } from '@/lib/questions/reflow'
 import { flattenTaxonomy } from '@/lib/taxonomy/trees'
 
 export const metadata = { title: 'Topic · StudyBuddy' }
@@ -198,7 +199,7 @@ export default async function TopicPage({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="min-w-0 flex-1 whitespace-pre-line text-sm">
-                      {row.promptText}
+                      {reflowText(row.promptText)}
                     </p>
                     <span
                       className={`shrink-0 rounded-full border px-2 py-0.5 text-xs ${

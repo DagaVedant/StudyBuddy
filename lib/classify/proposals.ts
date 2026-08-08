@@ -1,6 +1,6 @@
 import { eq, inArray } from 'drizzle-orm'
 
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { questionTopics, topicProposals, topics } from '@/lib/db/schema'
 
 export type AcceptOutcome =

@@ -2,13 +2,11 @@ import { eq } from 'drizzle-orm'
 
 import { resolveProvider, type ResolvedProvider } from '@/lib/ai/resolve'
 import { classifyWorksheet } from '@/lib/classify'
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, completeJob, failJob } from '@/lib/queue'
-import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
-import { repairPrintedNumbers } from '@/lib/worker/repair-numbers'
-import { renumberQuestions } from '@/lib/worker/renumber'
 import { runExtraction } from '@/lib/worker/ingest'
+import { runRepairPasses } from '@/lib/worker/pipeline'
 
 type Resolver = (db: Db, userId: string) => Promise<ResolvedProvider>
 
@@ -81,10 +79,13 @@ async function runOneServerJob(
   try {
     await runExtraction(db, provider, job)
 
-    // Same repair the GPU path gets when it enters its verifying phase.
-    await mergeDuplicateQuestions(db, job.worksheetId)
-    await repairPrintedNumbers(db, job.worksheetId)
-    await renumberQuestions(db, job.worksheetId)
+    // The same passes the GPU path runs, in the same order. Tier B used to
+    // list three of them by hand and was missing the split join and the
+    // carried-options recovery, so a question the page break cut in two stayed
+    // cut in two for anyone processing with their own cloud key. There is only
+    // one run here rather than the GPU path's two, because there is no review
+    // re-read in between to produce a second crop of splits.
+    await runRepairPasses(db, job.worksheetId)
 
     const [worksheet] = await db
       .select({ subjectHint: worksheets.subjectHint })

@@ -4,7 +4,6 @@ import { auth } from '@/auth'
 import { getTrialState } from '@/lib/ai/quota'
 import { appBaseUrl } from '@/lib/app-url'
 import { getCredentialSummary } from '@/lib/ai/resolve'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { workerStatus } from '@/lib/queue'
 
@@ -16,12 +15,11 @@ export default async function SettingsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-  const client = db as unknown as Db
 
   const [credentials, trial, worker] = await Promise.all([
-    getCredentialSummary(client, session.user.id),
-    getTrialState(client, session.user.id),
-    workerStatus(client),
+    getCredentialSummary(db, session.user.id),
+    getTrialState(db, session.user.id),
+    workerStatus(db),
   ])
 
   return (

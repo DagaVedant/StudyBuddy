@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { userAiCredentials, users } from '@/lib/db/schema'
 
 import { AnthropicProvider } from './anthropic'

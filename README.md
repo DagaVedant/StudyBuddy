@@ -24,7 +24,7 @@ npm run db:embed
 npm run dev
 ```
 
-`db:migrate` creates 19 tables and enables pgvector. `db:seed` loads 290 topics
+`db:migrate` creates 20 tables and enables pgvector. `db:seed` loads 341 topics
 (233 classifiable leaves). `db:embed` fills in topic embeddings, which
 auto-classification needs to build its candidate shortlist.
 
@@ -70,7 +70,7 @@ constraint of the design, not a bug.
 |---|---|
 | `npm run dev` | Development server |
 | `npm run check` | Typecheck + lint + tests |
-| `npm test` | 111 tests (Vitest, embedded Postgres via PGlite) |
+| `npm test` | 415 tests (Vitest, embedded Postgres via PGlite) |
 | `npm run worker` | Operator GPU pull-worker |
 | `npm run benchmark:ollama` | Benchmark the local vision model |
 | `npm run db:studio` | Browse the database |

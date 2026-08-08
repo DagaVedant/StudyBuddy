@@ -1,11 +1,9 @@
-import { createHash } from 'node:crypto'
-
 import { asc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
-import { contentHashSource, questionInputSchema } from '@/lib/questions/shape'
+import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'
 import { guardWorksheet } from '@/lib/upload/guard'
 
 type Params = { params: Promise<{ id: string }> }
@@ -36,15 +34,28 @@ export async function GET(_request: Request, { params }: Params) {
     .innerJoin(questions, eq(questionTopics.questionId, questions.id))
     .where(eq(questions.worksheetId, worksheetId))
 
+  // Grouped once rather than scanned per question: on a 114-question paper the
+  // filter-and-find pair was two linear passes over every choice and every
+  // topic row, for every row rendered.
+  const choicesFor = new Map<string, (typeof choices)[number]['answer_choices'][]>()
+  for (const row of choices) {
+    const list = choicesFor.get(row.answer_choices.questionId)
+    if (list) list.push(row.answer_choices)
+    else choicesFor.set(row.answer_choices.questionId, [row.answer_choices])
+  }
+
+  const topicFor = new Map<string, string>()
+  for (const row of topics) {
+    if (!topicFor.has(row.question_topics.questionId)) {
+      topicFor.set(row.question_topics.questionId, row.question_topics.topicId)
+    }
+  }
+
   return NextResponse.json({
     questions: rows.map((question) => ({
       ...question,
-      choices: choices
-        .filter((row) => row.answer_choices.questionId === question.id)
-        .map((row) => row.answer_choices),
-      topicId:
-        topics.find((row) => row.question_topics.questionId === question.id)
-          ?.question_topics.topicId ?? null,
+      choices: choicesFor.get(question.id) ?? [],
+      topicId: topicFor.get(question.id) ?? null,
     })),
   })
 }
@@ -67,9 +78,7 @@ export async function POST(request: Request, { params }: Params) {
 
   const input = parsed.data
 
-  const contentHash = createHash('sha256')
-    .update(contentHashSource(input.promptText, input.choices))
-    .digest('hex')
+  const contentHash = hashQuestion(input.promptText, input.choices)
 
   const questionId = await db.transaction(async (tx) => {
     const [row] = await tx

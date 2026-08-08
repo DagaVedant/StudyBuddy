@@ -4,7 +4,6 @@ import { z } from 'zod'
 
 import { refundTrial } from '@/lib/ai/quota'
 import { extractedQuestionSchema } from '@/lib/ai/types'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import {
   explanations,
@@ -15,12 +14,8 @@ import {
 } from '@/lib/db/schema'
 import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
-import { recoverCarriedChoices } from '@/lib/worker/carried-choices'
-import { mergeDuplicateQuestions } from '@/lib/worker/dedupe'
-import { joinSplitQuestions } from '@/lib/worker/join-splits'
-import { repairPrintedNumbers } from '@/lib/worker/repair-numbers'
-import { renumberQuestions } from '@/lib/worker/renumber'
 import { persistQuestions } from '@/lib/worker/ingest'
+import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
 import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
 
 type Params = { params: Promise<{ jobId: string }> }
@@ -73,7 +68,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const client = db as unknown as Db
 
   const [job] = await db
     .select()
@@ -88,7 +82,7 @@ export async function POST(request: Request, { params }: Params) {
   const body = parsed.data
 
   if (body.action === 'fail') {
-    const { permanent } = await failJob(client, jobId, body.message)
+    const { permanent } = await failJob(db, jobId, body.message)
 
     if (permanent) {
       const [worksheet] = await db
@@ -98,7 +92,7 @@ export async function POST(request: Request, { params }: Params) {
         .limit(1)
 
       if (worksheet?.tierUsed === 'trial') {
-        await refundTrial(client, job.userId, 'worksheets', 1)
+        await refundTrial(db, job.userId, 'worksheets', 1)
       }
 
       await db
@@ -111,69 +105,23 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   if (body.action === 'phase') {
-    // Done before the audit reads the numbering, so it audits a repaired run
-    // rather than chasing a gap a phantom row created.
-    if (body.phase === 'verifying') {
-      // First, so that a question the page break cut in two is whole before
-      // anything else counts it. It also spares the review pass a re-read:
-      // both halves fail the cheap checks, and a page re-read is the most
-      // expensive thing this job can decide to do.
-      const { joined } = await joinSplitQuestions(client, job.worksheetId)
-      if (joined > 0) {
-        console.log(`[split] rejoined ${joined} question(s) on ${job.worksheetId}`)
-      }
-
-      // After the join, so a question made whole from two rows is not offered
-      // the same options a second time off the page text.
-      const { recovered } = await recoverCarriedChoices(client, job.worksheetId)
-      if (recovered > 0) {
-        console.log(`[carried] recovered options for ${recovered} question(s) on ${job.worksheetId}`)
-      }
-
-      const { merged } = await mergeDuplicateQuestions(client, job.worksheetId)
-      if (merged > 0) {
-        console.log(`[dedupe] folded ${merged} duplicate question(s) on ${job.worksheetId}`)
-      }
-
-    }
-
-    // Numbered at the end of verifying rather than the start: the audit and
-    // the review pass both still add and replace rows after the merge, and
-    // anything they write takes the next free ordinal, which put a re-read
-    // question at 135 on a 114 question paper.
-    if (body.phase === 'classifying') {
-      // Again, and this is the run that matters. A split only becomes visible
-      // once both halves are stored, and on the AMC8 paper neither half
-      // existed at the end of verifying: the stem and the orphaned options
-      // were both recovered by the audit re-read, which runs after it. The
-      // verifying call above catches the splits the first pass produced; this
-      // one catches the splits the re-reads produced. Joining twice is safe,
-      // because the second run finds nothing left to join.
-      const { joined } = await joinSplitQuestions(client, job.worksheetId)
-      if (joined > 0) {
-        console.log(`[split] rejoined ${joined} question(s) on ${job.worksheetId}`)
-      }
-
-      const { recovered } = await recoverCarriedChoices(client, job.worksheetId)
-      if (recovered > 0) {
-        console.log(`[carried] recovered options for ${recovered} question(s) on ${job.worksheetId}`)
-      }
-
-      // Before renumbering, because a recovered printed number changes where
-      // its question belongs in the order.
-      const { repaired } = await repairPrintedNumbers(client, job.worksheetId)
-      if (repaired > 0) {
-        console.log(`[numbers] recovered ${repaired} printed number(s) on ${job.worksheetId}`)
-      }
-
-      const { renumbered } = await renumberQuestions(client, job.worksheetId)
-      if (renumbered > 0) {
-        console.log(`[renumber] reordered ${renumbered} question(s) on ${job.worksheetId}`)
-      }
-    }
+    // Repaired before the audit reads the numbering, so it audits a repaired
+    // run rather than chasing a gap a phantom row created.
+    //
+    // Both phases run the same passes in the same order — see
+    // lib/worker/pipeline.ts — and the set only widens. Verifying holds the
+    // numbering back because the audit and the review pass are still writing
+    // rows after it. Classifying is the run that matters: a split only becomes
+    // visible once both halves are stored, and on the AMC8 paper neither half
+    // existed at the end of verifying — the stem and the orphaned options were
+    // both recovered by the audit re-read, which runs after it. Repeating the
+    // passes is safe; the second run finds nothing left to do.
+    await runRepairPasses(db, job.worksheetId, {
+      only: body.phase === 'classifying' ? FINAL_PASSES : VERIFYING_PASSES,
+    })
 
     await checkpointJob(
-      client,
+      db,
       jobId,
       body.phase === 'classifying' ? CLASSIFYING_AT : VERIFYING_AT,
       // Carried through untouched: a phase change moves the bar, it does not
@@ -239,7 +187,7 @@ export async function POST(request: Request, { params }: Params) {
     )
     const replacements = body.questions.filter((question) => wanted.has(question.ordinal))
 
-    const restored = await persistQuestions(client, job, target.id, replacements)
+    const restored = await persistQuestions(db, job, target.id, replacements)
 
     return NextResponse.json({
       ok: true,
@@ -275,7 +223,7 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   if (body.action === 'complete') {
-    await completeJob(client, jobId)
+    await completeJob(db, jobId)
     await db
       .update(worksheets)
       .set({ status: 'awaiting_review' })
@@ -295,7 +243,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Page does not belong to this job' }, { status: 400 })
   }
 
-  const created = await persistQuestions(client, job, page.id, body.questions)
+  const created = await persistQuestions(db, job, page.id, body.questions)
 
   // Recorded as a set rather than a high-water mark. With more than one page
   // in flight they finish out of order, so "everything up to N is done" would
@@ -304,7 +252,7 @@ export async function POST(request: Request, { params }: Params) {
   const donePages = [...new Set([...previous, body.pageNumber])].sort((a, b) => a - b)
 
   await checkpointJob(
-    client,
+    db,
     jobId,
     readingProgress(donePages.length, body.totalPages),
     // lastPageNumber stays for a job enqueued before this shipped, whose

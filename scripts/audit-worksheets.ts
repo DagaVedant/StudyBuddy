@@ -6,13 +6,8 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
 import { looksUnrendered } from '../lib/questions/math'
-import type { Db } from '../lib/dashboard/queries'
-import { recoverCarriedChoices } from '../lib/worker/carried-choices'
-import { mergeDuplicateQuestions } from '../lib/worker/dedupe'
-import { joinSplitQuestions } from '../lib/worker/join-splits'
-import { repairUnrenderedMath } from '../lib/worker/repair-math'
-import { repairPrintedNumbers } from '../lib/worker/repair-numbers'
-import { renumberQuestions } from '../lib/worker/renumber'
+import type { Db } from '../lib/db/types'
+import { runRepairPasses } from '../lib/worker/pipeline'
 
 /**
  * Checks recently extracted worksheets for everything known to go wrong.
@@ -150,20 +145,15 @@ async function main() {
     console.log(`  COUNT SHOWN      ${rows.length}${expected ? ` (paper has ${expected})` : ''}`)
 
     if (FIX) {
-      // Joined first, for the same reason the job does it first: a question
-      // split over a page break is two rows until it is one, and the number
-      // repair and the renumber both work off the count.
-      const { joined } = await joinSplitQuestions(orm, String(sheet.id))
-      const { recovered } = await recoverCarriedChoices(orm, String(sheet.id))
-      const { repaired } = await repairPrintedNumbers(orm, String(sheet.id))
-      const { merged } = await mergeDuplicateQuestions(orm, String(sheet.id))
-      const { renumbered } = await renumberQuestions(orm, String(sheet.id))
-      // Last, because it hashes the text each earlier stage might have moved.
-      const { repaired: rendered } = await repairUnrenderedMath(orm, String(sheet.id))
+      // Exactly what the job runs, because it is the job's function. This
+      // script used to keep its own copy of the pass list in its own order,
+      // which meant it repaired worksheets into a state no production path
+      // would ever produce.
+      const fixed = await runRepairPasses(orm, String(sheet.id), { log: null })
       console.log(
-        `  FIXED            rejoined ${joined} split(s), recovered options for ${recovered}, ` +
-          `recovered ${repaired} number(s), merged ${merged} duplicate(s), ` +
-          `renumbered ${renumbered} row(s), re-rendered maths in ${rendered} row(s)`,
+        `  FIXED            rejoined ${fixed.joined} split(s), recovered options for ${fixed.recovered}, ` +
+          `re-rendered maths in ${fixed.rendered} row(s), recovered ${fixed.repaired} number(s), ` +
+          `merged ${fixed.merged} duplicate(s), renumbered ${fixed.renumbered} row(s)`,
       )
     }
   }

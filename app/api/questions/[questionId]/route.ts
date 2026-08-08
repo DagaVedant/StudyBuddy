@@ -1,12 +1,10 @@
-import { createHash } from 'node:crypto'
-
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
-import { contentHashSource, questionInputSchema } from '@/lib/questions/shape'
+import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'
 
 type Params = { params: Promise<{ questionId: string }> }
 
@@ -72,9 +70,7 @@ export async function PATCH(request: Request, { params }: Params) {
         )[0]?.promptText ??
         ''
 
-      patch.contentHash = createHash('sha256')
-        .update(contentHashSource(promptText, choices))
-        .digest('hex')
+      patch.contentHash = hashQuestion(promptText, choices)
     }
 
     if (Object.keys(patch).length > 0) {

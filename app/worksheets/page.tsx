@@ -17,7 +17,11 @@ const WHEN = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
 })
 
-function destination(id: string, status: string): { href: string; cta: string } {
+function destination(
+  id: string,
+  status: string,
+  marked: boolean,
+): { href: string; cta: string } {
   switch (status) {
     case 'uploading':
     case 'queued':
@@ -28,7 +32,11 @@ function destination(id: string, status: string): { href: string; cta: string } 
     case 'failed':
       return { href: `/worksheets/${id}/status`, cta: 'See what happened' }
     default:
-      return { href: `/worksheets/${id}/markup`, cta: 'Mark answers' }
+      // Marking happens once per paper, so a marked worksheet stops offering
+      // it and points at what comes next instead.
+      return marked
+        ? { href: '/review', cta: 'Practice' }
+        : { href: `/worksheets/${id}/markup`, cta: 'Mark answers' }
   }
 }
 
@@ -87,6 +95,7 @@ export default async function WorksheetsPage() {
       uncheckedCount: sql<number>`(count(distinct ${questions.id}) filter (
         where ${questions.userVerified} = false and ${IS_QUESTION}))::int`,
       missedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.outcome} = 'wrong')::int`,
+      markedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.source} = 'markup')::int`,
       firstPageKey: sql<string | null>`min(${worksheetPages.imageKey})`,
     })
     .from(worksheets)
@@ -125,7 +134,11 @@ export default async function WorksheetsPage() {
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((sheet) => {
-            const { href, cta } = destination(sheet.id, sheet.status)
+            const { href, cta } = destination(
+              sheet.id,
+              sheet.status,
+              sheet.markedCount > 0,
+            )
 
             return (
               <li

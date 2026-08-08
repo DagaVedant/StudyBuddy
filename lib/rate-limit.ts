@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 
-import type { Db } from '@/lib/dashboard/queries'
+import { unwrapDriverRows } from '@/lib/db/rows'
+import type { Db } from '@/lib/db/types'
 
 export interface LimitDecision {
   ok: boolean
@@ -115,10 +116,7 @@ async function runCounter(
 }
 
 function decide(rows: unknown, rule: LimitRule, now: Date): LimitDecision {
-  const row = (rows as unknown as { rows?: unknown[] }).rows ?? (rows as unknown as unknown[])
-  const first = (Array.isArray(row) ? row[0] : undefined) as
-    | { count: number | string; window_start: string | Date }
-    | undefined
+  const first = unwrapDriverRows<{ count: number | string; window_start: string | Date }>(rows)[0]
 
   // No row back means the statement did not behave as expected. Allowing the
   // request is the right call: a broken limiter must not lock everyone out.
@@ -139,16 +137,7 @@ function decide(rows: unknown, rule: LimitRule, now: Date): LimitDecision {
   return { ok: true, remaining: Math.max(0, rule.limit - count), retryAfter: 0 }
 }
 
-/**
- * Best-effort caller IP.
- *
- * Behind Vercel the left-most x-forwarded-for entry is the client. Falls back
- * to a constant so a missing header degrades to one shared bucket rather than
- * to no limit at all — noisy for the rare visitor with no header, but the
- * alternative is a header that trivially disables the limiter.
- */
-export function callerIp(headers: Headers): string {
-  const forwarded = headers.get('x-forwarded-for')
-  const first = forwarded?.split(',')[0]?.trim()
-  return first || headers.get('x-real-ip')?.trim() || 'unknown'
-}
+// Re-exported so the rate-limit call sites keep reading as one import. The
+// header parsing itself lives in lib/http/client-ip.ts, shared with the worker
+// auth, which used to keep its own copy.
+export { callerIp } from '@/lib/http/client-ip'

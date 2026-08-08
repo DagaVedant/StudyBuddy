@@ -8,7 +8,7 @@ import {
   getTrialState,
   refundTrial,
 } from '@/lib/ai/quota'
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { usageEvents, users } from '@/lib/db/schema'
 
 import { createTestDb, type TestDb } from '../helpers/db'

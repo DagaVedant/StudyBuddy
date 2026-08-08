@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { z } from 'zod'
 
 export const bboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()])
@@ -50,4 +52,17 @@ export function contentHashSource(promptText: string, choices: { text: string }[
   ]
     .filter(Boolean)
     .join('|')
+}
+
+/**
+ * The dedupe identity for a question, everywhere.
+ *
+ * Six places used to spell this out — ingest, the split join, the carried
+ * options recovery, the maths repair, and both question write routes — and a
+ * disagreement between any two of them means a question stops matching itself
+ * and the next pass stores a second copy. That has happened twice. There is
+ * exactly one way to compute it now.
+ */
+export function hashQuestion(promptText: string, choices: { text: string }[]): string {
+  return createHash('sha256').update(contentHashSource(promptText, choices)).digest('hex')
 }

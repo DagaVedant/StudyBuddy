@@ -1,8 +1,9 @@
-import { eq, inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
-import type { Db } from '@/lib/dashboard/queries'
-import { answerChoices, questions } from '@/lib/db/schema'
+import { questions } from '@/lib/db/schema'
+import type { Db } from '@/lib/db/types'
 import { planDuplicateMerges, planNumberDuplicateMerges } from '@/lib/questions/duplicates'
+import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { modalChoiceCount } from '@/lib/questions/validate'
 
 /**
@@ -21,44 +22,15 @@ export async function mergeDuplicateQuestions(
   db: Db,
   worksheetId: string,
 ): Promise<{ merged: number }> {
-  const rows = await db
-    .select({
-      id: questions.id,
-      printedNumber: questions.printedNumber,
-      promptText: questions.promptText,
-    })
-    .from(questions)
-    .where(eq(questions.worksheetId, worksheetId))
+  const rows = await loadQuestionsWithChoices(db, worksheetId)
 
   if (rows.length < 2) return { merged: 0 }
-
-  const choiceRows = await db
-    .select({
-      questionId: answerChoices.questionId,
-      label: answerChoices.label,
-      text: answerChoices.text,
-    })
-    .from(answerChoices)
-    .where(
-      inArray(
-        answerChoices.questionId,
-        rows.map((row) => row.id),
-      ),
-    )
-
-  const byQuestion = new Map<string, { label: string; text: string }[]>()
-  for (const choice of choiceRows) {
-    byQuestion.set(choice.questionId, [
-      ...(byQuestion.get(choice.questionId) ?? []),
-      { label: choice.label, text: choice.text },
-    ])
-  }
 
   const candidates = rows.map((row) => ({
     id: row.id,
     printedNumber: row.printedNumber,
     promptText: row.promptText,
-    choices: byQuestion.get(row.id) ?? [],
+    choices: row.choices,
   }))
 
   const expectedChoices =

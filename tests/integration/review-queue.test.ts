@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { explanations, reviewCards } from '@/lib/db/schema'
 import { scheduleFromOutcome } from '@/lib/review/fsrs'
 import { getDueCards } from '@/lib/review/queue'

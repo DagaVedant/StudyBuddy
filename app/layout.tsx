@@ -15,10 +15,13 @@ const geistSans = Geist({
   subsets: ['latin'],
 })
 
+// One weight, because one weight is painted: the hero wordmark, at 800. This
+// is declared in the root layout, so next/font preloads every weight listed
+// here on every route — three files were being fetched to use one.
 const archivo = Archivo({
   variable: '--font-archivo',
   subsets: ['latin'],
-  weight: ['700', '800', '900'],
+  weight: ['800'],
 })
 
 export const metadata: Metadata = {

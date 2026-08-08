@@ -6,7 +6,6 @@ import { consumeTrial } from '@/lib/ai/quota'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { ProviderRefused, ProviderUnavailable } from '@/lib/ai/types'
 import { auth } from '@/auth'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { answerChoices, attempts, explanations, questions } from '@/lib/db/schema'
 import { enqueueJob, pendingExplainJob } from '@/lib/queue'
@@ -55,7 +54,7 @@ export async function GET(request: Request) {
   }
 
   const pending = await pendingExplainJob(
-    db as unknown as Db,
+    db,
     session.user.id,
     question.id,
   )
@@ -77,12 +76,11 @@ export async function POST(request: Request) {
   }
 
   const userId = session.user.id
-  const client = db as unknown as Db
 
   // Every one of these is a model call. The trial quota already caps trial
   // accounts; this caps the ones paying with someone else's key or the
   // operator's GPU, which nothing else was bounding.
-  const allowance = await consumeRateLimit(client, EXPLAIN_LIMIT, `user:${userId}`)
+  const allowance = await consumeRateLimit(db, EXPLAIN_LIMIT, `user:${userId}`)
   if (!allowance.ok) {
     return NextResponse.json(
       { error: 'You have asked for a lot of explanations. Try again shortly.' },
@@ -133,10 +131,10 @@ export async function POST(request: Request) {
     lastAttempt?.freeTextAnswer ??
     null
 
-  const { provider, tier, executor } = await resolveProvider(client, userId)
+  const { provider, tier, executor } = await resolveProvider(db, userId)
 
   if (tier === 'trial' && session.user.role !== 'admin') {
-    const charge = await consumeTrial(client, userId, 'explanations', 1)
+    const charge = await consumeTrial(db, userId, 'explanations', 1)
     if (!charge.ok) {
       return NextResponse.json({ error: charge.reason }, { status: 402 })
     }
@@ -150,11 +148,11 @@ export async function POST(request: Request) {
   // refuses, and the student was told no AI was set up for their account,
   // which was never true.
   if (executor === 'operator_gpu' && provider.name === 'null') {
-    const existing = await pendingExplainJob(client, userId, question.id)
+    const existing = await pendingExplainJob(db, userId, question.id)
 
     const jobId =
       existing ??
-      (await enqueueJob(client, {
+      (await enqueueJob(db, {
         worksheetId: question.worksheetId,
         userId,
         stage: 'explain',

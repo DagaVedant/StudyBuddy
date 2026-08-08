@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import type { Db } from '@/lib/dashboard/queries'
+import type { Db } from '@/lib/db/types'
 import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import { joinSplitQuestions } from '@/lib/worker/join-splits'
 

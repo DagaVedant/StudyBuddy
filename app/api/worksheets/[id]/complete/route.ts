@@ -3,7 +3,6 @@ import { after, NextResponse } from 'next/server'
 
 import { consumeTrial } from '@/lib/ai/quota'
 import { resolveProvider } from '@/lib/ai/resolve'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { enqueueJob, workerStatus } from '@/lib/queue'
@@ -20,9 +19,8 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
   }
 
-  const client = db as unknown as Db
 
-  const { tier, executor } = await resolveProvider(client, guard.userId)
+  const { tier, executor } = await resolveProvider(db, guard.userId)
 
   if (executor === 'none') {
     await db
@@ -43,7 +41,7 @@ export async function POST(_request: Request, { params }: Params) {
     const charge =
       guard.role === 'admin'
         ? ({ ok: true, remaining: Number.POSITIVE_INFINITY } as const)
-        : await consumeTrial(client, guard.userId, 'worksheets', 1)
+        : await consumeTrial(db, guard.userId, 'worksheets', 1)
 
     if (!charge.ok) {
 
@@ -66,7 +64,7 @@ export async function POST(_request: Request, { params }: Params) {
       .set({ status: 'queued', tierUsed: 'trial' })
       .where(eq(worksheets.id, worksheetId))
 
-    await enqueueJob(client, {
+    await enqueueJob(db, {
       worksheetId,
       userId: guard.userId,
       stage: 'extract',
@@ -75,7 +73,7 @@ export async function POST(_request: Request, { params }: Params) {
       priority: guard.role === 'admin' ? 'low' : 'normal',
     })
 
-    const worker = await workerStatus(client)
+    const worker = await workerStatus(db)
 
     return NextResponse.json({
       ok: true,
@@ -94,7 +92,7 @@ export async function POST(_request: Request, { params }: Params) {
     .set({ status: 'queued', tierUsed: tier })
     .where(eq(worksheets.id, worksheetId))
 
-  await enqueueJob(client, {
+  await enqueueJob(db, {
     worksheetId,
     userId: guard.userId,
     stage: 'extract',
@@ -105,7 +103,7 @@ export async function POST(_request: Request, { params }: Params) {
   // Runs once this response has gone out. There is no separate worker process
   // for Tier B to poll from — the extraction runs against the student's own
   // key, reachable directly from here — so this request is what starts it.
-  after(() => drainServerQueue(client))
+  after(() => drainServerQueue(db))
 
   return NextResponse.json({
     ok: true,

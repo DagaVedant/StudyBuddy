@@ -4,7 +4,6 @@ import { z } from 'zod'
 import { auth } from '@/auth'
 import { isAllowedOllamaUrl, sealApiKey } from '@/lib/ai/crypto'
 import { CLOUD_PROVIDERS, deleteCredential, getCredentialSummary } from '@/lib/ai/resolve'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { userAiCredentials } from '@/lib/db/schema'
 
@@ -30,7 +29,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    credentials: await getCredentialSummary(db as unknown as Db, session.user.id),
+    credentials: await getCredentialSummary(db, session.user.id),
   })
 }
 
@@ -130,7 +129,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
 
-  await deleteCredential(db as unknown as Db, session.user.id, deletable.data)
+  await deleteCredential(db, session.user.id, deletable.data)
 
   return NextResponse.json({ ok: true })
 }

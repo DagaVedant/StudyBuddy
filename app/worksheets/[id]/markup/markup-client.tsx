@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { reflowText } from '@/lib/questions/reflow'
+
 export interface MarkableQuestion {
   id: string
   ordinal: number
@@ -94,6 +96,12 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         body: JSON.stringify({ marks }),
       })
       const body = (await response.json()) as { next?: string; error?: string }
+      // Already marked: the marks this form would write are the ones already
+      // stored, so there is nothing to retry and nothing to warn about.
+      if (response.status === 409) {
+        router.push(body.next ?? '/dashboard')
+        return
+      }
       if (!response.ok) throw new Error(body.error ?? 'Could not save')
       router.push(body.next ?? '/dashboard')
     } catch (cause) {
@@ -128,7 +136,9 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
             >
               <p className="text-sm">
                 <span className="tabular-nums text-muted">{question.ordinal}. </span>
-                <span className="whitespace-pre-line">{question.promptText}</span>
+                <span className="whitespace-pre-line">
+                  {reflowText(question.promptText)}
+                </span>
               </p>
 
               {question.choices.length > 0 ? (
@@ -268,7 +278,9 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
               Question <span className="tabular-nums">{currentQuestion.ordinal}</span> of{' '}
               <span className="tabular-nums">{questions.length}</span>
             </p>
-            <p className="mt-2 whitespace-pre-line">{currentQuestion.promptText}</p>
+            <p className="mt-2 whitespace-pre-line">
+              {reflowText(currentQuestion.promptText)}
+            </p>
 
             <fieldset className="mt-4">
               <legend className="sr-only">

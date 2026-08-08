@@ -1,10 +1,10 @@
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
-import { answerChoices, questions, worksheets } from '@/lib/db/schema'
+import { answerChoices, attempts, questions, worksheets } from '@/lib/db/schema'
 
 import MarkupClient, { type MarkableQuestion } from './markup-client'
 
@@ -27,6 +27,47 @@ export default async function MarkupPage({
     .limit(1)
 
   if (!worksheet || worksheet.userId !== session.user.id) notFound()
+
+  // Marking a worksheet is a one-time thing: you sat the paper once, so there
+  // is one set of outcomes to record. Coming back here — from a bookmark, the
+  // back button, a stale tab — used to offer the whole flow again and write a
+  // second attempt per question, which moves the review schedule on answers
+  // the student never actually gave. Every link into this page is dropped once
+  // the marks exist; this is the guard behind them.
+  const [marked] = await db
+    .select({ id: attempts.id })
+    .from(attempts)
+    .innerJoin(questions, eq(questions.id, attempts.questionId))
+    .where(
+      and(
+        eq(questions.worksheetId, id),
+        eq(attempts.userId, session.user.id),
+        eq(attempts.source, 'markup'),
+      ),
+    )
+    .limit(1)
+
+  if (marked) {
+    return (
+      <main className="mx-auto w-full max-w-2xl px-6 py-10">
+        <h1 className="text-balance text-2xl font-semibold tracking-tight">
+          Already Marked
+        </h1>
+        <p className="hint text-pretty">
+          You marked {worksheet.title} once, and that is all it needs. The ones
+          you missed are in your practice queue now.
+        </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Link href="/review" className="btn btn-primary sm:w-auto sm:px-6">
+            Practice
+          </Link>
+          <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
+            Dashboard
+          </Link>
+        </div>
+      </main>
+    )
+  }
 
   const questionRows = await db
     .select({

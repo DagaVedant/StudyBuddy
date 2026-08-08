@@ -8,7 +8,6 @@ import { headers } from 'next/headers'
 import { AuthError } from 'next-auth'
 
 import { auth, signIn } from '@/auth'
-import type { Db } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { SIGNUP_LIMIT, callerIp, consumeRateLimit } from '@/lib/rate-limit'
@@ -44,7 +43,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   // runs at all, and parsing first would let a flood of junk through to the
   // database lookups below.
   const ip = callerIp(await headers())
-  const attempt = await consumeRateLimit(db as unknown as Db, SIGNUP_LIMIT, `ip:${ip}`)
+  const attempt = await consumeRateLimit(db, SIGNUP_LIMIT, `ip:${ip}`)
 
   if (!attempt.ok) {
     return {
