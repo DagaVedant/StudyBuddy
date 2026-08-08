@@ -91,7 +91,3 @@ export const storage: StorageDriver = process.env.BLOB_READ_WRITE_TOKEN
 export function pageImageKey(worksheetId: string, pageNumber: number): string {
   return `pages/${worksheetId}/${String(pageNumber).padStart(3, '0')}.webp`
 }
-
-export function figureImageKey(worksheetId: string, questionId: string): string {
-  return `figures/${worksheetId}/${questionId}.webp`
-}

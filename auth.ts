@@ -10,11 +10,9 @@ import { db } from '@/lib/db'
 import { accounts, sessions, users, verificationTokens } from '@/lib/db/schema'
 
 type Role = 'student' | 'admin'
-type AiTier = 'trial' | 'free' | 'cloud' | 'ollama'
 
 interface UserClaims {
   role: Role
-  aiTier: AiTier
   hasDob: boolean
 }
 
@@ -30,7 +28,6 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
       email: users.email,
       emailVerified: users.emailVerified,
       role: users.role,
-      aiTier: users.aiTier,
       dob: users.dob,
     })
     .from(users)
@@ -38,7 +35,7 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
     .limit(1)
 
   if (!row) {
-    return { role: 'student', aiTier: 'trial', hasDob: false }
+    return { role: 'student', hasDob: false }
   }
 
   const shouldBeAdmin = Boolean(row.emailVerified) && isAdminEmail(row.email)
@@ -50,7 +47,6 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
 
   return {
     role: desiredRole,
-    aiTier: row.aiTier as AiTier,
     hasDob: row.dob !== null,
   }
 }
@@ -141,7 +137,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id && shouldRefresh) {
         const claims = await syncUserClaims(token.id)
         token.role = claims.role
-        token.aiTier = claims.aiTier
         token.hasDob = claims.hasDob
       }
 
@@ -151,7 +146,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (token.id) session.user.id = token.id
       session.user.role = token.role ?? 'student'
-      session.user.aiTier = token.aiTier ?? 'trial'
       session.user.hasDob = token.hasDob ?? false
       return session
     },

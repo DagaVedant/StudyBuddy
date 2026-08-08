@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import ReportButton from '@/components/report-button'
 import { reflowText } from '@/lib/questions/reflow'
 
 export interface VerifiableQuestion {
@@ -15,6 +16,18 @@ export interface VerifiableQuestion {
   userVerified: boolean
   /** Why the checks doubted this one. Empty when nothing was flagged. */
   concerns: string[]
+  /**
+   * The same question, already in the library from another worksheet, or null.
+   * Shown rather than acted on: spec §6.3 offers a merge here and never makes
+   * one silently, because a wrong guess costs the student a question they
+   * never see again.
+   */
+  duplicateOf: {
+    worksheetId: string
+    worksheetTitle: string
+    /** Content hashes agree, so the two read identically. */
+    exact: boolean
+  } | null
 }
 
 export function VerifyClient({
@@ -194,6 +207,26 @@ export function VerifyClient({
             </ul>
           </div>
         )}
+
+        {question.duplicateOf && (
+          <div className="rounded-xl border border-border px-3 py-2 text-sm">
+            <p className="font-medium">
+              {question.duplicateOf.exact
+                ? 'You already have this question'
+                : 'This looks like one you already have'}
+            </p>
+            <p className="mt-1 text-muted">
+              From{' '}
+              <Link
+                href={`/worksheets/${question.duplicateOf.worksheetId}`}
+                className="underline underline-offset-2 hover:text-fg"
+              >
+                {question.duplicateOf.worksheetTitle}
+              </Link>
+              . Keeping both means reviewing it twice; that is fine if you meant to.
+            </p>
+          </div>
+        )}
       </article>
 
       <div className="flex flex-wrap gap-2">
@@ -230,6 +263,17 @@ export function VerifyClient({
       >
         Accept the remaining {remaining} as they are
       </button>
+
+      {/* Here rather than on the worksheet page: this is where a student is
+          holding the paper next to what we read off it, and so the only place
+          they can tell that whole questions are missing. */}
+      <div className="border-t border-border pt-4">
+        <ReportButton
+          target={{ kind: 'worksheet', worksheetId }}
+          label="Something is wrong with this whole worksheet"
+          placeholder="Missing questions, wrong pages, numbering off?"
+        />
+      </div>
     </div>
   )
 }

@@ -40,20 +40,3 @@ export async function embed(text: string): Promise<number[]> {
 
   return Array.from(output.data as Float32Array)
 }
-
-export function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) return 0
-
-  let dot = 0
-  let magA = 0
-  let magB = 0
-
-  for (let i = 0; i < a.length; i += 1) {
-    dot += a[i] * b[i]
-    magA += a[i] * a[i]
-    magB += b[i] * b[i]
-  }
-
-  const denominator = Math.sqrt(magA) * Math.sqrt(magB)
-  return denominator === 0 ? 0 : dot / denominator
-}

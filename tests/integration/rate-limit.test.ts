@@ -8,7 +8,7 @@ import {
   type LimitRule,
 } from '@/lib/rate-limit'
 
-import { createTestDb, type TestDb } from '../helpers/db'
+import { asDb, createTestDb, type TestDb } from '../helpers/db'
 
 let db: TestDb
 let close: () => Promise<void>
@@ -24,7 +24,7 @@ afterAll(async () => {
 })
 
 const rule: LimitRule = { action: 'test', limit: 3, windowSeconds: 60 }
-const client = () => db as unknown as Db
+const client = () => asDb(db)
 
 describe('consumeRateLimit', () => {
   it('allows up to the limit and then stops', async () => {

@@ -2,7 +2,10 @@ import { eq } from 'drizzle-orm'
 
 import { questions } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
-import { planDuplicateMerges, planNumberDuplicateMerges } from '@/lib/questions/duplicates'
+import {
+  planDuplicateMerges,
+  planNumberDuplicateMerges,
+} from '@/lib/questions/duplicates-plan'
 import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { modalChoiceCount } from '@/lib/questions/validate'
 

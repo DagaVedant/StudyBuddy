@@ -10,6 +10,7 @@ import {
   topics,
   questionTopics,
 } from '@/lib/db/schema'
+import { formatInterval, previewIntervals, type ReviewRating } from '@/lib/review/fsrs'
 
 export interface ReviewChoice {
   id: string
@@ -23,7 +24,6 @@ export interface ReviewItem {
   questionId: string
   promptText: string
   questionType: string
-  figureImageKey: string | null
   correctAnswer: string | null
   answerSource: string
   choices: ReviewChoice[]
@@ -33,6 +33,12 @@ export interface ReviewItem {
   lastFreeText: string | null
   explanation: { body: string; reportedWrong: boolean } | null
   dueAt: string
+  /**
+   * What each rating would cost you, as a label under the button ("3 d").
+   * Computed here rather than in the browser so ts-fsrs and the scheduler
+   * parameters stay server-side.
+   */
+  intervals: Record<ReviewRating, string>
 }
 
 export async function getDueCards(
@@ -46,9 +52,17 @@ export async function getDueCards(
       cardId: reviewCards.id,
       questionId: reviewCards.questionId,
       dueAt: reviewCards.dueAt,
+      stability: reviewCards.stability,
+      difficulty: reviewCards.difficulty,
+      elapsedDays: reviewCards.elapsedDays,
+      scheduledDays: reviewCards.scheduledDays,
+      learningSteps: reviewCards.learningSteps,
+      reps: reviewCards.reps,
+      lapses: reviewCards.lapses,
+      state: reviewCards.state,
+      lastReview: reviewCards.lastReview,
       promptText: questions.promptText,
       questionType: questions.questionType,
-      figureImageKey: questions.figureImageKey,
       correctAnswer: questions.correctAnswer,
       answerSource: questions.answerSource,
     })
@@ -127,12 +141,27 @@ export async function getDueCards(
     const last = lastAttemptFor.get(card.questionId)
     const explanation = explanationFor.get(card.questionId)
 
+    const preview = previewIntervals(
+      {
+        dueAt: card.dueAt,
+        stability: card.stability,
+        difficulty: card.difficulty,
+        elapsedDays: card.elapsedDays,
+        scheduledDays: card.scheduledDays,
+        learningSteps: card.learningSteps,
+        reps: card.reps,
+        lapses: card.lapses,
+        state: card.state,
+        lastReview: card.lastReview,
+      },
+      now,
+    )
+
     return {
       cardId: card.cardId,
       questionId: card.questionId,
       promptText: card.promptText,
       questionType: card.questionType,
-      figureImageKey: card.figureImageKey,
       correctAnswer: card.correctAnswer,
       answerSource: card.answerSource,
       choices: (choicesFor.get(card.questionId) ?? []).map((choice) => ({
@@ -149,6 +178,12 @@ export async function getDueCards(
         ? { body: explanation.bodyMd, reportedWrong: explanation.reportedWrong }
         : null,
       dueAt: card.dueAt.toISOString(),
+      intervals: {
+        again: formatInterval(preview.again, now),
+        hard: formatInterval(preview.hard, now),
+        good: formatInterval(preview.good, now),
+        easy: formatInterval(preview.easy, now),
+      },
     }
   })
 }

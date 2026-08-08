@@ -1,5 +1,6 @@
 import { desc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
@@ -66,7 +67,13 @@ export default async function AdminTopicsPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-balance text-2xl font-semibold tracking-tight">Admin</h1>
-      <p className="hint mb-6">Signed in as {session.user.email}.</p>
+      <p className="hint mb-6">
+        Signed in as {session.user.email}.{' '}
+        <Link href="/admin/reports" className="underline underline-offset-2">
+          Reports
+        </Link>
+        .
+      </p>
 
       <section
         aria-labelledby="workers-heading"

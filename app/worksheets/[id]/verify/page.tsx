@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
+import { findLibraryDuplicates } from '@/lib/questions/library-duplicates'
 import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { modalChoiceCount, validateQuestion, worthRereading } from '@/lib/questions/validate'
 
@@ -27,7 +28,12 @@ export default async function VerifyPage({ params }: Params) {
 
   if (!worksheet) notFound()
 
-  const shaped = await loadQuestionsWithChoices(db, id)
+  const [shaped, duplicates] = await Promise.all([
+    loadQuestionsWithChoices(db, id),
+    findLibraryDuplicates(db, session.user.id, id),
+  ])
+
+  const duplicateFor = new Map(duplicates.map((row) => [row.questionId, row]))
 
   // The paper decides what a complete answer list looks like, so the flags
   // below mean the same thing they do during extraction.
@@ -35,6 +41,8 @@ export default async function VerifyPage({ params }: Params) {
 
   const items: VerifiableQuestion[] = shaped.map((row) => {
     const flags = validateQuestion(row, { expectedChoiceCount })
+    const duplicate = duplicateFor.get(row.id)
+
     return {
       id: row.id,
       printedNumber: row.printedNumber,
@@ -44,6 +52,13 @@ export default async function VerifyPage({ params }: Params) {
       choices: row.choices,
       userVerified: row.userVerified,
       concerns: worthRereading(flags) ? flags.map((flag) => flag.detail) : [],
+      duplicateOf: duplicate
+        ? {
+            worksheetId: duplicate.matchWorksheetId,
+            worksheetTitle: duplicate.matchWorksheetTitle,
+            exact: duplicate.exact,
+          }
+        : null,
     }
   })
 

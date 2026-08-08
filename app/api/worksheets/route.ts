@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
+import { resolveProvider } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { UPLOAD_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
@@ -56,6 +57,13 @@ export async function POST(request: Request) {
     )
   }
 
+  // Asked at upload time rather than read off the session. The session used to
+  // carry a `users.ai_tier` column nothing ever wrote, so every worksheet was
+  // stamped `trial` even when it ran on the student's own cloud key. This is
+  // the same function that decides which provider actually runs the job, so
+  // the record and the run cannot disagree.
+  const { tier } = await resolveProvider(db, session.user.id)
+
   const [worksheet] = await db
     .insert(worksheets)
     .values({
@@ -66,7 +74,7 @@ export async function POST(request: Request) {
       pageCount,
       expectedQuestionCount: expectedQuestionCount ?? null,
       status: 'uploading',
-      tierUsed: session.user.aiTier,
+      tierUsed: tier,
     })
     .returning({ id: worksheets.id })
 

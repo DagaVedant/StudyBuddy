@@ -4,7 +4,7 @@ import {
   duplicatePrintedNumbers,
   planDuplicateMerges,
   planNumberDuplicateMerges,
-} from '@/lib/questions/duplicates'
+} from '@/lib/questions/duplicates-plan'
 
 const COMBINE = 'What is the best way to combine these sentences to clarify the relationship between ideas?'
 

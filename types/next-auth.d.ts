@@ -1,14 +1,12 @@
 import type { DefaultSession } from 'next-auth'
 
 type Role = 'student' | 'admin'
-type AiTier = 'trial' | 'free' | 'cloud' | 'ollama'
 
 declare module 'next-auth' {
   interface Session {
     user: {
       id: string
       role: Role
-      aiTier: AiTier
       /** False until the 13+ gate has been satisfied (spec §2). */
       hasDob: boolean
     } & DefaultSession['user']
@@ -21,7 +19,6 @@ declare module '@auth/core/jwt' {
   interface JWT {
     id?: string
     role?: Role
-    aiTier?: AiTier
     hasDob?: boolean
   }
 }

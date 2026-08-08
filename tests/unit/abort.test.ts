@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-  CancelledError,
-  isCancelled,
-  throwIfCancelled,
-  untilCancelled,
-} from '@/lib/client/abort'
+import { CancelledError, throwIfCancelled, untilCancelled } from '@/lib/client/abort'
 
 describe('throwIfCancelled', () => {
   it('does nothing without a signal', () => {
@@ -83,16 +78,5 @@ describe('untilCancelled', () => {
     await untilCancelled(Promise.resolve('ok'), controller.signal)
 
     expect(remove).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe('isCancelled', () => {
-  it('recognizes a cancellation', () => {
-    expect(isCancelled(new CancelledError())).toBe(true)
-  })
-
-  it('does not mistake an ordinary error for one', () => {
-    expect(isCancelled(new Error('network down'))).toBe(false)
-    expect(isCancelled(null)).toBe(false)
   })
 })
