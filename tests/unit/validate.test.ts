@@ -68,9 +68,25 @@ describe('isOptionRun', () => {
     expect(isOptionRun('A. True   B. False')).toBe(false)
   })
 
-  it('needs them in order, starting at A', () => {
-    expect(isOptionRun('B. 314   C. 25   D. 79')).toBe(false)
+  it('needs them in order', () => {
     expect(isOptionRun('A. 12   C. 25   B. 314')).toBe(false)
+    expect(isOptionRun('A. 12   B. 314   D. 79')).toBe(false)
+  })
+
+  // Used to require the run to start at A. A page break that takes the stem
+  // takes the options above it too, so what is left starts partway down the
+  // list: re-reading topic_test8_15 stored "B. 18  C. 144  D. 81" as a second
+  // question 14, beside the real one.
+  it('catches a run whose first options went with the stem', () => {
+    expect(isOptionRun('B. 18   C. 144   D. 81')).toBe(true)
+    expect(isOptionRun('C. 25   D. 79   E. 81')).toBe(true)
+  })
+
+  // Single letters outside the range papers label options with. Roman numeral
+  // lists are the reason this matters: "i." is a letter too.
+  it('stays inside the A-E range options are labelled with', () => {
+    expect(isOptionRun('i. one   j. two   k. three')).toBe(false)
+    expect(isOptionRun('x. one   y. two   z. three')).toBe(false)
   })
 
   it('is not fooled by prose punctuated like a list', () => {

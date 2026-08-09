@@ -123,9 +123,17 @@ const MAX_OPTION_TEXT = 300
  * and every count-based check passes. The prose check above cannot catch it:
  * four options carrying four short phrases hold plenty of ordinary words.
  *
- * Deliberately narrow. It takes three consecutive labels starting at A with
- * nothing printed before the first of them, so a stem that happens to open
- * "A. Smith drove 40 miles" is not a candidate unless a B and a C follow it.
+ * Deliberately narrow. It takes three consecutive labels with nothing printed
+ * before the first of them, so a stem that happens to open "A. Smith drove 40
+ * miles" is not a candidate unless a B and a C follow it.
+ *
+ * The run does not have to start at A. When a page break takes the stem and
+ * the first option or two with it, what survives begins partway through:
+ * re-reading `topic_test8_15` produced a row whose whole prompt was
+ * "B. 18  C. 144  D. 81", which is the same orphan as one starting at A and
+ * just as unusable, and it was stored as a second question 14 beside the real
+ * one. The first label is still held to the A-E range papers actually label
+ * options with, so a stray "i. ... j. ... k. ..." is not swept up.
  */
 export function isOptionRun(text: string): boolean {
   const trimmed = text.trim()
@@ -148,8 +156,9 @@ export function isOptionRun(text: string): boolean {
   // be, and a row that has one is not an orphan.
   if (trimmed.slice(0, marks[0].at).trim().length > 0) return false
 
-  const A = 'A'.charCodeAt(0)
-  if (!marks.every((mark, index) => mark.label.charCodeAt(0) === A + index)) return false
+  const first = marks[0].label.charCodeAt(0)
+  if (first < 'A'.charCodeAt(0) || first > 'E'.charCodeAt(0)) return false
+  if (!marks.every((mark, index) => mark.label.charCodeAt(0) === first + index)) return false
 
   // Every one of them has to carry something option-sized. A paragraph between
   // two letters is prose that happens to be punctuated like a list.
