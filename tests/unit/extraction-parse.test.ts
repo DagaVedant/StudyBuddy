@@ -20,6 +20,51 @@ function reply(...prompts: string[]) {
 }
 
 describe('parseExtraction', () => {
+  // The real payload from a coordinate-geometry paper. Every option reads
+  // "A. (-2, 3)", which is ten characters, and the label bound used to be
+  // checked against that rather than against what normalizeChoiceLabel makes
+  // of it. Six of the seven questions on the page were dropped, and the sheet
+  // reported 8 of its 15 questions as its full contents.
+  it('keeps a question whose choice labels arrive with the option attached', () => {
+    const result = parseExtraction({
+      questions: [
+        {
+          ordinal: 8,
+          prompt_text: 'Point E(1, 5) is translated by (-3, -2). Where does it land?',
+          question_type: 'multiple_choice',
+          choices: [
+            { label: 'A. (-2, 3)', text: '(-2, 3)' },
+            { label: 'B. (4, 7)', text: '(4, 7)' },
+            { label: 'C. (-2, -3)', text: '(-2, -3)' },
+            { label: 'D. (2, 3)', text: '(2, 3)' },
+          ],
+          bbox: null,
+          has_figure: false,
+        },
+      ],
+    })
+
+    expect(result.rejected).toBe(0)
+    expect(result.questions).toHaveLength(1)
+    // Reduced to the label itself, which is what the transform was always for.
+    expect(result.questions[0].choices.map((choice) => choice.label)).toEqual([
+      'A',
+      'B',
+      'C',
+      'D',
+    ])
+  })
+
+  it('says which field rejected a question, not just how many were lost', () => {
+    const result = parseExtraction({
+      questions: [{ ordinal: 1, prompt_text: '', question_type: 'multiple_choice' }],
+    })
+
+    expect(result.rejected).toBe(1)
+    expect(result.rejections[0].path).toBe('prompt_text')
+    expect(result.rejections[0].message).toBeTruthy()
+  })
+
   it('drops an explanation restating the question it is about', () => {
     const result = parseExtraction(
       reply(

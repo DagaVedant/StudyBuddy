@@ -32,8 +32,23 @@ export const extractedQuestionSchema = z.object({
   choices: z
     .array(
       z.object({
-
-        label: z.string().min(1).max(8).transform(normalizeChoiceLabel),
+        /**
+         * Bounded generously and narrowed by the transform, not before it.
+         *
+         * `normalizeChoiceLabel` exists precisely because the extractor often
+         * returns the whole option here (`A. 60` rather than `A`), and it
+         * already clamps its own result to 8 characters. Applying `.max(8)` to
+         * the raw string ran the check against the input the transform was
+         * written to repair, so an option too long to be a label was thrown
+         * away instead of being reduced to one.
+         *
+         * That is not hypothetical: on a coordinate-geometry paper every
+         * choice reads `A. (-2, 3)`, which is ten characters, so six of the
+         * seven questions on a page were rejected and the paper reported 8 of
+         * its 15 questions. The count-only warning made it look like a model
+         * failure for two days.
+         */
+        label: z.string().min(1).max(2000).transform(normalizeChoiceLabel),
         text: z.string().max(2000),
       }),
     )
@@ -50,35 +65,67 @@ export const extractionResultSchema = z.object({
 
 export type ExtractedQuestion = z.infer<typeof extractedQuestionSchema>
 
+/**
+ * Why one question was thrown away, in enough detail to act on.
+ *
+ * A count alone is not actionable: "dropped 6 unreadable question(s)" was the
+ * only trace a page losing six of its seven questions ever left, and it does
+ * not say whether the model returned nonsense or whether this schema is
+ * stricter than the paper.
+ */
+export interface ExtractionRejection {
+  /** The failing field, e.g. `bbox` or `choices.1.label`. */
+  path: string
+  message: string
+  /** Enough of the question to find it on the page. */
+  preview: string
+}
+
+function previewOf(item: unknown): string {
+  const text = (item as { prompt_text?: unknown })?.prompt_text
+  const source = typeof text === 'string' && text.length > 0 ? text : JSON.stringify(item)
+  return (source ?? '').replace(/\s+/g, ' ').slice(0, 70)
+}
+
 export function parseExtraction(raw: unknown): {
   questions: ExtractedQuestion[]
   rejected: number
+  rejections: ExtractionRejection[]
 } {
   const outer = z
     .object({ questions: z.array(z.unknown()).max(200) })
     .safeParse(raw)
 
-  if (!outer.success) return { questions: [], rejected: 0 }
+  if (!outer.success) return { questions: [], rejected: 0, rejections: [] }
 
   const questions: ExtractedQuestion[] = []
-  let rejected = 0
+  const rejections: ExtractionRejection[] = []
 
   for (const item of outer.data.questions) {
     const parsed = extractedQuestionSchema.safeParse(item)
     if (!parsed.success) {
-      rejected += 1
+      const issue = parsed.error.issues[0]
+      rejections.push({
+        path: issue?.path.join('.') || '(root)',
+        message: issue?.message ?? 'invalid',
+        preview: previewOf(item),
+      })
       continue
     }
 
     if (isRestatement(parsed.data.prompt_text)) {
-      rejected += 1
+      rejections.push({
+        path: 'prompt_text',
+        message: 'reads as a restatement of the task rather than a question',
+        preview: previewOf(item),
+      })
       continue
     }
 
     questions.push(parsed.data)
   }
 
-  return { questions, rejected }
+  return { questions, rejected: rejections.length, rejections }
 }
 
 const RESTATEMENT = /^\s*(the\s+)?question\s+(asks|is\s+asking|requires|wants)\b/i

@@ -28,7 +28,11 @@ export function normalizeChoiceLabel(label: string): string {
 }
 
 export const choiceSchema = z.object({
-  label: z.string().trim().min(1).max(8).transform(normalizeChoiceLabel),
+  // Bounded before the transform, not instead of it: the raw value may be a
+  // whole option, which is the case {@link normalizeChoiceLabel} exists to
+  // handle, and it clamps its own result to 8. Checking 8 against the input
+  // rejected exactly the values the transform was written to repair.
+  label: z.string().trim().min(1).max(2000).transform(normalizeChoiceLabel),
   text: z.string().trim().max(2000),
   isCorrect: z.boolean().default(false),
 })

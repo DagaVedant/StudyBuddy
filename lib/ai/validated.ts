@@ -27,16 +27,26 @@ export function validated(provider: RawAIProvider): AIProvider {
     executionSite: provider.executionSite,
 
     async extractQuestions(page) {
-      const { questions, rejected } = parseExtraction(await provider.extractQuestions(page))
+      const { questions, rejected, rejections } = parseExtraction(
+        await provider.extractQuestions(page),
+      )
 
       // Worth saying out loud. A page that returns eight questions and keeps
-      // five is a page the student is about to see half of, and the count is
-      // the only trace the rejected three ever leave.
+      // five is a page the student is about to see half of.
+      //
+      // With the reason, not just the count: a page losing six of its seven
+      // questions used to report only the number, which cannot distinguish a
+      // model returning nonsense from this schema being stricter than the
+      // paper. Those are opposite problems and the fix for one makes the other
+      // worse.
       if (rejected > 0) {
         console.warn(
           `[ai] ${provider.name} page ${page.pageNumber}: dropped ${rejected} ` +
             `unreadable question(s), kept ${questions.length}`,
         )
+        for (const rejection of rejections) {
+          console.warn(`  - ${rejection.path}: ${rejection.message} :: ${rejection.preview}`)
+        }
       }
 
       return questions
