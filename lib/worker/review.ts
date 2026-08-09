@@ -1,4 +1,5 @@
 import type { QuestionReview, ReviewCandidate } from '@/lib/ai/types'
+import { printedNumbersFor } from '@/lib/questions/printed-numbers'
 import {
   modalChoiceCount,
   validateQuestion,
@@ -28,6 +29,78 @@ export interface ReviewPlan {
 }
 
 export type ReviewFn = (candidates: ReviewCandidate[]) => Promise<QuestionReview[]>
+
+/** A stored question the review doubted, as the write path sees it. */
+export interface DoubtedQuestion {
+  id: string
+  printedNumber: number | null
+}
+
+export interface PageReplacement<T> {
+  /** Rows to delete, because the second read returned their number. */
+  replace: DoubtedQuestion[]
+  /** Rows to leave alone, because it did not. */
+  keep: DoubtedQuestion[]
+  /** The fresh questions that stand in for the deleted rows. */
+  replacements: T[]
+}
+
+/**
+ * What a page's second read is allowed to overwrite.
+ *
+ * Split out of the route because it decides deletions, and a rule about
+ * deleting a student's questions should be readable and testable on its own.
+ *
+ * Both sides are numbered off the page, the same way the write path numbers
+ * what it stores. Matching on the model's own count only works while the
+ * re-read happens to count from where the paper does: a page read on its own
+ * counts from 1, so on page 2 every number would miss every doubted row, and
+ * the review would silently do nothing at all.
+ *
+ * A doubted row whose number does not come back is kept. Turning a question
+ * that is merely damaged into one that is missing is strictly worse, and the
+ * student can fix damaged; they cannot fix absent.
+ */
+export function planPageReplacement<T extends { ordinal: number; prompt_text: string }>(
+  pageText: string,
+  fresh: readonly T[],
+  doubted: readonly DoubtedQuestion[],
+): PageReplacement<T> {
+  const fromPage = printedNumbersFor(
+    pageText,
+    fresh.map((question) => question.prompt_text),
+  )
+
+  const numberAt = (index: number): number | null => {
+    if (fromPage[index] !== null) return fromPage[index]
+    const counted = fresh[index].ordinal
+    return counted >= 1 ? counted : null
+  }
+
+  const refound = new Set(
+    fresh.map((_, index) => numberAt(index)).filter((n): n is number => n !== null),
+  )
+
+  const replace = doubted.filter(
+    (row) => row.printedNumber !== null && refound.has(row.printedNumber),
+  )
+  const keep = doubted.filter((row) => !replace.includes(row))
+
+  // Only what stands in for something deleted. Writing the whole page back
+  // looked harmless because the write path skips a hash it already has, but a
+  // second read rarely reproduces a page character for character, so every
+  // re-read quietly added a second copy of questions never in doubt.
+  const wanted = new Set(
+    replace.map((row) => row.printedNumber).filter((n): n is number => n !== null),
+  )
+
+  const replacements = fresh.filter((_, index) => {
+    const number = numberAt(index)
+    return number !== null && wanted.has(number)
+  })
+
+  return { replace, keep, replacements }
+}
 
 /**
  * Share of the worksheet's pages that may be re-read.

@@ -16,6 +16,7 @@ import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
 import { persistQuestions } from '@/lib/worker/ingest'
 import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
+import { planPageReplacement } from '@/lib/worker/review'
 import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
 
 type Params = { params: Promise<{ jobId: string }> }
@@ -134,7 +135,11 @@ export async function POST(request: Request, { params }: Params) {
 
   if (body.action === 'page_review') {
     const [target] = await db
-      .select({ id: worksheetPages.id, worksheetId: worksheetPages.worksheetId })
+      .select({
+        id: worksheetPages.id,
+        worksheetId: worksheetPages.worksheetId,
+        ocrText: worksheetPages.ocrText,
+      })
       .from(worksheetPages)
       .where(eq(worksheetPages.id, body.pageId))
       .limit(1)
@@ -155,44 +160,23 @@ export async function POST(request: Request, { params }: Params) {
           )
       : []
 
-    // Only drop a doubted question when the second read actually came back
-    // with that number. Otherwise the review would turn a question that is
-    // merely damaged into one that is missing, which is strictly worse.
-    const refound = new Set(
-      body.questions.map((question) => question.ordinal).filter((n) => n >= 1),
-    )
-    const replaceable = suspects.filter(
-      (row) => row.printedNumber !== null && refound.has(row.printedNumber),
-    )
+    const plan = planPageReplacement(target.ocrText ?? '', body.questions, suspects)
 
-    if (replaceable.length > 0) {
+    if (plan.replace.length > 0) {
       await db.delete(questions).where(
         inArray(
           questions.id,
-          replaceable.map((row) => row.id),
+          plan.replace.map((row) => row.id),
         ),
       )
     }
 
-    // Only the questions standing in for a deleted row get written. Saving
-    // the whole page again looked harmless because persistQuestions skips
-    // anything whose content hash already exists, but a second read rarely
-    // reproduces a page character for character: "1/4" came back as "_ 1",
-    // "11-13" gained a space. Those hash differently, so every re-read page
-    // quietly added a second copy of questions that were never in doubt.
-    const wanted = new Set(
-      replaceable
-        .map((row) => row.printedNumber)
-        .filter((n): n is number => n !== null),
-    )
-    const replacements = body.questions.filter((question) => wanted.has(question.ordinal))
-
-    const restored = await persistQuestions(db, job, target.id, replacements)
+    const restored = await persistQuestions(db, job, target.id, plan.replacements)
 
     return NextResponse.json({
       ok: true,
-      replaced: replaceable.length,
-      kept: suspects.length - replaceable.length,
+      replaced: plan.replace.length,
+      kept: plan.keep.length,
       restored,
     })
   }
