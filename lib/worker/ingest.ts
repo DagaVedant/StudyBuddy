@@ -11,6 +11,7 @@ import {
 import { isAnswerPage } from '@/lib/questions/answer-key'
 import { foldLeadInChoices } from '@/lib/questions/lead-in'
 import { normalizeMath } from '@/lib/questions/math'
+import { printedNumbersFor } from '@/lib/questions/printed-numbers'
 import { reflowText } from '@/lib/questions/reflow'
 import {
   hashQuestion,
@@ -225,6 +226,15 @@ export async function persistQuestions(
 
   if (extracted.length === 0) return 0
 
+  // What the page prints, which outranks what the model counted. Read once for
+  // the whole batch: a page re-read on its own comes back numbered from 1, and
+  // taking those numbers at face value files a page of recovered questions on
+  // top of another page's real ones.
+  const printed = printedNumbersFor(
+    page?.ocrText ?? '',
+    extracted.map((question) => question.prompt_text),
+  )
+
   const existing = await db
     .select({ ordinal: questions.ordinal, contentHash: questions.contentHash })
     .from(questions)
@@ -238,7 +248,7 @@ export async function persistQuestions(
 
   let created = 0
 
-  for (const raw of extracted) {
+  for (const [index, raw] of extracted.entries()) {
     // Normalised before hashing and before storing, so the hash matches what
     // the student actually reads and the same question written two ways does
     // not survive as two rows.
@@ -266,7 +276,9 @@ export async function persistQuestions(
         worksheetId: job.worksheetId,
         pageId,
         ordinal: nextOrdinal,
-        printedNumber: question.ordinal >= 1 ? question.ordinal : null,
+        // The page's own number when it could be found, and the model's count
+        // only when it could not.
+        printedNumber: printed[index] ?? (question.ordinal >= 1 ? question.ordinal : null),
         promptText: question.prompt_text,
         questionType: question.question_type,
         bbox: question.bbox,
