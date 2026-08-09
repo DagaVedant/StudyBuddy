@@ -73,5 +73,7 @@ next-env.d.ts
 
 # throwaway one-off scripts. Written to answer a single question against the
 # live database and abandoned; three of them were sitting untracked at once,
-# one `git add -A` away from the history.
+# one `git add -A` away from the history. Both prefixes, because the rule was
+# `_tmp-` only and a `tmp-probe.ts` went in on exactly that `git add -A`.
 /scripts/_tmp-*
+/scripts/tmp-*
