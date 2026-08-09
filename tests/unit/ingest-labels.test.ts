@@ -144,6 +144,24 @@ describe('persistQuestions label handling', () => {
     expect(captured).toEqual([])
   })
 
+  // The same orphan, minus whatever the page break took with it. Re-reading
+  // topic_test8_15 produced this exact row and stored it as a second question
+  // 14 beside the real one, because the check used to require the run to start
+  // at A.
+  it('drops an option block that lost its first options with the stem', async () => {
+    const captured: { label: string; text: string }[] = []
+
+    const created = await persistQuestions(
+      fakeDb(captured),
+      { worksheetId: 'w1', userId: 'u1' },
+      'page-1',
+      [QUESTION([], { prompt_text: 'B. 18   C. 144   D. 81' })],
+    )
+
+    expect(created).toBe(0)
+    expect(captured).toEqual([])
+  })
+
   it('leaves numeric labels alone, which a lead-in list needs', async () => {
     const captured: { label: string; text: string }[] = []
 
