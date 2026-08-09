@@ -103,6 +103,28 @@ test('a choice added in the editor is marked correct and saved', async () => {
   await expect(page.getByRole('radio', { name: 'Mark choice A correct' })).toBeChecked()
 })
 
+test('an edit survives navigating away inside the autosave debounce', async () => {
+  await page.goto(`/worksheets/${worksheetId}/review`)
+  await page.getByRole('button', { name: 'Fix' }).first().click()
+
+  const prompt = page.getByLabel('Question text')
+  await expect(prompt).toBeVisible()
+
+  const edited = 'Edited, then left the page straight away.'
+  await prompt.fill(edited)
+
+  // Deliberately no wait. This lands inside the 600ms debounce, which used to
+  // throw the edit away: the timers were cleared on unmount and nothing sent.
+  await page.goto('/dashboard')
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+
+  await expect(async () => {
+    const listed = await page.request.get(`/api/worksheets/${worksheetId}/questions`)
+    const { questions } = (await listed.json()) as { questions: { promptText: string }[] }
+    expect(questions[0].promptText).toBe(edited)
+  }).toPass({ timeout: 15_000 })
+})
+
 test('a whole worksheet can be reported from the verify screen', async () => {
   await page.goto(`/worksheets/${worksheetId}/verify`)
   await expect(page.getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
