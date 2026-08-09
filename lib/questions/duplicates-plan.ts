@@ -150,7 +150,7 @@ export function duplicatePrintedNumbers(
  * which barely moves the vocabulary. Two different questions off the same paper
  * move it a lot even when they are phrased alike.
  */
-function similarity(left: string, right: string): number {
+export function promptSimilarity(left: string, right: string): number {
   const a = new Set(normalizeForCompare(left).split(' ').filter(Boolean))
   const b = new Set(normalizeForCompare(right).split(' ').filter(Boolean))
 
@@ -235,7 +235,7 @@ export function planNumberDuplicateMerges(
     if (group.length !== 2) continue
 
     const [a, b] = group
-    if (similarity(a.promptText, b.promptText) < SAME_QUESTION_SIMILARITY) continue
+    if (promptSimilarity(a.promptText, b.promptText) < SAME_QUESTION_SIMILARITY) continue
 
     const keep = damage(a, expectedChoices) <= damage(b, expectedChoices) ? a : b
     const drop = keep === a ? b : a

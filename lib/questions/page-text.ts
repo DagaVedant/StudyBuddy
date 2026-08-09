@@ -27,15 +27,35 @@ function looksLikeQuestion(line: string): boolean {
   return (line.match(PROSE) ?? []).length >= 3
 }
 
-/** Offset of the first real question printed on the page, or the whole page. */
-export function firstQuestionAt(text: string): number {
+export interface QuestionStart {
+  /** The number the page prints it under. */
+  number: number
+  /** Offset of the start of the line it begins on. */
+  at: number
+  /** Offset of the first character of the question itself, past the number. */
+  bodyFrom: number
+}
+
+/** Every question the page appears to start, in the order it prints them. */
+export function questionStartsOn(text: string): QuestionStart[] {
   QUESTION_START.lastIndex = 0
 
+  const starts: QuestionStart[] = []
   for (let match = QUESTION_START.exec(text); match; match = QUESTION_START.exec(text)) {
-    if (looksLikeQuestion(match[2])) return match.index
+    if (!looksLikeQuestion(match[2])) continue
+    starts.push({
+      number: Number(match[1]),
+      at: match.index,
+      bodyFrom: match.index + match[0].length - match[2].length,
+    })
   }
 
-  return text.length
+  return starts
+}
+
+/** Offset of the first real question printed on the page, or the whole page. */
+export function firstQuestionAt(text: string): number {
+  return questionStartsOn(text)[0]?.at ?? text.length
 }
 
 /**
@@ -48,14 +68,7 @@ export function firstQuestionAt(text: string): number {
  * paper's own answer key for that.
  */
 export function questionNumbersOn(text: string): number[] {
-  QUESTION_START.lastIndex = 0
-
-  const numbers: number[] = []
-  for (let match = QUESTION_START.exec(text); match; match = QUESTION_START.exec(text)) {
-    if (looksLikeQuestion(match[2])) numbers.push(Number(match[1]))
-  }
-
-  return numbers
+  return questionStartsOn(text).map((start) => start.number)
 }
 
 /**
