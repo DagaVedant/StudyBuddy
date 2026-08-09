@@ -68,3 +68,46 @@ describe('validateQuestion duplicate options', () => {
     expect(flags.map((flag) => flag.code)).toContain('duplicate_choices')
   })
 })
+
+const stemOnly = (promptText: string) => ({
+  promptText,
+  questionType: 'multiple_choice',
+  printedNumber: 1,
+  choices: [
+    { label: 'A', text: '1' },
+    { label: 'B', text: '2' },
+    { label: 'C', text: '3' },
+    { label: 'D', text: '4' },
+  ],
+})
+
+describe('validateQuestion nothing-asked', () => {
+  // Both were stored on real papers, both carry a printed number, and both are
+  // short enough to fall under three prose words while carrying no operator the
+  // maths test recognises.
+  it('does not condemn a short question that asks', () => {
+    for (const stem of ['60 is what percent of 40?', 'Dot sequence: 1, 3, 5, 7,?']) {
+      expect(
+        validateQuestion(stemOnly(stem)).map((flag) => flag.code),
+        stem,
+      ).not.toContain('stem_is_not_a_question')
+    }
+  })
+
+  // What the check is for: page furniture and figure labels, none of which ask
+  // anything.
+  it('still condemns a row that asks nothing', () => {
+    for (const stem of ['CONTINUE ON TO THE NEXT PAGE', '(C)', 'C(3,y)nA(5,7) B(11,7)']) {
+      expect(
+        validateQuestion(stemOnly(stem)).map((flag) => flag.code),
+        stem,
+      ).toContain('stem_is_not_a_question')
+    }
+  })
+
+  it('still allows an almost wordless calculation', () => {
+    expect(validateQuestion(stemOnly('3.6 / 0.018 =')).map((f) => f.code)).not.toContain(
+      'stem_is_not_a_question',
+    )
+  })
+})

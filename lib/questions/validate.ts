@@ -105,6 +105,15 @@ const MATHS = /[=<>+−×÷≤≥]|\d+\s*[-*/]\s*\d+/
 const HAS_QUESTION_SHAPE = /[?:]/
 
 /**
+ * Something was asked.
+ *
+ * Narrower than {@link HAS_QUESTION_SHAPE} on purpose: a colon is ordinary in
+ * page furniture ("Section 2: Mathematics") and would exempt the very rows the
+ * nothing-asked check exists to catch.
+ */
+const ASKS = /\?/
+
+/**
  * A labelled option, matched the same way the carried-options parser matches
  * one. The lookbehind keeps it from firing inside a word or a number.
  */
@@ -272,7 +281,15 @@ export function validateQuestion(
   // either a sentence or a calculation. Measured across 714 stored questions
   // this flags 23 rows and not one of them carries a printed number, which is
   // the tell that a real question was never involved.
-  if ((stem.match(PROSE) ?? []).length < 3 && !MATHS.test(stem)) {
+  //
+  // A question mark exempts it, because "nothing asked" cannot be true of a
+  // stem that asks. None of the rows this was built for carry one: a figure
+  // label, a page footer and a stray "(C)" are all statements. Two rows here
+  // did, "60 is what percent of 40?" and "Dot sequence: 1, 3, 5, 7,?", both
+  // short enough to fall under three prose words and neither carrying an
+  // operator the maths test recognises. Both are real questions, both carry a
+  // printed number, and the note above names exactly that as the tell.
+  if (!ASKS.test(stem) && (stem.match(PROSE) ?? []).length < 3 && !MATHS.test(stem)) {
     flags.push({
       code: 'stem_is_not_a_question',
       detail: `nothing asked: "${stem.slice(0, 40)}"`,
