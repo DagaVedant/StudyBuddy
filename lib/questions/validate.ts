@@ -1,4 +1,4 @@
-import { normalizeForCompare } from '@/lib/questions/shape'
+import { normalizeForCompare, normalizeOptionText } from '@/lib/questions/shape'
 
 /**
  * Checks that need no model.
@@ -212,8 +212,14 @@ export function validateQuestion(
   const seenLabel = new Set<string>()
 
   for (const choice of question.choices) {
-    const text = normalizeForCompare(choice.text)
+    // The option's own comparison, not the prose one: "-2" and "2" are not the
+    // same answer, and reporting them as duplicates sent a page for a re-read
+    // that had nothing to find. The label stays on the prose comparison, being
+    // a letter.
+    const text = normalizeOptionText(choice.text)
     const label = normalizeForCompare(choice.label)
+    // The stem check below is prose against prose, so it keeps the prose form.
+    const prose = normalizeForCompare(choice.text)
 
     if (text.length > 0) {
       if (seenText.has(text)) {
@@ -240,7 +246,7 @@ export function validateQuestion(
     // A choice repeated inside the stem is the signature of the extractor
     // swallowing the options into the question text and then listing them
     // again, the shape the page-3 split produced.
-    if (text.length >= 12 && normalizedStem.includes(text)) {
+    if (prose.length >= 12 && normalizedStem.includes(prose)) {
       flags.push({
         code: 'choice_text_in_stem',
         detail: `option ${choice.label} also appears in the stem`,

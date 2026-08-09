@@ -17,6 +17,7 @@ import {
   hashQuestion,
   normalizeChoiceLabel,
   normalizeForCompare,
+  normalizeOptionText,
 } from '@/lib/questions/shape'
 import { isOptionRun } from '@/lib/questions/validate'
 import { checkpointJob } from '@/lib/queue'
@@ -137,10 +138,14 @@ function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[
     }
 
     for (const choice of question.choices) {
+      // The option's own comparison for its text. On the prose one "-2" and
+      // "2" are the same string, so joining two halves of a question dropped
+      // whichever sign arrived second, and the student was left choosing
+      // between three options where the paper printed four.
       const duplicate = seen.choices.some(
         (existing) =>
           normalizeForCompare(existing.label) === normalizeForCompare(choice.label) ||
-          normalizeForCompare(existing.text) === normalizeForCompare(choice.text),
+          normalizeOptionText(existing.text) === normalizeOptionText(choice.text),
       )
       if (!duplicate) seen.choices.push(choice)
     }

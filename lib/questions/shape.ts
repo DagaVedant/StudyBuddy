@@ -72,6 +72,34 @@ export function normalizeForCompare(value: string): string {
     .trim()
 }
 
+/**
+ * An option's text, reduced only as far as it can be without changing what it
+ * says.
+ *
+ * {@link normalizeForCompare} throws away everything that is not a letter or a
+ * number, which is right for prose and wrong for an answer. On a maths paper
+ * the punctuation is the answer: "-2" and "2" both come out as "2", and so do
+ * "-3/4" and "3/4", "(6, -2)" and "(-6, 2)", "+5%" and "-5%". Those are not
+ * near-misses, they are the distinction the question is testing, and 44 of the
+ * 307 questions stored here had two options collapse onto each other this way.
+ * Every one was reported as a duplicate and sent for a re-read that could not
+ * find anything wrong.
+ *
+ * So: case and spacing go, because "3 / 4" and "3/4" read the same, and the
+ * various dashes are folded onto one, because a paper may print either. Nothing
+ * else is touched.
+ *
+ * Not used for the content hash. That is the dedupe identity of every row
+ * already stored, and changing what it means is a migration rather than an
+ * edit.
+ */
+export function normalizeOptionText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[‐-―−]/g, '-')
+    .replace(/\s+/gu, '')
+}
+
 export function contentHashSource(promptText: string, choices: { text: string }[]): string {
   return [
     normalizeForCompare(promptText),
