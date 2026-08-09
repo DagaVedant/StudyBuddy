@@ -6,9 +6,22 @@ import { questionTopics, questions, topicProposals, topics } from '@/lib/db/sche
 import { EMBEDDING_DIMENSIONS, embed } from '@/lib/embeddings'
 import { flattenTaxonomy } from '@/lib/taxonomy/trees'
 
-export const SHORTLIST_SIZE = 15
-
-export const CONFIDENCE_FLOOR = 0.45
+/**
+ * How many leaf topics the model gets to choose between.
+ *
+ * Set by measurement, not by taste. Against the hand-labelled set in
+ * scripts/topic-labels.ts, run by scripts/shortlist-recall.ts, a shortlist
+ * of 15 puts a defensible topic in front of the model for 21 of 29 questions.
+ * The other 8 were never winnable: the model cannot pick what it is not shown,
+ * and every confidence threshold and prompt rewrite in the world operates on
+ * the list after this number has decided what is in it.
+ *
+ *   recall@15  72%    recall@25  86%    recall@50  93%
+ *
+ * 25 is where it stops paying: 30 and 40 measure identically, and 50 buys two
+ * more questions for twice the prompt.
+ */
+export const SHORTLIST_SIZE = 25
 
 export const PROPOSAL_DEDUP_THRESHOLD = 0.85
 
@@ -35,36 +48,52 @@ export function isEmbedding(value: unknown): value is number[] {
   )
 }
 
+export interface ShortlistOptions {
+  /** Restricts the search to one subject root, e.g. `high-school-math`. */
+  subjectHint?: string | null
+  /** How many candidates the model is shown. Defaults to {@link SHORTLIST_SIZE}. */
+  limit?: number
+}
+
 /**
  * The half of shortlisting that is only ever SQL.
  *
  * Split out from shortlistTopics so it can run on a host that cannot load the
  * embedding model: whoever *can* embed (the GPU worker) computes the vector
  * and hands it here, and pgvector does the rest.
+ *
+ * Plain nearest neighbour, deliberately. The obvious repair for a shortlist
+ * that fills all its places with one branch of the taxonomy — "in how many
+ * ways can 6 people be seated around a circular table" returns geometry,
+ * because "circular table" embeds towards circles — is to cap how many any one
+ * branch may contribute. Measured, that is worse, not better: at three per
+ * branch recall@15 falls from 72 % to 66 %, and at two to 59 %, because the
+ * cap evicts the fourth and fifth candidates from the branch that was right
+ * and spends those places on branches that were never in the running. The
+ * shortlist is too blunt an instrument for that; what it responds to is being
+ * longer.
  */
 export async function shortlistByVector(
   db: Db,
   vector: number[],
-  subjectHint?: string | null,
-  limit = SHORTLIST_SIZE,
+  options: ShortlistOptions = {},
 ): Promise<TopicCandidate[]> {
   const literal = `[${vector.join(',')}]`
+  const subjectHint = options.subjectHint
 
   const rows = await db
-    .select({ id: topics.id, slug: topics.slug, name: topics.name })
+    .select({ slug: topics.slug, name: topics.name })
     .from(topics)
     .where(
       and(
         eq(topics.isLeaf, true),
         eq(topics.isCanonical, true),
         isNotNull(topics.embedding),
-        subjectHint
-          ? sql`${topics.slug} like ${`${subjectHint.split('.')[0]}%`}`
-          : undefined,
+        subjectHint ? sql`${topics.slug} like ${`${subjectHint.split('.')[0]}%`}` : undefined,
       ),
     )
     .orderBy(sql`${topics.embedding} <=> ${literal}::vector`)
-    .limit(limit)
+    .limit(options.limit ?? SHORTLIST_SIZE)
 
   return rows.map((row) => ({
     slug: row.slug,
@@ -100,7 +129,7 @@ export async function shortlistTopics(
     return []
   }
 
-  return shortlistByVector(db, vector, subjectHint, limit)
+  return shortlistByVector(db, vector, { subjectHint, limit })
 }
 
 async function nearestAncestor(db: Db, slug: string): Promise<string | null> {
@@ -155,14 +184,18 @@ export async function applyClassification(
     return { topicId: null, coarse: false, proposalId: null, confidence: 0 }
   }
 
+  // `confidence` is not gated on. It is a number a 7B model writes about its
+  // own work, and across the 288 questions of the Edison run nothing came back
+  // below 0.75 — the floor of 0.45 this used to test never once fired, so the
+  // abstain path it was guarding was unreachable, and every wrong tag in that
+  // run arrived over the line. It is still stored, because it is worth being
+  // able to look at; it is no longer treated as evidence.
   const chosen =
     result.topic_slug && !result.abstain
       ? candidates.find((candidate) => candidate.slug === result.topic_slug)
       : undefined
 
-  const confident = result.confidence >= CONFIDENCE_FLOOR
-
-  if (chosen && confident) {
+  if (chosen) {
     const [topic] = await db
       .select({ id: topics.id })
       .from(topics)
@@ -190,20 +223,20 @@ export async function applyClassification(
     }
   }
 
+  // Nothing is tagged from here down. The model either abstained or named a
+  // slug that is not on the list, and what used to happen then was that the
+  // question was given the parent of `candidates[0]` — the nearest *embedding*
+  // match, which is to say the thing the model had just been shown and
+  // declined. Nineteen questions were tagged that way in the last run, several
+  // at confidence 1.00, and the system prompt tells the model in as many words
+  // that a wrong-but-plausible tag is worse than none because it corrupts the
+  // weakness report. Overriding the abstain it asked for made the prompt a
+  // lie. An untagged question shows up as untagged; a wrongly tagged one is
+  // invisible and wrong.
+  //
+  // The nearest ancestor is still worked out, because a proposal needs
+  // somewhere to hang.
   const ancestorId = await nearestAncestor(db, candidates[0].slug)
-
-  if (ancestorId) {
-    await db
-      .insert(questionTopics)
-      .values({
-        questionId: question.id,
-        topicId: ancestorId,
-        confidence: result.confidence,
-        assignedBy: 'ai',
-        isPrimary: true,
-      })
-      .onConflictDoNothing()
-  }
 
   const proposalId = await proposeTopic(db, {
     name: result.suggested_name ?? question.promptText.slice(0, 80),
@@ -214,7 +247,7 @@ export async function applyClassification(
   })
 
   return {
-    topicId: ancestorId,
+    topicId: null,
     coarse: true,
     proposalId,
     confidence: result.confidence,

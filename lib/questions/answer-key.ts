@@ -18,6 +18,8 @@
  * rather than guessed at.
  */
 
+import { countQuestionStarts } from './page-text'
+
 /** Labels a multiple-choice paper actually uses. */
 const LABEL = '[A-Ea-e]'
 
@@ -96,6 +98,62 @@ export function parseAnswerKey(pageText: string): Map<number, string> {
   }
 
   return key.size >= MIN_ENTRIES ? key : new Map()
+}
+
+/**
+ * A line that announces the end of the questions and the start of the answers.
+ *
+ * Anchored to the whole line, because "the answer key is at the back" inside a
+ * question stem is not a heading, and treating it as one would throw the page
+ * away.
+ */
+const KEY_HEADING =
+  /^[ \t]*(?:answers?[ \t]*key|complete[ \t]+solutions?|solutions?|answers?[ \t]+and[ \t]+(?:explanations?|solutions?))[ \t]*:?[ \t]*$/im
+
+/** Whether the page says an answer anywhere on it, in any of the three forms. */
+function statesAnswers(text: string): boolean {
+  if (KEY_HEADING.test(text)) return true
+
+  SOLUTION_LINE.lastIndex = 0
+  if (SOLUTION_LINE.exec(text)) return true
+
+  return text.split(/\r?\n/).some((line) => GRID_LINE.test(line.trim()))
+}
+
+/**
+ * Whether this page prints answers rather than asking questions.
+ *
+ * Every Edison paper ends with `Answer Key` and `Complete Solutions`, and the
+ * extractor read them as sixteen more questions: the key grid line and the
+ * worked solution beside it each became a row, with prompts like `Answer: D`.
+ * Worse than the phantom rows themselves, those rows carried printed numbers,
+ * so the coverage audit counted them as the questions they were the answers to
+ * and reported a sheet missing eight of its fifteen questions as complete.
+ *
+ * The system prompt already forbids extracting these pages in plain English.
+ * A 7B model does not reliably obey it, so this decides in code instead.
+ *
+ * Two conditions, and the first is the one that matters: a page that prints a
+ * question is a question page, whatever else is on it. A paper that runs its
+ * last three questions and its key onto the same sheet keeps that page, and
+ * pays for it in phantom rows. Losing three real questions to save three fake
+ * ones is the wrong trade, and it is the trade F1 was about.
+ *
+ * The second is positive evidence that this page states answers, so that a
+ * page with no text layer at all — a photograph, a scan that failed OCR — is
+ * never mistaken for one. Deliberately weaker than {@link parseAnswerKey},
+ * which needs three entries before it will believe a key: five of the twenty
+ * phantom rows came off continuation pages carrying one or two worked
+ * solutions and no heading, which is under that floor and still not a
+ * question page.
+ */
+export function isAnswerPage(pageText: string): boolean {
+  const text = stripTags(pageText ?? '')
+  if (text.trim().length === 0) return false
+
+  if (countQuestionStarts(text) > 0) return false
+
+  return statesAnswers(text)
 }
 
 /**

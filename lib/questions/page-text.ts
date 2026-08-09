@@ -39,19 +39,35 @@ export function firstQuestionAt(text: string): number {
 }
 
 /**
+ * The numbers the page appears to print its questions under.
+ *
+ * A heuristic, and known to be one: measured against fourteen stored sheets it
+ * agrees exactly with what was extracted on 35 of 47 question pages, running
+ * both over and under. Good enough to say *where* on a paper something went
+ * missing, and not good enough to say how many questions a page has. Use the
+ * paper's own answer key for that.
+ */
+export function questionNumbersOn(text: string): number[] {
+  QUESTION_START.lastIndex = 0
+
+  const numbers: number[] = []
+  for (let match = QUESTION_START.exec(text); match; match = QUESTION_START.exec(text)) {
+    if (looksLikeQuestion(match[2])) numbers.push(Number(match[1]))
+  }
+
+  return numbers
+}
+
+/**
  * How many numbered questions the page's text appears to print.
  *
  * Used to tell "this page produced nothing because there was nothing on it"
  * from "this page produced nothing and it should have", which the audit could
- * not distinguish and so treated both as fine.
+ * not distinguish and so treated both as fine. That is a question the count
+ * answers reliably even though the count itself is approximate: on all 47
+ * question pages of the Edison run it is non-zero, and on all 35 key,
+ * solutions and cover pages it is zero.
  */
 export function countQuestionStarts(text: string): number {
-  QUESTION_START.lastIndex = 0
-
-  let count = 0
-  for (let match = QUESTION_START.exec(text); match; match = QUESTION_START.exec(text)) {
-    if (looksLikeQuestion(match[2])) count += 1
-  }
-
-  return count
+  return questionNumbersOn(text).length
 }

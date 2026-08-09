@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { questions, worksheetPages, worksheets } from '@/lib/db/schema'
+import { isAnswerPage } from '@/lib/questions/answer-key'
+import { countQuestionStarts } from '@/lib/questions/page-text'
 import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ worksheetId: string }> }
@@ -26,7 +28,11 @@ export async function GET(request: Request, { params }: Params) {
   }
 
   const pages = await db
-    .select({ id: worksheetPages.id, pageNumber: worksheetPages.pageNumber })
+    .select({
+      id: worksheetPages.id,
+      pageNumber: worksheetPages.pageNumber,
+      ocrText: worksheetPages.ocrText,
+    })
     .from(worksheetPages)
     .where(eq(worksheetPages.worksheetId, worksheetId))
     .orderBy(asc(worksheetPages.pageNumber))
@@ -46,9 +52,19 @@ export async function GET(request: Request, { params }: Params) {
 
   return NextResponse.json({
     expectedTotal: worksheet.expectedTotal,
-    pages: pages.map((page) => ({
-      pageNumber: page.pageNumber,
-      printed: byPage.get(page.id) ?? [],
-    })),
+    pages: pages.map((page) => {
+      const text = page.ocrText ?? ''
+
+      return {
+        pageNumber: page.pageNumber,
+        printed: byPage.get(page.id) ?? [],
+        // What the page's own text says it holds, so the audit can tell a page
+        // that returned nothing because there was nothing on it from one that
+        // returned nothing and should not have. A cover page, an instructions
+        // page and an answer key are all legitimately empty of questions; a
+        // page printing eight of them is not.
+        expectsQuestions: countQuestionStarts(text) > 0 && !isAnswerPage(text),
+      }
+    }),
   })
 }

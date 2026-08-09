@@ -1,6 +1,21 @@
 export interface PageFindings {
   pageNumber: number
   printed: number[]
+  /**
+   * Whether the page's own text prints questions.
+   *
+   * The audit works from the printed numbering alone, so a page that returned
+   * nothing is invisible to it as long as some other page supplied the numbers
+   * that page was carrying. That is exactly what happened to `test8_15`: its
+   * solutions page produced rows numbered 8 to 15, the audit read 15 of 15 and
+   * reported 100 % recall, and pages 2 and 3 — which had come back empty — were
+   * never re-read. Half the paper was missing and the only check that could
+   * have caught it passed.
+   *
+   * Absent when the caller cannot tell, which is read as "no", so a caller
+   * written before this keeps the behaviour it had.
+   */
+  expectsQuestions?: boolean
 }
 
 export interface RetryTarget {
@@ -23,6 +38,15 @@ export interface AuditResult {
    * is worse than showing too many, so this is reported rather than acted on.
    */
   extra: number[]
+  /**
+   * Pages that print questions and returned none.
+   *
+   * A failure in its own right, not a warning: it does not depend on the
+   * numbering being complete, which is the point, because the numbering can be
+   * complete and wrong. Every one of these is re-read even when nothing looks
+   * missing.
+   */
+  silent: number[]
 }
 
 export function auditExtraction(
@@ -52,16 +76,37 @@ export function auditExtraction(
 
   const expected = expectedTotal && expectedTotal > 0 ? expectedTotal : null
 
+  const silent = pages
+    .filter((page) => page.expectsQuestions === true && page.printed.length === 0)
+    .map((page) => page.pageNumber)
+    .sort((a, b) => a - b)
+
+  const retry = pagesToRetry(pages, missing, silent)
+  const targeted = new Set(retry.map((target) => target.pageNumber))
+
+  // Added whether or not anything looks missing. A page that printed questions
+  // and returned none is worth another look on its own evidence, and waiting
+  // for a gap in the numbering to appear is what let a sheet missing eight of
+  // its fifteen questions past.
+  for (const pageNumber of silent) {
+    if (!targeted.has(pageNumber)) retry.push({ pageNumber, expect: [] })
+  }
+
   return {
     missing,
-    retry: pagesToRetry(pages, missing),
+    retry: retry.sort((a, b) => a.pageNumber - b.pageNumber),
     found: seen.size,
     expected,
     extra: expected ? [...seen].filter((n) => n > expected).sort((a, b) => a - b) : [],
+    silent,
   }
 }
 
-function pagesToRetry(pages: PageFindings[], missing: number[]): RetryTarget[] {
+function pagesToRetry(
+  pages: PageFindings[],
+  missing: number[],
+  silent: number[],
+): RetryTarget[] {
   if (missing.length === 0) return []
 
   const numbered = pages
@@ -90,6 +135,22 @@ function pagesToRetry(pages: PageFindings[], missing: number[]): RetryTarget[] {
 
     const before = [...numbered].reverse().find((p) => p.high < number)
     const after = numbered.find((p) => p.low > number)
+
+    // A page that prints questions and returned none, sitting between the last
+    // page numbered below this and the first numbered above it, is where this
+    // question was. Better evidence than either neighbour, so it takes the
+    // number on its own: `test8_15` lost pages 2 and 3, and blaming page 1 for
+    // questions 8 to 14 would re-read a page that never held them.
+    const between = silent.filter(
+      (pageNumber) =>
+        (!before || pageNumber > before.pageNumber) &&
+        (!after || pageNumber < after.pageNumber),
+    )
+
+    if (between.length > 0) {
+      for (const pageNumber of between) add(pageNumber, number)
+      continue
+    }
 
     if (before) add(before.pageNumber, number)
     if (after) add(after.pageNumber, number)

@@ -21,11 +21,14 @@ function fakeDb(captured: { label: string; text: string }[]) {
     returning: vi.fn(async () => [{ id: 'question-1' }]),
   }))
 
-  // Only the two shapes persistQuestions uses: a select of existing rows, and
-  // inserts that either return an id (questions) or do not (choices).
+  // Only the shapes persistQuestions uses: a select of existing rows, the
+  // single-row lookup of the page's text, and inserts that either return an id
+  // (questions) or do not (choices).
+  const empty = () => Object.assign(Promise.resolve([]), { limit: async () => [] })
+
   return {
     select: () => ({
-      from: () => ({ where: async () => [] }),
+      from: () => ({ where: empty }),
     }),
     insert: (table: unknown) => {
       const handle = insert(table)
@@ -39,13 +42,17 @@ function fakeDb(captured: { label: string; text: string }[]) {
   } as never
 }
 
-const QUESTION = (choices: { label: string; text: string }[]): ExtractedQuestion => ({
+const QUESTION = (
+  choices: { label: string; text: string }[],
+  over: Partial<ExtractedQuestion> = {},
+): ExtractedQuestion => ({
   ordinal: 1,
   prompt_text: 'A rectangular garden measures 12 m by 8 m. What is its area?',
   question_type: 'multiple_choice',
   choices,
   bbox: null,
   has_figure: false,
+  ...over,
 })
 
 describe('persistQuestions label handling', () => {
@@ -86,6 +93,55 @@ describe('persistQuestions label handling', () => {
     )
 
     expect(captured.map((c) => c.label)).toEqual(['A', 'B'])
+  })
+
+  /**
+   * `topic_test13_20` stored an orphaned option block as its question 17 and
+   * the real stem for 17 was never stored at all, so every count-based check
+   * passed on a sheet with a garbage question in it. Ingest drops a row whose
+   * whole prompt is a run of options — but only after the merge, and only
+   * after the merge has made sure the surviving stem is the real one, or the
+   * drop would take a good question's options down with the bad row's text.
+   */
+  it('keeps the real stem when an option block arrives under the same number', async () => {
+    const captured: { label: string; text: string }[] = []
+
+    const created = await persistQuestions(
+      fakeDb(captured),
+      { worksheetId: 'w1', userId: 'u1' },
+      'page-1',
+      [
+        QUESTION([], {
+          prompt_text: 'A. 1 hole   B. 4 holes   C. 2 holes same side   D. 2 holes opposite sides',
+        }),
+        QUESTION([
+          { label: 'A', text: '1 hole' },
+          { label: 'B', text: '4 holes' },
+          { label: 'C', text: '2 holes same side' },
+        ]),
+      ],
+    )
+
+    expect(created).toBe(1)
+    expect(captured.map((c) => c.label)).toEqual(['A', 'B', 'C'])
+  })
+
+  it('drops a row that is nothing but an option block', async () => {
+    const captured: { label: string; text: string }[] = []
+
+    const created = await persistQuestions(
+      fakeDb(captured),
+      { worksheetId: 'w1', userId: 'u1' },
+      'page-1',
+      [
+        QUESTION([], {
+          prompt_text: 'A. 1 hole   B. 4 holes   C. 2 holes same side   D. 2 holes opposite sides',
+        }),
+      ],
+    )
+
+    expect(created).toBe(0)
+    expect(captured).toEqual([])
   })
 
   it('leaves numeric labels alone, which a lead-in list needs', async () => {

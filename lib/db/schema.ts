@@ -105,11 +105,18 @@ export const jobStatus = pgEnum('job_status', [
 
 export const jobPriority = pgEnum('job_priority', ['high', 'normal', 'low'])
 
-// `answer_key` and `classify` are not yet produced: the answer key is applied
-// as a repair pass inside the extract job and classification runs from its own
-// route, so neither is ever a job stage of its own. They stay because dropping
-// a value from a Postgres enum means rebuilding the type and every column using
-// it, which is a real migration to buy back two unused labels.
+// `answer_key` and `classify` are dead labels. The answer key is applied as a
+// repair pass at the end of the extract job, because it matches on the printed
+// number and cannot run until the numbering has settled; classification runs
+// from its own route once the questions exist. Neither is a stage.
+//
+// They stay in the column because dropping a value from a Postgres enum means
+// rebuilding the type and every column using it, which is a real migration
+// against live data to buy back two labels. Nothing can write them any more:
+// `JobStage` in lib/queue is narrowed to what actually runs, so the compiler
+// rejects an enqueue of either. That is the part that matters, because a
+// declared stage nothing implements is how `answer_key` went unnoticed long
+// enough for 288 questions to be stored with no answer recorded on any of them.
 export const jobStage = pgEnum('job_stage', [
   'extract',
   'answer_key',

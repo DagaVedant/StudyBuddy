@@ -71,7 +71,9 @@ export async function POST(request: Request, { params }: Params) {
 
     batch.push({
       questionId: item.questionId,
-      candidates: await shortlistByVector(db, item.embedding, worksheet.subjectHint),
+      candidates: await shortlistByVector(db, item.embedding, {
+        subjectHint: worksheet.subjectHint,
+      }),
     })
   }
 

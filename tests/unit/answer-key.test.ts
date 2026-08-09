@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { mergeAnswerKeys, parseAnswerKey } from '@/lib/questions/answer-key'
+import { isAnswerPage, mergeAnswerKeys, parseAnswerKey } from '@/lib/questions/answer-key'
 
 // The grid printed on the last page of edison_full_practice_test_45.
 const GRID = `ANSWER KEY — PRACTICE TEST 1
@@ -90,6 +90,63 @@ D. 405`
   it('says nothing about an empty page', () => {
     expect(parseAnswerKey('').size).toBe(0)
     expect(parseAnswerKey('   \n  ').size).toBe(0)
+  })
+})
+
+describe('isAnswerPage', () => {
+  it('calls a key page a key page', () => {
+    expect(isAnswerPage(GRID)).toBe(true)
+    expect(isAnswerPage(SOLUTIONS)).toBe(true)
+  })
+
+  // edison_topic_test4_20 page 6, verbatim: the tail of the solutions, with no
+  // heading above it and only one worked answer on it. Under parseAnswerKey's
+  // three-entry floor, and still not a page of questions. Four sheets in the
+  // run each stored one phantom question off a page shaped exactly like this.
+  it('calls a continuation of the solutions a key page', () => {
+    const page = `4x 2 +12x+9 = (2x+3) 2 , so the side length is 2x+3, and the perimeter is 4(2x+3) = 8x + 12 . B reports the side length
+instead of the perimeter. A doubles the side length instead of multiplying by 4.
+20. Answer: B
+Using (a+b) 2 = a 2 +2ab+b 2 : 20 2 = 218 + 2ab, so 400 - 218=2ab, giving ab= 91 . A repeats the given sum of squares.`
+
+    expect(parseAnswerKey(page).size).toBe(0)
+    expect(isAnswerPage(page)).toBe(true)
+  })
+
+  it('leaves a page of questions alone', () => {
+    const page = `Section 2: Percents Practice
+1. A price is increased by 20% and then decreased by 20%. What is the net percent change?
+A. 0%
+B. -20%
+2. A jacket originally priced $80 is discounted 25%. What is the final price?
+A. $54
+B. $60`
+
+    expect(isAnswerPage(page)).toBe(false)
+  })
+
+  // The trade F1 was about. A page that runs the last questions and the key
+  // together keeps its questions and pays for it in phantom rows; the reverse
+  // deletes work the student cannot get back.
+  it('keeps a page that prints questions and then its key', () => {
+    const page = `19. A cyclist rides 12 km in 40 minutes. What is the average speed in km/h?
+A. 15
+B. 18
+20. A tank holds 250 litres when it is five-eighths full. How much does it hold?
+A. 400
+B. 350
+Answer Key
+1. D 2. C 3. A 4. C 5. B`
+
+    expect(isAnswerPage(page)).toBe(false)
+  })
+
+  // A photograph, or a scan OCR could make nothing of. Positive evidence is
+  // required, so an unreadable page is read again rather than thrown away.
+  it('says nothing about a page with no text', () => {
+    expect(isAnswerPage('')).toBe(false)
+    expect(isAnswerPage('   \n  ')).toBe(false)
+    expect(isAnswerPage('Edison Academy Magnet School  Page 3 of 7')).toBe(false)
   })
 })
 

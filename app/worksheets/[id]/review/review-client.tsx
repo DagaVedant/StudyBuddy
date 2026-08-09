@@ -180,7 +180,7 @@ export default function ReviewClient({
           {untagged > 0 && (
             <p className="hint mb-2">
               <span className="tabular-nums">{untagged}</span> still have no topic. They
-              will show up on the dashboard under a broader heading.
+              will not count towards any of your weak areas until one is set.
             </p>
           )}
           <button

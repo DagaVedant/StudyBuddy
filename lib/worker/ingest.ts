@@ -8,6 +8,7 @@ import {
   worksheetPages,
   worksheets,
 } from '@/lib/db/schema'
+import { isAnswerPage } from '@/lib/questions/answer-key'
 import { foldLeadInChoices } from '@/lib/questions/lead-in'
 import { normalizeMath } from '@/lib/questions/math'
 import { reflowText } from '@/lib/questions/reflow'
@@ -16,6 +17,7 @@ import {
   normalizeChoiceLabel,
   normalizeForCompare,
 } from '@/lib/questions/shape'
+import { isOptionRun } from '@/lib/questions/validate'
 import { checkpointJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
 
@@ -53,6 +55,22 @@ export async function runExtraction(
   for (const page of pages) {
     if (page.pageNumber <= startAfter) {
       processed += 1
+      continue
+    }
+
+    // The paper's answer key and worked solutions are not questions, and the
+    // model reads them as questions anyway. Decided before the call rather
+    // than after, so a key page costs nothing to skip. persistQuestions makes
+    // the same decision again for the paths that do not come through here.
+    if (isAnswerPage(page.ocrText ?? '')) {
+      processed += 1
+      await checkpointJob(db, job.id, processed / pages.length, {
+        lastPageNumber: page.pageNumber,
+      })
+      onProgress?.({ page: page.pageNumber, total: pages.length })
+      console.log(
+        `[extract] page ${page.pageNumber} is an answer key or solutions page; not extracted`,
+      )
       continue
     }
 
@@ -104,6 +122,19 @@ function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[
       continue
     }
 
+    // The first half seen keeps the prompt, which is right when it is a stem
+    // and wrong when it is the option block that was printed above the stem.
+    // Two rows numbered 17, one of them "A. 1 hole B. 4 holes C. 2 holes same
+    // side D. 2 holes opposite sides" and the other the actual question, must
+    // not come out of here with the option run as the surviving stem: the
+    // filter in persistQuestions drops an option-run prompt, and it would take
+    // the real question's options with it.
+    if (isOptionRun(seen.prompt_text) && !isOptionRun(question.prompt_text)) {
+      seen.prompt_text = question.prompt_text
+      seen.question_type = question.question_type
+      seen.bbox = question.bbox
+    }
+
     for (const choice of question.choices) {
       const duplicate = seen.choices.some(
         (existing) =>
@@ -123,6 +154,33 @@ export async function persistQuestions(
   pageId: string,
   raw: ExtractedQuestion[],
 ): Promise<number> {
+  if (raw.length === 0) return 0
+
+  // Nothing a page of answers produces is a question, whichever route it came
+  // in by. The GPU worker posts its pages to the job route rather than going
+  // through runExtraction, and it is a separately deployed process that can be
+  // running last month's code, so the decision is made again here where every
+  // writer has to pass: a worker that skips the page saves a model call, and
+  // one that does not still cannot store what it read.
+  //
+  // This is the failure that hid the worst one. The sixteen rows those pages
+  // produced carried the printed numbers of the questions they were answers
+  // to, so the coverage audit counted them as covered and never re-read the
+  // two pages test8_15 had actually lost.
+  const [page] = await db
+    .select({ ocrText: worksheetPages.ocrText })
+    .from(worksheetPages)
+    .where(eq(worksheetPages.id, pageId))
+    .limit(1)
+
+  if (page && isAnswerPage(page.ocrText ?? '')) {
+    console.log(
+      `[ingest] dropped ${raw.length} row(s) read off an answer key or ` +
+        `solutions page on ${job.worksheetId}`,
+    )
+    return 0
+  }
+
   // Labels first, before anything reads one. Four of the five providers parse
   // their own output through the extraction schema, which normalises the label
   // on the way; a provider that does not (the mock does not) hands its rows
@@ -144,7 +202,27 @@ export async function persistQuestions(
   // After the merge, not before: the union of two split rows is one of the two
   // ways a question ends up holding both its options and the sentences they
   // were built from, and it only exists once the merge has run.
-  const extracted = mergeSplitQuestions(labelled).map(foldLeadInChoices)
+  const merged = mergeSplitQuestions(labelled).map(foldLeadInChoices)
+
+  // A row whose whole prompt is a run of options is an orphaned option block,
+  // never a question. `topic_test13_20` stores one as its question 17, so the
+  // sheet holds twenty rows for a twenty-question paper with no gap in the
+  // numbering and every count-based check passes, while the real stem for 17
+  // is gone. Dropping it turns a silent corruption into a visible gap, which
+  // the audit re-reads, and leaves the options on the page for the carried
+  // options recovery to hand to the question they belong to.
+  //
+  // After the merge, because a block that arrived as its own row alongside the
+  // stem it belongs to is joined here rather than dropped.
+  const extracted = merged.filter((question) => {
+    if (!isOptionRun(question.prompt_text)) return true
+    console.log(
+      `[ingest] dropped an option block stored as question ` +
+        `${question.ordinal >= 1 ? question.ordinal : '?'} on ${job.worksheetId}`,
+    )
+    return false
+  })
+
   if (extracted.length === 0) return 0
 
   const existing = await db

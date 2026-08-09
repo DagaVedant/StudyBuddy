@@ -116,3 +116,75 @@ describe('parseCarriedChoices', () => {
     expect(labels(page, null)).toBeNull()
   })
 })
+
+/**
+ * The commoner shape on the Edison papers: the break falls inside the option
+ * list rather than before it, so the stem keeps A (or A and B) and the rest
+ * are printed at the top of the next page. Thirteen questions in that run are
+ * this shape and every one of them was refused, because the run does not start
+ * at A. The head of the list is on the previous page, attached to the stem.
+ */
+describe('parseCarriedChoices, where the break fell inside the list', () => {
+  const tail = (page: string, held: string[], expectedCount: number | null = 4) =>
+    parseCarriedChoices(page, { expectedCount, held })?.map((c) => `${c.label}${c.text}`) ?? null
+
+  // topic_test7_25 page 2, verbatim. Question 7 is at the foot of page 1 and
+  // kept only its A.
+  const PAGE_2 = `B. 314
+C. 25
+D. 79
+8. Two parallel lines are cut by a transversal, and one of the angles measures 65 degrees.
+A. 65
+B. 115`
+
+  it('reads the run that starts at the label the question is missing', () => {
+    expect(tail(PAGE_2, ['A'])).toEqual(['B314', 'C25', 'D79'])
+  })
+
+  it('reads a run of one, which is all a question holding three needs', () => {
+    const page = `D. 13\n15. A rectangle has a perimeter of 40 cm and a width of 8 cm. What is its area?`
+
+    expect(tail(page, ['A', 'B', 'C'])).toEqual(['D13'])
+  })
+
+  it('reads a run of two', () => {
+    const page = `C. 17\nD. 34\n15. What is the median of the data set shown in the table above?`
+
+    expect(tail(page, ['A', 'B'])).toEqual(['C17', 'D34'])
+  })
+
+  // Everything below would hand a question the wrong answers.
+
+  it('refuses a run that does not begin where the question left off', () => {
+    // The question kept A; a run starting at C means B is lost, and nothing
+    // here says what B was.
+    expect(tail(`C. 25\nD. 79\n8. Two parallel lines are cut by a transversal here.`, ['A'])).toBeNull()
+  })
+
+  it('refuses a run that does not finish the question off', () => {
+    // Two options for a question that is three short.
+    expect(tail(`B. 314\nC. 25\n8. Two parallel lines are cut by a transversal here.`, ['A'])).toBeNull()
+  })
+
+  it('refuses to guess when the paper has no settled option count', () => {
+    expect(tail(PAGE_2, ['A'], null)).toBeNull()
+  })
+
+  it('refuses a question whose kept options have a hole in them', () => {
+    // It holds A and C, so the missing one is B, and a run starting at C is
+    // not it.
+    expect(tail(PAGE_2, ['A', 'C'])).toBeNull()
+  })
+
+  it('refuses a tail that is not the first thing on the page', () => {
+    // A complete list belonging to something else. Reading the B, C, D out of
+    // it would hand the previous question three answers to another question.
+    const page = `A. 12\nB. 314\nC. 25\nD. 79\n8. Two parallel lines are cut by a transversal here.`
+
+    expect(tail(page, ['A'])).toBeNull()
+  })
+
+  it('leaves a question that already has everything alone', () => {
+    expect(tail(PAGE_2, ['A', 'B', 'C', 'D'])).toBeNull()
+  })
+})

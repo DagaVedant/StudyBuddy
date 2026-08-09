@@ -250,6 +250,72 @@ describe('recoverCarriedChoices', () => {
     expect(await recoverCarriedChoices(client(), id)).toEqual({ recovered: 0 })
   })
 
+  /**
+   * Thirteen questions in the Edison run are this shape rather than the one
+   * above: the break falls inside the option list, so the stem keeps A and the
+   * rest are printed at the top of the next page. The recovery skipped every
+   * one of them, because a question with any options at all looked finished.
+   */
+  describe('when the stem kept some of its options', () => {
+    /** topic_test7_25 page 2: question 7 kept A, and B, C, D are here. */
+    const TAIL = `B. 314
+C. 25
+D. 79
+8. Two parallel lines are cut by a transversal, and one of the angles measures 65 degrees.`
+
+    /** Four options rather than five, so the modal count matches the Edison papers. */
+    const FOUR = OPTIONS.slice(0, 4)
+
+    const sheet = (kept: { label: string; text: string }[]): Q[] => [
+      { ...WHOLE(12, 3, 639), choices: FOUR },
+      { ...WHOLE(13, 3, 903), choices: FOUR },
+      { ...STRANDED, choices: kept },
+      { ...WHOLE(15, 4, 300), choices: FOUR },
+      { ...WHOLE(16, 4, 700), choices: FOUR },
+    ]
+
+    it('appends the tail to the options the stem kept', async () => {
+      const id = await seed(sheet([{ label: 'A', text: '12' }]), { 3: 'page three', 4: TAIL })
+
+      expect(await recoverCarriedChoices(client(), id)).toEqual({ recovered: 1 })
+
+      const fourteen = (await read(id)).find((row) => row.printed === 14)!
+      expect(
+        fourteen.choices.map((c) => `${c.label}${c.text}`).sort(),
+      ).toEqual(['A12', 'B314', 'C25', 'D79'])
+    })
+
+    it('refuses a tail that does not begin where the stem left off', async () => {
+      // It kept A and B, so the tail owed is C and D; this page opens at B.
+      const id = await seed(
+        sheet([
+          { label: 'A', text: '12' },
+          { label: 'B', text: '13' },
+        ]),
+        { 3: 'page three', 4: TAIL },
+      )
+
+      expect(await recoverCarriedChoices(client(), id)).toEqual({ recovered: 0 })
+    })
+
+    it('refuses a tail that would take the question past the paper’s count', async () => {
+      // A full A-E block for a paper whose questions have four options.
+      const id = await seed(sheet([{ label: 'A', text: '12' }]), {
+        3: 'page three',
+        4: PAGE_TEXT_CARRYING,
+      })
+
+      expect(await recoverCarriedChoices(client(), id)).toEqual({ recovered: 0 })
+    })
+
+    it('adds nothing on a second run', async () => {
+      const id = await seed(sheet([{ label: 'A', text: '12' }]), { 3: 'page three', 4: TAIL })
+
+      await recoverCarriedChoices(client(), id)
+      expect(await recoverCarriedChoices(client(), id)).toEqual({ recovered: 0 })
+    })
+  })
+
   it('handles a worksheet with no questions', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)

@@ -20,6 +20,7 @@ export type ValidationCode =
   | 'stem_looks_truncated'
   | 'stem_reads_like_passage'
   | 'stem_is_not_a_question'
+  | 'stem_is_only_options'
 
 export interface ValidationFlag {
   code: ValidationCode
@@ -102,6 +103,61 @@ const PROSE = /[a-z]{3,}/g
  */
 const MATHS = /[=<>+−×÷≤≥]|\d+\s*[-*/]\s*\d+/
 const HAS_QUESTION_SHAPE = /[?:]/
+
+/**
+ * A labelled option, matched the same way the carried-options parser matches
+ * one. The lookbehind keeps it from firing inside a word or a number.
+ */
+const OPTION_MARK = /(?<![\p{L}\p{N}])\(?([A-Za-z])[).][ \t]+/gu
+
+/** Longest an option's text may run before it stops looking like an option. */
+const MAX_OPTION_TEXT = 300
+
+/**
+ * Whether this text is a run of answer options and nothing else.
+ *
+ * `topic_test13_20` stores twenty rows for a twenty-question paper with no
+ * missing numbers, and row 17's entire prompt is
+ * "A. 1 hole  B. 4 holes  C. 2 holes same side  D. 2 holes opposite sides".
+ * An orphaned option block was stored as a question and the real stem is gone,
+ * and every count-based check passes. The prose check above cannot catch it:
+ * four options carrying four short phrases hold plenty of ordinary words.
+ *
+ * Deliberately narrow. It takes three consecutive labels starting at A with
+ * nothing printed before the first of them, so a stem that happens to open
+ * "A. Smith drove 40 miles" is not a candidate unless a B and a C follow it.
+ */
+export function isOptionRun(text: string): boolean {
+  const trimmed = text.trim()
+  if (trimmed.length === 0) return false
+
+  const marks: { label: string; at: number; textFrom: number }[] = []
+  OPTION_MARK.lastIndex = 0
+
+  for (let match = OPTION_MARK.exec(trimmed); match; match = OPTION_MARK.exec(trimmed)) {
+    marks.push({
+      label: match[1].toUpperCase(),
+      at: match.index,
+      textFrom: match.index + match[0].length,
+    })
+  }
+
+  if (marks.length < 3) return false
+
+  // Anything printed before the first option is the stem this row is meant to
+  // be, and a row that has one is not an orphan.
+  if (trimmed.slice(0, marks[0].at).trim().length > 0) return false
+
+  const A = 'A'.charCodeAt(0)
+  if (!marks.every((mark, index) => mark.label.charCodeAt(0) === A + index)) return false
+
+  // Every one of them has to carry something option-sized. A paragraph between
+  // two letters is prose that happens to be punctuated like a list.
+  return marks.every((mark, index) => {
+    const body = trimmed.slice(mark.textFrom, marks[index + 1]?.at ?? trimmed.length).trim()
+    return body.length > 0 && body.length <= MAX_OPTION_TEXT
+  })
+}
 
 export function validateQuestion(
   question: ValidatableQuestion,
@@ -205,6 +261,17 @@ export function validateQuestion(
     flags.push({
       code: 'stem_is_not_a_question',
       detail: `nothing asked: "${stem.slice(0, 40)}"`,
+      severity: 'high',
+    })
+  }
+
+  // The same failure the check above cannot see, because a list of four short
+  // answers reads as four ordinary sentences. Ingest refuses to store one of
+  // these at all; the flag is here for rows stored before it did.
+  if (isOptionRun(stem)) {
+    flags.push({
+      code: 'stem_is_only_options',
+      detail: `options with no question: "${stem.slice(0, 40)}"`,
       severity: 'high',
     })
   }

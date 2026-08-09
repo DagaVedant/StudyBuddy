@@ -8,6 +8,7 @@ import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
 import { validated } from '../lib/ai/validated'
 import { embed } from '../lib/embeddings'
+import { isAnswerPage } from '../lib/questions/answer-key'
 import { auditExtraction } from '../lib/worker/audit'
 import { planReview, type ReviewableQuestion } from '../lib/worker/review'
 
@@ -178,6 +179,11 @@ async function reviewExtractedQuestions(
     const page = byNumber.get(target.pageNumber)
     if (!page) continue
 
+    // Only reachable on a worksheet extracted before key pages were skipped,
+    // whose phantom rows are still stored and still look damaged. Re-reading
+    // the page cannot help: the server will not store what comes back.
+    if (isAnswerPage(page.ocrText ?? '')) continue
+
     const replace = plan.suspects
       .filter((suspect) => suspect.pageNumber === target.pageNumber)
       .map((suspect) => suspect.id)
@@ -234,7 +240,7 @@ async function recoverMissingQuestions(
   if (!response.ok) return
 
   const coverage = (await response.json()) as {
-    pages: { pageNumber: number; printed: number[] }[]
+    pages: { pageNumber: number; printed: number[]; expectsQuestions?: boolean }[]
     expectedTotal: number | null
   }
 
@@ -250,12 +256,23 @@ async function recoverMissingQuestions(
     )
   }
 
+  // Said before the recall line, because it is the more serious finding and it
+  // is the one a complete-looking count used to hide. A page that prints
+  // questions and returned none is a failure whatever the numbering says.
+  if (audit.silent.length > 0) {
+    log(
+      `  audit: FAILED page(s) ${audit.silent.join(', ')}: ` +
+        `they print questions and returned none`,
+    )
+  }
+
   if (audit.retry.length === 0) return
 
   log(
     `  audit: ${audit.found} found` +
       `${audit.expected ? ` of ${audit.expected}` : ''}, ` +
-      `missing ${audit.missing.join(', ')}, re-reading ${audit.retry.length} page(s)`,
+      `${audit.missing.length > 0 ? `missing ${audit.missing.join(', ')}, ` : ''}` +
+      `re-reading ${audit.retry.length} page(s)`,
   )
 
   const byNumber = new Map(pages.map((page) => [page.pageNumber, page]))
@@ -265,6 +282,11 @@ async function recoverMissingQuestions(
 
     const page = byNumber.get(target.pageNumber)
     if (!page) continue
+
+    // A key page returns nothing by design, and the server refuses to store
+    // anything read off one. Re-reading it would only spend a model call to
+    // be told the same thing twice.
+    if (isAnswerPage(page.ocrText ?? '')) continue
 
     try {
       const imageResponse = await api(`/api/worker/pages/${page.id}`)
@@ -467,6 +489,25 @@ async function processJob(claim: ClaimResponse): Promise<void> {
       if (shuttingDown) {
         log('shutting down mid-job; leaving it to be reclaimed')
         return
+      }
+
+      // The paper's answer key and worked solutions are not questions, and the
+      // model reads them as questions regardless of what the system prompt
+      // says. The server drops anything read off one; skipping here saves the
+      // call. Sixteen phantom rows in the last run came off these pages, and
+      // they carried real question numbers, which is what blinded the audit.
+      if (isAnswerPage(page.ocrText ?? '')) {
+        await postJob(job.id, {
+          action: 'page_result',
+          pageId: page.id,
+          pageNumber: page.pageNumber,
+          totalPages: pages.length,
+          questions: [],
+        })
+
+        log(`  page ${page.pageNumber}/${pages.length}: answer key or solutions, not extracted`)
+        done.add(page.pageNumber)
+        continue
       }
 
       const imageResponse = await api(`/api/worker/pages/${page.id}`)

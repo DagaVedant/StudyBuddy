@@ -69,19 +69,28 @@ export async function recoverCarriedChoices(
   let recovered = 0
 
   for (const page of pages) {
-    const carried = parseCarriedChoices(page.ocrText ?? '', { expectedCount })
-    if (!carried) continue
-
     const previous = byPage.get(page.pageNumber - 1)
     if (!previous || previous.length === 0) continue
 
     const ordered = sortWithinPage(previous)
     const target = ordered[ordered.length - 1]
 
-    // Only a question that is missing its options, and only one that could
-    // have had any. A grid-in or a fill-in-the-blank is answer-free by design.
-    if (target.choices.length > 0) continue
+    // Only a question that could have had options at all. A grid-in or a
+    // fill-in-the-blank is answer-free by design.
     if (!RECOVERABLE.has(target.questionType)) continue
+
+    // A question with its full set is finished. One with some of them is the
+    // commoner shape and the one this pass used to walk past: the break falls
+    // inside the option list, the stem keeps A, and B, C and D are printed at
+    // the top of the next page. What it kept says where the rest begins.
+    if (expectedCount === null ? target.choices.length > 0 : target.choices.length >= expectedCount) {
+      continue
+    }
+
+    const held = target.choices.map((choice) => choice.label)
+
+    const carried = parseCarriedChoices(page.ocrText ?? '', { expectedCount, held })
+    if (!carried) continue
 
     // Page furniture caught at the foot of a page is not a question waiting
     // for its answers.
@@ -90,7 +99,7 @@ export async function recoverCarriedChoices(
         printedNumber: target.printedNumber,
         promptText: target.promptText,
         questionType: target.questionType,
-        choices: [],
+        choices: target.choices,
       }).map((flag) => flag.code),
     )
     if (codes.has('stem_is_not_a_question') || codes.has('empty_stem')) continue
@@ -114,7 +123,15 @@ export async function recoverCarriedChoices(
       })),
     )
 
-    const contentHash = hashQuestion(target.promptText, carried)
+    // Hashed over what the question holds now, kept options included, so a row
+    // that recovered a tail still matches itself on the next pass. Sorted by
+    // label rather than left in the order the rows came back in, because the
+    // options are loaded unordered and the hash is position-sensitive: an
+    // A, B, C, D question has to hash the same here as it does at ingest.
+    const whole = [...target.choices, ...carried].sort((a, b) =>
+      a.label.localeCompare(b.label),
+    )
+    const contentHash = hashQuestion(target.promptText, whole)
 
     await db
       .update(questions)

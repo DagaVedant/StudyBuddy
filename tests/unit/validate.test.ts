@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  isOptionRun,
   modalChoiceCount,
   validateQuestion,
   worthRereading,
@@ -26,9 +27,77 @@ function question(over: Partial<ValidatableQuestion> = {}): ValidatableQuestion 
 const codes = (q: ValidatableQuestion, expected: number | null = 4) =>
   validateQuestion(q, { expectedChoiceCount: expected }).map((f) => f.code)
 
+/**
+ * `topic_test13_20` stores twenty rows for a twenty-question paper with no gap
+ * in the numbering, and row 17 is an orphaned option block. Every count-based
+ * check passes and the real stem for 17 is gone.
+ */
+describe('isOptionRun', () => {
+  it('recognises an option block stored as a question', () => {
+    expect(
+      isOptionRun('A. 1 hole   B. 4 holes   C. 2 holes same side   D. 2 holes opposite sides'),
+    ).toBe(true)
+  })
+
+  it('recognises one printed a line at a time', () => {
+    expect(isOptionRun('A. 12\nB. 314\nC. 25\nD. 79')).toBe(true)
+  })
+
+  it('reads the bracketed style too', () => {
+    expect(isOptionRun('(A) 28 (B) 29 (C) 30 (D) 31 (E) 32')).toBe(true)
+  })
+
+  // Everything below is a question, and dropping one would be the failure this
+  // whole document is about.
+
+  it('leaves an ordinary question alone', () => {
+    expect(isOptionRun('A rectangular garden measures 12 m by 8 m. What is its area?')).toBe(false)
+  })
+
+  it('leaves a stem that happens to open with a letter and a full stop', () => {
+    expect(isOptionRun('A. Smith drove 40 miles in 50 minutes. What was the average speed?')).toBe(
+      false,
+    )
+  })
+
+  it('leaves a question that carries its own options after the stem', () => {
+    expect(isOptionRun('What is 8 x 9 - 7 x 6?\nA. 43\nB. 45\nC. -45\nD. 44')).toBe(false)
+  })
+
+  it('needs three labels before it will call anything a list', () => {
+    expect(isOptionRun('A. True   B. False')).toBe(false)
+  })
+
+  it('needs them in order, starting at A', () => {
+    expect(isOptionRun('B. 314   C. 25   D. 79')).toBe(false)
+    expect(isOptionRun('A. 12   C. 25   B. 314')).toBe(false)
+  })
+
+  it('is not fooled by prose punctuated like a list', () => {
+    const prose =
+      `A. ${'word '.repeat(80)}\nB. ${'word '.repeat(80)}\nC. ${'word '.repeat(80)}`
+
+    expect(isOptionRun(prose)).toBe(false)
+  })
+
+  it('says nothing about empty text', () => {
+    expect(isOptionRun('')).toBe(false)
+    expect(isOptionRun('   \n ')).toBe(false)
+  })
+})
+
 describe('validateQuestion', () => {
   it('passes a well-formed question', () => {
     expect(codes(question())).toEqual([])
+  })
+
+  // The prose check above cannot see this one: four short answers are four
+  // ordinary sentences as far as it is concerned.
+  it('catches an option block stored as a question', () => {
+    const stem = 'A. 1 hole   B. 4 holes   C. 2 holes same side   D. 2 holes opposite sides'
+
+    expect(codes(question({ promptText: stem }))).toContain('stem_is_only_options')
+    expect(codes(question({ promptText: stem }))).not.toContain('stem_is_not_a_question')
   })
 
   it('catches a stem with nothing in it', () => {

@@ -5,7 +5,29 @@ import { gpuWorkers, processingJobs } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 
 export type JobExecutor = 'server' | 'browser' | 'operator_gpu'
-export type JobStage = 'extract' | 'answer_key' | 'classify' | 'explain'
+
+/**
+ * The stages a job can be enqueued as.
+ *
+ * Deliberately narrower than the `job_stage` column, which also carries
+ * `answer_key` and `classify`. Neither has ever run. The answer key is applied
+ * as a repair pass at the end of the extract job, because it matches on the
+ * printed number and cannot run until the numbering has settled, and
+ * classification runs from its own route once the questions exist. Both are in
+ * the right place; what was wrong was the type saying they were stages, which
+ * is how `answer_key` sat there declared and unimplemented long enough for 288
+ * questions to be stored with no answer on any of them.
+ *
+ * The column keeps its four labels: removing one from a Postgres enum means
+ * rebuilding the type and every column that uses it, which is a real migration
+ * against live data to buy back two labels nothing can now write. Narrowing
+ * here costs nothing and makes the compiler say so.
+ */
+export type JobStage = 'extract' | 'explain'
+
+/** Every label the column can hold, including the two nothing enqueues. */
+export type StoredJobStage = JobStage | 'answer_key' | 'classify'
+
 export type JobPriority = 'high' | 'normal' | 'low'
 
 export const MAX_ATTEMPTS = 3
@@ -77,7 +99,12 @@ export interface ClaimedJob {
   id: string
   worksheetId: string
   userId: string
-  stage: JobStage
+  /**
+   * Read back as the column's own type rather than the enqueueable one: a row
+   * written before the narrowing above can still be holding either of the two
+   * labels nothing enqueues any more.
+   */
+  stage: StoredJobStage
   attemptCount: number
   checkpoint: Record<string, unknown> | null
 }
@@ -128,7 +155,7 @@ export async function claimJob(
     id: string
     worksheet_id: string
     user_id: string
-    stage: JobStage
+    stage: StoredJobStage
     attempt_count: number
     checkpoint: Record<string, unknown> | null
   }>(result)
