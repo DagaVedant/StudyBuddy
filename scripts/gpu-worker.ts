@@ -563,6 +563,18 @@ async function processJob(claim: ClaimResponse): Promise<void> {
     await postJob(job.id, { action: 'phase', phase: 'verifying' })
     await recoverMissingQuestions(job, pages)
 
+    // Again, because the audit just added rows that have never been through
+    // the repair passes. A question recovered by the re-read arrives in the
+    // shape a page break leaves: the stem and option A on one page, B, C and D
+    // at the top of the next. The review below would see the short option list,
+    // call it damaged and spend a second vision call re-reading the page, when
+    // the missing options are already sitting in the stored text and the
+    // carried-options pass takes them for nothing. It ran before the audit and
+    // would not run again until classifying, one step too late to save the
+    // call. Repeating it is safe; a second run with nothing to do finds
+    // nothing.
+    await postJob(job.id, { action: 'phase', phase: 'verifying' })
+
     // After the numbering is repaired, so the review judges the questions the
     // student will actually see rather than ones about to be replaced.
     await reviewExtractedQuestions(job, pages)

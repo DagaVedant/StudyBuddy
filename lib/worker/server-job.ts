@@ -83,8 +83,9 @@ async function runOneServerJob(
     // list three of them by hand and was missing the split join and the
     // carried-options recovery, so a question the page break cut in two stayed
     // cut in two for anyone processing with their own cloud key. There is only
-    // one run here rather than the GPU path's two, because there is no review
-    // re-read in between to produce a second crop of splits.
+    // one run here rather than the GPU path's three, because there is neither
+    // an audit re-read nor a review re-read in between to produce a second
+    // crop of splits, or a question holding half its options.
     await runRepairPasses(db, job.worksheetId)
 
     const [worksheet] = await db
