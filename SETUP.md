@@ -295,6 +295,8 @@ Not in `package.json`: these are ad-hoc, run with `npx tsx` against whatever
 
 | Script | What it does |
 |---|---|
+| `ground-truth.ts` | **Start here when you doubt the data.** Reads each paper's own answer key out of the source PDFs in `~/Downloads` and diffs it against what is stored: missing questions, numbers the paper does not have, and every answer. It is the only check that compares against the paper rather than against the pipeline's own opinion, and it is what caught a repair that fixed the numbering and left the answers keyed to the old numbers. |
+| `repair-missing-options.ts [prefix] [--apply]` | **Writes with `--apply`.** Puts back answer options that were deleted from stored questions, reading them off the page text already stored. Dry run by default. Refuses any question whose stored prompt does not match what the page prints under that number. |
 | `audit-worksheets.ts` | Checks recent worksheets for every failure mode known to have shipped: gaps, duplicates, ordinals out of paper order, unrendered maths. `AUDIT_FIX=true` also repairs them, using the same passes the job runs. |
 | `diagnose-worksheet.ts` | The last 8 worksheets with their page, text and question counts. First stop when an upload looks wrong. |
 | `tally-questions.ts <title-prefix>` | Question counts per worksheet matching the prefix. |
