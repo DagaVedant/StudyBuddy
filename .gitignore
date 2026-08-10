@@ -77,3 +77,6 @@ next-env.d.ts
 # `_tmp-` only and a `tmp-probe.ts` went in on exactly that `git add -A`.
 /scripts/_tmp-*
 /scripts/tmp-*
+
+# eslint's incremental cache (scripts/check.mjs)
+/.eslintcache

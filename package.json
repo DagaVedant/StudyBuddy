@@ -23,7 +23,8 @@
     "gen:secrets": "node scripts/gen-secrets.mjs",
     "benchmark:ollama": "tsx scripts/benchmark-ollama.ts",
     "worker": "tsx scripts/gpu-worker.ts",
-    "check": "tsc --noEmit && eslint && vitest run"
+    "check": "node scripts/check.mjs",
+    "check:serial": "tsc --noEmit && eslint && vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
