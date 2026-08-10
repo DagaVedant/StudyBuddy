@@ -14,6 +14,16 @@ import {
   type QuestionType,
 } from './types'
 
+/**
+ * A key for a choice that has no row yet.
+ *
+ * Only has to be unique for the life of the screen: it is a React key and the
+ * server never sees it. A module counter satisfies that everywhere, which
+ * `crypto.randomUUID` does not, being secure-context only.
+ */
+let choiceKeySeq = 0
+const nextChoiceKey = () => `new-choice-${(choiceKeySeq += 1)}`
+
 interface CardProps {
   question: EditableQuestion
   expanded: boolean
@@ -22,8 +32,14 @@ interface CardProps {
   topics: TopicChoice[]
   onUpdate: (id: string, patch: Partial<EditableQuestion>) => void
   onRemove: (id: string) => void
-  onFocus: (id: string) => void
-  onToggleExpanded: (id: string) => void
+  /**
+   * The page id travels with the question id because the parent would
+   * otherwise have to search `questions` for it, and a handler that closes over
+   * `questions` is rebuilt on every keystroke, which is exactly what the memo
+   * below cannot survive.
+   */
+  onFocus: (id: string, pageId: string | null) => void
+  onToggleExpanded: (id: string, pageId: string | null) => void
   registerRef: (id: string, node: HTMLLIElement | null) => void
 }
 
@@ -65,7 +81,7 @@ const QuestionCard = memo(function QuestionCard({
           </span>
           <button
             type="button"
-            onClick={() => onFocus(question.id)}
+            onClick={() => onFocus(question.id, question.pageId)}
             className="min-w-0 flex-1 text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <span className="line-clamp-3 whitespace-pre-line">
@@ -79,9 +95,9 @@ const QuestionCard = memo(function QuestionCard({
             to run off the side of the card. */}
         {question.choices.length > 0 && (
           <ul className="mt-2 space-y-0.5 pl-8 text-xs">
-            {question.choices.map((choice, index) => (
+            {question.choices.map((choice) => (
               <li
-                key={index}
+                key={choice.id}
                 className={`flex gap-1.5 ${
                   choice.isCorrect ? 'text-success' : 'text-muted'
                 }`}
@@ -111,7 +127,7 @@ const QuestionCard = memo(function QuestionCard({
             type="button"
             className="ml-auto shrink-0 text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             aria-expanded={expanded}
-            onClick={() => onToggleExpanded(question.id)}
+            onClick={() => onToggleExpanded(question.id, question.pageId)}
           >
             {expanded ? 'Done' : 'Fix'}
           </button>
@@ -161,9 +177,16 @@ const QuestionCard = memo(function QuestionCard({
           {question.questionType === 'multiple_choice' && (
             <fieldset>
               <legend className="label">Answer choices</legend>
+              {/* Keyed by id, and matched by id in every handler below. Both
+                  used to be the row's position, and a position is not an
+                  identity in a list you can delete out of the middle of: with
+                  `key={index}`, removing C handed C's text box to what had been
+                  D, so the caret, the selection and whatever the browser was
+                  still holding for that field stayed where they were while the
+                  text under them changed. */}
               <ul className="space-y-2">
-                {question.choices.map((choice, index) => (
-                  <li key={index} className="flex items-center gap-2">
+                {question.choices.map((choice) => (
+                  <li key={choice.id} className="flex items-center gap-2">
                     <input
                       type="radio"
                       name={`correct-${question.id}`}
@@ -172,9 +195,9 @@ const QuestionCard = memo(function QuestionCard({
                       className="size-4 shrink-0 accent-[var(--accent)]"
                       onChange={() =>
                         onUpdate(question.id, {
-                          choices: question.choices.map((other, i) => ({
+                          choices: question.choices.map((other) => ({
                             ...other,
-                            isCorrect: i === index,
+                            isCorrect: other.id === choice.id,
                           })),
                           correctAnswer: choice.label,
                         })
@@ -188,8 +211,10 @@ const QuestionCard = memo(function QuestionCard({
                       value={choice.text}
                       onChange={(event) =>
                         onUpdate(question.id, {
-                          choices: question.choices.map((other, i) =>
-                            i === index ? { ...other, text: event.target.value } : other,
+                          choices: question.choices.map((other) =>
+                            other.id === choice.id
+                              ? { ...other, text: event.target.value }
+                              : other,
                           ),
                         })
                       }
@@ -200,8 +225,11 @@ const QuestionCard = memo(function QuestionCard({
                       className="shrink-0 rounded px-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       onClick={() =>
                         onUpdate(question.id, {
+                          // The relabel stays positional on purpose: what is
+                          // left after a removal has to read A, B, C with no
+                          // gap, whatever it read before.
                           choices: question.choices
-                            .filter((_, i) => i !== index)
+                            .filter((other) => other.id !== choice.id)
                             .map((other, i) => ({ ...other, label: CHOICE_LABELS[i] })),
                         })
                       }
@@ -221,6 +249,17 @@ const QuestionCard = memo(function QuestionCard({
                       choices: [
                         ...question.choices,
                         {
+                          // Minted here. A choice added by hand has no
+                          // `answer_choices` row to borrow an id from and needs
+                          // a key the moment it is on screen; the row the save
+                          // writes gets an id of its own that nothing reads
+                          // back.
+                          //
+                          // A counter and not `crypto.randomUUID`, which is
+                          // secure-context only: over http on a LAN address,
+                          // which is how this screen gets tested on a real
+                          // phone, it is undefined and Add Choice threw.
+                          id: nextChoiceKey(),
                           label: CHOICE_LABELS[question.choices.length],
                           text: '',
                           isCorrect: false,
@@ -291,8 +330,8 @@ export default function QuestionList({
   topicById: Map<string, TopicChoice>
   onUpdate: (id: string, patch: Partial<EditableQuestion>) => void
   onRemove: (id: string) => void
-  onFocus: (id: string) => void
-  onToggleExpanded: (id: string) => void
+  onFocus: (id: string, pageId: string | null) => void
+  onToggleExpanded: (id: string, pageId: string | null) => void
   registerRef: (id: string, node: HTMLLIElement | null) => void
 }) {
   return (

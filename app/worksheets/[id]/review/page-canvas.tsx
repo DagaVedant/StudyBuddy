@@ -39,6 +39,14 @@ export function textInside(lines: TextLine[], box: BBox): string {
  * changes on every pointermove, and lifting it would re-render the question
  * list sixty times a second for a rectangle the list does not care about.
  * A finished drag leaves through `onSelect` as a box and the text under it.
+ *
+ * A finger has to ask first. The container used to carry `touch-none`, which
+ * hands every touch on it to these handlers and none to the browser, and the
+ * page image is as tall as a phone: a student could neither scroll past the
+ * page nor pinch into it to read the question they were meant to be checking,
+ * and every attempt at either drew a box instead. So a touch drag is gated
+ * behind a drawing mode, which the button under the page turns on for one box
+ * at a time. A mouse is not gated, because a mouse never had the problem.
  */
 export default function PageCanvas({
   page,
@@ -62,10 +70,17 @@ export default function PageCanvas({
   onSelect: (bbox: BBox, promptText: string) => void
 }) {
   const [draft, setDraft] = useState<BBox | null>(null)
+  const [drawing, setDrawing] = useState(false)
 
   const imageRef = useRef<HTMLImageElement>(null)
   const dragStart = useRef<{ x: number; y: number } | null>(null)
   const draftRef = useRef<BBox | null>(null)
+
+  const endDrag = useCallback(() => {
+    dragStart.current = null
+    draftRef.current = null
+    setDraft(null)
+  }, [])
 
   const toPageCoords = useCallback(
     (event: React.PointerEvent): { x: number; y: number } => {
@@ -120,9 +135,19 @@ export default function PageCanvas({
       </div>
 
       <div
-        className="card relative touch-none select-none overflow-hidden lg:sticky lg:top-4"
+        // `touch-manipulation` is pan and pinch-zoom kept, double-tap zoom
+        // dropped. The browser only gets to keep them while no box is being
+        // drawn: mid-drag it has to be `touch-none`, or the first vertical
+        // movement is read as a scroll and the drag is cancelled out from under
+        // the student.
+        className={`card relative select-none overflow-hidden lg:sticky lg:top-4 ${
+          drawing ? 'touch-none ring-2 ring-accent' : 'touch-manipulation'
+        }`}
         onPointerDown={(event) => {
           if (event.button !== 0) return
+          // Off a mouse this is a scroll or a pinch until the student has said
+          // otherwise, and the browser is already treating it as one.
+          if (event.pointerType !== 'mouse' && !drawing) return
           event.currentTarget.setPointerCapture(event.pointerId)
           const point = toPageCoords(event)
           dragStart.current = point
@@ -148,13 +173,21 @@ export default function PageCanvas({
           // arrives before React commits the last pointermove's setDraft
           // would otherwise see a stale (often zero-size) box.
           const box = draftRef.current
-          dragStart.current = null
-          draftRef.current = null
-          setDraft(null)
+          endDrag()
           if (!box) return
           if (box[2] - box[0] < MIN_DRAG_PX || box[3] - box[1] < MIN_DRAG_PX) return
+
+          // One box per opt-in. Leaving the mode on would leave the page
+          // unscrollable again the moment the student wanted to go and read the
+          // card that just appeared. A drag too small to count leaves it on,
+          // because that one was a slip rather than a change of mind.
+          setDrawing(false)
           onSelect(box, textInside(page.textLines, box))
         }}
+        // The browser takes the gesture back if it decides it was a scroll
+        // after all, and says so here. Without this the half-drawn box stayed
+        // painted and the next touch carried on from where that one stopped.
+        onPointerCancel={endDrag}
       >
         {/* Authenticated dynamic route; next/image can't forward the session. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -186,7 +219,36 @@ export default function PageCanvas({
         )}
       </div>
 
-      <p className="hint">Missed one? Drag a box around it on the page.</p>
+      <p className="hint any-pointer-coarse:hidden">
+        Missed one? Drag a box around it on the page.
+      </p>
+
+      {/* Only where there is a touch screen to gate. `any-pointer-coarse`
+          rather than a width breakpoint: a laptop with a touch screen has the
+          same problem as a phone and a wide window, and a mouse-only desktop
+          should not be shown a button it never needs.
+
+          Sticky, because the button has to be reachable from wherever the
+          student has scrolled to. A page image is several screens tall, and the
+          question they want to box is rarely the one next to the heading. */}
+      <div className="sticky bottom-2 mt-1.5 hidden items-center gap-2 any-pointer-coarse:flex">
+        <button
+          type="button"
+          aria-pressed={drawing}
+          className="shrink-0 rounded-xl border border-border bg-surface px-3 py-1.5 text-sm shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          onClick={() => {
+            setDrawing((on) => !on)
+            endDrag()
+          }}
+        >
+          {drawing ? 'Cancel' : 'Draw a Box'}
+        </button>
+        <span className="text-sm text-muted">
+          {drawing
+            ? 'Drag around the question you want to add.'
+            : 'Missed one? Draw a box around it.'}
+        </span>
+      </div>
     </section>
   )
 }

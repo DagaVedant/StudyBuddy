@@ -230,13 +230,16 @@ test('a missed question comes back for review', async () => {
   // on as soon as the card lands.
   test.setTimeout(180_000)
 
+  // Polls for the card itself, not for the page heading. The heading is on
+  // /review whether or not anything is due: the empty state moved into the
+  // session component so that finishing a session keeps the count on screen,
+  // which means the heading no longer says anything about the queue.
   await expect(async () => {
     await page.goto('/review')
-    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible({
+    await expect(page.getByText(/triangle/i).first()).toBeVisible({
       timeout: 3_000,
     })
   }).toPass({ timeout: 150_000 })
-  await expect(page.getByText(/triangle/i).first()).toBeVisible()
 
   await expect(page.getByRole('heading', { name: 'Answer' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Show Answer' }).click()

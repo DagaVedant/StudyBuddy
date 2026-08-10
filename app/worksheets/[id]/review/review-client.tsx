@@ -1,14 +1,14 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { TopicChoice } from '@/components/topic-picker'
 import type { BBox } from '@/lib/db/schema'
 
 import PageCanvas from './page-canvas'
 import QuestionList from './question-list'
-import type { EditablePage, EditableQuestion } from './types'
-import { useQuestionEditor } from './use-question-editor'
+import { questionLabel, type EditablePage, type EditableQuestion } from './types'
+import { UNDO_WINDOW_MS, useQuestionEditor } from './use-question-editor'
 
 export type { EditablePage, EditableQuestion } from './types'
 
@@ -28,8 +28,10 @@ interface Props {
  * here is the part that genuinely joins the two halves: which page is showing,
  * which card is selected, and which one is open for editing. The writes live
  * in {@link useQuestionEditor}, the drag in {@link PageCanvas}, and the cards
- * in {@link QuestionList}, which can now be memoized because `update` no
- * longer changes identity on every keystroke.
+ * in {@link QuestionList}, whose memo holds only while every handler below
+ * keeps its identity between keystrokes. `update` was the first one that had to
+ * be made to; `focusQuestion` was the second, and was still rebuilding itself
+ * long after the split had supposedly paid for itself.
  */
 export default function ReviewClient({
   worksheetId,
@@ -55,37 +57,69 @@ export default function ReviewClient({
 
   const { questions, update, removeQuestion, createQuestion } = editor
 
+  // Mirrored into a ref so `remove` can read the list without taking it as a
+  // dependency. `remove` is one of the nine props each card is handed, and a
+  // new identity on every keystroke is all it takes to defeat the memo.
+  const questionsRef = useRef(questions)
+  useEffect(() => {
+    questionsRef.current = questions
+  }, [questions])
+
   const registerRef = useCallback((id: string, node: HTMLLIElement | null) => {
     if (node) cardRefs.current.set(id, node)
     else cardRefs.current.delete(id)
   }, [])
 
+  // The page comes in from the card rather than being looked up here. Finding
+  // it needed `questions`, so this was a new function on every keystroke, and
+  // `toggleExpanded` below it too: two of the nine props each card is handed
+  // changed identity on every edit, which is all it takes to defeat the memo on
+  // the other 113 cards. `pages` is a prop, so it holds for the life of the
+  // screen.
   const focusQuestion = useCallback(
-    (id: string) => {
+    (id: string, pageId: string | null) => {
       setSelectedId(id)
-      const question = questions.find((q) => q.id === id)
-      const index = pages.findIndex((p) => p.id === question?.pageId)
+      const index = pages.findIndex((p) => p.id === pageId)
       if (index >= 0) setPageIndex(index)
       cardRefs.current.get(id)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     },
-    [questions, pages],
+    [pages],
   )
 
   const toggleExpanded = useCallback(
-    (id: string) => {
+    (id: string, pageId: string | null) => {
       setExpandedId((current) => (current === id ? null : id))
-      focusQuestion(id)
+      focusQuestion(id, pageId)
     },
     [focusQuestion],
   )
 
+  /**
+   * The question the undo offer is currently about, if any.
+   *
+   * Captured before the removal, because afterwards the card is out of the list
+   * and there is nothing left to read a label off.
+   */
+  const [undoable, setUndoable] = useState<{ id: string; label: string } | null>(null)
+
   const remove = useCallback(
     (id: string) => {
+      const going = questionsRef.current.find((question) => question.id === id)
+
       setSelectedId((current) => (current === id ? null : current))
+      setUndoable(going ? { id, label: `question ${questionLabel(going)}` } : null)
       void removeQuestion(id)
     },
     [removeQuestion],
   )
+
+  // The offer expires with the window the hook holds the row for, so the
+  // button cannot outlive the thing it would undo.
+  useEffect(() => {
+    if (!undoable) return
+    const timer = setTimeout(() => setUndoable(null), UNDO_WINDOW_MS)
+    return () => clearTimeout(timer)
+  }, [undoable])
 
   const page = pages[pageIndex]
 
@@ -146,6 +180,34 @@ export default function ReviewClient({
           >
             {editor.error}
           </p>
+        )}
+
+        {/*
+          The undo the delete window exists for. Without a control the window
+          was invisible: deleting was merely deferred by eight seconds and
+          nobody could take it back, which is worse than deleting at once
+          because the caption said "Saved" while the request had not been sent.
+        */}
+        {undoable && (
+          <div
+            role="status"
+            className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2 text-sm"
+          >
+            <span>Removed {undoable.label}.</span>
+            <button
+              type="button"
+              className="btn btn-secondary h-8 shrink-0 px-3 text-sm"
+              onClick={() => {
+                // A false return means the window closed and the row is
+                // already gone, which is not an error, only too late. The
+                // offer goes either way.
+                editor.restoreQuestion(undoable.id)
+                setUndoable(null)
+              }}
+            >
+              Undo
+            </button>
+          </div>
         )}
 
         {questions.length === 0 && (

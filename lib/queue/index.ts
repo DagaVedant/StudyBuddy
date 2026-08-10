@@ -123,7 +123,16 @@ export async function pendingExplainJob(
       and(
         eq(processingJobs.userId, userId),
         eq(processingJobs.stage, 'explain'),
-        sql`${processingJobs.status} in ('pending', 'running')`,
+        // All three in-flight states, and `claimed` is the one that matters.
+        // This used to read ('pending', 'running'), and an explain job never
+        // reaches `running`: only `checkpointJob` sets that, and the explain
+        // path posts `explanation` then `complete` without ever checkpointing.
+        // So for the whole generation window, which is tens of seconds on a
+        // cold model, the job was `claimed` and this returned null. Two things
+        // fell out of that: the explain screen polled, got told no job existed,
+        // and gave up; and a second ask in the same window enqueued a duplicate
+        // job, so the worker wrote the explanation twice.
+        inArray(processingJobs.status, IN_FLIGHT),
         sql`${processingJobs.checkpoint} ->> 'questionId' = ${questionId}`,
       ),
     )

@@ -62,7 +62,11 @@ const reportOnlyCsp = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  "upgrade-insecure-requests",
+  // No `upgrade-insecure-requests` here. A report-only policy cannot act on it,
+  // so browsers ignore it and log an error for every page load, which is a
+  // console full of noise about a directive that was never going to do
+  // anything. Strict-Transport-Security below already forces https in
+  // production, which is the whole of what it would have bought.
 ].join("; ");
 
 const nextConfig: NextConfig = {

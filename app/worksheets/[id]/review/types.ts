@@ -26,7 +26,14 @@ export interface EditableQuestion {
   questionType: QuestionType
   bbox: BBox | null
   correctAnswer: string | null
-  choices: { label: string; text: string; isCorrect: boolean }[]
+  /**
+   * `id` is what keys the choice's row, and only has to hold for as long as the
+   * screen is open: it is seeded from the `answer_choices` row, which the PATCH
+   * route replaces wholesale on every save, and minted client side for a choice
+   * added by hand. Keying by position instead handed the removed row's text box
+   * to whichever choice moved up into it.
+   */
+  choices: { id: string; label: string; text: string; isCorrect: boolean }[]
   topicId: string | null
 }
 

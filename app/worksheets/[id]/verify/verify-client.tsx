@@ -5,7 +5,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import ReportButton from '@/components/report-button'
 import { fetchJson } from '@/lib/client/fetch-json'
+import type { BBox } from '@/lib/db/schema'
 import { reflowText } from '@/lib/questions/reflow'
+
+/** The scan a question was read off, and where on it the reader found it. */
+export interface QuestionEvidence {
+  src: string
+  /** Page pixel dimensions. The bbox is expressed in these, not in fractions. */
+  width: number
+  height: number
+  bbox: BBox
+}
 
 export interface VerifiableQuestion {
   id: string
@@ -29,6 +39,69 @@ export interface VerifiableQuestion {
     /** Content hashes agree, so the two read identically. */
     exact: boolean
   } | null
+  /**
+   * Null when the question has no page, no box, or the page never recorded its
+   * own size. Any of those means the crop cannot be placed on the scan, and a
+   * misplaced crop is worse than none on a screen whose whole job is comparing
+   * against the paper.
+   */
+  evidence: QuestionEvidence | null
+}
+
+/**
+ * Kept around the box, as a fraction of it.
+ *
+ * The boxes the reader reports are loose: page-canvas.tsx records that they
+ * framed the wrong lines about as often as the right ones. A crop cut exactly
+ * to one clips the first line of the question it is meant to show, so a little
+ * of the page either side comes along.
+ */
+const CROP_MARGIN = 0.04
+
+/** The page, cropped to the question, as evidence beside what we read off it. */
+function Evidence({ image, alt }: { image: QuestionEvidence; alt: string }) {
+  const [x0, y0, x1, y1] = image.bbox
+
+  const padX = (x1 - x0) * CROP_MARGIN
+  const padY = (y1 - y0) * CROP_MARGIN
+  const left = Math.max(0, x0 - padX)
+  const top = Math.max(0, y0 - padY)
+  const cropWidth = Math.min(image.width, x1 + padX) - left
+  const cropHeight = Math.min(image.height, y1 + padY) - top
+
+  return (
+    // The border lives on the outer box, not on the one carrying the aspect
+    // ratio. Tailwind's preflight sets border-box sizing, so `aspect-ratio`
+    // sizes the border box while a percentage `top` on the image resolves
+    // against the padding box: with a 1px border those differ, and the crop
+    // drifted upward the further down the page the question sat. A question
+    // near the bottom of a 1650px scan showed the line above the one it meant.
+    <div className="overflow-hidden rounded-lg border border-border">
+      <div
+        className="relative"
+        style={{ aspectRatio: `${cropWidth} / ${cropHeight}` }}
+      >
+        {/* Authenticated dynamic route; next/image can't forward the session.
+            The image is laid out in page pixels scaled to the box: its width is
+            the whole page measured in crop widths, then shifted so the crop's
+            top left lands on the box's. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={image.src}
+          alt={alt}
+          width={image.width}
+          height={image.height}
+          className="absolute max-w-none"
+          style={{
+            left: `${(-left / cropWidth) * 100}%`,
+            top: `${(-top / cropHeight) * 100}%`,
+            width: `${(image.width / cropWidth) * 100}%`,
+            height: 'auto',
+          }}
+        />
+      </div>
+    </div>
+  )
 }
 
 export function VerifyClient({
@@ -58,6 +131,16 @@ export function VerifyClient({
   const question = questions[index]
   const done = verified.size
 
+  /** Takes back the optimistic tick for questions that did not save. */
+  const rollBack = useCallback((ids: string[]) => {
+    setError('That did not save. Your place is kept; try again.')
+    setVerified((current) => {
+      const rolled = new Set(current)
+      for (const id of ids) rolled.delete(id)
+      return rolled
+    })
+  }, [])
+
   const mark = useCallback(
     async (ids: string[]) => {
       setError(null)
@@ -68,28 +151,66 @@ export function VerifyClient({
       setVerified((current) => new Set([...current, ...ids]))
 
       try {
-        await Promise.all(
-          ids.map((id) =>
-            fetchJson(`/api/questions/${id}`, {
+        // `fetchJson` hands 404s and 500s back untouched, so a promise that
+        // resolved is not a question that saved. Nothing looked at `ok` here,
+        // which meant a deleted or failing question kept its tick and the
+        // student left believing it was stored.
+        const outcomes = await Promise.all(
+          ids.map(async (id) => {
+            const response = await fetchJson(`/api/questions/${id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userVerified: true }),
-            }),
-          ),
+            })
+            return { id, ok: response.ok }
+          }),
         )
+
+        const failed = outcomes.filter((outcome) => !outcome.ok)
+        if (failed.length > 0) rollBack(failed.map((outcome) => outcome.id))
       } catch {
-        setError('That did not save. Your place is kept; try again.')
-        setVerified((current) => {
-          const rolled = new Set(current)
-          for (const id of ids) rolled.delete(id)
-          return rolled
-        })
+        rollBack(ids)
       } finally {
         setSaving(false)
       }
     },
-    [],
+    [rollBack],
   )
+
+  /**
+   * Everything still unchecked, in one request.
+   *
+   * This used to be one PATCH per question: on the 114-question benchmark
+   * paper, 114 requests queued against a five-connection pool, with most of
+   * them still in flight when the student followed the button to the next
+   * screen.
+   */
+  const acceptRemaining = useCallback(async () => {
+    const ids = questions.filter((q) => !verified.has(q.id)).map((q) => q.id)
+    if (ids.length === 0) return
+
+    setError(null)
+    setSaving(true)
+    setVerified((current) => new Set([...current, ...ids]))
+
+    try {
+      const response = await fetchJson(
+        `/api/worksheets/${worksheetId}/verify-all`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // No exclusions: skipping a card leaves it in the remaining count,
+          // and this button says it accepts the remaining ones.
+          body: JSON.stringify({ exclude: [] }),
+        },
+      )
+      if (!response.ok) rollBack(ids)
+    } catch {
+      rollBack(ids)
+    } finally {
+      setSaving(false)
+    }
+  }, [questions, verified, worksheetId, rollBack])
 
   const advance = useCallback(() => {
     setIndex((current) => Math.min(current + 1, questions.length - 1))
@@ -103,6 +224,7 @@ export function VerifyClient({
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
       const target = event.target as HTMLElement | null
       if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
 
@@ -191,7 +313,10 @@ export function VerifyClient({
               {reflowText(question.promptText)}
             </p>
             {question.pageNumber !== null && (
-              <p className="hint mt-1">Read from page {question.pageNumber}.</p>
+              <p className="hint mt-1">
+                Read from page {question.pageNumber}
+                {question.evidence ? ', shown below.' : '.'}
+              </p>
             )}
           </div>
           {verified.has(question.id) && (
@@ -208,6 +333,15 @@ export function VerifyClient({
               </li>
             ))}
           </ul>
+        )}
+
+        {/* After the choices, because it is what both the prompt and the
+            options get checked against. */}
+        {question.evidence && (
+          <Evidence
+            image={question.evidence}
+            alt={`Question ${label} as it appears on the page`}
+          />
         )}
 
         {question.concerns.length > 0 && (
@@ -268,9 +402,7 @@ export function VerifyClient({
 
       <button
         type="button"
-        onClick={() =>
-          void mark(questions.filter((q) => !verified.has(q.id)).map((q) => q.id))
-        }
+        onClick={() => void acceptRemaining()}
         disabled={saving}
         className="text-sm text-muted underline underline-offset-2 hover:text-accent"
       >

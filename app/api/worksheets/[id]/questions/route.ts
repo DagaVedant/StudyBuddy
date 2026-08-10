@@ -28,6 +28,13 @@ export async function GET(_request: Request, { params }: Params) {
     .from(answerChoices)
     .innerJoin(questions, eq(answerChoices.questionId, questions.id))
     .where(eq(questions.worksheetId, worksheetId))
+    // Ordered, because everything downstream treats position as label order:
+    // the relabel on remove is `.map((other, i) => CHOICE_LABELS[i])` and Add
+    // Choice takes `CHOICE_LABELS[choices.length]`. Postgres is free to return
+    // a question's rows in any order it likes, and the PATCH route deletes and
+    // reinserts every choice with whatever labels it was handed, so one
+    // reordered read would write the scramble back permanently.
+    .orderBy(asc(answerChoices.label), asc(answerChoices.id))
 
   const topics = await db
     .select()
