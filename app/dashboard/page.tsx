@@ -4,6 +4,7 @@ import { ViewTransition } from 'react'
 
 import { auth } from '@/auth'
 import { AccuracyLabel, Meter } from '@/components/meter'
+import { countMissedQuestions } from '@/lib/blooket/missed'
 import { db } from '@/lib/db'
 import {
   getAccuracyTrend,
@@ -77,12 +78,13 @@ export default async function DashboardPage() {
 
   const userId = session.user.id
 
-  const [overview, rawStats, trend, recent, distractors] = await Promise.all([
+  const [overview, rawStats, trend, recent, distractors, missed] = await Promise.all([
     getOverview(db, userId),
     getTopicStats(db, userId),
     getAccuracyTrend(db, userId),
     getRecentWorksheets(db, userId),
     getDistractorPatterns(db, userId),
+    countMissedQuestions(db, userId),
   ])
 
   const paths = pathBySlug()
@@ -384,6 +386,29 @@ export default async function DashboardPage() {
                     </li>
                   ))}
                 </ul>
+              </Panel>
+            </div>
+          )}
+
+          {missed > 0 && (
+            <div className="lg:col-span-2">
+              <Panel
+                title="Play these in Blooket"
+                hint="Every question you have got wrong, in Blooket's import format. In Blooket, choose Create a Set, then Import Questions, and upload the file."
+              >
+                <a
+                  href="/api/export/blooket"
+                  download
+                  className="btn btn-primary sm:w-auto sm:px-4"
+                >
+                  Download CSV
+                </a>
+                <p className="hint">
+                  <span className="tabular-nums">{missed}</span>{' '}
+                  {missed === 1 ? 'question' : 'questions'} to draw from. Any we do
+                  not hold an answer key for are left out, since Blooket needs the
+                  right answer to score a question.
+                </p>
               </Panel>
             </div>
           )}

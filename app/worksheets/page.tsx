@@ -200,6 +200,16 @@ export default async function WorksheetsPage() {
                     )}
                   </dl>
 
+                  {sheet.missedCount > 0 && (
+                    <a
+                      href={`/api/export/blooket/${sheet.id}`}
+                      download
+                      className="mt-2 self-start text-sm text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                      Export missed to Blooket
+                    </a>
+                  )}
+
                   <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
                     <span
                       className={`text-xs font-medium ${STATUS_STYLE[sheet.status] ?? 'text-muted'}`}
