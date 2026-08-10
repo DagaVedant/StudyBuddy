@@ -6,10 +6,40 @@ import { resolveProvider } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { enqueueJob, workerStatus } from '@/lib/queue'
+import { claimWorksheetForCompletion } from '@/lib/upload/claim'
 import { guardWorksheet } from '@/lib/upload/guard'
 import { drainServerQueue } from '@/lib/worker/server-job'
 
 type Params = { params: Promise<{ id: string }> }
+
+const claimForCompletion = (
+  worksheetId: string,
+  status: 'queued' | 'awaiting_review',
+  tierUsed: 'trial' | 'free' | 'cloud' | 'ollama',
+) => claimWorksheetForCompletion(db, worksheetId, status, tierUsed)
+
+/** Where a worksheet that was already completed should send the student. */
+async function alreadyCompleted(worksheetId: string) {
+  const [current] = await db
+    .select({ status: worksheets.status, tierUsed: worksheets.tierUsed })
+    .from(worksheets)
+    .where(eq(worksheets.id, worksheetId))
+    .limit(1)
+
+  const queued = current?.status === 'queued' || current?.status === 'processing'
+
+  return NextResponse.json({
+    ok: true,
+    tier: current?.tierUsed ?? null,
+    mode: queued ? 'queued' : 'manual',
+    // Said plainly rather than silently, so a caller that retried can tell the
+    // difference between its work being done and being done twice.
+    alreadyCompleted: true,
+    next: queued
+      ? `/worksheets/${worksheetId}/status`
+      : `/worksheets/${worksheetId}/review`,
+  })
+}
 
 export async function POST(_request: Request, { params }: Params) {
   const { id: worksheetId } = await params
@@ -23,10 +53,9 @@ export async function POST(_request: Request, { params }: Params) {
   const { tier, executor } = await resolveProvider(db, guard.userId)
 
   if (executor === 'none') {
-    await db
-      .update(worksheets)
-      .set({ status: 'awaiting_review', tierUsed: tier })
-      .where(eq(worksheets.id, worksheetId))
+    if (!(await claimForCompletion(worksheetId, 'awaiting_review', tier))) {
+      return alreadyCompleted(worksheetId)
+    }
 
     return NextResponse.json({
       ok: true,
@@ -37,6 +66,11 @@ export async function POST(_request: Request, { params }: Params) {
   }
 
   if (executor === 'operator_gpu') {
+    // Claimed before the trial is charged, so a losing request cannot spend
+    // one. If the charge then fails, the status is put back below.
+    if (!(await claimForCompletion(worksheetId, 'queued', 'trial'))) {
+      return alreadyCompleted(worksheetId)
+    }
 
     const charge =
       guard.role === 'admin'
@@ -58,11 +92,6 @@ export async function POST(_request: Request, { params }: Params) {
         next: `/worksheets/${worksheetId}/review`,
       })
     }
-
-    await db
-      .update(worksheets)
-      .set({ status: 'queued', tierUsed: 'trial' })
-      .where(eq(worksheets.id, worksheetId))
 
     await enqueueJob(db, {
       worksheetId,
@@ -87,10 +116,9 @@ export async function POST(_request: Request, { params }: Params) {
     })
   }
 
-  await db
-    .update(worksheets)
-    .set({ status: 'queued', tierUsed: tier })
-    .where(eq(worksheets.id, worksheetId))
+  if (!(await claimForCompletion(worksheetId, 'queued', tier))) {
+    return alreadyCompleted(worksheetId)
+  }
 
   await enqueueJob(db, {
     worksheetId,
