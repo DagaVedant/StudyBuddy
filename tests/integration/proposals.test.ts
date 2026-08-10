@@ -1,8 +1,11 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { shortlistByVector } from '@/lib/classify'
 import { acceptTopicProposal, slugify } from '@/lib/classify/proposals'
 import { questionTopics, topicProposals, topics } from '@/lib/db/schema'
+import { EMBEDDING_DIMENSIONS } from '@/lib/embeddings'
+import { demoteParentsWithChildren } from '@/lib/taxonomy/leaves'
 
 import { asDb, createTestDb, type TestDb } from '../helpers/db'
 import { makeQuestion, makeUser, makeWorksheet } from '../helpers/factories'
@@ -43,6 +46,7 @@ async function makeProposal(over: {
   suggestedParentId?: string | null
   sourceQuestionId?: string | null
   status?: 'pending' | 'accepted'
+  embedding?: number[] | null
 }) {
   const [row] = await db
     .insert(topicProposals)
@@ -51,10 +55,18 @@ async function makeProposal(over: {
       suggestedParentId: over.suggestedParentId ?? null,
       sourceQuestionId: over.sourceQuestionId ?? null,
       status: over.status ?? 'pending',
+      embedding: over.embedding ?? null,
     })
     .returning({ id: topicProposals.id })
 
   return row.id
+}
+
+/** A unit vector pointing along one axis, so two of them are easy to tell apart. */
+function axis(index: number): number[] {
+  const vector = new Array(EMBEDDING_DIMENSIONS).fill(0)
+  vector[index] = 1
+  return vector
 }
 
 describe('acceptTopicProposal', () => {
@@ -188,6 +200,116 @@ describe('acceptTopicProposal', () => {
       ok: false,
       reason: 'not_found',
     })
+  })
+})
+
+// The point of accepting one. The queue flipped the status, the tree grew a
+// topic, and the topic was still unreachable, because shortlisting only looked
+// at canonical topics and an accepted proposal is by definition not one. So
+// accepting a proposal made the set classification could choose from smaller,
+// and the next question that did not fit raised the same proposal again.
+describe('an accepted proposal is classifiable', () => {
+  it('shortlists the new topic for a vector near the one it was proposed with', async () => {
+    const parentId = await makeParent('high-school-math.number-theory')
+
+    // Somewhere else in the space, so a shortlist that ignored the query
+    // vector would still pass and this would prove nothing.
+    await db.insert(topics).values({
+      slug: 'high-school-math.number-theory.parity',
+      name: 'Parity',
+      depth: 2,
+      subjectRoot: 'high-school-math',
+      isCanonical: true,
+      isLeaf: true,
+      embedding: axis(300),
+    })
+
+    const accepted = await acceptTopicProposal(
+      client(),
+      await makeProposal({
+        proposedName: 'Modular arithmetic',
+        suggestedParentId: parentId,
+        embedding: axis(5),
+      }),
+    )
+
+    if (!accepted.ok) throw new Error(`expected acceptance, got ${accepted.reason}`)
+
+    const shortlist = await shortlistByVector(client(), axis(5), { limit: 5 })
+
+    expect(shortlist.map((candidate) => candidate.slug)).toContain(accepted.slug)
+    expect(shortlist[0].slug).toBe(accepted.slug)
+  })
+
+  it('drops the parent from the shortlist once it has a child', async () => {
+    const parentId = await makeParent('high-school-math.sequences')
+
+    await db.update(topics).set({ embedding: axis(11) }).where(eq(topics.id, parentId))
+
+    const accepted = await acceptTopicProposal(
+      client(),
+      await makeProposal({
+        proposedName: 'Arithmetic series',
+        suggestedParentId: parentId,
+        embedding: axis(11),
+      }),
+    )
+
+    if (!accepted.ok) throw new Error(`expected acceptance, got ${accepted.reason}`)
+
+    const slugs = (await shortlistByVector(client(), axis(11), { limit: 25 })).map(
+      (candidate) => candidate.slug,
+    )
+
+    expect(slugs).toContain(accepted.slug)
+    expect(slugs).not.toContain('high-school-math.sequences')
+  })
+
+  // What `npm run db:seed` used to undo. The taxonomy file has never heard of
+  // an accepted topic, so the seed wrote its parent back as a leaf and the
+  // parent returned to the shortlist alongside the child it now has.
+  it('keeps a parent demoted after the seed writes the taxonomy back over it', async () => {
+    const parentId = await makeParent('high-school-math.probability')
+
+    const accepted = await acceptTopicProposal(
+      client(),
+      await makeProposal({
+        proposedName: 'Conditional probability',
+        suggestedParentId: parentId,
+        embedding: axis(21),
+      }),
+    )
+
+    if (!accepted.ok) throw new Error(`expected acceptance, got ${accepted.reason}`)
+
+    // What the seed's UPDATE does: `isLeaf` straight off the taxonomy node.
+    await db.update(topics).set({ isLeaf: true }).where(eq(topics.id, parentId))
+
+    expect(await demoteParentsWithChildren(client())).toContain(
+      'high-school-math.probability',
+    )
+
+    const [parent] = await db
+      .select({ isLeaf: topics.isLeaf })
+      .from(topics)
+      .where(eq(topics.id, parentId))
+
+    expect(parent.isLeaf).toBe(false)
+  })
+
+  it('leaves a real leaf alone', async () => {
+    const id = await makeParent('high-school-math.logarithms')
+
+    expect(await demoteParentsWithChildren(client())).not.toContain(
+      'high-school-math.logarithms',
+    )
+
+    const [row] = await db
+      .select({ isLeaf: topics.isLeaf })
+      .from(topics)
+      .where(eq(topics.id, id))
+
+    expect(row.isLeaf).toBe(true)
   })
 })
 

@@ -16,7 +16,14 @@ export type AcceptOutcome =
  *
  * The new topic is marked non-canonical: it did not come from the seeded
  * taxonomy, and keeping that distinction means a later re-seed can tell what
- * it is allowed to overwrite.
+ * it is allowed to overwrite. That is all the flag means; it does not gate
+ * shortlisting, which it used to, with the result that an accepted topic could
+ * never be matched to anything.
+ *
+ * The writes run in one transaction. There are four of them and they are only
+ * coherent together: a topic whose parent is still a leaf, or a proposal
+ * pointing at a topic that was never created, is worse than a proposal nobody
+ * has got to yet.
  */
 export async function acceptTopicProposal(
   db: Db,
@@ -46,53 +53,55 @@ export async function acceptTopicProposal(
 
   const slug = await uniqueSlug(db, `${parent.slug}.${slugify(proposal.proposedName)}`)
 
-  const [created] = await db
-    .insert(topics)
-    .values({
-      parentId: parent.id,
-      slug,
-      name: proposal.proposedName,
-      depth: parent.depth + 1,
-      subjectRoot: parent.subjectRoot,
-      isCanonical: false,
-      isLeaf: true,
-      // Carried over so the new topic is shortlistable straight away. Without
-      // it the topic exists but no question would ever be matched to it.
-      embedding: proposal.embedding,
-    })
-    .returning({ id: topics.id })
-
-  // The parent has a child now, so it is no longer somewhere a question can
-  // land directly.
-  if (parent.isLeaf) {
-    await db.update(topics).set({ isLeaf: false }).where(eq(topics.id, parent.id))
-  }
-
-  let taggedSource = false
-
-  if (proposal.sourceQuestionId) {
-    // The question that could not be classified is the one question we know
-    // belongs here, so it gets the tag without waiting to be reclassified.
-    await db
-      .insert(questionTopics)
+  return db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(topics)
       .values({
-        questionId: proposal.sourceQuestionId,
-        topicId: created.id,
-        confidence: 1,
-        assignedBy: 'user',
-        isPrimary: true,
+        parentId: parent.id,
+        slug,
+        name: proposal.proposedName,
+        depth: parent.depth + 1,
+        subjectRoot: parent.subjectRoot,
+        isCanonical: false,
+        isLeaf: true,
+        // Carried over so the new topic is shortlistable straight away. Without
+        // it the topic exists but no question would ever be matched to it.
+        embedding: proposal.embedding,
       })
-      .onConflictDoNothing()
+      .returning({ id: topics.id })
 
-    taggedSource = true
-  }
+    // The parent has a child now, so it is no longer somewhere a question can
+    // land directly.
+    if (parent.isLeaf) {
+      await tx.update(topics).set({ isLeaf: false }).where(eq(topics.id, parent.id))
+    }
 
-  await db
-    .update(topicProposals)
-    .set({ status: 'accepted', mergedIntoTopicId: created.id })
-    .where(eq(topicProposals.id, proposalId))
+    let taggedSource = false
 
-  return { ok: true, topicId: created.id, slug, taggedSource }
+    if (proposal.sourceQuestionId) {
+      // The question that could not be classified is the one question we know
+      // belongs here, so it gets the tag without waiting to be reclassified.
+      await tx
+        .insert(questionTopics)
+        .values({
+          questionId: proposal.sourceQuestionId,
+          topicId: created.id,
+          confidence: 1,
+          assignedBy: 'user',
+          isPrimary: true,
+        })
+        .onConflictDoNothing()
+
+      taggedSource = true
+    }
+
+    await tx
+      .update(topicProposals)
+      .set({ status: 'accepted', mergedIntoTopicId: created.id })
+      .where(eq(topicProposals.id, proposalId))
+
+    return { ok: true, topicId: created.id, slug, taggedSource }
+  })
 }
 
 export function slugify(name: string): string {

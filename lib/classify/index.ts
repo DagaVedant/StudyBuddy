@@ -87,7 +87,14 @@ export async function shortlistByVector(
     .where(
       and(
         eq(topics.isLeaf, true),
-        eq(topics.isCanonical, true),
+        // Deliberately not filtered on `isCanonical`. That flag records where a
+        // topic came from, so a re-seed knows what it may overwrite, and using
+        // it here quietly excluded every topic an admin had ever accepted:
+        // `acceptTopicProposal` creates them non-canonical, carries the
+        // embedding across so they are matchable, and then nothing could match
+        // them. Accepting a proposal shrank the set classification could choose
+        // from, and the next question that did not fit raised the same proposal
+        // again, which is the loop accepting one is supposed to end.
         isNotNull(topics.embedding),
         subjectHint ? sql`${topics.slug} like ${`${subjectHint.split('.')[0]}%`}` : undefined,
       ),

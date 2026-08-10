@@ -6,7 +6,10 @@ import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
+import * as schema from '../lib/db/schema'
 import { topics } from '../lib/db/schema'
+import type { Db } from '../lib/db/types'
+import { demoteParentsWithChildren } from '../lib/taxonomy/leaves'
 import { flattenTaxonomy } from '../lib/taxonomy/trees'
 
 const dryRun = process.argv.includes('--dry-run')
@@ -40,7 +43,7 @@ async function main() {
   }
 
   const sql = postgres(url, { max: 1 })
-  const db = drizzle(sql)
+  const db = drizzle(sql, { schema }) as unknown as Db
 
   // Parents must exist before children can reference them.
   const ordered = [...flat].sort((a, b) => a.depth - b.depth)
@@ -92,9 +95,17 @@ async function main() {
     }
   }
 
+  // After the writes, because the UPDATE above sets `isLeaf` from the taxonomy
+  // file, which does not know about topics an admin accepted from the proposal
+  // queue. Left alone, a re-seed puts their parents back in the shortlist.
+  const demoted = await demoteParentsWithChildren(db)
+
   await sql.end()
 
   console.log(`\nSeeded: ${inserted} inserted, ${updated} updated.`)
+  if (demoted.length) {
+    console.log(`Demoted ${demoted.length} topic(s) that have children: ${demoted.join(', ')}`)
+  }
   console.log('Embeddings are left NULL; run `npm run db:embed` to backfill')
   console.log('them before enabling auto-classification.')
 }
