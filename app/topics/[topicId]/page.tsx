@@ -16,7 +16,7 @@ import {
   worksheets,
 } from '@/lib/db/schema'
 import { reflowText } from '@/lib/questions/reflow'
-import { flattenTaxonomy } from '@/lib/taxonomy/trees'
+import { pathBySlug } from '@/lib/taxonomy/trees'
 
 export const metadata = { title: 'Topic · StudyBuddy' }
 export const dynamic = 'force-dynamic'
@@ -49,7 +49,7 @@ export default async function TopicPage({
   const [topic] = await db.select().from(topics).where(eq(topics.id, topicId)).limit(1)
   if (!topic) notFound()
 
-  const path = flattenTaxonomy().find((node) => node.slug === topic.slug)?.path ?? topic.name
+  const path = pathBySlug().get(topic.slug) ?? topic.name
 
   const [tally] = await db
     .select({

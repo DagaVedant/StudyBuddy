@@ -1,6 +1,7 @@
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, lte, sql } from 'drizzle-orm'
 
 import { unwrapDriverRows as rows } from '@/lib/db/rows'
+import { IS_QUESTION } from '@/lib/questions/is-question'
 import {
   attempts,
   questionTopics,
@@ -52,6 +53,7 @@ export interface Overview {
   questionsTracked: number
   worksheetsUploaded: number
   dueNow: number
+  /** Cards becoming due within seven days. Excludes {@link dueNow}. */
   dueThisWeek: number
   attemptsLogged: number
 }
@@ -67,7 +69,8 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
   }>(
     await db.execute(sql`
       select
-        (select count(*) from ${questions} where ${questions.userId} = ${userId})::int
+        (select count(*) from ${questions}
+          where ${questions.userId} = ${userId} and ${IS_QUESTION})::int
           as questions_tracked,
         (select count(*) from ${worksheets} where ${worksheets.userId} = ${userId})::int
           as worksheets_uploaded,
@@ -81,10 +84,20 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
     .from(reviewCards)
     .where(and(eq(reviewCards.userId, userId), lte(reviewCards.dueAt, now)))
 
+  // Strictly after now, so this and `dueNow` partition rather than nest. With
+  // no lower bound every overdue card was in both, and the two sit side by side
+  // on the dashboard: a student with 40 overdue and nothing new saw "Due now
+  // 40" beside "Due this week 40" and read the second as more work waiting.
   const [dueWeek] = await db
     .select({ value: sql<number>`count(*)::int` })
     .from(reviewCards)
-    .where(and(eq(reviewCards.userId, userId), lte(reviewCards.dueAt, weekOut)))
+    .where(
+      and(
+        eq(reviewCards.userId, userId),
+        gt(reviewCards.dueAt, now),
+        lte(reviewCards.dueAt, weekOut),
+      ),
+    )
 
   return {
     questionsTracked: Number(counts?.questions_tracked ?? 0),
@@ -102,27 +115,53 @@ export interface TrendPoint {
   wrong: number
 }
 
+/**
+ * One row per week, including the weeks nothing happened in.
+ *
+ * This used to group the attempts and return whatever buckets came back, which
+ * meant the chart's bars were weeks-with-attempts rather than weeks. Twelve
+ * bars read as twelve consecutive weeks whatever they were, so a student who
+ * practised in March and again in June saw two adjacent bars and a flat run
+ * between them that did not exist. Worse in the other direction: a gap during
+ * a bad patch closed up, and the chart showed steady work.
+ *
+ * The weeks are generated in SQL rather than in JS so the bucket boundaries are
+ * Postgres's own. `date_trunc('week', ...)` starts on a Monday, and rebuilding
+ * that here would be one timezone assumption away from bars that do not line up
+ * with the rows they are counting.
+ */
 export async function getAccuracyTrend(
   db: Db,
   userId: string,
   weeks = 12,
 ): Promise<TrendPoint[]> {
-  const since = new Date(Date.now() - weeks * 7 * 24 * 3600_000)
-
-  const result = await db
-    .select({
-      weekStart: sql<string>`to_char(date_trunc('week', ${attempts.createdAt}), 'YYYY-MM-DD')`,
-      correct: sql<number>`count(*) filter (where ${attempts.outcome} = 'correct')::int`,
-      unsure: sql<number>`count(*) filter (where ${attempts.outcome} = 'unsure')::int`,
-      wrong: sql<number>`count(*) filter (where ${attempts.outcome} = 'wrong')::int`,
-    })
-    .from(attempts)
-    .where(and(eq(attempts.userId, userId), gte(attempts.createdAt, since)))
-    .groupBy(sql`date_trunc('week', ${attempts.createdAt})`)
-    .orderBy(sql`date_trunc('week', ${attempts.createdAt})`)
+  const result = rows<{
+    week_start: string
+    correct: number
+    unsure: number
+    wrong: number
+  }>(
+    await db.execute(sql`
+      select
+        to_char(week.start, 'YYYY-MM-DD') as week_start,
+        count(a.id) filter (where a.outcome = 'correct')::int as correct,
+        count(a.id) filter (where a.outcome = 'unsure')::int  as unsure,
+        count(a.id) filter (where a.outcome = 'wrong')::int   as wrong
+      from generate_series(
+        date_trunc('week', now()) - make_interval(weeks => ${weeks - 1}),
+        date_trunc('week', now()),
+        interval '1 week'
+      ) as week(start)
+      left join ${attempts} a
+        on a.user_id = ${userId}
+        and date_trunc('week', a.created_at) = week.start
+      group by week.start
+      order by week.start
+    `),
+  )
 
   return result.map((row) => ({
-    weekStart: row.weekStart,
+    weekStart: row.week_start,
     correct: Number(row.correct),
     unsure: Number(row.unsure),
     wrong: Number(row.wrong),
@@ -153,7 +192,9 @@ export async function getRecentWorksheets(
       status: worksheets.status,
       pageCount: worksheets.pageCount,
       createdAt: worksheets.createdAt,
-      questionCount: sql<number>`count(distinct ${questions.id})::int`,
+      // The same predicate the worksheets page counts with. These two numbers
+      // describe the same paper on two screens, and they disagreed.
+      questionCount: sql<number>`count(distinct ${questions.id}) filter (where ${IS_QUESTION})::int`,
       wrongCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.outcome} = 'wrong')::int`,
       markedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.source} = 'markup')::int`,
     })

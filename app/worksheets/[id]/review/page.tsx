@@ -15,14 +15,14 @@ import {
   type BBox,
   type TextLine,
 } from '@/lib/db/schema'
-import { flattenTaxonomy } from '@/lib/taxonomy/trees'
+import { pathBySlug } from '@/lib/taxonomy/trees'
 
 import ReviewClient, { type EditablePage, type EditableQuestion } from './review-client'
 
 export const metadata = { title: 'Review Questions · StudyBuddy' }
 
 async function leafTopics(): Promise<TopicChoice[]> {
-  const pathBySlug = new Map(flattenTaxonomy().map((topic) => [topic.slug, topic.path]))
+  const paths = pathBySlug()
 
   const rows = await db
     .select({ id: topics.id, slug: topics.slug, name: topics.name })
@@ -30,7 +30,7 @@ async function leafTopics(): Promise<TopicChoice[]> {
     .where(eq(topics.isLeaf, true))
 
   return rows
-    .map((row) => ({ ...row, path: pathBySlug.get(row.slug) ?? row.name }))
+    .map((row) => ({ ...row, path: paths.get(row.slug) ?? row.name }))
     .sort((a, b) => a.path.localeCompare(b.path))
 }
 

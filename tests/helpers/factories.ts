@@ -74,7 +74,13 @@ export async function makeQuestion(
       userId,
       worksheetId,
       ordinal: spec.ordinal ?? 1,
-      promptText: spec.promptText ?? 'Solve for x.',
+      // Long enough to satisfy `IS_QUESTION`, which every question count on the
+      // dashboard and the worksheets page filters on. The old default was
+      // "Solve for x.", which that predicate rejects: three runs of letters or
+      // an operator is the bar, and a real but terse question does not clear
+      // it. A factory called `makeQuestion` handing back a row the app does not
+      // count as a question is a trap for whoever writes the next count.
+      promptText: spec.promptText ?? 'What is the value of x in this equation?',
       questionType: spec.choices?.length ? 'multiple_choice' : 'free_response',
       userVerified: true,
       ...(spec.contentHash ? { contentHash: spec.contentHash } : {}),

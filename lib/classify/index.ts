@@ -4,7 +4,7 @@ import type { AIProvider, TopicCandidate } from '@/lib/ai/types'
 import type { Db } from '@/lib/db/types'
 import { questionTopics, questions, topicProposals, topics } from '@/lib/db/schema'
 import { EMBEDDING_DIMENSIONS, embed } from '@/lib/embeddings'
-import { flattenTaxonomy } from '@/lib/taxonomy/trees'
+import { pathBySlug } from '@/lib/taxonomy/trees'
 
 /**
  * How many leaf topics the model gets to choose between.
@@ -25,7 +25,6 @@ export const SHORTLIST_SIZE = 25
 
 export const PROPOSAL_DEDUP_THRESHOLD = 0.85
 
-const pathBySlug = new Map(flattenTaxonomy().map((topic) => [topic.slug, topic.path]))
 
 export interface ClassifyOutcome {
   topicId: string | null
@@ -80,7 +79,7 @@ export interface ShortlistOptions {
  */
 function subjectSubtree(subjectHint: string | null | undefined) {
   const hint = subjectHint?.trim()
-  if (!hint || !pathBySlug.has(hint)) return undefined
+  if (!hint || !pathBySlug().has(hint)) return undefined
 
   // Parenthesised because this is one term of an `and`, and an unwrapped `or`
   // would bind looser than the conditions around it and match the whole table.
@@ -136,7 +135,7 @@ export async function shortlistByVector(
   return rows.map((row) => ({
     slug: row.slug,
     name: row.name,
-    path: pathBySlug.get(row.slug) ?? row.name,
+    path: pathBySlug().get(row.slug) ?? row.name,
   }))
 }
 

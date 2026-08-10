@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { TAXONOMY, flattenTaxonomy, type TopicNode } from '@/lib/taxonomy/trees'
+import {
+  TAXONOMY,
+  flattenTaxonomy,
+  nameBySlug,
+  pathBySlug,
+  type TopicNode,
+} from '@/lib/taxonomy/trees'
 
 describe('flattenTaxonomy', () => {
   const flat = flattenTaxonomy()
@@ -96,5 +102,62 @@ describe('flattenTaxonomy', () => {
 
   it('exposes the taxonomy roots', () => {
     expect(TAXONOMY).toHaveLength(4)
+  })
+})
+
+/**
+ * Walking the tree is pure and the tree is a literal in the file, so it was
+ * being rebuilt per request on four page routes, three of which then built a
+ * `Map` over the result and threw that away too.
+ */
+describe('the flattened tree is built once', () => {
+  it('hands back the same array every time', () => {
+    expect(flattenTaxonomy()).toBe(flattenTaxonomy())
+    expect(pathBySlug()).toBe(pathBySlug())
+    expect(nameBySlug()).toBe(nameBySlug())
+  })
+
+  it('is frozen, since it is now shared rather than copied', () => {
+    expect(Object.isFrozen(flattenTaxonomy())).toBe(true)
+  })
+
+  it('still walks a tree it is handed, so a broken one can be caught', () => {
+    const custom: TopicNode[] = [{ name: 'Maths', children: [{ name: 'Circles' }] }]
+
+    expect(flattenTaxonomy(custom)).not.toBe(flattenTaxonomy())
+    expect(flattenTaxonomy(custom).map((topic) => topic.slug)).toEqual([
+      'maths',
+      'maths.circles',
+    ])
+  })
+
+  it('agrees with the tree it was built from', () => {
+    const leaf = flattenTaxonomy().find((topic) => topic.name === 'Law of cosines')!
+
+    expect(pathBySlug().get(leaf.slug)).toBe(leaf.path)
+    expect(nameBySlug().get(leaf.slug)).toBe('Law of cosines')
+  })
+})
+
+/**
+ * Segments are joined with dots into a path. An empty one leaves a trailing
+ * dot, and every consumer then reads one level too many: `nearestAncestor`
+ * splits on the dot and gets a blank last segment, and the shortlist's subtree
+ * filter matches on a prefix ending in a separator.
+ */
+describe('a name that slugifies to nothing', () => {
+  it('still contributes a segment', () => {
+    const flat = flattenTaxonomy([{ name: 'Maths', children: [{ name: '???' }] }])
+
+    expect(flat.map((topic) => topic.slug)).toEqual(['maths', 'maths.topic'])
+  })
+
+  it('does not leave a path ending in a separator', () => {
+    const flat = flattenTaxonomy([{ name: '!!!', children: [{ name: '###' }] }])
+
+    for (const topic of flat) {
+      expect(topic.slug).not.toMatch(/\.$/)
+      expect(topic.slug.split('.').every(Boolean)).toBe(true)
+    }
   })
 })

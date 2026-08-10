@@ -8,6 +8,7 @@ import {
   getTopicStats,
 } from '@/lib/dashboard/queries'
 import type { Db } from '@/lib/db/types'
+import { reviewCards } from '@/lib/db/schema'
 import { rankWeaknesses } from '@/lib/dashboard/ranking'
 
 import { createTestDb, type TestDb } from '../helpers/db'
@@ -107,9 +108,73 @@ describe('getOverview', () => {
     expect(overview.questionsTracked).toBe(1)
     expect(overview.attemptsLogged).toBe(1)
   })
+
+  /**
+   * The worksheets page filtered page furniture out of its counts and the
+   * dashboard did not, so the same paper was 25 questions on one screen and 26
+   * on the other and nothing told the student which to believe.
+   */
+  it('counts questions the same way the worksheets page does', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+
+    await makeQuestion(db, userId, worksheetId, {
+      promptText: 'What is the area of the shaded region?',
+    })
+    await makeQuestion(db, userId, worksheetId, { promptText: 'CONTINUE TO THE NEXT PAGE' })
+    await makeQuestion(db, userId, worksheetId, { promptText: 'FORM B' })
+
+    const overview = await getOverview(db as Db, userId)
+
+    expect(overview.questionsTracked).toBe(1)
+  })
+
+  /**
+   * The two sit side by side on the dashboard. Unbounded below, every overdue
+   * card was in both, so a student with forty overdue and nothing new saw the
+   * same number twice and read the second tile as more work waiting.
+   */
+  it('counts the week ahead without recounting what is already due', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+
+    const day = 24 * 3600_000
+    const dueAt = [-3 * day, -day, 2 * day, 5 * day, 30 * day]
+
+    for (const offset of dueAt) {
+      const q = await makeQuestion(db, userId, worksheetId)
+      await db.insert(reviewCards).values({
+        userId,
+        questionId: q.id,
+        dueAt: new Date(Date.now() + offset),
+        stability: 1,
+        difficulty: 5,
+      })
+    }
+
+    const overview = await getOverview(db as Db, userId)
+
+    expect(overview.dueNow).toBe(2)
+    expect(overview.dueThisWeek).toBe(2)
+  })
 })
 
 describe('getAccuracyTrend', () => {
+  async function withAttemptsAt(weeks: number[]) {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const now = Date.now()
+
+    for (const week of weeks) {
+      const q = await makeQuestion(db, userId, worksheetId)
+      await makeAttempt(db, userId, q.id, 'wrong', {
+        createdAt: new Date(now - week * 7 * 24 * 3600_000),
+      })
+    }
+
+    return userId
+  }
+
   it('buckets attempts by week in chronological order', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
@@ -128,12 +193,63 @@ describe('getAccuracyTrend', () => {
 
     const trend = await getAccuracyTrend(db as Db, userId)
 
-    expect(trend.length).toBeGreaterThanOrEqual(2)
-    expect(trend[0].wrong).toBe(2)
-    expect(trend.at(-1)!.correct).toBe(1)
+    // Counted from the end, because the last bucket is always the current week.
+    expect(trend.at(-4)!.wrong).toBe(2)
+    expect(trend.at(-2)!.correct).toBe(1)
 
     const sorted = [...trend].sort((a, b) => a.weekStart.localeCompare(b.weekStart))
     expect(trend.map((p) => p.weekStart)).toEqual(sorted.map((p) => p.weekStart))
+  })
+
+  /**
+   * The chart draws one bar per row and nothing else, so a row per
+   * week-with-attempts made twelve bars read as twelve consecutive weeks
+   * whatever they actually were. A student who practised in March and again in
+   * June saw two adjacent bars, and a gap during a bad patch closed up into a
+   * run of steady work.
+   */
+  it('returns a row per week, including the ones with nothing in them', async () => {
+    const userId = await withAttemptsAt([5, 1])
+
+    const trend = await getAccuracyTrend(db as Db, userId)
+
+    expect(trend).toHaveLength(12)
+    expect(trend.at(-6)!.wrong).toBe(1)
+    expect(trend.at(-2)!.wrong).toBe(1)
+
+    // Everything between the two is present and empty rather than absent.
+    for (const point of trend.slice(-5, -2)) {
+      expect(point.correct + point.unsure + point.wrong).toBe(0)
+    }
+  })
+
+  it('spaces the weeks a week apart, with no gaps to misread', async () => {
+    const userId = await withAttemptsAt([2])
+
+    const trend = await getAccuracyTrend(db as Db, userId, 6)
+
+    expect(trend).toHaveLength(6)
+
+    const gaps = trend
+      .slice(1)
+      .map(
+        (point, index) =>
+          Date.parse(`${point.weekStart}T00:00:00Z`) -
+          Date.parse(`${trend[index].weekStart}T00:00:00Z`),
+      )
+
+    expect(new Set(gaps)).toEqual(new Set([7 * 24 * 3600_000]))
+  })
+
+  it('still returns the weeks when the student has done nothing at all', async () => {
+    const userId = await makeUser(db)
+
+    const trend = await getAccuracyTrend(db as Db, userId, 4)
+
+    expect(trend).toHaveLength(4)
+    expect(trend.every((point) => point.correct + point.unsure + point.wrong === 0)).toBe(
+      true,
+    )
   })
 })
 

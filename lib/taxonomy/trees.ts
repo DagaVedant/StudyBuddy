@@ -496,14 +496,22 @@ export interface FlatTopic {
 }
 
 function slugSegment(name: string): string {
-  return name
+  const segment = name
     .toLowerCase()
     .replace(/['’]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+
+  // Never empty, the same way `slugify` is never empty. Segments are joined
+  // with dots into a path, so a name that is entirely punctuation would
+  // otherwise contribute nothing and leave `parent.` with a trailing dot.
+  // Every consumer then reads one level too many: `nearestAncestor` splits on
+  // the dot and gets a blank last segment, and the shortlist's subtree filter
+  // matches on a prefix that ends in a separator.
+  return segment || 'topic'
 }
 
-export function flattenTaxonomy(roots: TopicNode[] = TAXONOMY): FlatTopic[] {
+function build(roots: TopicNode[]): FlatTopic[] {
   const out: FlatTopic[] = []
   const seen = new Set<string>()
 
@@ -544,4 +552,42 @@ export function flattenTaxonomy(roots: TopicNode[] = TAXONOMY): FlatTopic[] {
   }
 
   return out
+}
+
+/**
+ * The flattened tree, built once.
+ *
+ * Walking the taxonomy is pure: the same 341 nodes in, the same 341 rows out,
+ * and the source is a literal in this file. It was being rebuilt per request on
+ * the dashboard, the topic page, the upload page and the review page, three of
+ * which then built a `Map` over the result and threw that away too.
+ *
+ * Frozen because it is now shared rather than copied. A caller that needs to
+ * sort it takes its own copy first, which the two that sort already did.
+ */
+let flattened: readonly FlatTopic[] | null = null
+
+export function flattenTaxonomy(roots: TopicNode[] = TAXONOMY): FlatTopic[] {
+  // Only the default tree is cached. `roots` exists so a test can hand in a
+  // deliberately broken tree and watch the duplicate-slug check fire, and
+  // caching that would either poison this or never be read.
+  if (roots !== TAXONOMY) return build(roots)
+
+  flattened ??= Object.freeze(build(TAXONOMY))
+  return flattened as FlatTopic[]
+}
+
+let paths: Map<string, string> | null = null
+let names: Map<string, string> | null = null
+
+/** Slug to full display path, e.g. `Geometry › Circles › Arcs and chords`. */
+export function pathBySlug(): ReadonlyMap<string, string> {
+  paths ??= new Map(flattenTaxonomy().map((topic) => [topic.slug, topic.path]))
+  return paths
+}
+
+/** Slug to the topic's own name, without its ancestors. */
+export function nameBySlug(): ReadonlyMap<string, string> {
+  names ??= new Map(flattenTaxonomy().map((topic) => [topic.slug, topic.name]))
+  return names
 }

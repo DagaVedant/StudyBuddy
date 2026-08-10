@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { attempts, questions, worksheetPages, worksheets } from '@/lib/db/schema'
+import { IS_QUESTION } from '@/lib/questions/is-question'
+import { destination } from '@/lib/worksheets/destination'
 
 import DeleteWorksheetButton from './delete-worksheet-button'
 
@@ -26,29 +28,6 @@ const WHEN = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
 })
 
-function destination(
-  id: string,
-  status: string,
-  marked: boolean,
-): { href: string; cta: string } {
-  switch (status) {
-    case 'uploading':
-    case 'queued':
-    case 'processing':
-      return { href: `/worksheets/${id}/status`, cta: 'Processing' }
-    case 'awaiting_review':
-      return { href: `/worksheets/${id}/verify`, cta: 'Check questions' }
-    case 'failed':
-      return { href: `/worksheets/${id}/status`, cta: 'See what happened' }
-    default:
-      // Marking happens once per paper, so a marked worksheet stops offering
-      // it and points at what comes next instead.
-      return marked
-        ? { href: '/review', cta: 'Practice' }
-        : { href: `/worksheets/${id}/markup`, cta: 'Mark answers' }
-  }
-}
-
 const STATUS_STYLE: Record<string, string> = {
   ready: 'text-success',
   awaiting_review: 'text-accent',
@@ -64,17 +43,6 @@ const STATUS_LABEL: Record<string, string> = {
   failed: 'Failed',
 }
 
-/**
- * A stored row that is actually a question.
- *
- * True when it reads like a sentence or asks for a calculation. Shared by
- * every count on this page so they cannot disagree with each other.
- */
-const IS_QUESTION = sql`(
-  ${questions.promptText} ~ '([a-z]{3,}.*){3}'
-  or ${questions.promptText} ~ '[=<>+*/×÷≤≥−]|[0-9]+[[:space:]]*[-][[:space:]]*[0-9]+'
-)`
-
 export default async function WorksheetsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -87,19 +55,11 @@ export default async function WorksheetsPage() {
       pageCount: worksheets.pageCount,
       sourceType: worksheets.sourceType,
       createdAt: worksheets.createdAt,
-      // Counts questions, not everything stored. Page furniture and figure
-      // labels get captured as rows: "CONTINUE TO THE NEXT PAGE", "FORM B",
-      // the coordinate labels off a diagram. Showing 26 for a 25 question
-      // paper made the student go hunting for a mistake that was ours.
-      //
-      // A row counts when it reads like a sentence or asks for a calculation.
-      // Checked against every stored question: this drops 23 rows, all of them
-      // page furniture, and not one carrying a printed number. Kept as a
-      // display rule rather than a delete, because the same test applied at
-      // ingest rejected real questions.
-      //
-      // Both counts share it deliberately. Filtering one and not the other put
-      // "Questions 25" beside "Unchecked 26" on the same card.
+      // Counts questions, not everything stored: see `IS_QUESTION`. Both counts
+      // below share it deliberately, and so does the dashboard now. Filtering
+      // one and not the other put "Questions 25" beside "Unchecked 26" on the
+      // same card, and filtering this page and not the dashboard put 25 and 26
+      // on two screens describing the same paper.
       questionCount: sql<number>`count(distinct ${questions.id}) filter (where ${IS_QUESTION})::int`,
       uncheckedCount: sql<number>`(count(distinct ${questions.id}) filter (
         where ${questions.userVerified} = false and ${IS_QUESTION}))::int`,
