@@ -16,7 +16,7 @@ import styles from './dashboard-preview.module.css'
 
 const STATS = [
   { label: 'Due now', value: 12, tint: 'bg-tint-mint', link: true, pin: 3 },
-  { label: 'Due this week', value: 41, tint: 'bg-tint-peach' },
+  { label: 'Later this week', value: 41, tint: 'bg-tint-peach' },
   { label: 'Questions tracked', value: 218, tint: 'bg-tint-lavender', pin: 1 },
   { label: 'Worksheets', value: 9, tint: 'bg-tint-butter' },
 ] as const
@@ -105,7 +105,7 @@ export default function DashboardPreview() {
         <div className={styles.mock} aria-hidden="true">
           <div className={styles.bar}>
             <span className={styles.screen}>Dashboard</span>
-            <span className={styles.cta}>Upload a Worksheet</span>
+            <span className={styles.cta}>Upload a worksheet</span>
           </div>
 
           <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -233,7 +233,15 @@ export default function DashboardPreview() {
       <ol className={styles.notes}>
         {NOTES.map((note, index) => (
           <li key={note.term} className={styles.note}>
-            <span className={styles.pin}>{index + 1}</span>
+            {/*
+              Hidden from the accessibility tree: this is an `<ol>`, so a screen
+              reader already numbers each item. The pin is the same number drawn
+              again for sighted readers, and leaving it exposed had every note
+              announced as "one, one", "two, two".
+            */}
+            <span aria-hidden="true" className={styles.pin}>
+              {index + 1}
+            </span>
             <p className="text-sm text-pretty text-muted">
               <b className={styles.term}>{note.term}.</b> {note.detail}
             </p>

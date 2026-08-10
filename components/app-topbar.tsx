@@ -11,7 +11,7 @@ export default async function AppTopbar() {
   if (!session?.user) return null
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-bg">
+    <header className="inset-safe-top sticky top-0 z-50 border-b border-border bg-bg">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-4 sm:px-6">
         <Link
           href="/"

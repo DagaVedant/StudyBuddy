@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { ingestWorksheet, type IngestProgress } from '@/lib/client/ingest'
 import { MAX_PAGES_PER_UPLOAD } from '@/lib/upload/limits'
-import { parsePageRange } from '@/lib/upload/page-range'
+import { parsePageRange, parseQuestionCount } from '@/lib/upload/page-range'
 
 export interface SubjectGroup {
   label: string
@@ -162,6 +162,12 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
       return
     }
 
+    const expected = parseQuestionCount(questionCount)
+    if (!expected.ok) {
+      setError(expected.message)
+      return
+    }
+
     runningRef.current = true
     worksheetRef.current = null
 
@@ -174,9 +180,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         title: title.trim() || 'Untitled worksheet',
         subjectHint: subject || null,
         pageRange: parsed.range,
-        expectedQuestionCount: questionCount.trim()
-          ? Number(questionCount.trim())
-          : null,
+        expectedQuestionCount: expected.count,
         onProgress: (next) => {
           // A cancelled run can still emit one last progress event as it
           // unwinds; ignoring those keeps the bar from flickering back.
@@ -257,7 +261,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
               htmlFor={cameraId}
               className="btn btn-secondary cursor-pointer touch-manipulation peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent peer-disabled:cursor-not-allowed peer-disabled:opacity-60"
             >
-              Take Photo
+              Take photo
             </label>
           </div>
 
@@ -278,7 +282,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
               htmlFor={filesId}
               className="btn btn-secondary cursor-pointer touch-manipulation peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent peer-disabled:cursor-not-allowed peer-disabled:opacity-60"
             >
-              Choose Files
+              Choose files
             </label>
           </div>
         </div>
@@ -377,9 +381,9 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             <input
               id={pageFromId}
               name="page-from"
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={1}
+              pattern="[0-9]*"
               placeholder="1"
               className="field w-24 tabular-nums"
               disabled={busy}
@@ -393,9 +397,9 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             <input
               id={pageToId}
               name="page-to"
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={1}
+              pattern="[0-9]*"
               placeholder="end"
               className="field w-24 tabular-nums"
               disabled={busy}
@@ -425,9 +429,9 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           <input
             id={countId}
             name="question-count"
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={1}
+            pattern="[0-9]*"
             placeholder="20"
             className="field w-32 tabular-nums"
             disabled={busy}
@@ -484,7 +488,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             className="mt-3 h-1.5 overflow-hidden rounded bg-border"
           >
             <div
-              className="h-full bg-accent motion-safe:transition-[width] motion-safe:duration-300"
+              className="h-full bg-accent transition-[width] duration-300"
               style={{ width: `${pct}%` }}
             />
           </div>

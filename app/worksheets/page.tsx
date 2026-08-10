@@ -120,7 +120,7 @@ export default async function WorksheetsPage() {
           Your Worksheets
         </h1>
         <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-4">
-          Upload a Worksheet
+          Upload a worksheet
         </Link>
       </div>
       <p className="hint mb-6 text-pretty">

@@ -22,7 +22,7 @@ test('a fresh account queues its upload for the GPU worker', async ({ page }) =>
   await expect(page.getByRole('heading', { name: 'Working on It' })).toBeVisible()
 
   await expect(page.getByText(/queue|offline/i).first()).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Back to Dashboard' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Back to dashboard' })).toBeVisible()
 })
 
 test('an exhausted trial falls through to the manual editor, not a dead end', async ({

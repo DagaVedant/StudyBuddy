@@ -78,17 +78,6 @@ export async function POST(request: Request) {
 
   const userId = session.user.id
 
-  // Every one of these is a model call. The trial quota already caps trial
-  // accounts; this caps the ones paying with someone else's key or the
-  // operator's GPU, which nothing else was bounding.
-  const allowance = await consumeRateLimit(db, EXPLAIN_LIMIT, `user:${userId}`)
-  if (!allowance.ok) {
-    return NextResponse.json(
-      { error: 'You have asked for a lot of explanations. Try again shortly.' },
-      { status: 429, headers: { 'Retry-After': String(allowance.retryAfter) } },
-    )
-  }
-
   const [question] = await db
     .select()
     .from(questions)
@@ -113,6 +102,21 @@ export async function POST(request: Request) {
       explanation: { body: cached.bodyMd, misconception: cached.misconceptionNote },
       cached: true,
     })
+  }
+
+  // After the cache lookup, not before it. This limit exists because every
+  // explanation past this point is a model call, and it was being charged for
+  // reads that are not: re-opening an explanation you already have is a row
+  // fetch, and it was spending the same hour's budget as generating one. A
+  // student revisiting a worksheet they had already worked through could be
+  // told they had asked for too many explanations without having generated a
+  // single new one.
+  const allowance = await consumeRateLimit(db, EXPLAIN_LIMIT, `user:${userId}`)
+  if (!allowance.ok) {
+    return NextResponse.json(
+      { error: 'You have asked for a lot of explanations. Try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(allowance.retryAfter) } },
+    )
   }
 
   const choices = await db

@@ -141,17 +141,47 @@ body {
     @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted;
   }
 
+  /* min-h-11 is 44px, which is the smallest thing a finger reliably hits. At
+     px-3 py-2 this came out around 40, which is close enough to look fine on a
+     desktop and not close enough on a phone in a hallway, which is where this
+     app is used. py-2.5 gets the text-sized case over the line and the min
+     height covers the rest. */
   .field {
-    @apply w-full rounded-xl border border-border bg-surface px-3 py-2 text-fg
-      outline-none placeholder:text-muted focus-visible:border-accent
+    @apply min-h-11 w-full rounded-xl border border-border bg-surface px-3 py-2.5
+      text-fg outline-none placeholder:text-muted focus-visible:border-accent
       focus-visible:ring-2 focus-visible:ring-accent/30;
   }
 
   .btn {
-    @apply inline-flex w-full items-center justify-center rounded-xl px-4 py-2
-      font-medium transition-colors focus-visible:outline-2
+    @apply inline-flex min-h-11 w-full items-center justify-center rounded-xl
+      px-4 py-2 font-medium transition-colors focus-visible:outline-2
       focus-visible:outline-offset-2 focus-visible:outline-accent
       disabled:opacity-60;
+  }
+
+  /* Room for the notch and the home indicator on a bar pinned to an edge.
+     `max()` because these report 0 on everything without an intrusion, and a
+     bar with no padding at all reads as cramped even on a rectangular screen.
+
+     Inert without `viewportFit: 'cover'` on the viewport export, which is what
+     tells the browser to lay the page out behind the intrusions in the first
+     place. That was missing, so the one `env(safe-area-inset-top)` already in
+     the tree had been resolving to zero since it was written. */
+  .inset-safe-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+
+  .inset-safe-bottom {
+    padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
+  }
+
+  /* For the small text buttons that sit inline with content: Undo, Change,
+     Remove, the delete affordance on a card. They are meant to read as small,
+     so the target is grown past the ink rather than the ink grown to 44px. The
+     negative margin keeps the layout where the designer put it while the hit
+     area spills over it. */
+  .btn-compact {
+    @apply -my-2 inline-flex min-h-11 items-center py-2;
   }
 
   .btn-primary {
@@ -177,9 +207,34 @@ body {
   /* Soft Pastels' card treatment: generously rounded, shadow over hairline
      border so tiles feel lifted rather than boxed in. No padding baked in:
      a divided list wants its outer wrapper padding-free, so callers add
-     their own (usually p-4). */
+     their own (usually p-4).
+
+     The border is transparent rather than absent. Forced-colors mode throws
+     away box-shadow and background-color and repaints everything from the
+     user's own palette, so a card whose only boundary was the shadow had no
+     boundary at all: the worksheets grid became one undivided sheet of text.
+     A transparent border is invisible normally and gets repainted along with
+     everything else there, which is exactly the behaviour wanted. */
   .card {
-    @apply rounded-2xl border-0 bg-surface shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)];
+    @apply rounded-2xl border border-transparent bg-surface
+      shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)];
+  }
+}
+
+/* Forced colors keeps the layout and replaces the palette, so the things that
+   carried meaning through colour alone have to carry it through something
+   else. Both of these are drawn with a background and nothing else. */
+@media (forced-colors: active) {
+  .card {
+    border-color: CanvasText;
+  }
+
+  /* The accuracy meter's fill and the progress bars: a coloured block inside a
+     track, where forced colors flattens both to the same surface. */
+  [role='meter'] > *,
+  [role='progressbar'] > * {
+    forced-color-adjust: none;
+    background: Highlight;
   }
 }
 

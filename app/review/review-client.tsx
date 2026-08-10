@@ -329,7 +329,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
           */}
           <div className="mt-4 flex flex-col justify-center gap-3 sm:flex-row">
             <Link href="/dashboard" className="btn btn-primary sm:w-auto sm:px-6">
-              Back to Dashboard
+              Back to dashboard
             </Link>
           </div>
         </div>
@@ -346,7 +346,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
           </p>
           <div className="mt-4 flex flex-col justify-center gap-3 sm:flex-row">
             <Link href="/dashboard" className="btn btn-primary sm:w-auto sm:px-6">
-              Back to Dashboard
+              Back to dashboard
             </Link>
           </div>
         </div>
@@ -364,10 +364,10 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
         </p>
         <div className="mt-4 flex flex-col justify-center gap-3 sm:flex-row">
           <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-6">
-            Upload a Worksheet
+            Upload a worksheet
           </Link>
           <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
-            Back to Dashboard
+            Back to dashboard
           </Link>
         </div>
       </div>
@@ -388,7 +388,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
         className="h-1 overflow-hidden rounded bg-border"
       >
         <div
-          className="h-full bg-accent motion-safe:transition-[width] motion-safe:duration-200"
+          className="h-full bg-accent transition-[width] duration-200"
           style={{ width: `${(index / items.length) * 100}%` }}
         />
       </div>
@@ -427,7 +427,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
             className="btn btn-secondary mt-5 touch-manipulation"
             onClick={() => setRevealed(true)}
           >
-            Show Answer
+            Show answer
           </button>
         ) : (
           <div className="mt-5 space-y-4 border-t border-border pt-4">

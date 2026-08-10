@@ -67,7 +67,7 @@ test('the split editor still opens and saves from the question list', async () =
 
   // Adding by hand is the other half of the create path the split touched: it
   // passes a null bbox, and it should select and expand the new card.
-  await page.getByRole('button', { name: 'Add a Question by Hand' }).click()
+  await page.getByRole('button', { name: 'Add a question by hand' }).click()
 
   const prompt = page.getByLabel('Question text')
   await expect(prompt).toBeVisible()
@@ -90,7 +90,7 @@ test('the split editor still opens and saves from the question list', async () =
 
 test('a choice added in the editor is marked correct and saved', async () => {
   const choiceAdded = savedResponse()
-  await page.getByRole('button', { name: 'Add Choice' }).click()
+  await page.getByRole('button', { name: 'Add choice' }).click()
   await choiceAdded
 
   const textSaved = savedResponse()
@@ -179,7 +179,7 @@ test('rating buttons say when each answer brings the card back', async () => {
   await page.waitForURL('**/dashboard', { timeout: 30_000 })
 
   await page.goto('/review')
-  await page.getByRole('button', { name: 'Show Answer' }).click()
+  await page.getByRole('button', { name: 'Show answer' }).click()
 
   // The previewIntervals wiring: every rating carries the wait it buys, and
   // "Again" must not promise longer than "Easy".

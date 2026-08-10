@@ -35,7 +35,7 @@ export default function DeleteWorksheetButton({ worksheetId, title }: Props) {
       <button
         type="button"
         aria-label={`Delete ${title}`}
-        className="rounded px-1.5 py-1 text-xs text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="btn-compact rounded px-1.5 text-xs text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         onClick={() => dialogRef.current?.showModal()}
       >
         Delete
@@ -50,10 +50,34 @@ export default function DeleteWorksheetButton({ worksheetId, title }: Props) {
         }}
       >
         <div className="text-center">
-          <p aria-hidden="true" className="text-3xl">
-            🗑️
-          </p>
-          <h2 className="mt-2 text-lg font-semibold tracking-tight">
+          {/*
+            An inline SVG rather than 🗑️, which was the only emoji in the
+            product. An emoji is painted by the platform: it is a different
+            drawing on Windows, macOS and Android, it ignores the theme, and at
+            text-3xl it was the loudest thing in a dialog whose job is to make
+            someone stop and read. This inherits currentColor and sits in the
+            danger tint the two themes already define.
+          */}
+          <span
+            aria-hidden="true"
+            className="mx-auto flex size-11 items-center justify-center rounded-full bg-danger/10 text-danger"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-5"
+            >
+              <path d="M4 7h16" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+              <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+            </svg>
+          </span>
+          <h2 className="mt-3 text-lg font-semibold tracking-tight">
             Delete this worksheet?
           </h2>
           <p className="hint mt-1 text-pretty">

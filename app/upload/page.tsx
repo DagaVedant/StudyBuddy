@@ -40,7 +40,7 @@ export default async function UploadPage() {
       </nav>
 
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        Upload a Worksheet
+        Upload a worksheet
       </h1>
       <p className="hint mb-8 text-pretty">
         Upload one you have already finished. You will mark which questions you

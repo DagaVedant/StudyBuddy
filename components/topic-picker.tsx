@@ -42,7 +42,7 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
-  const listRef = useRef<HTMLUListElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const results = useMemo(() => {
     const trimmed = query.trim().toLowerCase()
@@ -85,9 +85,16 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="label" htmlFor={inputId}>
+      {/*
+        A plain span, not a `<label htmlFor>`. The input it pointed at is only
+        rendered while the picker is open or empty, so on a card with a topic
+        already set the label referenced an id that was not in the document.
+        Clicking it did nothing, and a screen reader following the association
+        landed nowhere.
+      */}
+      <span className="label" id={`${inputId}-label`}>
         Topic
-      </label>
+      </span>
 
       {selected && !open ? (
         <div className="flex items-center gap-2">
@@ -111,6 +118,7 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
           id={inputId}
           type="text"
           role="combobox"
+          aria-labelledby={`${inputId}-label`}
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
@@ -146,29 +154,50 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
         />
       )}
 
+      {/*
+        A listbox owns its options directly.
+
+        This was `role="listbox"` > `<li>` > `role="option"`, and the `<li>` in
+        between breaks the ownership relation: to an assistive technology the
+        list has no options in it, so the count is wrong and arrowing through
+        announces nothing. The two children that are not options made it worse.
+        "No topic matches that" and "Clear topic" were both inside the listbox,
+        and neither is something you can select.
+
+        So the popup is a plain container now. The listbox inside it holds
+        options and nothing else, and the message and the clear action are its
+        siblings.
+      */}
       {open && (
-        <ul
-          ref={listRef}
-          id={listId}
-          role="listbox"
-          aria-label="Topics"
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface shadow-lg"
-        >
+        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
           {results.length === 0 && (
-            <li className="px-3 py-2 text-sm text-muted">
+            <p className="px-3 py-2 text-sm text-muted">
               No topic matches that. Try a broader word, or leave it unset.
-            </li>
+            </p>
           )}
 
-          {results.map((topic, index) => (
-            <li key={topic.id}>
-              <button
-                type="button"
+          <div
+            ref={listRef}
+            id={listId}
+            role="listbox"
+            aria-label="Topics"
+            className="max-h-64 overflow-y-auto overscroll-contain"
+          >
+            {results.map((topic, index) => (
+              /*
+                A div rather than a button. An option is selected through the
+                combobox that owns it: the input keeps focus and points at the
+                active one with `aria-activedescendant`, and its Enter handler
+                commits. A button here would put a second tab stop inside a
+                widget that is supposed to have one.
+              */
+              <div
+                key={topic.id}
                 id={`${listId}-${index}`}
                 data-index={index}
                 role="option"
                 aria-selected={index === active}
-                className={`block w-full px-3 py-2 text-left text-sm ${
+                className={`cursor-pointer px-3 py-2 text-left text-sm ${
                   index === active ? 'bg-accent/10' : ''
                 }`}
                 onPointerEnter={() => setActive(index)}
@@ -176,12 +205,12 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
               >
                 <span className="block truncate font-medium">{topic.name}</span>
                 <span className="block truncate text-xs text-muted">{topic.path}</span>
-              </button>
-            </li>
-          ))}
+              </div>
+            ))}
+          </div>
 
           {selected && (
-            <li className="border-t border-border">
+            <div className="border-t border-border">
               <button
                 type="button"
                 className="block w-full px-3 py-2 text-left text-sm text-muted hover:text-danger"
@@ -189,9 +218,9 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
               >
                 Clear topic
               </button>
-            </li>
+            </div>
           )}
-        </ul>
+        </div>
       )}
     </div>
   )

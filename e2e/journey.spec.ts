@@ -144,7 +144,7 @@ test('a topic can be assigned from the canonical tree', async () => {
 test('answer choices can be added and one marked correct', async () => {
   for (const label of ['A', 'B']) {
     let saved = editorSaved()
-    await page.getByRole('button', { name: 'Add Choice' }).click()
+    await page.getByRole('button', { name: 'Add choice' }).click()
     await saved
 
     saved = editorSaved()
@@ -242,7 +242,7 @@ test('a missed question comes back for review', async () => {
   }).toPass({ timeout: 150_000 })
 
   await expect(page.getByRole('heading', { name: 'Answer' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Show Answer' }).click()
+  await page.getByRole('button', { name: 'Show answer' }).click()
 
   await expect(page.getByRole('heading', { name: 'Answer' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'You put' })).toBeVisible()

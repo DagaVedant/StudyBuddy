@@ -84,7 +84,7 @@ export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Pr
   await expect(page.getByText('unit-4.pdf')).toBeVisible()
 
   await page.getByLabel('Worksheet name').fill(title)
-  await page.getByRole('button', { name: 'Start Processing' }).click()
+  await page.getByRole('button', { name: 'Start processing' }).click()
 
   await page.waitForURL(/\/worksheets\/[^/]+\/(review|status)/, { timeout: 90_000 })
 }

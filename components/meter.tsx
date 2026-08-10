@@ -34,15 +34,30 @@ export function Meter({
 }) {
   const pct = Math.round(accuracy * 100)
 
+  /*
+   * No `role="meter"` when there is nothing to measure.
+   *
+   * `aria-valuenow` is required on a meter, and it was being left off in the
+   * unranked branch because there is genuinely no reading to give: the topic
+   * has not been answered enough times to say anything about it. A meter
+   * without a value is invalid ARIA, and a screen reader announcing "meter" and
+   * then no percentage is worse than not announcing a meter at all. The bar
+   * still draws, greyed and full width, as the placeholder it always was; the
+   * label beside it is what carries "3/5 answered".
+   */
+  const measured = ranked
+    ? {
+        role: 'meter' as const,
+        'aria-valuenow': pct,
+        'aria-valuemin': 0,
+        'aria-valuemax': 100,
+        'aria-label': `${label}: ${PERCENT.format(accuracy)} correct`,
+      }
+    : { 'aria-hidden': true as const }
+
   return (
     <div
-      role="meter"
-      aria-valuenow={ranked ? pct : undefined}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label={
-        ranked ? `${label}: ${PERCENT.format(accuracy)} correct` : `${label}: not enough data`
-      }
+      {...measured}
       className="h-1.5 w-full overflow-hidden rounded-full bg-border"
     >
       <div

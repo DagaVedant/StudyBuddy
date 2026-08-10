@@ -238,8 +238,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
   return (
     <div className="space-y-6">
       <div
-        className="sticky top-0 z-10 -mx-6 border-b border-border bg-bg px-6 py-3"
-        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+        className="inset-safe-top sticky top-0 z-10 -mx-6 border-b border-border bg-bg px-6 py-3"
       >
         <div className="flex items-baseline justify-between gap-3">
           <p className="text-sm font-medium">
@@ -259,7 +258,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
           className="mt-2 h-1 overflow-hidden rounded bg-border"
         >
           <div
-            className="h-full bg-accent motion-safe:transition-[width] motion-safe:duration-200"
+            className="h-full bg-accent transition-[width] duration-200"
             style={{ width: `${(marked / questions.length) * 100}%` }}
           />
         </div>
@@ -337,7 +336,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
               className="btn btn-primary touch-manipulation sm:w-auto sm:px-6"
               onClick={() => setPhase('answers')}
             >
-              Next: What You Put
+              Next: what you put
             </button>
           ) : (
             <button

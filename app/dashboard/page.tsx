@@ -123,7 +123,7 @@ export default async function DashboardPage() {
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-balance text-2xl font-extrabold tracking-tight">Dashboard</h1>
         <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-4">
-          Upload a Worksheet
+          Upload a worksheet
         </Link>
       </div>
 

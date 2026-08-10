@@ -238,7 +238,7 @@ export default async function TopicPage({
 
         <div className="mt-4">
           <Link href="/review" className="btn btn-primary sm:w-auto sm:px-6">
-            Review These Now
+            Review these now
           </Link>
         </div>
       </section>

@@ -85,10 +85,10 @@ export default async function StatusPage({
               href={`/worksheets/${id}/review`}
               className="btn btn-primary sm:w-auto sm:px-6"
             >
-              Add Questions Manually
+              Add questions manually
             </Link>
             <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
-              Back to Dashboard
+              Back to dashboard
             </Link>
           </div>
         </>
@@ -103,7 +103,7 @@ export default async function StatusPage({
             className="mt-6 h-1.5 overflow-hidden rounded bg-border"
           >
             <div
-              className="h-full bg-accent motion-safe:transition-[width] motion-safe:duration-500"
+              className="h-full bg-accent transition-[width] duration-500"
               style={{ width: `${Math.max(percent, 4)}%` }}
             />
           </div>
@@ -126,7 +126,7 @@ export default async function StatusPage({
 
           <div className="mt-6">
             <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
-              Back to Dashboard
+              Back to dashboard
             </Link>
           </div>
         </>

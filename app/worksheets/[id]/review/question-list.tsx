@@ -268,7 +268,7 @@ const QuestionCard = memo(function QuestionCard({
                     })
                   }
                 >
-                  Add Choice
+                  Add choice
                 </button>
               )}
             </fieldset>
