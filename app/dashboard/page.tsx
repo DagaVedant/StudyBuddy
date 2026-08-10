@@ -19,7 +19,8 @@ import {
   rollUp,
   summarize,
 } from '@/lib/dashboard/ranking'
-import { flattenTaxonomy } from '@/lib/taxonomy/trees'
+import { nameBySlug, pathBySlug } from '@/lib/taxonomy/trees'
+import { destination } from '@/lib/worksheets/destination'
 
 export const metadata = { title: 'Dashboard · StudyBuddy' }
 
@@ -27,6 +28,23 @@ const PERCENT = new Intl.NumberFormat(undefined, {
   style: 'percent',
   maximumFractionDigits: 0,
 })
+
+/**
+ * A week-start as a short date.
+ *
+ * Formatted in UTC, not just parsed in it. `weekStart` is a bare `YYYY-MM-DD`
+ * off `to_char(date_trunc('week', ...))`, and a bare date string is parsed as
+ * midnight UTC either way; the shift comes from rendering that instant in the
+ * reader's own zone, which anywhere west of Greenwich lands on the day before.
+ * Both halves have to agree or every label on the axis is a day early.
+ */
+const WEEK_OF = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+})
+
+const WEEK_LABEL = (weekStart: string) => WEEK_OF.format(new Date(weekStart))
 
 function Panel({
   title,
@@ -67,13 +85,12 @@ export default async function DashboardPage() {
     getDistractorPatterns(db, userId),
   ])
 
-  const taxonomy = flattenTaxonomy()
-  const pathBySlug = new Map(taxonomy.map((topic) => [topic.slug, topic.path]))
-  const nameBySlug = new Map(taxonomy.map((topic) => [topic.slug, topic.name]))
+  const paths = pathBySlug()
+  const names = nameBySlug()
 
   const stats = rawStats.map((topic) => ({
     ...topic,
-    topicPath: pathBySlug.get(topic.topicPath) ?? topic.topicName,
+    topicPath: paths.get(topic.topicPath) ?? topic.topicName,
   }))
 
   const weakest = rankWeaknesses(stats).slice(0, 8)
@@ -84,12 +101,20 @@ export default async function DashboardPage() {
   const bySubject = rollUp(
     stats,
     (topic) => topic.subjectRoot,
-    (topic) => nameBySlug.get(topic.subjectRoot) ?? topic.subjectRoot,
+    (topic) => names.get(topic.subjectRoot) ?? topic.subjectRoot,
   )
 
   const thin = stats.map(summarize).filter((topic) => !topic.ranked).length
-  const maxWeek = Math.max(1, ...trend.map((p) => p.correct + p.unsure + p.wrong))
+  const weekTotals = trend.map((p) => p.correct + p.unsure + p.wrong)
+  const maxWeek = Math.max(1, ...weekTotals)
   const hasData = overview.attemptsLogged > 0
+
+  // Not `trend.length`. Every week in the window is a row now, including the
+  // empty ones, so the list is never empty and the length says nothing about
+  // whether there is anything to draw. A student who has never practised would
+  // have got twelve bars of height zero under a heading claiming to show their
+  // accuracy over time.
+  const hasTrend = weekTotals.some((total) => total > 0)
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
@@ -103,7 +128,11 @@ export default async function DashboardPage() {
       <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: 'Due now', value: overview.dueNow, href: '/review', tint: 'bg-tint-mint' },
-          { label: 'Due this week', value: overview.dueThisWeek, tint: 'bg-tint-peach' },
+          // "Later this week" rather than "Due this week": the count is now
+          // cards becoming due in the next seven days, with the overdue ones
+          // left to the tile beside it. Under the old label and the old query
+          // the two tiles showed the same number and read as two piles of work.
+          { label: 'Later this week', value: overview.dueThisWeek, tint: 'bg-tint-peach' },
           {
             label: 'Questions tracked',
             value: overview.questionsTracked,
@@ -248,7 +277,7 @@ export default async function DashboardPage() {
 
           <div className="lg:col-span-2">
             <Panel title="Accuracy over time" hint="Attempts per week.">
-              {trend.length === 0 ? (
+              {!hasTrend ? (
                 <Empty>Not enough history yet.</Empty>
               ) : (
                 <>
@@ -279,6 +308,20 @@ export default async function DashboardPage() {
                       )
                     })}
                   </div>
+
+                  {/*
+                    Which weeks these bars are. Every week in the range is a bar
+                    now, including the ones with nothing in them, so the axis is
+                    a plain span from the first to the last and does not need a
+                    tick per bar to be read honestly.
+                  */}
+                  <p
+                    aria-hidden="true"
+                    className="mt-1.5 flex justify-between text-xs tabular-nums text-muted"
+                  >
+                    <span>{WEEK_LABEL(trend[0].weekStart)}</span>
+                    <span>{WEEK_LABEL(trend.at(-1)!.weekStart)}</span>
+                  </p>
 
                   <table className="sr-only">
                     <caption>Attempts by week</caption>
@@ -357,14 +400,7 @@ export default async function DashboardPage() {
                 <li key={sheet.id} className="flex items-center gap-3 py-2">
                   <Link
                     href={
-                      sheet.status === 'awaiting_review'
-                        ? `/worksheets/${sheet.id}/review`
-                        : // Marking is a one-time step, so a worksheet that has
-                          // been marked leads to practice rather than back into
-                          // a flow that has nothing left to record.
-                          sheet.markedCount > 0
-                          ? '/review'
-                          : `/worksheets/${sheet.id}/markup`
+                      destination(sheet.id, sheet.status, sheet.markedCount > 0).href
                     }
                     className="min-w-0 flex-1 truncate text-sm text-accent underline underline-offset-2"
                   >
