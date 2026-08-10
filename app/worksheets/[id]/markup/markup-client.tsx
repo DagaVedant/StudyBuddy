@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { reflowText } from '@/lib/questions/reflow'
+import { fetchJson } from '@/lib/client/fetch-json'
 
 export interface MarkableQuestion {
   id: string
@@ -90,7 +91,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       })
 
     try {
-      const response = await fetch(`/api/worksheets/${worksheetId}/attempts`, {
+      const response = await fetchJson(`/api/worksheets/${worksheetId}/attempts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ marks }),

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { fetchJson } from '@/lib/client/fetch-json'
 
 type Target =
   | { kind: 'worksheet'; worksheetId: string }
@@ -35,7 +36,7 @@ export default function ReportButton({
     setError(null)
 
     try {
-      const response = await fetch('/api/reports', {
+      const response = await fetchJson('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...target, message }),

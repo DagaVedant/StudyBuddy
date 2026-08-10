@@ -21,8 +21,57 @@ export interface LimitRule {
 /** Signing up: keyed by IP, because there is no account yet to key on. */
 export const SIGNUP_LIMIT: LimitRule = { action: 'signup', limit: 5, windowSeconds: 3600 }
 
+/**
+ * Signing in. Counted twice, once per IP and once per submitted address.
+ *
+ * Authentication was the one action with no rule at all, so password guessing
+ * was unthrottled. It is also the most expensive thing an anonymous caller can
+ * ask for: `bcryptjs` is the pure-JS build at cost 12, so every attempt buys a
+ * large block of single-threaded server CPU whether the password is right or
+ * not. A guessing loop is a denial of service against everyone else before it
+ * is ever a break-in.
+ *
+ * Both keys, because either alone leaves a hole. Per IP only lets a botnet
+ * spread one account's guesses across a thousand addresses. Per email only lets
+ * anyone lock a student out of their own account by guessing at it, which is
+ * why the per-email allowance is the looser of the two.
+ *
+ * Twenty an hour is far past a person mistyping their own password and far
+ * short of useful for guessing.
+ */
+export const SIGNIN_IP_LIMIT: LimitRule = {
+  action: 'signin-ip',
+  limit: 20,
+  windowSeconds: 3600,
+}
+
+export const SIGNIN_EMAIL_LIMIT: LimitRule = {
+  action: 'signin-email',
+  limit: 30,
+  windowSeconds: 3600,
+}
+
 /** Uploading. Generous: a real student may have a stack of worksheets. */
 export const UPLOAD_LIMIT: LimitRule = { action: 'upload', limit: 30, windowSeconds: 3600 }
+
+/**
+ * Page images, which is where the money actually goes.
+ *
+ * UPLOAD_LIMIT counts worksheets, and a worksheet is one cheap row. The
+ * expensive call is this one: up to 4 MB into blob storage per page, up to 75
+ * pages per worksheet, and the limiter sat on the wrong one of the two. Thirty
+ * worksheets an hour was therefore also permission for 2,250 blob writes.
+ *
+ * 400 an hour is more than five full 75-page worksheets, which is far past what
+ * a student does in an afternoon, and it bounds the worst hour at about 1.6 GB
+ * rather than 9 GB. Keyed by account rather than IP, like the worksheet limit,
+ * so a shared school connection is not one student away from being locked out.
+ */
+export const PAGE_UPLOAD_LIMIT: LimitRule = {
+  action: 'page-upload',
+  limit: 400,
+  windowSeconds: 3600,
+}
 
 /** Explanations, which cost a model call each. */
 export const EXPLAIN_LIMIT: LimitRule = { action: 'explain', limit: 60, windowSeconds: 3600 }

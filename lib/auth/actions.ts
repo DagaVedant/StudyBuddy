@@ -10,10 +10,17 @@ import { AuthError } from 'next-auth'
 import { auth, signIn } from '@/auth'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
-import { SIGNUP_LIMIT, callerIp, consumeRateLimit } from '@/lib/rate-limit'
+import {
+  SIGNIN_EMAIL_LIMIT,
+  SIGNIN_IP_LIMIT,
+  SIGNUP_LIMIT,
+  callerIp,
+  consumeRateLimit,
+} from '@/lib/rate-limit'
 
 import { isDisposableEmail } from './disposable'
 import { isAdminEmail, validateDob } from './policy'
+import { safeNextPath } from './redirect'
 
 export interface FormState {
   error?: string
@@ -123,20 +130,53 @@ export async function signInWithGoogle(): Promise<void> {
   await signIn('google', { redirectTo: '/dashboard' })
 }
 
+/**
+ * One message for every way sign-in can fail.
+ *
+ * A throttled attempt reads the same as a wrong password on purpose. Saying
+ * "too many attempts" confirms the address exists and tells a guesser exactly
+ * when to come back; saying nothing costs a real person nothing, because a real
+ * person is not on their twentieth attempt this hour.
+ */
+const SIGNIN_FAILED = 'That email and password combination did not work.'
+
 export async function signInWithCredentials(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const email = String(formData.get('email') ?? '')
+    .trim()
+    .toLowerCase()
+
+  // Before `signIn`, because the cost this is protecting is the bcrypt compare
+  // inside it. Charging the attempt after paying for it protects nothing.
+  const ip = callerIp(await headers())
+  const [byIp, byEmail] = await Promise.all([
+    consumeRateLimit(db, SIGNIN_IP_LIMIT, `ip:${ip}`),
+    // Only when an address was actually submitted, so an empty field cannot be
+    // used to burn the allowance of the empty-string key.
+    email
+      ? consumeRateLimit(db, SIGNIN_EMAIL_LIMIT, `email:${email}`)
+      : Promise.resolve({ ok: true, remaining: 0, retryAfter: 0 }),
+  ])
+
+  if (!byIp.ok || !byEmail.ok) {
+    return { error: SIGNIN_FAILED }
+  }
+
   try {
     await signIn('credentials', {
-      email: String(formData.get('email') ?? ''),
+      email,
       password: String(formData.get('password') ?? ''),
-      redirectTo: String(formData.get('next') || '/dashboard'),
+      // Validated rather than passed through: this used to take the raw form
+      // field, so `/signin?next=https://example.com` walked the student off the
+      // site the instant they authenticated.
+      redirectTo: safeNextPath(formData.get('next')),
     })
     return {}
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: 'That email and password combination did not work.' }
+      return { error: SIGNIN_FAILED }
     }
     throw error
   }

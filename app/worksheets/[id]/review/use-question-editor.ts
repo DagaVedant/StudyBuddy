@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BBox } from '@/lib/db/schema'
 
 import type { EditableQuestion, QuestionType } from './types'
+import { fetchJson } from '@/lib/client/fetch-json'
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -88,7 +89,7 @@ export function useQuestionEditor(
       setSaveState('saving')
 
       try {
-        const response = await fetch(`/api/questions/${question.id}`, {
+        const response = await fetchJson(`/api/questions/${question.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(patchBody(question)),
@@ -205,7 +206,7 @@ export function useQuestionEditor(
       }
 
       try {
-        const response = await fetch(`/api/worksheets/${worksheetId}/questions`, {
+        const response = await fetchJson(`/api/worksheets/${worksheetId}/questions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -247,7 +248,7 @@ export function useQuestionEditor(
     questionsRef.current = questionsRef.current.filter((question) => question.id !== id)
     setQuestions(questionsRef.current)
 
-    await fetch(`/api/questions/${id}`, { method: 'DELETE' }).catch(() => {})
+    await fetchJson(`/api/questions/${id}`, { method: 'DELETE' }).catch(() => {})
   }, [])
 
   const confirm = useCallback(async () => {
@@ -259,7 +260,7 @@ export function useQuestionEditor(
     await flush()
 
     try {
-      const response = await fetch(`/api/worksheets/${worksheetId}/confirm`, {
+      const response = await fetchJson(`/api/worksheets/${worksheetId}/confirm`, {
         method: 'POST',
       })
       const body = (await response.json()) as { next?: string; error?: string }

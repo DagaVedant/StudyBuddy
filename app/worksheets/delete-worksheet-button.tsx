@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
+import { fetchJson } from '@/lib/client/fetch-json'
 
 interface Props {
   worksheetId: string
@@ -19,7 +20,7 @@ export default function DeleteWorksheetButton({ worksheetId, title }: Props) {
     setError(null)
 
     try {
-      const response = await fetch(`/api/worksheets/${worksheetId}`, { method: 'DELETE' })
+      const response = await fetchJson(`/api/worksheets/${worksheetId}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('Could not delete')
       dialogRef.current?.close()
       router.refresh()

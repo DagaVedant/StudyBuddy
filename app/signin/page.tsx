@@ -6,6 +6,7 @@ import { Suspense, useActionState } from 'react'
 
 import { signInWithCredentials, signInWithGoogle } from '@/lib/auth/actions'
 import type { FormState } from '@/lib/auth/actions'
+import { safeNextPath } from '@/lib/auth/redirect'
 
 const ERRORS: Record<string, string> = {
   OAuthAccountNotLinked: 'That email is already registered with a password. Sign in with your password instead.',
@@ -13,7 +14,10 @@ const ERRORS: Record<string, string> = {
 
 function SignInForm() {
   const params = useSearchParams()
-  const next = params.get('next') ?? '/dashboard'
+  // Validated here as well as in the action. The action is the boundary that
+  // matters, but a hostile `next` reaching the hidden input means it is also in
+  // the DOM, and a rendered attacker URL is worth not having either.
+  const next = safeNextPath(params.get('next'))
   const linkError = params.get('error')
 
   const [state, action, pending] = useActionState<FormState, FormData>(

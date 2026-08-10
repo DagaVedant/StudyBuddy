@@ -14,6 +14,8 @@ import {
   type PageRange,
 } from '@/lib/upload/page-range'
 
+import { fetchJson } from './fetch-json'
+
 export type IngestStage =
   | 'reading'
   | 'rasterizing'
@@ -141,7 +143,7 @@ export async function ingestWorksheet({
   assertNotAborted(signal)
 
   const created = (await expectOk(
-    await fetch('/api/worksheets', {
+    await fetchJson('/api/worksheets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -174,7 +176,7 @@ export async function ingestWorksheet({
     form.set('height', String(page.height))
 
     const uploaded = (await expectOk(
-      await fetch(`/api/worksheets/${worksheetId}/pages`, {
+      await fetchJson(`/api/worksheets/${worksheetId}/pages`, {
         method: 'POST',
         body: form,
         signal,
@@ -200,7 +202,7 @@ export async function ingestWorksheet({
       : await ocrPage(page.blob, signal)
 
     await expectOk(
-      await fetch(`/api/worksheets/${worksheetId}/pages`, {
+      await fetchJson(`/api/worksheets/${worksheetId}/pages`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -222,7 +224,7 @@ export async function ingestWorksheet({
   })
 
   const finished = (await expectOk(
-    await fetch(`/api/worksheets/${worksheetId}/complete`, {
+    await fetchJson(`/api/worksheets/${worksheetId}/complete`, {
       method: 'POST',
       signal,
     }),

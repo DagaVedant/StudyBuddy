@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 import ReportButton from '@/components/report-button'
 import { reflowText } from '@/lib/questions/reflow'
 import type { ReviewItem } from '@/lib/review/queue'
+import { fetchJson } from '@/lib/client/fetch-json'
 
 type Rating = 'again' | 'hard' | 'good' | 'easy'
 
@@ -47,7 +48,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
     while (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      const response = await fetch(
+      const response = await fetchJson(
         `/api/explain?questionId=${encodeURIComponent(questionId)}`,
       )
       const body = (await response.json()) as {
@@ -72,7 +73,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
     setExplainError(null)
 
     try {
-      const response = await fetch('/api/explain', {
+      const response = await fetchJson('/api/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questionId: entry.questionId }),
@@ -106,7 +107,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
       setError(null)
 
       try {
-        const response = await fetch('/api/review/rate', {
+        const response = await fetchJson('/api/review/rate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cardId: item.cardId, rating }),

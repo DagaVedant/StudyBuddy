@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { Db } from '@/lib/db/types'
 import {
+  SIGNIN_EMAIL_LIMIT,
+  SIGNIN_IP_LIMIT,
   callerIp,
   consumeRateLimit,
   limitKey,
@@ -146,5 +148,49 @@ describe('when the counter itself fails', () => {
     const empty = { execute: () => Promise.resolve([]) } as unknown as Db
 
     expect((await consumeRateLimit(empty, rule, 'ip:no-rows')).ok).toBe(true)
+  })
+})
+
+/**
+ * Authentication was the one action with no rule at all, so password guessing
+ * was unthrottled against an app whose bcrypt cost is 12 in pure JS. Each of
+ * the two keys closes a hole the other leaves open.
+ */
+describe('the sign-in limits', () => {
+  it('throttles one address being guessed at from many machines', async () => {
+    const email = 'email:victim@example.com'
+
+    for (let n = 0; n < SIGNIN_EMAIL_LIMIT.limit; n += 1) {
+      // A different IP every time, which is what a botnet looks like and what
+      // an IP-only rule would miss entirely.
+      const perIp = await consumeRateLimit(client(), SIGNIN_IP_LIMIT, `ip:10.0.0.${n}`)
+      expect(perIp.ok, `ip attempt ${n}`).toBe(true)
+
+      const perEmail = await consumeRateLimit(client(), SIGNIN_EMAIL_LIMIT, email)
+      expect(perEmail.ok, `email attempt ${n}`).toBe(true)
+    }
+
+    expect((await consumeRateLimit(client(), SIGNIN_EMAIL_LIMIT, email)).ok).toBe(false)
+  })
+
+  it('throttles one machine working through many addresses', async () => {
+    const ip = 'ip:198.51.100.7'
+
+    for (let n = 0; n < SIGNIN_IP_LIMIT.limit; n += 1) {
+      const decision = await consumeRateLimit(client(), SIGNIN_IP_LIMIT, ip)
+      expect(decision.ok, `attempt ${n}`).toBe(true)
+    }
+
+    expect((await consumeRateLimit(client(), SIGNIN_IP_LIMIT, ip)).ok).toBe(false)
+  })
+
+  // The per-email allowance is the looser of the two on purpose: it is the one
+  // an attacker can aim at somebody else's account to lock them out.
+  it('is harder to lock a stranger out than to be stopped guessing', () => {
+    expect(SIGNIN_EMAIL_LIMIT.limit).toBeGreaterThan(SIGNIN_IP_LIMIT.limit)
+  })
+
+  it('keeps the two rules in separate buckets', () => {
+    expect(limitKey(SIGNIN_IP_LIMIT, 'x')).not.toBe(limitKey(SIGNIN_EMAIL_LIMIT, 'x'))
   })
 })

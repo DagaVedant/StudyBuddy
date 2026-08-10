@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { db } from '@/lib/db'
 import { worksheetPages, worksheets } from '@/lib/db/schema'
+import { PAGE_UPLOAD_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 import { pageImageKey, storage } from '@/lib/storage'
 import { guardWorksheet } from '@/lib/upload/guard'
 import { MAX_PAGE_BYTES, MAX_PAGE_DIMENSION } from '@/lib/upload/limits'
@@ -16,6 +17,22 @@ export async function POST(request: Request, { params }: Params) {
   const guard = await guardWorksheet(worksheetId)
   if (!guard.ok) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
+  }
+
+  // Before the body is read, so a refused request does not first cost a 4 MB
+  // upload. The worksheet limit counts worksheets, which are one cheap row
+  // each; this is the call that writes to blob storage, and it was open.
+  const allowance = await consumeRateLimit(
+    db,
+    PAGE_UPLOAD_LIMIT,
+    `user:${guard.userId}`,
+  )
+
+  if (!allowance.ok) {
+    return NextResponse.json(
+      { error: "That's a lot of pages in one go. Try again shortly." },
+      { status: 429, headers: { 'Retry-After': String(allowance.retryAfter) } },
+    )
   }
 
   // Throws on a body that is not parseable multipart, which a client that got

@@ -73,6 +73,7 @@ vi.mock('@/lib/db', () => {
 
 vi.mock('@/lib/rate-limit', () => ({
   UPLOAD_LIMIT: { action: 'upload', limit: 30, windowSeconds: 3600 },
+  PAGE_UPLOAD_LIMIT: { action: 'page-upload', limit: 400, windowSeconds: 3600 },
   consumeRateLimit: async () => ({ ok: true, remaining: 29, retryAfter: 0 }),
 }))
 

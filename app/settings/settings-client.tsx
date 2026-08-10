@@ -9,6 +9,7 @@ import {
   PROVIDER_COPY,
   type CloudProvider,
 } from '@/lib/ai/providers'
+import { fetchJson } from '@/lib/client/fetch-json'
 
 interface Credential {
   provider: string
@@ -55,7 +56,7 @@ export default function SettingsClient({
     setNotice(null)
 
     try {
-      const response = await fetch('/api/settings/credentials', {
+      const response = await fetchJson('/api/settings/credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -76,7 +77,7 @@ export default function SettingsClient({
   async function remove(target: string) {
     setBusy(true)
     setError(null)
-    await fetch(`/api/settings/credentials?provider=${target}`, { method: 'DELETE' })
+    await fetchJson(`/api/settings/credentials?provider=${target}`, { method: 'DELETE' })
     setNotice('Removed.')
     setBusy(false)
     router.refresh()

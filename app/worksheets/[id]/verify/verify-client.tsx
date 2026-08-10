@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import ReportButton from '@/components/report-button'
+import { fetchJson } from '@/lib/client/fetch-json'
 import { reflowText } from '@/lib/questions/reflow'
 
 export interface VerifiableQuestion {
@@ -69,7 +70,7 @@ export function VerifyClient({
       try {
         await Promise.all(
           ids.map((id) =>
-            fetch(`/api/questions/${id}`, {
+            fetchJson(`/api/questions/${id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userVerified: true }),
