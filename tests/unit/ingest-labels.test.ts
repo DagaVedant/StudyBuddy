@@ -9,16 +9,25 @@ import { persistQuestions } from '@/lib/worker/ingest'
  * to live there rather than in each provider.
  */
 function fakeDb(captured: { label: string; text: string }[]) {
+  let inserted: unknown[] = []
+
   const insert = vi.fn((_table: unknown) => ({
     values: vi.fn(async (rows: { label?: string; text?: string }[] | object) => {
-      if (Array.isArray(rows) && rows[0] && 'label' in rows[0]) {
-        for (const row of rows) {
+      const list = Array.isArray(rows) ? rows : [rows]
+
+      if (list[0] && 'label' in (list[0] as object)) {
+        for (const row of list as { label?: string; text?: string }[]) {
           captured.push({ label: String(row.label), text: String(row.text) })
         }
+      } else {
+        inserted = list
       }
+
       return undefined
     }),
-    returning: vi.fn(async () => [{ id: 'question-1' }]),
+    // One id per row, because the questions go in as a single batched insert
+    // and the choices are keyed off the returned order.
+    returning: vi.fn(async () => inserted.map((_, i) => ({ id: `question-${i + 1}` }))),
   }))
 
   // Only the shapes persistQuestions uses: a select of existing rows, the
@@ -26,7 +35,7 @@ function fakeDb(captured: { label: string; text: string }[]) {
   // (questions) or do not (choices).
   const empty = () => Object.assign(Promise.resolve([]), { limit: async () => [] })
 
-  return {
+  const fake: Record<string, unknown> = {
     select: () => ({
       from: () => ({ where: empty }),
     }),
@@ -39,7 +48,12 @@ function fakeDb(captured: { label: string; text: string }[]) {
         },
       }
     },
-  } as never
+    // persistQuestions batches its two writes into one transaction. The fake
+    // just runs the body against itself.
+    transaction: async (body: (tx: unknown) => Promise<unknown>) => body(fake),
+  }
+
+  return fake as never
 }
 
 const QUESTION = (

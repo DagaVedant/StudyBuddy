@@ -83,6 +83,21 @@ export async function POST(request: Request, { params }: Params) {
 
   const body = parsed.data
 
+  // The job has to still be live. A worker restarted mid-paper still holds the
+  // job id it was working on, and nothing stopped it posting pages into a job
+  // that had already completed or been reaped: questions appended to a finished
+  // worksheet, or a `complete` that walked a failed one back to review.
+  //
+  // `fail` is exempt. A worker whose job was reaped out from under it is
+  // reporting exactly the failure that happened, and refusing that report just
+  // loses the error message.
+  if (body.action !== 'fail' && job.status !== 'claimed' && job.status !== 'running') {
+    return NextResponse.json(
+      { error: `Job is ${job.status}, not accepting work`, status: job.status },
+      { status: 409 },
+    )
+  }
+
   if (body.action === 'fail') {
     const { permanent } = await failJob(db, jobId, body.message)
 

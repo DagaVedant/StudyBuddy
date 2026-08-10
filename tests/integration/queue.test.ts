@@ -15,6 +15,7 @@ import {
   heartbeat,
   inFlightExtractCount,
   queueDepth,
+  reapAbandonedJobs,
   workerStatus,
 } from '@/lib/queue'
 
@@ -397,5 +398,100 @@ describe('inFlightExtractCount', () => {
     })
 
     expect(await inFlightExtractCount(db as Db, otherUser)).toBe(1)
+  })
+})
+
+/**
+ * `attempt_count` increments on the claim, and `claimJob` refuses anything at
+ * MAX_ATTEMPTS. So a worker that dies on its third claim, before it reports
+ * anything, leaves a job past the ceiling and still marked claimed: unclaimable
+ * forever, and nothing but a worker ever marks a job failed. The student's
+ * worksheet sat at "Queued" for good and the trial credit was never refunded.
+ */
+describe('reapAbandonedJobs', () => {
+  const longAgo = () => new Date(Date.now() - CLAIM_TTL_MS * 3)
+
+  async function exhausted() {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+
+    await db
+      .update(processingJobs)
+      .set({
+        status: 'claimed',
+        attemptCount: MAX_ATTEMPTS,
+        claimedAt: longAgo(),
+      })
+      .where(eq(processingJobs.id, jobId))
+
+    return jobId
+  }
+
+  it('fails a job no worker can ever claim again', async () => {
+    const jobId = await exhausted()
+
+    const reaped = await reapAbandonedJobs(db as Db)
+    expect(reaped.map((row) => row.id)).toContain(jobId)
+
+    const [row] = await db
+      .select({ status: processingJobs.status, error: processingJobs.error })
+      .from(processingJobs)
+      .where(eq(processingJobs.id, jobId))
+
+    expect(row.status).toBe('failed')
+    expect(row.error).toMatch(/stopped responding/)
+  })
+
+  it('reports the worksheet and stage, so the refund can be run', async () => {
+    await exhausted()
+
+    const [reaped] = await reapAbandonedJobs(db as Db)
+    expect(reaped.worksheetId).toBe(worksheetId)
+    expect(reaped.userId).toBe(userId)
+    expect(reaped.stage).toBe('extract')
+  })
+
+  // A worker part-way through a long paper is holding a live claim, not an
+  // abandoned one, and sweeping it would take the job out from under it.
+  it('leaves a job whose claim has not expired', async () => {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+
+    await db
+      .update(processingJobs)
+      .set({ status: 'running', attemptCount: MAX_ATTEMPTS, claimedAt: new Date() })
+      .where(eq(processingJobs.id, jobId))
+
+    expect(await reapAbandonedJobs(db as Db)).toHaveLength(0)
+  })
+
+  // Below the ceiling the job is still retryable: claimJob picks it up once the
+  // claim goes stale, which is the normal retry and not an abandonment.
+  it('leaves a stale job that still has attempts left', async () => {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+
+    await db
+      .update(processingJobs)
+      .set({ status: 'claimed', attemptCount: 1, claimedAt: longAgo() })
+      .where(eq(processingJobs.id, jobId))
+
+    expect(await reapAbandonedJobs(db as Db)).toHaveLength(0)
+    expect(await claimJob(db as Db, 'operator_gpu')).not.toBeNull()
   })
 })

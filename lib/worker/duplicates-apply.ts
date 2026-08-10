@@ -66,10 +66,48 @@ export async function mergeDuplicateQuestions(
 
   let merged = 0
 
+  /*
+   * Both plan lists were computed from one snapshot and then applied one by
+   * one, so a number could be assigned twice.
+   *
+   * Each plan moves its printed number onto the row that survives. Two plans
+   * built from the same read can name the same number: the split-merge sees a
+   * question torn across a page break and wants number 7, and the
+   * number-duplicate merge sees the same 7 held by two rows and wants it too.
+   * Applied in order, the second overwrites the first, and the worksheet ends
+   * with two rows both claiming 7, which is the exact state the audit then
+   * tries to repair by deleting one of them.
+   *
+   * So the numbers are tracked as they are handed out, and a plan whose number
+   * has already gone to somebody else keeps its row instead of merging it.
+   * Refusing to merge leaves a visible duplicate the student can delete;
+   * merging wrongly loses a question.
+   */
+  const claimedNumbers = new Set<number>()
+  const gone = new Set<string>()
+
   for (const plan of plans) {
+    // Two plans can also name the same row, once as the one to keep and once as
+    // the one to drop. Whichever ran first already decided.
+    if (gone.has(plan.dropId) || gone.has(plan.keepId)) {
+      console.log(
+        `[dedupe] skipped a plan on ${worksheetId}: an earlier merge already ` +
+          `moved one of its rows`,
+      )
+      continue
+    }
+
     if (!deletable.has(plan.dropId)) {
       console.log(
         `[dedupe] kept ${plan.dropId} on ${worksheetId}: a student has work against it`,
+      )
+      continue
+    }
+
+    if (plan.printedNumber !== null && claimedNumbers.has(plan.printedNumber)) {
+      console.log(
+        `[dedupe] kept ${plan.dropId} on ${worksheetId}: number ` +
+          `${plan.printedNumber} was already given to another row this pass`,
       )
       continue
     }
@@ -81,9 +119,12 @@ export async function mergeDuplicateQuestions(
         .update(questions)
         .set({ printedNumber: plan.printedNumber })
         .where(eq(questions.id, plan.keepId))
+
+      claimedNumbers.add(plan.printedNumber)
     }
 
     await db.delete(questions).where(eq(questions.id, plan.dropId))
+    gone.add(plan.dropId)
     merged += 1
   }
 

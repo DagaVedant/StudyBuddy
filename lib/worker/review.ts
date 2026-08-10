@@ -111,7 +111,7 @@ export function planPageReplacement<T extends { ordinal: number; prompt_text: st
  * reaching the review screen and seeing it than by waiting twice as long for
  * the same model to make the same mistakes.
  */
-const MAX_REREAD_SHARE = 0.3
+export const MAX_REREAD_SHARE = 0.3
 
 export async function planReview(
   questions: ReviewableQuestion[],

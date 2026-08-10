@@ -249,7 +249,12 @@ export async function persistQuestions(
     existing.map((row) => row.contentHash).filter((hash): hash is string => !!hash),
   )
 
-  let created = 0
+  // Everything is decided before anything is written, so the writes below are
+  // two statements rather than two per question.
+  const pending: {
+    row: typeof questions.$inferInsert
+    choices: { label: string; text: string }[]
+  }[] = []
 
   for (const [index, raw] of extracted.entries()) {
     // Normalised before hashing and before storing, so the hash matches what
@@ -272,9 +277,8 @@ export async function persistQuestions(
     if (seen.has(contentHash)) continue
     seen.add(contentHash)
 
-    const [row] = await db
-      .insert(questions)
-      .values({
+    pending.push({
+      row: {
         userId: job.userId,
         worksheetId: job.worksheetId,
         pageId,
@@ -287,27 +291,50 @@ export async function persistQuestions(
         bbox: question.bbox,
 
         userVerified: false,
-        answerSource: 'none',
+        answerSource: 'none' as const,
         contentHash,
-      })
-      .returning({ id: questions.id })
-
-    if (question.choices.length > 0) {
-      await db.insert(answerChoices).values(
-        question.choices.map((choice) => ({
-          questionId: row.id,
-          label: choice.label,
-          text: choice.text,
-          isCorrect: false,
-        })),
-      )
-    }
+      },
+      choices: question.choices,
+    })
 
     nextOrdinal += 1
-    created += 1
   }
 
-  return created
+  if (pending.length === 0) return 0
+
+  /*
+   * One transaction, two statements.
+   *
+   * This was an insert per question plus an insert per choice batch, and none
+   * of it transactional: a 114 question paper meant 228 round trips, and a
+   * connection dropping halfway left the worksheet holding questions with no
+   * options against them. Nothing downstream can tell that apart from a
+   * question the paper printed without options, so the repair passes would
+   * later try to recover options that were never lost.
+   *
+   * The choices need their questions' ids, so the insert returns them in the
+   * order the rows went in, which Postgres guarantees for a multi-row INSERT
+   * with RETURNING.
+   */
+  await db.transaction(async (tx) => {
+    const inserted = await tx
+      .insert(questions)
+      .values(pending.map((item) => item.row))
+      .returning({ id: questions.id })
+
+    const choiceRows = pending.flatMap((item, index) =>
+      item.choices.map((choice) => ({
+        questionId: inserted[index].id,
+        label: choice.label,
+        text: choice.text,
+        isCorrect: false,
+      })),
+    )
+
+    if (choiceRows.length > 0) await tx.insert(answerChoices).values(choiceRows)
+  })
+
+  return pending.length
 }
 
 export async function pagesForJob(db: Db, worksheetId: string) {

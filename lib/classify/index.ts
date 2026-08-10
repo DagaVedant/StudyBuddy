@@ -110,14 +110,30 @@ export async function shortlistByVector(
 }
 
 /**
+ * The embedding model could not be loaded at all.
+ *
+ * Distinct from "this question matched nothing", which is an ordinary outcome.
+ * This one means every question on every worksheet will go untagged for as long
+ * as it lasts, so it has to reach a caller that can say so rather than being
+ * counted as a shortlist of zero.
+ */
+export class EmbeddingUnavailableError extends Error {
+  constructor(cause: string) {
+    super(`The embedding model could not be loaded: ${cause}`)
+    this.name = 'EmbeddingUnavailableError'
+  }
+}
+
+/**
  * Embeds here and then searches, so this only works where the model can
  * load. Callers on a host without it (Vercel) should take the vector from
  * somewhere that can, via shortlistByVector.
  *
- * A failure to embed returns no candidates rather than throwing, which
- * callers already treat as "leave the question untagged". Logged, not
- * swallowed: every question going untagged is an empty dashboard, not a
- * normal outcome.
+ * Throws when the model will not load, and used to return `[]` instead. That
+ * read to every caller as "no candidates", which is what an unclassifiable
+ * question looks like, so a host that could not load onnxruntime at all
+ * produced a worksheet where every question was untagged and a job that
+ * reported success. The dashboard is empty and nothing anywhere is an error.
  */
 export async function shortlistTopics(
   db: Db,
@@ -129,11 +145,7 @@ export async function shortlistTopics(
   try {
     vector = await embed(questionText)
   } catch (error) {
-    console.error(
-      '[classify] embedding unavailable, leaving question untagged:',
-      (error as Error).message,
-    )
-    return []
+    throw new EmbeddingUnavailableError((error as Error).message)
   }
 
   return shortlistByVector(db, vector, { subjectHint, limit })
@@ -314,7 +326,7 @@ export async function classifyWorksheet(
   provider: AIProvider,
   worksheetId: string,
   subjectHint?: string | null,
-): Promise<{ classified: number; coarse: number }> {
+): Promise<{ classified: number; coarse: number; failed: number }> {
   const rows = await db
     .select({
       id: questions.id,
@@ -326,6 +338,7 @@ export async function classifyWorksheet(
 
   let classified = 0
   let coarse = 0
+  let failed = 0
 
   for (const question of rows) {
     const existing = await db
@@ -340,10 +353,30 @@ export async function classifyWorksheet(
       const outcome = await classifyQuestion(db, provider, question, subjectHint)
       if (outcome.topicId) classified += 1
       if (outcome.coarse) coarse += 1
-    } catch {
+    } catch (error) {
+      // Not survivable and not worth trying 113 more times. Every remaining
+      // question would fail the same way, and the caller needs to know the
+      // difference between "the model declined to tag these" and "there is no
+      // model on this host".
+      if (error instanceof EmbeddingUnavailableError) throw error
 
+      // One question failing is survivable: the model returned something
+      // unusable, or the row is malformed. It used to be swallowed in silence,
+      // which is how a worksheet came back with a third of its questions
+      // untagged and nothing to explain why.
+      failed += 1
+      console.error(
+        `[classify] question ${question.id} could not be classified:`,
+        (error as Error).message,
+      )
     }
   }
 
-  return { classified, coarse }
+  if (failed > 0) {
+    console.error(
+      `[classify] ${failed} of ${rows.length} question(s) on ${worksheetId} failed`,
+    )
+  }
+
+  return { classified, coarse, failed }
 }

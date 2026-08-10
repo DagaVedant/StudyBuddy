@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 
 import { unwrapDriverRows } from '@/lib/db/rows'
 import { gpuWorkers, processingJobs } from '@/lib/db/schema'
@@ -264,6 +264,64 @@ export async function failJob(
     .where(eq(processingJobs.id, jobId))
 
   return { permanent }
+}
+
+export interface AbandonedJob {
+  id: string
+  stage: string
+  userId: string
+  worksheetId: string
+}
+
+/**
+ * Fails jobs no worker can ever pick up again.
+ *
+ * `attempt_count` increments on the claim, not on the failure, and `claimJob`
+ * refuses anything at `MAX_ATTEMPTS`. So a worker that dies on its third claim,
+ * before it can report anything, leaves the row `claimed` forever: past the
+ * retry ceiling, so unclaimable, and nothing but a worker ever marks a job
+ * failed. The student's worksheet sits at "Queued" for good and the trial
+ * credit it charged is never given back.
+ *
+ * Claimed past the TTL, so a worker that is merely slow is not swept out from
+ * under itself: this only touches jobs whose claim has already expired and
+ * which `claimJob` has therefore already stopped considering.
+ *
+ * Returns what it failed rather than doing the refund itself, because refunding
+ * is `applyPermanentFailure`'s job and that lives with the worker code. Same
+ * path a reported failure takes, so a job that dies silently and one that dies
+ * loudly leave the account in the same state.
+ */
+export async function reapAbandonedJobs(
+  db: Db,
+  now: Date = new Date(),
+): Promise<AbandonedJob[]> {
+  const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS)
+
+  const reaped = await db
+    .update(processingJobs)
+    .set({
+      status: 'failed',
+      error: 'The worker stopped responding and the job ran out of attempts.',
+      claimedBy: null,
+      claimedAt: null,
+      completedAt: now,
+    })
+    .where(
+      and(
+        inArray(processingJobs.status, ['claimed', 'running']),
+        lt(processingJobs.claimedAt, staleBefore),
+        gte(processingJobs.attemptCount, MAX_ATTEMPTS),
+      ),
+    )
+    .returning({
+      id: processingJobs.id,
+      stage: processingJobs.stage,
+      userId: processingJobs.userId,
+      worksheetId: processingJobs.worksheetId,
+    })
+
+  return reaped
 }
 
 export interface QueueDepth {

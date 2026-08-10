@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
 import { questions, worksheetPages } from '@/lib/db/schema'
@@ -63,15 +63,38 @@ export async function renumberQuestions(
     return a.ordinal - b.ordinal
   })
 
-  let renumbered = 0
+  const moved = ordered
+    .map((row, index) => ({ id: row.id, ordinal: index + 1 }))
+    .filter((row, index) => ordered[index].ordinal !== row.ordinal)
 
-  for (const [index, row] of ordered.entries()) {
-    const next = index + 1
-    if (row.ordinal === next) continue
+  /*
+   * One statement, not one per question.
+   *
+   * This was an UPDATE per moved row, so a 114 question paper whose numbering
+   * had shifted by one sent 114 round trips, and the audit runs it on every
+   * repair pass. The list is built above and applied in a single
+   * `UPDATE ... FROM (VALUES ...)`.
+   *
+   * Ordinals collide during a shift: moving question 5 to 4 while 4 still holds
+   * 4 would break a unique index if one existed on (worksheet, ordinal). None
+   * does, deliberately, because renumbering is exactly this operation and the
+   * intermediate state is never observed inside a single statement.
+   */
+  if (moved.length > 0) {
+    const values = sql.join(
+      moved.map((row) => sql`(${row.id}, ${row.ordinal}::int)`),
+      sql`, `,
+    )
 
-    await db.update(questions).set({ ordinal: next }).where(eq(questions.id, row.id))
-    renumbered += 1
+    await db.execute(sql`
+      update ${questions} as q
+      set ordinal = v.ordinal
+      from (values ${values}) as v(id, ordinal)
+      where q.id = v.id
+    `)
   }
+
+  const renumbered = moved.length
 
   return { renumbered, duplicateNumbers }
 }

@@ -102,3 +102,38 @@ describe('looksUnrendered', () => {
     expect(looksUnrendered('Two lines.\nStill clean.')).toBe(false)
   })
 })
+
+/**
+ * The single-dollar rule is also the money rule, and it used to lose.
+ * Verified against a stored row: the paper said $5, the database said 5.
+ */
+describe('normalizeMath and money', () => {
+  it('leaves prices alone', () => {
+    for (const text of [
+      'Sam has $5 and Ana has $12. How much more does Ana have?',
+      'A shirt costs $20 and a hat costs $8.50.',
+      'The bike was $1,200 before the $150 discount.',
+      'She earns $15 an hour and he earns $18 an hour.',
+    ]) {
+      expect(normalizeMath(text), text).toBe(text)
+    }
+  })
+
+  it('still unwraps a maths span that happens to open on a digit', () => {
+    expect(normalizeMath('$3 \times 4$')).toBe('3 × 4')
+    expect(normalizeMath('$2 + 2 = 4$')).toBe('2 + 2 = 4')
+  })
+
+  it('unwraps a single token, which is never a price followed by prose', () => {
+    expect(normalizeMath('Solve for $x$.')).toBe('Solve for x.')
+    expect(normalizeMath('$x^{2}$')).toBe('x^2')
+  })
+
+  // The one it gets wrong, recorded rather than hidden. A price with an
+  // operator between it and the next price reads as maths, and unwraps. It is
+  // the safer direction to be wrong in: a stray dollar sign is legible, a
+  // missing one changes the question.
+  it('is documented as fallible on a price next to an operator', () => {
+    expect(normalizeMath('It costs $5 + tax, or $12 delivered.')).not.toContain('$5')
+  })
+})

@@ -15,6 +15,20 @@ import { claimWorksheetForCompletion } from '@/lib/upload/claim'
 import { guardWorksheet } from '@/lib/upload/guard'
 import { drainServerQueue } from '@/lib/worker/server-job'
 
+/**
+ * Ceiling for this invocation, and therefore for the `after()` callback below.
+ *
+ * Next's own docs are explicit that `after` is bounded by `maxDuration` rather
+ * than running free once the response is sent, so a Tier B extraction started
+ * there gets whatever is left of this budget. The default is far shorter than
+ * a worksheet takes, which is what made a long extraction die partway and
+ * retry from its checkpoint.
+ *
+ * 300 is the ceiling on Vercel's Pro plan; a job that needs longer than five
+ * minutes is one the checkpoint is there to resume.
+ */
+export const maxDuration = 300
+
 type Params = { params: Promise<{ id: string }> }
 
 const claimForCompletion = (
@@ -164,7 +178,14 @@ export async function POST(_request: Request, { params }: Params) {
   // Runs once this response has gone out. There is no separate worker process
   // for Tier B to poll from. The extraction runs against the student's own
   // key, reachable directly from here, so this request is what starts it.
-  after(() => drainServerQueue(db))
+  // `.catch` is not optional here. `after` takes the promise and nothing else
+  // awaits it, so a rejection out of the drain was an unhandled rejection in
+  // the serverless runtime: the log said nothing and the queue stopped.
+  after(() =>
+    drainServerQueue(db).catch((error: unknown) => {
+      console.error('[server-job] drain failed:', (error as Error).message)
+    }),
+  )
 
   return NextResponse.json({
     ok: true,

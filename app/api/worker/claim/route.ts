@@ -4,8 +4,9 @@ import { z } from 'zod'
 
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
-import { claimJob, heartbeat, queueDepth } from '@/lib/queue'
+import { claimJob, heartbeat, queueDepth, reapAbandonedJobs } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
+import { applyPermanentFailure } from '@/lib/worker/fail'
 import { pagesForJob } from '@/lib/worker/ingest'
 
 const claimSchema = z.object({
@@ -32,6 +33,25 @@ export async function POST(request: Request) {
   const { workerName, modelName, jobsInFlight } = parsed.data
 
   const workerId = await heartbeat(db, workerName, modelName ?? null, jobsInFlight)
+
+  // The queue's only regular heartbeat, so it is where the reaper lives. A
+  // worker that dies on its third claim leaves a job past the retry ceiling and
+  // still marked claimed, which nothing else will ever touch: unclaimable, and
+  // only a worker marks jobs failed. The worksheet sat at "Queued" forever and
+  // the trial credit was never refunded.
+  //
+  // Before the claim, so a job the student is about to be told about is not one
+  // that has already been abandoned.
+  for (const abandoned of await reapAbandonedJobs(db)) {
+    console.log(
+      `[queue] reaped abandoned ${abandoned.stage} job ${abandoned.id} on ` +
+        `worksheet ${abandoned.worksheetId}`,
+    )
+    // The same path a reported failure takes, so a job that dies silently and
+    // one that dies loudly leave the account in the same state.
+    await applyPermanentFailure(db, abandoned)
+  }
+
   const job = await claimJob(db, 'operator_gpu', workerId)
 
   if (!job) {

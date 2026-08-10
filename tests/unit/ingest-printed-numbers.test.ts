@@ -22,7 +22,7 @@ function fakeDb(captured: { printedNumber: number | null; promptText: string }[]
   const selectResult = (rows: unknown[]) =>
     Object.assign(Promise.resolve(rows), { limit: async () => rows })
 
-  return {
+  const fake: Record<string, unknown> = {
     select: (columns?: Record<string, unknown>) => ({
       from: () => ({
         // The page lookup asks for ocrText and nothing else.
@@ -33,22 +33,34 @@ function fakeDb(captured: { printedNumber: number | null; promptText: string }[]
       }),
     }),
     insert: () => ({
+      // persistQuestions batches now, so the question rows arrive as one array
+      // rather than one call per row. The choices arrive the same way and carry
+      // no promptText, which is what separates them.
       values: (rows: unknown) => {
-        if (!Array.isArray(rows)) {
-          const row = rows as { printedNumber?: number | null; promptText?: string }
+        const list = Array.isArray(rows) ? rows : [rows]
+        const ids: { id: string }[] = []
+
+        for (const entry of list) {
+          const row = entry as { printedNumber?: number | null; promptText?: string }
           if ('promptText' in row) {
             captured.push({
               printedNumber: row.printedNumber ?? null,
               promptText: String(row.promptText),
             })
+            ids.push({ id: `q-${captured.length}` })
           }
         }
+
         return Object.assign(Promise.resolve(undefined), {
-          returning: async () => [{ id: `q-${captured.length}` }],
+          returning: async () => ids,
         })
       },
     }),
-  } as never
+    // The batched writes run in one transaction. The fake just runs the body.
+    transaction: async (body: (tx: unknown) => Promise<unknown>) => body(fake),
+  }
+
+  return fake as never
 }
 
 const QUESTION = (ordinal: number, prompt_text: string): ExtractedQuestion => ({

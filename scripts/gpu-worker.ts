@@ -10,7 +10,11 @@ import { validated } from '../lib/ai/validated'
 import { embed } from '../lib/embeddings'
 import { isAnswerPage } from '../lib/questions/answer-key'
 import { auditExtraction } from '../lib/worker/audit'
-import { planReview, type ReviewableQuestion } from '../lib/worker/review'
+import {
+  MAX_REREAD_SHARE,
+  planReview,
+  type ReviewableQuestion,
+} from '../lib/worker/review'
 
 const API = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
 const TOKEN = process.env.WORKER_API_TOKEN ?? ''
@@ -83,9 +87,24 @@ function log(message: string): void {
   console.log(`[${new Date().toISOString()}] ${message}`)
 }
 
+/**
+ * How long any single call to the server may take before it is abandoned.
+ *
+ * Generous, because a page image is megabytes and the claim endpoint does real
+ * work, but finite. Without a timeout a call that never answers, which is what
+ * a dropped connection on a home broadband line looks like, hangs the loop
+ * forever: this worker takes one job at a time, so a stalled fetch also stops
+ * the heartbeat. The dashboard then reports the worker offline while it is
+ * still holding a claimed job, and the job sits until its claim expires.
+ */
+const API_TIMEOUT_MS = 120_000
+
 async function api(path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`${API}${path}`, {
     ...init,
+    // Only when the caller has not brought its own. The shutdown path passes a
+    // signal of its own and must keep it.
+    signal: init.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${TOKEN}`,
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
@@ -277,7 +296,22 @@ async function recoverMissingQuestions(
 
   const byNumber = new Map(pages.map((page) => [page.pageNumber, page]))
 
-  for (const target of audit.retry) {
+  // The same cap the review path applies, for the same reason: a re-read costs
+  // about what the first read cost, so a paper where most pages look wrong must
+  // not quietly double the job. This loop had no cap at all, so a badly scanned
+  // 75 page worksheet could re-read all 75. Past this point the problem is the
+  // extraction as a whole and the student is better served seeing it.
+  const rereadCap = Math.max(1, Math.floor(pages.length * MAX_REREAD_SHARE))
+  const retrying = audit.retry.slice(0, rereadCap)
+
+  if (retrying.length < audit.retry.length) {
+    log(
+      `  audit: capped at ${retrying.length} of ${audit.retry.length} page(s); ` +
+        `more than ${Math.round(MAX_REREAD_SHARE * 100)}% of this paper looks wrong`,
+    )
+  }
+
+  for (const target of retrying) {
     if (shuttingDown) return
 
     const page = byNumber.get(target.pageNumber)

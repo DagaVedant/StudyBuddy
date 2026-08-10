@@ -63,8 +63,39 @@ const DELIMITERS: [RegExp, string][] = [
   [/\\\[([\s\S]*?)\\\]/g, '$1'],
   [/\\\(([\s\S]*?)\\\)/g, '$1'],
   [/\$\$([\s\S]*?)\$\$/g, '$1'],
-  [/\$([^$\n]+)\$/g, '$1'],
 ]
+
+/** Characters that only turn up in maths, not in a sentence about money. */
+const LOOKS_LIKE_MATHS = /[\\=<>+*/^_{}×÷≤≥≠≈±√π−]/
+
+/**
+ * Unwraps `$…$`, but only when what is inside is maths.
+ *
+ * This is also how money is written, and the plain rule matched from one price
+ * to the next: "Sam has $5 and Ana has $12" came out as "Sam has 5 and Ana has
+ * 12", turning a word problem about money into one about bare numbers. Verified
+ * against a stored row rather than imagined. The paper says $5; the database
+ * said 5.
+ *
+ * Two things say maths. A span with no whitespace in it is one token, so `$x$`,
+ * `$x^2$` and `$3$` are wrappers around a symbol and never a price followed by
+ * prose. A span with whitespace has to earn it by containing a character that
+ * belongs to maths and not to English: a backslash command, an operator, a
+ * relation. "5 and Ana has " has none of those.
+ *
+ * A plain hyphen is deliberately not on that list. It is a dash far more often
+ * than it is a minus, and treating it as maths puts the money bug back.
+ *
+ * The costs are not symmetric, which is what settles the doubtful cases.
+ * Leaving `$x$` wrapped shows a student a stray dollar sign: ugly, and they can
+ * still read the question. Eating the dollar off a price changes what the
+ * question asks and nothing downstream can tell.
+ */
+function unwrapInlineMath(text: string): string {
+  return text.replace(/\$([^$\n]+)\$/g, (match, inner: string) =>
+    !/\s/.test(inner) || LOOKS_LIKE_MATHS.test(inner) ? inner : match,
+  )
+}
 
 const COMMANDS: [RegExp, string][] = [
   // Fractions first: the inner groups must survive for the rest to see them.
@@ -98,6 +129,7 @@ export function normalizeMath(input: string): string {
   // pass strips only after the fraction inside has already been missed.
   for (let pass = 0; pass < 2; pass += 1) {
     for (const [pattern, replacement] of DELIMITERS) text = text.replace(pattern, replacement)
+    text = unwrapInlineMath(text)
     for (const [pattern, replacement] of COMMANDS) text = text.replace(pattern, replacement)
   }
 

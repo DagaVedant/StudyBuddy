@@ -274,3 +274,50 @@ describe('the audit re-read on a worksheet that has been marked up', () => {
     expect(plan.replacements).toHaveLength(2)
   })
 })
+
+/**
+ * Both merge rules run off one snapshot and the plans are applied one by one,
+ * so two plans could name the same printed number and the second would
+ * overwrite the first, leaving two rows both claiming it. That is the exact
+ * state the audit then tries to repair by deleting one of them.
+ *
+ * The collision is hard to construct deliberately, which is why it survived so
+ * long: the number-duplicate rule refuses any group that is not exactly a pair,
+ * so the obvious four-row seed folds nothing at all. What is testable, and what
+ * actually matters, is the invariant on the way out. No number may be held
+ * twice once the pass has run.
+ */
+describe('printed numbers after a merge', () => {
+  it('never leaves a number held by two rows', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+
+    // A foldable pair on number 1, and a real neighbour on 2 for the survivor
+    // to collide with if the number were handed out carelessly.
+    await seedDuplicatePair(userId, worksheetId)
+
+    await db.insert(questions).values({
+      userId,
+      worksheetId,
+      ordinal: 3,
+      printedNumber: 2,
+      promptText: 'A different question entirely, about probability.',
+      questionType: 'multiple_choice',
+    })
+
+    const { merged } = await mergeDuplicateQuestions(client(), worksheetId)
+    expect(merged).toBe(1)
+
+    const left = await db
+      .select({ printedNumber: questions.printedNumber })
+      .from(questions)
+      .where(eq(questions.worksheetId, worksheetId))
+
+    const numbers = left
+      .map((row) => row.printedNumber)
+      .filter((n): n is number => n !== null)
+
+    expect(numbers).toHaveLength(2)
+    expect(new Set(numbers).size).toBe(numbers.length)
+  })
+})
