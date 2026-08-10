@@ -2,7 +2,6 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { refundTrial } from '@/lib/ai/quota'
 import { extractedQuestionSchema } from '@/lib/ai/types'
 import { db } from '@/lib/db'
 import {
@@ -14,6 +13,7 @@ import {
 } from '@/lib/db/schema'
 import { checkpointJob, completeJob, failJob } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/auth'
+import { applyPermanentFailure } from '@/lib/worker/fail'
 import { persistQuestions } from '@/lib/worker/ingest'
 import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
 import { planPageReplacement } from '@/lib/worker/review'
@@ -86,20 +86,7 @@ export async function POST(request: Request, { params }: Params) {
     const { permanent } = await failJob(db, jobId, body.message)
 
     if (permanent) {
-      const [worksheet] = await db
-        .select({ pageCount: worksheets.pageCount, tierUsed: worksheets.tierUsed })
-        .from(worksheets)
-        .where(eq(worksheets.id, job.worksheetId))
-        .limit(1)
-
-      if (worksheet?.tierUsed === 'trial') {
-        await refundTrial(db, job.userId, 'worksheets', 1)
-      }
-
-      await db
-        .update(worksheets)
-        .set({ status: 'failed' })
-        .where(eq(worksheets.id, job.worksheetId))
+      await applyPermanentFailure(db, job)
     }
 
     return NextResponse.json({ ok: true, permanent })

@@ -2,12 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 
 import type { AIProvider, ExtractedQuestion } from '@/lib/ai/types'
 import type { Db } from '@/lib/db/types'
-import {
-  answerChoices,
-  questions,
-  worksheetPages,
-  worksheets,
-} from '@/lib/db/schema'
+import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import { isAnswerPage } from '@/lib/questions/answer-key'
 import { foldLeadInChoices } from '@/lib/questions/lead-in'
 import { normalizeMath } from '@/lib/questions/math'
