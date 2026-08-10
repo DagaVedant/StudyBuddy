@@ -80,3 +80,6 @@ next-env.d.ts
 
 # eslint's incremental cache (scripts/check.mjs)
 /.eslintcache
+
+# devlogs are written here and posted elsewhere; they are not part of the repo
+/devlog/
