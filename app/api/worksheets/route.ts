@@ -1,5 +1,5 @@
 import { desc, eq } from 'drizzle-orm'
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { UPLOAD_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 import { MAX_PAGES_PER_UPLOAD, pageCapFor } from '@/lib/upload/limits'
+import { sweepAbandonedUploads } from '@/lib/upload/sweep'
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -77,6 +78,23 @@ export async function POST(request: Request) {
       tierUsed: tier,
     })
     .returning({ id: worksheets.id })
+
+  // After the response, so it never slows an upload down. Cancel deletes what
+  // it started; this is for the tab that was closed and the laptop that slept,
+  // which leave a row in `uploading` with page images under it that nothing
+  // will ever read. Scoped to this student, because there is no scheduler here
+  // and their next upload is the cheapest moment to clear their own leftovers.
+  after(async () => {
+    try {
+      const swept = await sweepAbandonedUploads(db, session.user.id)
+      if (swept > 0) {
+        console.log(`[upload] swept ${swept} abandoned upload(s) for ${session.user.id}`)
+      }
+    } catch (error) {
+      // Never the caller's problem: their worksheet was created either way.
+      console.error('[upload] sweep failed:', (error as Error).message)
+    }
+  })
 
   return NextResponse.json({ worksheetId: worksheet.id }, { status: 201 })
 }

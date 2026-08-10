@@ -184,3 +184,94 @@ describe('attempts and review cards', () => {
     expect(remaining).toHaveLength(0)
   })
 })
+
+/**
+ * Marking a worksheet twice used to write a second attempt for every question
+ * and push every review card forward on answers nobody gave, which corrupts the
+ * denominator the weakness report is built on. The route did look first, but a
+ * read followed by an insert is not a guarantee: two posts from a tab left open
+ * since before that check both see nothing and both write.
+ */
+describe('attempts_markup_once', () => {
+  /** A worksheet with one question on it, owned by a fresh account. */
+  async function seedQuestion(email: string) {
+    const userId = await makeUser(email)
+
+    const [worksheet] = await db
+      .insert(worksheets)
+      .values({
+        userId,
+        title: 'Practice',
+        sourceType: 'pdf_digital',
+        pageCount: 1,
+        status: 'ready',
+        tierUsed: 'trial',
+      })
+      .returning({ id: worksheets.id })
+
+    const [question] = await db
+      .insert(questions)
+      .values({
+        userId,
+        worksheetId: worksheet.id,
+        ordinal: 1,
+        promptText: 'What is 2 + 2?',
+        questionType: 'free_response',
+      })
+      .returning({ id: questions.id })
+
+    return { userId, questionId: question.id }
+  }
+
+  it('refuses a second markup attempt on the same question', async () => {
+    const { userId, questionId } = await seedQuestion('markup-once@example.com')
+
+    await db
+      .insert(attempts)
+      .values({ userId, questionId, outcome: 'wrong', source: 'markup' })
+
+    await expect(
+      db
+        .insert(attempts)
+        .values({ userId, questionId, outcome: 'correct', source: 'markup' }),
+    ).rejects.toThrow()
+  })
+
+  // The reason it is a partial index. A question coming back through spaced
+  // repetition is attempted again every sitting, forever, and a plain unique on
+  // (user, question, source) would make the second one fail.
+  it('allows review attempts to repeat, which is the whole point of review', async () => {
+    const { userId, questionId } = await seedQuestion('review-repeats@example.com')
+
+    for (let n = 0; n < 3; n += 1) {
+      await db
+        .insert(attempts)
+        .values({ userId, questionId, outcome: 'correct', source: 'review' })
+    }
+
+    const stored = await db
+      .select({ id: attempts.id })
+      .from(attempts)
+      .where(eq(attempts.questionId, questionId))
+
+    expect(stored).toHaveLength(3)
+  })
+
+  it('is per student, so two people may both mark the same question', async () => {
+    const { userId, questionId } = await seedQuestion('owner@example.com')
+    const other = await makeUser('classmate@example.com')
+
+    for (const id of [userId, other]) {
+      await db
+        .insert(attempts)
+        .values({ userId: id, questionId, outcome: 'wrong', source: 'markup' })
+    }
+
+    const stored = await db
+      .select({ id: attempts.id })
+      .from(attempts)
+      .where(eq(attempts.questionId, questionId))
+
+    expect(stored).toHaveLength(2)
+  })
+})

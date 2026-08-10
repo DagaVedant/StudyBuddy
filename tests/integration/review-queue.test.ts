@@ -113,6 +113,9 @@ describe('getDueCards', () => {
       ],
     })
 
+    // Marked wrong on the paper, then got it right in review a few days later.
+    // That is the only way one question ends up with two attempts: a worksheet
+    // can only be marked once, which `attempts_markup_once` now enforces.
     await makeAttempt(db, userId, question.id, 'wrong', {
       selectedChoiceId: question.choiceIds.B,
       createdAt: new Date(Date.now() - 3 * 24 * 3600_000),
@@ -120,6 +123,7 @@ describe('getDueCards', () => {
     await makeAttempt(db, userId, question.id, 'correct', {
       selectedChoiceId: question.choiceIds.A,
       createdAt: new Date(Date.now() - 60_000),
+      source: 'review',
     })
 
     await makeCard(userId, question.id, new Date(Date.now() - 60_000))

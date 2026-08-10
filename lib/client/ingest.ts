@@ -40,6 +40,14 @@ export interface IngestOptions {
 
   expectedQuestionCount?: number | null
   onProgress: (progress: IngestProgress) => void
+  /**
+   * Called the moment the worksheet row exists, before any page is uploaded.
+   *
+   * Cancel needs it. The row and its page images are created inside this
+   * function, so without a way out the caller cannot clean up what it started
+   * and had to claim nothing had been saved.
+   */
+  onWorksheetCreated?: (worksheetId: string) => void
   signal?: AbortSignal
 }
 
@@ -67,6 +75,7 @@ export async function ingestWorksheet({
   pageRange = null,
   expectedQuestionCount = null,
   onProgress,
+  onWorksheetCreated,
   signal,
 }: IngestOptions): Promise<IngestResult> {
   if (files.length === 0) throw new IngestError('Pick at least one file.')
@@ -158,6 +167,8 @@ export async function ingestWorksheet({
   )) as { worksheetId: string }
 
   const worksheetId = created.worksheetId
+  onWorksheetCreated?.(worksheetId)
+
   const pageIds: string[] = []
 
   for (const [index, page] of pages.entries()) {

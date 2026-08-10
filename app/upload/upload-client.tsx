@@ -73,6 +73,15 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
    * ingest of the same files, which is how one PDF became two worksheets.
    */
   const runningRef = useRef(false)
+
+  /**
+   * The worksheet this run created, so Cancel can delete it.
+   *
+   * Held in a ref rather than state because Cancel reads it in the same tick it
+   * aborts, and a state update would not have landed yet.
+   */
+  const worksheetRef = useRef<string | null>(null)
+
   const busy = progress !== null && progress.stage !== 'done'
 
   // Closing the tab mid-ingest loses the rasterized pages, so warn first.
@@ -112,21 +121,49 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
     abortRef.current?.abort()
     abortRef.current = null
     setProgress(null)
-    setNotice('Upload cancelled. Nothing was saved.')
+
+    // "Nothing was saved" was false the moment Cancel became reachable: the
+    // worksheet row is created before the first page goes up, and every page
+    // uploaded before the click is already in blob storage. So it is deleted
+    // rather than described. The row cascades to its pages and the route sweeps
+    // the stored images with it.
+    const started = worksheetRef.current
+    worksheetRef.current = null
+
+    if (!started) {
+      setNotice('Upload cancelled.')
+      return
+    }
+
+    setNotice('Upload cancelled. Removing what had already gone up...')
+
+    // Deliberately not awaited and deliberately not `fetchJson`: the student
+    // has already left this behind, and a failed cleanup must not put a sign-in
+    // redirect or an error in front of them. The hourly sweep of stale
+    // `uploading` rows is the backstop.
+    fetch(`/api/worksheets/${started}`, { method: 'DELETE' })
+      .then(() => setNotice('Upload cancelled. Nothing was kept.'))
+      .catch(() => setNotice('Upload cancelled.'))
   }
 
   async function start() {
     if (runningRef.current) return
-    runningRef.current = true
 
     setError(null)
     setNotice(null)
 
+    // Validated before the ref is claimed, not after. This return used to jump
+    // over the `finally` that clears it, so one mistyped page range latched
+    // `runningRef` on and every later press of Start did nothing at all. The
+    // button looked fine, the form looked fine, and only a reload fixed it.
     const parsed = parsePageRange(pageFrom, pageTo)
     if (!parsed.ok) {
       setError(parsed.message)
       return
     }
+
+    runningRef.current = true
+    worksheetRef.current = null
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -146,8 +183,13 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           if (controller.signal.aborted) return
           setProgress(next)
         },
+        onWorksheetCreated: (id) => {
+          worksheetRef.current = id
+        },
         signal: controller.signal,
       })
+      // Finished, so there is nothing for Cancel to clean up any more.
+      worksheetRef.current = null
       router.push(result.next)
     } catch (cause) {
       // Covers our own CancelledError and the DOMException fetch throws on

@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -94,6 +94,14 @@ export async function POST(request: Request, { params }: Params) {
   const choiceOwner = new Map(validChoices.map((row) => [row.id, row.questionId]))
   const now = new Date()
 
+  /*
+   * Three statements for the whole worksheet, not three per question.
+   *
+   * This was a loop doing an insert, an upsert and an insert per mark, inside
+   * one transaction: a 500-question paper meant 1,500 round trips held open
+   * against a pooled connection, and the marking screen submits the lot in one
+   * go. The work per mark is identical, so it batches.
+   */
   await db.transaction(async (tx) => {
     const existing = await tx
       .select()
@@ -107,22 +115,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const cardByQuestion = new Map(existing.map((card) => [card.questionId, card]))
 
-    for (const mark of accepted) {
-      const selectedChoiceId =
-        mark.selectedChoiceId &&
-        choiceOwner.get(mark.selectedChoiceId) === mark.questionId
-          ? mark.selectedChoiceId
-          : null
-
-      await tx.insert(attempts).values({
-        userId: guard.userId,
-        questionId: mark.questionId,
-        outcome: mark.outcome,
-        selectedChoiceId,
-        freeTextAnswer: mark.freeTextAnswer ?? null,
-        source: 'markup',
-      })
-
+    const scheduled = accepted.map((mark) => {
       const current = cardByQuestion.get(mark.questionId)
       const stored: StoredCard | null = current
         ? {
@@ -139,29 +132,76 @@ export async function POST(request: Request, { params }: Params) {
           }
         : null
 
-      const { card, log } = scheduleFromOutcome(stored, mark.outcome, now)
+      return { mark, ...scheduleFromOutcome(stored, mark.outcome, now) }
+    })
 
-      const [saved] = await tx
-        .insert(reviewCards)
-        .values({
+    // `onConflictDoNothing` rather than an update: a repeat post is the tab
+    // that was left open, and the first answer is the one the student gave.
+    // The partial unique index on `markup` is what makes this safe against two
+    // posts landing together, which the 409 check above cannot be.
+    await tx
+      .insert(attempts)
+      .values(
+        accepted.map((mark) => ({
+          userId: guard.userId,
+          questionId: mark.questionId,
+          outcome: mark.outcome,
+          selectedChoiceId:
+            mark.selectedChoiceId &&
+            choiceOwner.get(mark.selectedChoiceId) === mark.questionId
+              ? mark.selectedChoiceId
+              : null,
+          freeTextAnswer: mark.freeTextAnswer ?? null,
+          source: 'markup' as const,
+        })),
+      )
+      .onConflictDoNothing()
+
+    const saved = await tx
+      .insert(reviewCards)
+      .values(
+        scheduled.map(({ mark, card }) => ({
           userId: guard.userId,
           questionId: mark.questionId,
           ...card,
-        })
-        .onConflictDoUpdate({
-          target: [reviewCards.userId, reviewCards.questionId],
-          set: card,
-        })
-        .returning({ id: reviewCards.id })
-
-      await tx.insert(reviewLogs).values({
-        cardId: saved.id,
-        rating: log.rating,
-        state: log.state,
-        elapsedDays: log.elapsedDays,
-        scheduledDays: log.scheduledDays,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [reviewCards.userId, reviewCards.questionId],
+        // Each row carries its own schedule, so the update has to read the row
+        // being inserted rather than a single literal set.
+        set: {
+          dueAt: sql`excluded.due_at`,
+          stability: sql`excluded.stability`,
+          difficulty: sql`excluded.difficulty`,
+          elapsedDays: sql`excluded.elapsed_days`,
+          scheduledDays: sql`excluded.scheduled_days`,
+          learningSteps: sql`excluded.learning_steps`,
+          reps: sql`excluded.reps`,
+          lapses: sql`excluded.lapses`,
+          state: sql`excluded.state`,
+          lastReview: sql`excluded.last_review`,
+        },
       })
-    }
+      .returning({ id: reviewCards.id, questionId: reviewCards.questionId })
+
+    const cardIdByQuestion = new Map(saved.map((row) => [row.questionId, row.id]))
+
+    const logs = scheduled
+      .map(({ mark, log }) => {
+        const cardId = cardIdByQuestion.get(mark.questionId)
+        if (!cardId) return null
+        return {
+          cardId,
+          rating: log.rating,
+          state: log.state,
+          elapsedDays: log.elapsedDays,
+          scheduledDays: log.scheduledDays,
+        }
+      })
+      .filter((row) => row !== null)
+
+    if (logs.length > 0) await tx.insert(reviewLogs).values(logs)
   })
 
   return NextResponse.json({

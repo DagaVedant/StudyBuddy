@@ -145,9 +145,11 @@ describe('getRecentWorksheets', () => {
     const a = await makeQuestion(db, userId, worksheetId, { ordinal: 1 })
     const b = await makeQuestion(db, userId, worksheetId, { ordinal: 2 })
 
+    // Wrong on the paper, wrong again in review. The count is of wrong answers
+    // rather than of questions, so both belong in it; what must not happen is
+    // the question itself being counted twice by the join.
     await makeAttempt(db, userId, a.id, 'wrong')
-
-    await makeAttempt(db, userId, a.id, 'wrong')
+    await makeAttempt(db, userId, a.id, 'wrong', { source: 'review' })
     await makeAttempt(db, userId, b.id, 'correct')
 
     const recent = await getRecentWorksheets(db as Db, userId)
@@ -172,8 +174,13 @@ describe('getDistractorPatterns', () => {
       ],
     })
 
+    // Picked B on the paper, then picked B again when it came back in review.
+    // That repetition is the entire signal this report is looking for.
     await makeAttempt(db, userId, q.id, 'wrong', { selectedChoiceId: q.choiceIds.B })
-    await makeAttempt(db, userId, q.id, 'wrong', { selectedChoiceId: q.choiceIds.B })
+    await makeAttempt(db, userId, q.id, 'wrong', {
+      selectedChoiceId: q.choiceIds.B,
+      source: 'review',
+    })
 
     const patterns = await getDistractorPatterns(db as Db, userId)
     const hit = patterns.find((row) => row.questionId === q.id)!

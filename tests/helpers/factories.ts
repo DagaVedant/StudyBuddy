@@ -114,14 +114,24 @@ export async function makeAttempt(
   userId: string,
   questionId: string,
   outcome: 'correct' | 'unsure' | 'wrong',
-  options: { selectedChoiceId?: string; createdAt?: Date } = {},
+  options: {
+    selectedChoiceId?: string
+    createdAt?: Date
+    /**
+     * Defaults to `markup`, which a question may only have once: the partial
+     * unique index `attempts_markup_once` enforces it. A test that wants a
+     * question attempted more than once is describing review, and has to say
+     * so, because that is the only way it happens in the product too.
+     */
+    source?: 'markup' | 'review'
+  } = {},
 ): Promise<void> {
   await db.insert(attempts).values({
     userId,
     questionId,
     outcome,
     selectedChoiceId: options.selectedChoiceId ?? null,
-    source: 'markup',
+    source: options.source ?? 'markup',
     ...(options.createdAt ? { createdAt: options.createdAt } : {}),
   })
 }

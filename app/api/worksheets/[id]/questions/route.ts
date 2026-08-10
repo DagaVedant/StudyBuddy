@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
+import { checkReferences, referenceError } from '@/lib/questions/references'
 import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'
 import { guardWorksheet } from '@/lib/upload/guard'
 
@@ -80,6 +81,17 @@ export async function POST(request: Request, { params }: Params) {
 
   const input = parsed.data
   const choices = input.choices ?? []
+
+  // Before the transaction opens. Both are foreign keys, so a wrong one used to
+  // surface as a constraint violation thrown out of the insert and rendered as
+  // a 500, with the student's edit lost.
+  const references = await checkReferences(db, worksheetId, input)
+  if (!references.ok) {
+    return NextResponse.json(
+      { error: referenceError(references.field!) },
+      { status: 400 },
+    )
+  }
 
   const contentHash = hashQuestion(input.promptText, choices)
 

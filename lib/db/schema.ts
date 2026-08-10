@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import {
   boolean,
@@ -11,6 +12,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   vector,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccountType } from 'next-auth/adapters'
@@ -438,6 +440,25 @@ export const attempts = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
+    /*
+     * One markup attempt per question per student, enforced rather than
+     * checked.
+     *
+     * Marking a worksheet twice wrote a second attempt for every question and
+     * pushed every review card forward on answers nobody gave, which corrupts
+     * the denominator the whole weakness report is built on. The route did look
+     * first, but a read followed by an insert is not a guarantee: two posts
+     * from a tab left open since before that check existed both see nothing and
+     * both write.
+     *
+     * Partial, on `markup` only. A review attempt is supposed to repeat, once
+     * per sitting, forever: a plain unique on (user, question, source) would
+     * make the second review of any question fail.
+     */
+    uniqueIndex('attempts_markup_once')
+      .on(t.userId, t.questionId)
+      .where(sql`${t.source} = 'markup'`),
+
     index('attempts_user_question_idx').on(t.userId, t.questionId),
     index('attempts_user_created_idx').on(t.userId, t.createdAt),
     // On its own, not just behind user_id. The repair passes ask whether any

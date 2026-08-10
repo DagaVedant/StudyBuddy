@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm'
+import { desc, eq, inArray, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -10,6 +10,15 @@ import DeleteWorksheetButton from './delete-worksheet-button'
 
 export const metadata = { title: 'Worksheets · StudyBuddy' }
 export const dynamic = 'force-dynamic'
+
+/**
+ * How many worksheet cards this page renders.
+ *
+ * Matches the limit on `GET /api/worksheets`, which lists the same thing. The
+ * page has no paging, so this is also the honest maximum rather than a
+ * performance trick.
+ */
+const WORKSHEETS_SHOWN = 50
 
 const WHEN = new Intl.DateTimeFormat(undefined, {
   month: 'short',
@@ -96,12 +105,19 @@ export default async function WorksheetsPage() {
         where ${questions.userVerified} = false and ${IS_QUESTION}))::int`,
       missedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.outcome} = 'wrong')::int`,
       markedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.source} = 'markup')::int`,
-      firstPageKey: sql<string | null>`min(${worksheetPages.imageKey})`,
     })
     .from(worksheets)
+    // `questions` and `attempts` are a chain: attempts hang off a question, so
+    // this multiplies rows by attempts per question, which the `distinct`
+    // counts above already handle.
+    //
+    // `worksheet_pages` used to be joined here too, and it is not part of that
+    // chain: it hangs off the worksheet, so questions times pages was a
+    // cartesian product. A 45 question, 7 page worksheet produced 315 rows and
+    // ran the IS_QUESTION regex on every one of them, to compute a thumbnail
+    // that needs one row. It is its own query below.
     .leftJoin(questions, eq(questions.worksheetId, worksheets.id))
     .leftJoin(attempts, eq(attempts.questionId, questions.id))
-    .leftJoin(worksheetPages, eq(worksheetPages.worksheetId, worksheets.id))
     .where(eq(worksheets.userId, session.user.id))
     .groupBy(
       worksheets.id,
@@ -112,6 +128,30 @@ export default async function WorksheetsPage() {
       worksheets.createdAt,
     )
     .orderBy(desc(worksheets.createdAt))
+    // Bounded, like the API route that lists the same thing. This page renders
+    // a card per worksheet with no paging, so an account with a thousand
+    // worksheets was building a thousand cards nobody scrolls to.
+    .limit(WORKSHEETS_SHOWN)
+
+  // One row per worksheet, for the thumbnails, over only the worksheets that
+  // are actually on screen.
+  const thumbnails = rows.length
+    ? await db
+        .select({
+          worksheetId: worksheetPages.worksheetId,
+          imageKey: sql<string>`min(${worksheetPages.imageKey})`,
+        })
+        .from(worksheetPages)
+        .where(
+          inArray(
+            worksheetPages.worksheetId,
+            rows.map((row) => row.id),
+          ),
+        )
+        .groupBy(worksheetPages.worksheetId)
+    : []
+
+  const thumbnailFor = new Map(thumbnails.map((row) => [row.worksheetId, row.imageKey]))
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
@@ -150,10 +190,10 @@ export default async function WorksheetsPage() {
                   className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <div className="aspect-4/3 overflow-hidden border-b border-border bg-bg">
-                    {sheet.firstPageKey ? (
+                    {thumbnailFor.get(sheet.id) ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={`/api/files/${sheet.firstPageKey}`}
+                        src={`/api/files/${thumbnailFor.get(sheet.id)}`}
                         alt={`First page of ${sheet.title}`}
                         loading="lazy"
                         className="size-full object-cover object-top"

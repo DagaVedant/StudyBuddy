@@ -4,28 +4,36 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
+import { checkReferences, referenceError } from '@/lib/questions/references'
 import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'
 
 type Params = { params: Promise<{ questionId: string }> }
 
+/**
+ * The question's owner and the worksheet it belongs to, or null.
+ *
+ * The worksheet id comes back because `pageId` has to be checked against it: a
+ * page from another worksheet is a valid foreign key and still the wrong page.
+ */
 async function ownsQuestion(questionId: string) {
   const session = await auth()
   if (!session?.user?.id) return null
 
   const [row] = await db
-    .select({ userId: questions.userId })
+    .select({ userId: questions.userId, worksheetId: questions.worksheetId })
     .from(questions)
     .where(eq(questions.id, questionId))
     .limit(1)
 
   if (!row || row.userId !== session.user.id) return null
-  return session.user.id
+  return { userId: session.user.id, worksheetId: row.worksheetId }
 }
 
 export async function PATCH(request: Request, { params }: Params) {
   const { questionId } = await params
 
-  if (!(await ownsQuestion(questionId))) {
+  const owner = await ownsQuestion(questionId)
+  if (!owner) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
@@ -41,6 +49,17 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   const input = parsed.data
+
+  // Outside the transaction, for the same reason as the create route: a bad
+  // `pageId` or `topicId` is a foreign key violation thrown out of the write,
+  // and a 500 loses whatever the student had just typed.
+  const references = await checkReferences(db, owner.worksheetId, input)
+  if (!references.ok) {
+    return NextResponse.json(
+      { error: referenceError(references.field!) },
+      { status: 400 },
+    )
+  }
 
   await db.transaction(async (tx) => {
     const patch: Record<string, unknown> = {}
