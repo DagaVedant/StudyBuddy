@@ -21,6 +21,40 @@ import type { Db } from '@/lib/db/types'
  * Both tables are read by `question_id`, which wants an index on each to stay
  * cheap (FIXES.md B-8).
  */
+export interface Partitioned<T> {
+  /** Nothing points at these; a pass may delete them. */
+  removable: T[]
+  /** Somebody has answered these. They stay, however wrong they look. */
+  held: T[]
+}
+
+/**
+ * Splits rows into the ones a pass may delete and the ones it may not.
+ *
+ * Wanted separately from {@link deletableQuestionIds} by the audit re-read,
+ * which does not merely skip a held row: it has to drop it from the plan
+ * before the plan is built, because the planner pairs each doubted row with
+ * the freshly read question that replaces it. Filtering the plan's output
+ * afterwards would delete nothing and store the replacement anyway, leaving
+ * the page holding both.
+ */
+export async function partitionByDeletability<T extends { id: string }>(
+  db: Db,
+  rows: T[],
+): Promise<Partitioned<T>> {
+  const removableIds = new Set(
+    await deletableQuestionIds(
+      db,
+      rows.map((row) => row.id),
+    ),
+  )
+
+  return {
+    removable: rows.filter((row) => removableIds.has(row.id)),
+    held: rows.filter((row) => !removableIds.has(row.id)),
+  }
+}
+
 export async function deletableQuestionIds(db: Db, ids: string[]): Promise<string[]> {
   if (ids.length === 0) return []
 

@@ -17,6 +17,7 @@ import { applyPermanentFailure } from '@/lib/worker/fail'
 import { persistQuestions } from '@/lib/worker/ingest'
 import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
 import { planPageReplacement } from '@/lib/worker/review'
+import { partitionByDeletability } from '@/lib/worker/safe-delete'
 import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
 
 type Params = { params: Promise<{ jobId: string }> }
@@ -135,7 +136,7 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Page does not belong to this job' }, { status: 400 })
     }
 
-    const suspects = body.replace.length
+    const doubted = body.replace.length
       ? await db
           .select({ id: questions.id, printedNumber: questions.printedNumber })
           .from(questions)
@@ -146,6 +147,27 @@ export async function POST(request: Request, { params }: Params) {
             ),
           )
       : []
+
+    // The same guard the repair passes run behind (FIXES.md B-2), which this
+    // path never had. Replacing a doubted row means deleting it, and
+    // `questions` cascades to `attempts` and `review_cards`, so on a worksheet
+    // the student had already marked up the audit re-read could take their
+    // answer and its place in the revision schedule with it. Nothing would show
+    // afterwards: the job reports the row as replaced either way.
+    //
+    // Applied before the plan is built rather than to its output, because
+    // `planPageReplacement` pairs each doubted row with its replacement by
+    // printed number. Dropping a row from the plan's input drops its
+    // replacement with it; filtering afterwards would leave the replacement
+    // behind and store it beside the original.
+    const { removable: suspects, held } = await partitionByDeletability(db, doubted)
+
+    if (held.length > 0) {
+      console.log(
+        `[review] kept ${held.length} doubted question(s) on ${job.worksheetId}: ` +
+          'somebody has already answered them, and damaged beats absent',
+      )
+    }
 
     const plan = planPageReplacement(target.ocrText ?? '', body.questions, suspects)
 
@@ -163,6 +185,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({
       ok: true,
       replaced: plan.replace.length,
+      held: held.length,
       kept: plan.keep.length,
       restored,
     })
