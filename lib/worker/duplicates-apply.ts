@@ -8,6 +8,7 @@ import {
 } from '@/lib/questions/duplicates-plan'
 import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { modalChoiceCount } from '@/lib/questions/validate'
+import { deletableQuestionIds } from '@/lib/worker/safe-delete'
 
 /**
  * Folds a question the extractor emitted twice back into one row.
@@ -54,7 +55,25 @@ export async function mergeDuplicateQuestions(
     ...planNumberDuplicateMerges(candidates, expectedChoices),
   ]
 
+  // A row the student has already answered is not a phantom to fold away, and
+  // deleting it would take the attempt and the review card with it.
+  const deletable = new Set(
+    await deletableQuestionIds(
+      db,
+      plans.map((plan) => plan.dropId),
+    ),
+  )
+
+  let merged = 0
+
   for (const plan of plans) {
+    if (!deletable.has(plan.dropId)) {
+      console.log(
+        `[dedupe] kept ${plan.dropId} on ${worksheetId}: a student has work against it`,
+      )
+      continue
+    }
+
     // The surviving row takes the number the phantom was occupying, which
     // closes the gap the deletion would otherwise leave behind.
     if (plan.printedNumber !== null) {
@@ -65,7 +84,8 @@ export async function mergeDuplicateQuestions(
     }
 
     await db.delete(questions).where(eq(questions.id, plan.dropId))
+    merged += 1
   }
 
-  return { merged: plans.length }
+  return { merged }
 }

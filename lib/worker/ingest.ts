@@ -100,11 +100,14 @@ export async function runExtraction(
     onProgress?.({ page: page.pageNumber, total: pages.length })
   }
 
-  await db
-    .update(worksheets)
-    .set({ status: 'awaiting_review' })
-    .where(eq(worksheets.id, job.worksheetId))
-
+  // Deliberately not marking the worksheet ready here. Reading the pages is
+  // the first half of the job: the repair passes and the classifier still have
+  // to run, and two of those passes delete rows on the understanding that
+  // nothing downstream points at them. Advertising the worksheet at this point
+  // let a student reach markup while that was still going on, and a merge
+  // landing after their first attempt takes the attempt and the review card
+  // with it, because `questions` cascades to both. The caller sets the status
+  // once the job is actually finished.
   return { pagesProcessed: processed, questionsCreated: created }
 }
 

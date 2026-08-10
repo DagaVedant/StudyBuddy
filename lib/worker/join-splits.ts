@@ -6,6 +6,7 @@ import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { hashQuestion } from '@/lib/questions/shape'
 import { planPageSplitJoins, type SplitHalf } from '@/lib/questions/split-pages'
 import { modalChoiceCount } from '@/lib/questions/validate'
+import { deletableQuestionIds } from '@/lib/worker/safe-delete'
 
 /**
  * Rejoins a question the page break cut in two.
@@ -49,10 +50,28 @@ export async function joinSplitQuestions(
 
   const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]))
 
+  // The half being folded away may be a row the student has already answered,
+  // and `questions` cascades to their attempts and review cards.
+  const deletable = new Set(
+    await deletableQuestionIds(
+      db,
+      plans.map((plan) => plan.dropId),
+    ),
+  )
+
+  let joined = 0
+
   for (const plan of plans) {
     const keep = byId.get(plan.keepId)
     const drop = byId.get(plan.dropId)
     if (!keep || !drop) continue
+
+    if (!deletable.has(plan.dropId)) {
+      console.log(
+        `[split] left ${plan.dropId} on ${worksheetId}: a student has work against it`,
+      )
+      continue
+    }
 
     // The options move rather than being copied and re-inserted, so nothing
     // that already points at them is disturbed and no ordering is invented.
@@ -73,9 +92,10 @@ export async function joinSplitQuestions(
       .where(eq(questions.id, plan.keepId))
 
     await db.delete(questions).where(eq(questions.id, plan.dropId))
+    joined += 1
 
     console.log(`[split] ${plan.reason} on ${worksheetId}`)
   }
 
-  return { joined: plans.length }
+  return { joined }
 }

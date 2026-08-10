@@ -95,6 +95,16 @@ async function runOneServerJob(
       .limit(1)
 
     await classifyWorksheet(db, provider, job.worksheetId, worksheet?.subjectHint)
+
+    // Last, so the student cannot reach the worksheet while the passes above
+    // are still adding, merging and deleting rows. `runExtraction` used to do
+    // this the moment the pages were read, which put markup one link away from
+    // a job that had not finished repairing itself.
+    await db
+      .update(worksheets)
+      .set({ status: 'awaiting_review' })
+      .where(eq(worksheets.id, job.worksheetId))
+
     await completeJob(db, job.id)
   } catch (error) {
     const { permanent } = await failJob(db, job.id, (error as Error).message)
