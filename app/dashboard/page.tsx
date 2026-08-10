@@ -283,7 +283,18 @@ export default async function DashboardPage() {
                 <Empty>Not enough history yet.</Empty>
               ) : (
                 <>
-                  <div className="flex h-28 items-end gap-1" aria-hidden="true">
+                  {/*
+                    `items-stretch`, not `items-end`. Each column is a flex
+                    child whose own children are sized in percentages, and a
+                    percentage height resolves against the parent's height: with
+                    `items-end` the column was sized by its content, its content
+                    was three divs asking for a percentage of it, and the whole
+                    thing collapsed to nothing. The chart has been drawing zero
+                    bars since it was written. `justify-end` on the column is
+                    what stacks them from the bottom, which is the part
+                    `items-end` looked like it was doing.
+                  */}
+                  <div className="flex h-28 items-stretch gap-1" aria-hidden="true">
                     {trend.map((point) => {
                       const total = point.correct + point.unsure + point.wrong
                       const scale = (value: number) => (value / maxWeek) * 100
