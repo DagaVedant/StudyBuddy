@@ -9,6 +9,7 @@ import postgres from 'postgres'
 import { worksheets } from '../lib/db/schema'
 import type { Db } from '../lib/db/types'
 import { applyAnswerKey } from '../lib/worker/answer-key'
+import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
 
 /**
  * Applies the paper's own answer key to worksheets extracted before the pass
@@ -24,14 +25,27 @@ import { applyAnswerKey } from '../lib/worker/answer-key'
  *
  * Safe to run twice: it reads the same key off the same text and writes the
  * same answer. A key the student entered themselves is left alone.
+ *
+ * It writes on every run: there is no dry form. With no prefix that is every
+ * worksheet on every account, so it is guarded like the destructive scripts
+ * even though nothing here deletes.
  */
 async function main() {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set.')
 
-  const prefix = process.argv[2] ?? ''
+  requireLocalDb()
 
-  const sql = postgres(url, { max: 1 })
+  const prefix = process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? ''
+
+  await confirmDestructive([
+    '',
+    `  database:  ${databaseHost(url)}`,
+    `  titles:    ${prefix ? `${prefix}*` : 'EVERY worksheet on every account'}`,
+    '  writing:   correctAnswer and the correct option, read off each paper',
+  ])
+
+  const sql = postgres(url, { max: 1, prepare: false })
   const db = drizzle(sql) as unknown as Db
 
   const sheets = await db

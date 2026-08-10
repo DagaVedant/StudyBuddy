@@ -31,6 +31,7 @@ import { writeFile } from 'node:fs/promises'
 import postgres from 'postgres'
 
 import { isAnswerPage } from '../lib/questions/answer-key'
+import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
 
 interface Candidate {
   worksheetId: string
@@ -62,6 +63,12 @@ async function main() {
   const prefix = process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? ''
   const apply = flag('apply')
   const out = option('out') ?? `answer-page-rows-backup.json`
+
+  // The dry run is read-only and useful against production, so only the writing
+  // form is gated. With no prefix the query is `title like '%'`, which is every
+  // worksheet on every account, and `--apply` is one word away from the dry run
+  // the operator has just read and agreed with.
+  if (apply) requireLocalDb()
 
   const sql = postgres(url, { max: 1, prepare: false })
 
@@ -176,6 +183,14 @@ async function main() {
     await sql.end()
     return
   }
+
+  await confirmDestructive([
+    '',
+    `  database:  ${databaseHost(url)}`,
+    `  title:     ${prefix ? `${prefix}*` : 'EVERY worksheet on every account'}`,
+    `  deleting:  ${removable.length} question row(s), listed above`,
+    `  backup:    ${out}`,
+  ])
 
   await writeFile(out, JSON.stringify(removable, null, 2), 'utf8')
   console.log(`\nBacked up ${removable.length} row(s) to ${out}`)

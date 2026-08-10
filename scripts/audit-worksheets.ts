@@ -8,6 +8,7 @@ import postgres from 'postgres'
 import { looksUnrendered } from '../lib/questions/math'
 import type { Db } from '../lib/db/types'
 import { runRepairPasses } from '../lib/worker/pipeline'
+import { confirmDestructive, databaseHost, isLocalDatabaseUrl, requireLocalDb } from './_confirm'
 
 /**
  * Checks recently extracted worksheets for everything known to go wrong.
@@ -17,17 +18,37 @@ import { runRepairPasses } from '../lib/worker/pipeline'
  * by position, and maths arriving as LaTeX the student cannot read. Each of
  * those shipped at some point, so each is checked every time now.
  *
- *   npx tsx scripts/audit-worksheets.ts        # the three most recent
+ * The audit reads and prints. Running it against production is the normal way
+ * to use it, so nothing below gates that; only the repair path is guarded.
+ *
+ *   npx tsx scripts/audit-worksheets.ts                    # the three most recent
  *   AUDIT_LIMIT=10 npx tsx scripts/audit-worksheets.ts
+ *   npx tsx scripts/audit-worksheets.ts <worksheet id>     # only that one
+ *   AUDIT_FIX=true npx tsx scripts/audit-worksheets.ts <worksheet id>   # and repair it
  */
 const LIMIT = Number(process.env.AUDIT_LIMIT ?? 3)
 
 /**
- * Renumbers as well as reports.
+ * Repairs as well as reports, by running the job's own passes over one
+ * worksheet.
  *
- * Ordinals are safe to rewrite, because they are only a position. Duplicates
- * are not touched even here: choosing which of two copies to destroy is a
- * guess, and the review screen already lets the student delete the wrong one.
+ * This note used to promise that duplicates were left alone because choosing
+ * which copy to destroy is a guess. That stopped being true when the script
+ * was changed to call `runRepairPasses` rather than keep its own pass list:
+ * the merge pass is in that list and it deletes the row it folds away. Keeping
+ * the old promise would mean owning a private list of passes again, which is
+ * exactly what let this script repair a worksheet into a state no production
+ * path would ever produce, so the note is what changed instead.
+ *
+ * What holds the deletion back is `deletableQuestionIds` in
+ * lib/worker/safe-delete.ts: the merge drops a duplicate only when no attempt
+ * and no review card points at it, and logs the ones it kept. So a duplicate
+ * the student has already answered survives, and the review screen still lets
+ * them delete it by hand.
+ *
+ * Because it writes, this path needs a worksheet id, a local database and a
+ * typed confirmation. It used to need none of those: `AUDIT_FIX=true` alone
+ * repaired whichever worksheets were created most recently, account-wide.
  */
 const FIX = process.env.AUDIT_FIX === 'true'
 
@@ -59,19 +80,47 @@ function runs(numbers: number[]): string {
 }
 
 async function main() {
-  const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 })
+  // Skip the flags rather than taking argv[2] blind, so `--yes` on a scripted
+  // repair is not read as the id of a worksheet nobody owns.
+  const target = process.argv.slice(2).find((arg) => !arg.startsWith('--'))
+
+  if (FIX && !target) {
+    throw new Error(
+      'AUDIT_FIX=true repairs one named worksheet: npx tsx scripts/audit-worksheets.ts <worksheet id>. ' +
+        'Without an id there is nothing to aim at, and it used to mean the most recent worksheets on the account.',
+    )
+  }
+
+  if (FIX) requireLocalDb()
+
+  const url = process.env.DATABASE_URL
+  if (!url) throw new Error('DATABASE_URL is not set. Copy .env.example to .env.local first.')
+
+  // TLS only when the database is elsewhere. A hardcoded `ssl: 'require'` could
+  // not reach a local Postgres at all, which is the only database the repair
+  // path will now write to. `prepare: false` is for the pooled connection
+  // string in .env.example, which cannot hold prepared statements.
+  const sql = postgres(url, {
+    max: 1,
+    prepare: false,
+    ssl: isLocalDatabaseUrl(url) ? false : 'require',
+  })
   // renumberQuestions uses the query builder, so it needs a real Drizzle
   // handle rather than the raw client the reporting queries use.
   const orm = drizzle(sql) as unknown as Db
 
-  const sheets = await sql`
-    select id, title, status, page_count, expected_question_count as expected
-    from worksheets
-    where (select count(*) from questions q where q.worksheet_id = worksheets.id) > 0
-    order by created_at desc limit ${LIMIT}`
+  const sheets = target
+    ? await sql`
+        select id, title, status, page_count, expected_question_count as expected
+        from worksheets where id = ${target}`
+    : await sql`
+        select id, title, status, page_count, expected_question_count as expected
+        from worksheets
+        where (select count(*) from questions q where q.worksheet_id = worksheets.id) > 0
+        order by created_at desc limit ${LIMIT}`
 
   if (sheets.length === 0) {
-    console.log('No worksheets with questions found.')
+    console.log(target ? `No worksheet with id ${target}.` : 'No worksheets with questions found.')
     await sql.end()
     return
   }
@@ -145,6 +194,15 @@ async function main() {
     console.log(`  COUNT SHOWN      ${rows.length}${expected ? ` (paper has ${expected})` : ''}`)
 
     if (FIX) {
+      // Asked here rather than before the audit ran, so the findings for this
+      // worksheet are on the screen above the prompt: the merge is the pass
+      // that deletes, and the DUPLICATED line is what it will act on.
+      await confirmDestructive([
+        '',
+        `About to repair ${sheet.title} (${sheet.id}) on ${databaseHost(url)}.`,
+        'Duplicate rows are deleted, except any an attempt or a review card points at.',
+      ])
+
       // Exactly what the job runs, because it is the job's function. This
       // script used to keep its own copy of the pass list in its own order,
       // which meant it repaired worksheets into a state no production path

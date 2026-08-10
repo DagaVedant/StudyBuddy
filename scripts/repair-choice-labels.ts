@@ -8,6 +8,7 @@ import postgres from 'postgres'
 
 import { answerChoices, questions, worksheets } from '../lib/db/schema'
 import { normalizeChoiceLabel } from '../lib/questions/shape'
+import { requireLocalDb } from './_confirm'
 
 /**
  * Rewrites option labels that arrived with the option stuck to them.
@@ -30,7 +31,11 @@ async function main() {
 
   const write = process.argv.includes('--write')
 
-  const sql = postgres(url, { max: 1 })
+  // Report-only is read-only and worth running against production. The writing
+  // form has no title filter at all: it rewrites labels on every account.
+  if (write) requireLocalDb()
+
+  const sql = postgres(url, { max: 1, prepare: false })
   const db = drizzle(sql)
 
   const rows = await db

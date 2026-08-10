@@ -37,6 +37,7 @@ import { promptSimilarity } from '../lib/questions/duplicates-plan'
 import { questionsOnPage } from '../lib/questions/page-options'
 import { hashQuestion, normalizeChoiceLabel } from '../lib/questions/shape'
 import { runRepairPasses } from '../lib/worker/pipeline'
+import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
 
 /**
  * How alike the stored prompt and the printed one must be.
@@ -172,6 +173,11 @@ async function main() {
   const prefix = process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? ''
   const apply = process.argv.includes('--apply')
 
+  // The plan is read-only and useful against production. With no prefix the
+  // apply form writes to every account's worksheets, and it does more than
+  // insert: it rewrites questionType and then runs two repair passes.
+  if (apply) requireLocalDb()
+
   const sql = postgres(url, { max: 1, prepare: false })
   const db = drizzle(sql) as unknown as Db
 
@@ -204,6 +210,13 @@ async function main() {
     await sql.end()
     return
   }
+
+  await confirmDestructive([
+    '',
+    `  database:  ${databaseHost(url)}`,
+    `  titles:    ${prefix ? `${prefix}*` : 'EVERY worksheet on every account'}`,
+    `  repairing: ${fixes.length} question(s), listed above`,
+  ])
 
   for (const fix of fixes) {
     await db.insert(answerChoices).values(

@@ -293,21 +293,42 @@ npm run worker                       # optional, powers the free trial
 Not in `package.json`: these are ad-hoc, run with `npx tsx` against whatever
 `DATABASE_URL` is in your `.env.local`. Several of them write.
 
+**The two guards on every writer.** A writing script refuses outright unless
+`DATABASE_URL` points at this machine, and says so, naming the host:
+
+```
+Error: Refusing to write to ep-blue-river.us-east-1.aws.neon.tech: it is not a
+local database. Set ALLOW_PROD=1 if you mean it.
+```
+
+`ALLOW_PROD=1` is deliberately a second thing to type, because the failure being
+prevented is running a command you have run a hundred times locally without
+noticing which `.env.local` is loaded. Past that, each writer prints what it is
+about to change, including the owner's email and the host, and waits for you to
+type `yes`. `--yes` skips the prompt for a scripted run, and a script reaching
+the prompt with no terminal aborts rather than hanging.
+
+Read-only forms are ungated on purpose: auditing production is a normal thing to
+do, and the audit is where you look before you decide to repair anything.
+
 | Script | What it does |
 |---|---|
 | `ground-truth.ts` | **Start here when you doubt the data.** Reads each paper's own answer key out of the source PDFs in `~/Downloads` and diffs it against what is stored: missing questions, numbers the paper does not have, and every answer. It is the only check that compares against the paper rather than against the pipeline's own opinion, and it is what caught a repair that fixed the numbering and left the answers keyed to the old numbers. |
-| `repair-missing-options.ts [prefix] [--apply]` | **Writes with `--apply`.** Puts back answer options that were deleted from stored questions, reading them off the page text already stored. Dry run by default. Refuses any question whose stored prompt does not match what the page prints under that number. |
-| `audit-worksheets.ts` | Checks recent worksheets for every failure mode known to have shipped: gaps, duplicates, ordinals out of paper order, unrendered maths. `AUDIT_FIX=true` also repairs them, using the same passes the job runs. |
+| `repair-missing-options.ts [prefix] [--apply]` | **Writes with `--apply`.** Puts back answer options that were deleted from stored questions, reading them off the page text already stored. Dry run by default. Refuses any question whose stored prompt does not match what the page prints under that number. With no prefix it covers every account. |
+| `audit-worksheets.ts [<id>]` | Checks worksheets for every failure mode known to have shipped: gaps, duplicates, ordinals out of paper order, unrendered maths. Read-only, and `AUDIT_LIMIT` sets how many recent sheets it reads. `AUDIT_FIX=true` also repairs, using the same passes the job runs, and then requires a worksheet id: without one it used to mean the most recent sheets account-wide. |
+| `purge-answer-page-rows.ts [prefix] [--apply]` | **Writes with `--apply`.** Removes questions that were read off an answer key or solutions page, whose printed numbers made the coverage audit report a sheet as complete while it was missing half its questions. Dry run by default, backs up every row it deletes to JSON first, and refuses any row a student has touched. |
 | `diagnose-worksheet.ts` | The last 8 worksheets with their page, text and question counts. First stop when an upload looks wrong. |
 | `tally-questions.ts <title-prefix>` | Question counts per worksheet matching the prefix. |
 | `peek-page.ts <title-prefix> [page…]` | Dumps a page's stored OCR text, what the model actually saw. |
 | `topic-gaps.ts` | How many questions are tagged, and which topics the classifier is reaching for. |
 | `check-account.ts` | Every user's role, verification state and trial usage, plus the configured `ADMIN_EMAILS`. |
 | `check-worksheet-attempts.ts <title>` | The attempts recorded against one worksheet. |
-| `reset-trial.ts <email>` | **Writes.** Puts an account's trial counters back to zero. |
-| `requeue-worksheet.ts [<id\|title>\|--all]` | **Writes.** Re-enqueues processing. Defaults to `--all`. |
-| `reextract-worksheet.ts <id\|title>` | **Writes.** Deletes the extracted questions and reads the pages again. |
-| `reclassify-worksheet.ts <id\|title>` | **Writes.** Drops the topic tags and re-runs classification only. |
+| `repair-choice-labels.ts [--write]` | **Writes with `--write`.** Reduces an option label that arrived with its option stuck to it, `A. 60` back to `A`. Report-only by default, and it skips any row where the text being dropped is not already held beside it. |
+| `backfill-answer-keys.ts [prefix]` | **Writes.** Applies each paper's own answer key to worksheets extracted before that pass existed. There is no dry form, and with no prefix it covers every account. |
+| `reset-trial.ts <email> [--yes]` | **Writes.** Puts an account's trial counters back to zero. |
+| `requeue-worksheet.ts [<id>\|--all] [--yes]` | **Writes.** Re-enqueues processing. Defaults to `--all`, which sweeps every account's stranded worksheets, so that form asks first. |
+| `reextract-worksheet.ts <worksheet-id> [--yes]` | **Writes.** Deletes the extracted questions and reads the pages again. Takes the exact id only: it used to match on title across every account and take the newest, and `questions` cascades to attempts, review cards and explanations. |
+| `reclassify-worksheet.ts <worksheet-id> [--yes]` | **Writes.** Drops the topic tags and re-runs classification only. Exact id only, for the same reason. |
 | `try-prompt.ts <title-prefix> [page…]` | Runs a page through Ollama directly, for prompt work. Needs no database write. |
 | `benchmark-extraction.ts` | Scores a model against the marked-up benchmark corpus. |
 

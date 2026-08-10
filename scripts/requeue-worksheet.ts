@@ -4,16 +4,26 @@ config({ path: '.env.local' })
 
 import postgres from 'postgres'
 
+import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
+
 async function main() {
-  const arg = process.argv[2] ?? '--all'
+  // `--yes` belongs to confirmDestructive, so it is skipped when looking for
+  // the positional argument. Reading argv[2] directly meant `requeue --yes`
+  // searched for a worksheet whose id was the literal string "--yes" and
+  // reported nothing stranded, which reads exactly like a clean run.
+  const arg = process.argv.slice(2).find((a) => a !== '--yes') ?? '--all'
+
+  requireLocalDb()
+
   const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
 
   const stranded = await sql<
-    { id: string; title: string; user_id: string; pages: number }[]
+    { id: string; title: string; user_id: string; email: string; pages: number }[]
   >`
-    select w.id, w.title, w.user_id,
+    select w.id, w.title, w.user_id, u.email,
            (select count(*) from worksheet_pages p where p.worksheet_id = w.id)::int as pages
     from worksheets w
+    join users u on u.id = w.user_id
     where (${arg} = '--all' or w.id = ${arg})
       and not exists (select 1 from questions q where q.worksheet_id = w.id)
       and exists (select 1 from worksheet_pages p where p.worksheet_id = w.id)
@@ -27,6 +37,18 @@ async function main() {
     console.log('Nothing stranded: every worksheet with pages has questions or a live job.')
     await sql.end()
     return
+  }
+
+  // Nothing here is deleted, so the sweep felt safe enough to run without
+  // looking. It is not: with no argument it queues every account's stranded
+  // worksheets, which puts strangers' pages through the operator's GPU and
+  // moves their worksheets back to `queued` in their own list. Naming one id
+  // is a deliberate enough act to skip the prompt.
+  if (arg === '--all') {
+    await confirmDestructive([
+      `Queue extraction for ${stranded.length} stranded worksheet(s) on ${databaseHost(process.env.DATABASE_URL!)}:`,
+      ...stranded.map((sheet) => `  ${sheet.title} (${sheet.pages} pages, ${sheet.email})`),
+    ])
   }
 
   for (const sheet of stranded) {
