@@ -29,7 +29,13 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const parsed = questionInputSchema.partial().safeParse(await request.json())
+  // Caught to null rather than {}, because every field here is optional and {}
+  // parses clean: a truncated or non-JSON body would reach the transaction as an
+  // empty patch and answer with ok, having written nothing the client asked for.
+  // That is the same shape as the bug in questionInputSchema's choices field,
+  // where a body that never mentioned choices parsed to [] and this route
+  // deleted every answer the question had.
+  const parsed = questionInputSchema.partial().safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid question' }, { status: 400 })
   }

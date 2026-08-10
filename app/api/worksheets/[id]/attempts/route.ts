@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
   }
 
-  const parsed = markSchema.safeParse(await request.json())
+  const parsed = markSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }

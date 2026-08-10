@@ -18,7 +18,15 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
   }
 
-  const form = await request.formData()
+  // Throws on a body that is not parseable multipart, which a client that got
+  // its boundary or its Content-Type wrong sends. Folded into the missing-image
+  // 400 below rather than left to become a 500: a body we cannot read carries no
+  // image either, and the caller's fix is the same.
+  const form = await request.formData().catch(() => null)
+  if (!form) {
+    return NextResponse.json({ error: 'Missing image' }, { status: 400 })
+  }
+
   const file = form.get('image')
   const pageNumber = Number(form.get('pageNumber'))
   const width = Number(form.get('width'))
@@ -44,18 +52,27 @@ export async function POST(request: Request, { params }: Params) {
   const key = pageImageKey(worksheetId, pageNumber)
   await storage.put(key, Buffer.from(await file.arrayBuffer()), file.type)
 
+  // Both clauses read the same guarded values. The update clause used to take
+  // `width` and `height` raw while the insert clause guarded them, so a page
+  // uploaded twice with a non-numeric width sent NaN to an integer column on
+  // the second try: the first upload stored null and the conflict path then
+  // failed the whole request. The columns are nullable because a photo upload
+  // has no dimensions to report.
+  const storedWidth = Number.isFinite(width) ? width : null
+  const storedHeight = Number.isFinite(height) ? height : null
+
   const [page] = await db
     .insert(worksheetPages)
     .values({
       worksheetId,
       pageNumber,
       imageKey: key,
-      width: Number.isFinite(width) ? width : null,
-      height: Number.isFinite(height) ? height : null,
+      width: storedWidth,
+      height: storedHeight,
     })
     .onConflictDoUpdate({
       target: [worksheetPages.worksheetId, worksheetPages.pageNumber],
-      set: { imageKey: key, width, height },
+      set: { imageKey: key, width: storedWidth, height: storedHeight },
     })
     .returning({ id: worksheetPages.id })
 
@@ -87,7 +104,7 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
   }
 
-  const parsed = ocrSchema.safeParse(await request.json())
+  const parsed = ocrSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
