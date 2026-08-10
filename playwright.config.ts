@@ -16,6 +16,13 @@ export default defineConfig({
   // downloads a wasm bundle on first use.
   timeout: 120_000,
   expect: { timeout: 15_000 },
+  // One worker, measured rather than assumed. Three cut the suite from 2.8
+  // minutes to 1.5, and then failed on the next run: journey and reports both
+  // upload a worksheet, and run together they contend somewhere between the
+  // single socket the embedded Postgres allows and the job queue they share.
+  // Two runs, one green and one with two failures and fourteen cases skipped,
+  // is not a faster suite. It is a suite you stop believing, which costs more
+  // than the ninety seconds it saves.
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -51,7 +58,9 @@ export default defineConfig({
       DATABASE_MAX_LIFETIME: '0',
       AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-abcd=',
       CREDENTIALS_ENC_KEY: Buffer.alloc(32, 7).toString('base64'),
-      ADMIN_EMAILS: 'admin@studybuddy.test',
+      // Two, so the test that admin works and the test that it cannot be
+      // squatted do not share an account.
+      ADMIN_EMAILS: 'admin@studybuddy.test,boss@studybuddy.test',
       ENABLE_MOCK_AI: 'true',
       DISABLE_RATE_LIMITS: 'true',
       SKIP_MIGRATIONS: 'true',

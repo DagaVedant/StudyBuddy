@@ -5,7 +5,7 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
 
-import { isAdminEmail } from '@/lib/auth/policy'
+import { accountMayBeAdmin } from '@/lib/auth/admin'
 import { db } from '@/lib/db'
 import { accounts, sessions, users, verificationTokens } from '@/lib/db/schema'
 
@@ -19,14 +19,26 @@ interface UserClaims {
 /**
  * Reads the account's current claims, re-deriving admin status from
  * ADMIN_EMAILS on every login so that removing an email demotes the account
- * (spec §2.1). Admin additionally requires a verified email; otherwise anyone
- * who registers an unverified account at an admin address would inherit it.
+ * (spec §2.1).
+ *
+ * Admin additionally requires a linked Google account, which is the only path
+ * that proves the address belongs to whoever is signing in. This used to ask
+ * for a verified email, with a comment saying an unverified account at an admin
+ * address must not inherit it. That was the right instinct and it did nothing:
+ * password signup stamps `emailVerified` at creation, by its own admission
+ * without proof of ownership, so the test was true for every credentials
+ * account and the check collapsed to "is this address in the list".
+ *
+ * The attack it left open was not escalating an account but getting there
+ * first. `.env.example` ships example admin addresses, so the pattern is
+ * public; whoever registered one owned the console, and the real holder could
+ * not take it back, because signup refuses an existing address and Google
+ * sign-in will not link to it.
  */
 async function syncUserClaims(userId: string): Promise<UserClaims> {
   const [row] = await db
     .select({
       email: users.email,
-      emailVerified: users.emailVerified,
       role: users.role,
       dob: users.dob,
     })
@@ -38,7 +50,7 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
     return { role: 'student', hasDob: false }
   }
 
-  const shouldBeAdmin = Boolean(row.emailVerified) && isAdminEmail(row.email)
+  const shouldBeAdmin = await accountMayBeAdmin(db, userId, row.email)
   const desiredRole: Role = shouldBeAdmin ? 'admin' : 'student'
 
   if (row.role !== desiredRole) {

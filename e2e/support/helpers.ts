@@ -51,6 +51,27 @@ export async function registerAndSignIn(
   return email
 }
 
+/**
+ * Signs in as an admin, Google link and all.
+ *
+ * Not `registerAndSignIn` with an admin address: signup refuses those, and the
+ * role needs a linked Google account rather than a password. The test endpoint
+ * creates both, so what is exercised here is the rule, not a way around it.
+ */
+export async function signInAsAdmin(page: Page, email: string): Promise<void> {
+  const created = await page.request.post('/api/test/admin-account', {
+    data: { email, password: PASSWORD },
+  })
+  if (!created.ok()) throw new Error(`Could not create the admin account for ${email}`)
+
+  await page.goto('/signin')
+  await page.getByLabel('Email').fill(email)
+  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+
+  await page.waitForURL('**/dashboard')
+}
+
 export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Promise<void> {
   await page.goto('/upload')
 

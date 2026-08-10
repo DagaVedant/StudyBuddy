@@ -6,6 +6,7 @@ import {
   closeDbClient,
   registerAndSignIn,
   setTrialWorksheetsUsed,
+  signInAsAdmin,
   uploadWorksheet,
 } from './support/helpers'
 
@@ -148,7 +149,7 @@ test('the report reaches the admin queue', async ({ browser }) => {
   const adminPage = await browser.newPage()
 
   try {
-    await registerAndSignIn(adminPage, ADMIN_EMAIL)
+    await signInAsAdmin(adminPage, ADMIN_EMAIL)
     await adminPage.goto('/admin/reports')
 
     await expect(adminPage.getByRole('heading', { name: 'Reports' })).toBeVisible()

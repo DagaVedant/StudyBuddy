@@ -12,7 +12,7 @@ import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { SIGNUP_LIMIT, callerIp, consumeRateLimit } from '@/lib/rate-limit'
 
-import { validateDob } from './policy'
+import { isAdminEmail, validateDob } from './policy'
 
 export interface FormState {
   error?: string
@@ -66,6 +66,16 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   if (!age.ok) return { error: age.reason }
 
   const { email, password, name } = parsed.data
+
+  // An admin address is Google-only. A password account cannot prove it owns
+  // the address, so it can no longer take the role (see `syncUserClaims`), and
+  // allowing the signup anyway would leave a stranger holding the address:
+  // the branch below refuses a second signup on it, and Google will not link
+  // to an account it did not create. The reply is the one every other outcome
+  // gives, so this does not disclose which addresses are admin.
+  if (isAdminEmail(email)) {
+    return { message: 'Your account is ready. Sign in below.' }
+  }
 
   const [existing] = await db
     .select({ id: users.id, emailVerified: users.emailVerified })
