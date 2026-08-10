@@ -8,6 +8,7 @@ import {
 
 export class MockProvider implements RawAIProvider {
   readonly name = 'mock' as const
+  readonly model = 'mock' as const
   readonly supportsVision = true
   readonly executionSite = 'server' as const
 
@@ -123,6 +124,9 @@ export class MockProvider implements RawAIProvider {
 
 export class NullProvider implements RawAIProvider {
   readonly name = 'null' as const
+  // It never generates anything, so there is no model to name. 'none' rather
+  // than '' so a value that reaches a log or a column still reads as an answer.
+  readonly model = 'none' as const
   readonly supportsVision = false
   readonly executionSite = 'server' as const
 

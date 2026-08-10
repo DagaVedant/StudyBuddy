@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { GeminiProvider, geminiSchema } from '@/lib/ai/gemini'
 import { validated } from '@/lib/ai/validated'
@@ -74,12 +74,67 @@ describe('OpenRouterProvider', () => {
   })
 
   it('reports its own name so a failure does not blame OpenAI', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const fetchImpl = (async () =>
       new Response('nope', { status: 402 })) as unknown as typeof fetch
 
     const provider = new OpenRouterProvider('sk-or-test', undefined, 'https://app.test', fetchImpl)
 
-    await expect(provider.extractQuestions(page)).rejects.toThrow(/OpenRouter responded 402/)
+    await expect(provider.extractQuestions(page)).rejects.toThrow(/OpenRouter/)
+
+    error.mockRestore()
+  })
+})
+
+describe('an upstream that says no', () => {
+  function failing(status: number, body: string) {
+    return (async () => new Response(body, { status })) as unknown as typeof fetch
+  }
+
+  // The message on this error is rendered verbatim on the worksheet status
+  // page, so the body has to stay out of it. It goes to the log instead.
+  it('keeps the response body off the student’s screen', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const body = '{"error":{"message":"org-7f3a exceeded quota at /internal/v2/route"}}'
+
+    const provider = new OpenAIProvider('sk-test', 'gpt-4.1', {
+      fetchImpl: failing(429, body),
+    })
+
+    await expect(provider.extractQuestions(page)).rejects.toThrow(
+      /rate limiting this key/,
+    )
+    await expect(provider.extractQuestions(page)).rejects.not.toThrow(/internal\/v2/)
+
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('org-7f3a'))
+    error.mockRestore()
+  })
+
+  it('says which of the two things to do about a rejected key', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const provider = new GeminiProvider('AIza-test', 'gemini-2.5-flash', failing(401, 'no'))
+
+    await expect(provider.extractQuestions(page)).rejects.toThrow(/key.*settings/i)
+
+    error.mockRestore()
+  })
+
+  it('does not wait on an upstream forever', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      // Whatever the deadline is, the request has to carry one. Without it a
+      // hung upstream holds a pool connection for the whole invocation.
+      expect(init.signal).toBeInstanceOf(AbortSignal)
+      throw Object.assign(new Error('aborted'), { name: 'TimeoutError' })
+    }) as unknown as typeof fetch
+
+    await expect(
+      new OpenAIProvider('sk-test', 'gpt-4.1', { fetchImpl }).extractQuestions(page),
+    ).rejects.toThrow(/did not answer within/)
+
+    error.mockRestore()
   })
 })
 

@@ -16,6 +16,7 @@ const PAGE: PageInput = {
 function raw(replies: Partial<Record<keyof RawAIProvider, unknown>>): RawAIProvider {
   return {
     name: 'mock',
+    model: 'mock-1',
     supportsVision: true,
     executionSite: 'server',
     extractQuestions: async () => replies.extractQuestions,
@@ -131,7 +132,56 @@ describe('validated', () => {
     const provider = validated(raw({}))
 
     expect(provider.name).toBe('mock')
+    // The model separately from the name, because the one caller that stores
+    // this used to store the name in both columns.
+    expect(provider.model).toBe('mock-1')
     expect(provider.supportsVision).toBe(true)
     expect(provider.executionSite).toBe('server')
+  })
+})
+
+describe('a bbox the model got wrong', () => {
+  async function extractWithBbox(bbox: unknown) {
+    const provider = validated(
+      raw({
+        extractQuestions: {
+          questions: [
+            {
+              ordinal: 1,
+              prompt_text: 'What is the area of the shaded region?',
+              question_type: 'free_response',
+              choices: [],
+              bbox,
+              has_figure: true,
+            },
+          ],
+        },
+      }),
+    )
+
+    return provider.extractQuestions(PAGE)
+  }
+
+  // The wire schema says "array of numbers" and cannot say four, because
+  // neither Anthropic's structured outputs nor Gemini's schema filter take a
+  // length. So the wrong length arrives, and the question has to survive it.
+  it.each([
+    ['too few', [10, 20]],
+    ['too many', [10, 20, 30, 40, 50]],
+    ['a string among them', [10, 20, 30, '40']],
+    ['not an array at all', { x0: 10, y0: 20, x1: 30, y1: 40 }],
+    ['unbounded', [10, 20, 30, Infinity]],
+  ])('is dropped rather than the question (%s)', async (_case, bbox) => {
+    const questions = await extractWithBbox(bbox)
+
+    expect(questions).toHaveLength(1)
+    expect(questions[0].prompt_text).toBe('What is the area of the shaded region?')
+    expect(questions[0].bbox).toBeNull()
+  })
+
+  it('is kept when it is four numbers', async () => {
+    const questions = await extractWithBbox([10, 20, 30, 40])
+
+    expect(questions[0].bbox).toEqual([10, 20, 30, 40])
   })
 })

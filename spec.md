@@ -575,7 +575,9 @@ Why this and not a cloud embedding model:
 
 **Operator GPU threat model**
 
-The single most important property: **users never control the prompt.** They upload an image; the worker applies the operator's own fixed prompt template with a strict output schema. There is no passthrough, no chat endpoint, no system-prompt override. The GPU cannot be repurposed as a free LLM; it can only extract questions from images.
+The single most important property: **users never control the prompt template.** They upload an image; the worker applies the operator's own fixed template with a strict output schema. There is no passthrough, no chat endpoint, no system-prompt override. The GPU cannot be repurposed as a free LLM; it can only extract questions from images.
+
+The template is fixed; its contents are not. The page's text layer is interpolated into it, which is the same surface the row below on prompt injection covers, and the reason the delimiters around that text are stripped from the text itself.
 
 | Threat | Mitigation |
 |---|---|

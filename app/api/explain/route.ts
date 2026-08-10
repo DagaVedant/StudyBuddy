@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { consumeTrial } from '@/lib/ai/quota'
 import { resolveProvider } from '@/lib/ai/resolve'
+import { storedProvider } from '@/lib/ai/stored-provider'
 import { ProviderRefused, ProviderUnavailable } from '@/lib/ai/types'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
@@ -180,8 +181,13 @@ export async function POST(request: Request) {
       attemptId: lastAttempt?.id ?? null,
       bodyMd: result.body_md,
       misconceptionNote: result.misconception_note,
-      provider: provider.name === 'mock' ? null : (provider.name as 'anthropic'),
-      model: provider.name,
+      // `storedProvider` returns null for the ones the column has no value
+      // for, which is the mock and the null provider. The cast this replaces
+      // asserted every provider was Anthropic.
+      provider: storedProvider(provider.name),
+      // The model, not the provider's name. This column read `anthropic` on
+      // every row, which is what `provider` says two lines up.
+      model: provider.model,
     })
 
     return NextResponse.json({

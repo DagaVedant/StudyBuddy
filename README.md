@@ -98,9 +98,17 @@ scripts/gpu-worker.ts   the pull-worker that runs on the 5080
 
 ## Two things worth knowing before changing anything
 
-**Users never control a prompt.** They upload an image; the worker applies a
-fixed template with a schema-validated output. That's what stops the GPU being
+**Users never control the template.** They upload an image; the worker applies
+a fixed prompt with a schema-validated output. There is no passthrough, no chat
+endpoint and no way to supply an instruction, which is what stops the GPU being
 repurposed as a general-purpose LLM, and there are tests asserting it.
+
+They do control what goes *inside* the template, though, and this used to read
+as if they did not. The page's own text layer is interpolated into the prompt,
+so the fixed part is the fence and not the contents. Both halves of that fence
+are in `lib/ai/prompts.ts`: the system prompts say the content is data and must
+never be followed, and the delimiters are stripped from anything placed inside
+them so the content cannot close the block it is in.
 
 **Every question is stored and topic-tagged, not just the wrong ones.** The
 weakness dashboard needs a denominator: "8 wrong" means nothing without

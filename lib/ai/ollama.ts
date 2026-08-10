@@ -99,6 +99,15 @@ export class OllamaProvider implements RawAIProvider {
   readonly supportsVision = true
   readonly executionSite: ExecutionSite
 
+  /**
+   * The text model, since that is the one whose output gets recorded.
+   *
+   * Ollama is the only provider that runs more than one, and there is no
+   * single answer here that is right for both jobs. The one caller that reads
+   * this is storing an explanation, which the text model wrote.
+   */
+  readonly model: string
+
   private readonly baseUrl: string
   private readonly visionModel: string
   private readonly textModel: string
@@ -114,6 +123,7 @@ export class OllamaProvider implements RawAIProvider {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '')
     this.visionModel = options.visionModel
     this.textModel = options.textModel
+    this.model = options.textModel
     this.reviewModel = options.reviewModel ?? options.textModel
     this.executionSite = options.executionSite ?? 'browser'
     this.fetchImpl = options.fetchImpl ?? fetch

@@ -16,6 +16,7 @@ import {
   type RawAIProvider,
   type TopicCandidate,
 } from './types'
+import { CLOUD_TIMEOUT_MS, upstreamFailure, upstreamUnreachable } from './upstream'
 
 export interface ChatCompletionsOptions {
 
@@ -32,8 +33,9 @@ export class OpenAIProvider implements RawAIProvider {
   readonly supportsVision = true
   readonly executionSite = 'server' as const
 
+  readonly model: string
+
   private readonly apiKey: string
-  private readonly model: string
   private readonly fetchImpl: typeof fetch
   private readonly endpoint: string
   private readonly label: string
@@ -70,6 +72,7 @@ export class OpenAIProvider implements RawAIProvider {
         'Content-Type': 'application/json',
         ...this.headers,
       },
+      signal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
       body: JSON.stringify({
         model: this.model,
         messages: [
@@ -81,10 +84,15 @@ export class OpenAIProvider implements RawAIProvider {
           json_schema: { name: schemaName, strict: true, schema },
         },
       }),
+    }).catch((error) => {
+      throw upstreamUnreachable(this.label, error)
     })
 
     if (!response.ok) {
-      throw new Error(`${this.label} responded ${response.status}: ${await response.text()}`)
+      // The body is logged, not thrown: this error is rendered verbatim on the
+      // status page, and OpenAI-compatible endpoints echo the request back in
+      // it, which on an extraction means the page's own text.
+      throw upstreamFailure(this.label, response.status, await response.text())
     }
 
     const body = (await response.json()) as {

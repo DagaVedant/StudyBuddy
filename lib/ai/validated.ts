@@ -23,6 +23,7 @@ import {
 export function validated(provider: RawAIProvider): AIProvider {
   const wrapped: AIProvider = {
     name: provider.name,
+    model: provider.model,
     supportsVision: provider.supportsVision,
     executionSite: provider.executionSite,
 

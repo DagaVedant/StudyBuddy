@@ -16,6 +16,7 @@ import {
   type RawAIProvider,
   type TopicCandidate,
 } from './types'
+import { CLOUD_TIMEOUT_MS, upstreamFailure, upstreamUnreachable } from './upstream'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
@@ -24,8 +25,9 @@ export class GeminiProvider implements RawAIProvider {
   readonly supportsVision = true
   readonly executionSite = 'server' as const
 
+  readonly model: string
+
   private readonly apiKey: string
-  private readonly model: string
   private readonly fetchImpl: typeof fetch
 
   constructor(
@@ -52,6 +54,7 @@ export class GeminiProvider implements RawAIProvider {
           'x-goog-api-key': this.apiKey,
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
           contents: [{ role: 'user', parts }],
@@ -62,10 +65,14 @@ export class GeminiProvider implements RawAIProvider {
           },
         }),
       },
-    )
+    ).catch((error) => {
+      throw upstreamUnreachable('Gemini', error)
+    })
 
     if (!response.ok) {
-      throw new Error(`Gemini responded ${response.status}: ${await response.text()}`)
+      // Logged rather than thrown. Google's error bodies carry the field path
+      // that failed and, on a 400, a slice of the request that carried it.
+      throw upstreamFailure('Gemini', response.status, await response.text())
     }
 
     const body = (await response.json()) as {

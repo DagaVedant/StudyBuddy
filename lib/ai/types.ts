@@ -55,9 +55,39 @@ export const extractedQuestionSchema = z.object({
     .max(12)
     .default([]),
 
-  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable().default(null),
+  /**
+   * Four numbers, or nothing, and never a reason to lose the question.
+   *
+   * A tuple on its own made the length load-bearing: a model that returned
+   * five numbers, or two, or `[x, y, "12"]`, failed this field and took the
+   * whole question with it, silently, because a rejected question is only a
+   * line in a warning. That is the wrong trade in both directions. The bbox is
+   * optional metadata, used to crop the page image on the verify screen and
+   * for nothing else, and a question added by hand carries `null` here
+   * already, so null is a shape the rest of the app has always handled. The
+   * prompt text is the thing the student actually needs.
+   *
+   * So a malformed box costs the box. The wire schema cannot express the
+   * length (see EXTRACTION_JSON_SCHEMA), which is exactly why this has to.
+   */
+  bbox: z
+    .preprocess(
+      (value) => (isBox(value) ? value : null),
+      z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable(),
+    )
+    .default(null),
   has_figure: z.boolean().default(false),
 })
+
+function isBox(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    // Finite, not merely numeric: Infinity survives `z.number()` and then
+    // crops to a box with no bottom edge.
+    value.every((n) => typeof n === 'number' && Number.isFinite(n))
+  )
+}
 
 export const extractionResultSchema = z.object({
   questions: z.array(extractedQuestionSchema).max(100),
@@ -237,6 +267,24 @@ export interface ExplainInput {
 
 interface ProviderIdentity {
   readonly name: ProviderName
+
+  /**
+   * The model that writes the text this provider returns.
+   *
+   * `name` says who was asked; this says what answered, and the two are not
+   * interchangeable. `explanations.model` was being filled with `provider.name`
+   * for want of anything better, so every row generated through a key said
+   * `anthropic` and no row anywhere recorded which model produced it. That is
+   * the column you need on the day an explanation comes out wrong and the
+   * question is whether the model changed underneath you.
+   *
+   * Ollama runs a different model per task; this is its text model, which is
+   * the one that writes explanations. Nothing records the model behind an
+   * extraction yet, because nothing stores a row per extraction to record it
+   * on.
+   */
+  readonly model: string
+
   readonly supportsVision: boolean
   readonly executionSite: ExecutionSite
 }
