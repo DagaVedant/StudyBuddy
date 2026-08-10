@@ -68,7 +68,7 @@ next-env.d.ts
 /PRESHIP-AUDIT.md
 /AUDIT-ENGINEERING.md
 /FIXES.md
-/CLEANUP.md
+/WORKLIST.md
 /EXTRACTION-FAILURES.md
 
 # throwaway one-off scripts. Written to answer a single question against the
