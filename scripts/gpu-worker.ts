@@ -364,20 +364,60 @@ async function recoverMissingQuestions(
  * shortlist of nearby topics.
  */
 async function classifyWorksheet(worksheetId: string): Promise<void> {
-  const pendingResponse = await api(`/api/worker/classify/${worksheetId}`)
-  if (!pendingResponse.ok) {
-    log(`  classify: could not fetch questions (${pendingResponse.status}); skipping`)
-    return
+  // The server hands back one page of still-untagged questions at a time, so a
+  // paper longer than a page needs more than one ask. What ends the loop is not
+  // an empty page: a question the model declines to tag raises a proposal and
+  // is left untagged on purpose, so it is still untagged next time and would be
+  // handed over again forever. Tracking what has already been tried is the
+  // termination condition, and it also means no question is classified twice.
+  const tried = new Set<string>()
+  let applied = 0
+  let coarse = 0
+
+  for (;;) {
+    if (shuttingDown) return
+
+    const pendingResponse = await api(`/api/worker/classify/${worksheetId}`)
+    if (!pendingResponse.ok) {
+      log(`  classify: could not fetch questions (${pendingResponse.status}); skipping`)
+      return
+    }
+
+    const { questions: page } = (await pendingResponse.json()) as {
+      questions: PendingQuestion[]
+    }
+
+    const pending = page.filter((question) => !tried.has(question.id))
+    if (pending.length === 0) break
+
+    for (const question of pending) tried.add(question.id)
+
+    const summary = await classifyBatch(worksheetId, pending)
+    if (!summary) return
+
+    applied += summary.applied
+    coarse += summary.coarse
   }
 
-  const { questions: pending } = (await pendingResponse.json()) as {
-    questions: PendingQuestion[]
+  if (tried.size > 0) {
+    log(`  classified ${applied}/${tried.size} (${coarse} coarse)`)
   }
-  if (pending.length === 0) return
+}
 
+/**
+ * One page of questions, from embedding to posting the results back.
+ *
+ * Returns null when the server refused a step, which is not something another
+ * page will fix, so the caller stops rather than working through the paper
+ * failing every time.
+ */
+async function classifyBatch(
+  worksheetId: string,
+  pending: PendingQuestion[],
+): Promise<{ applied: number; coarse: number } | null> {
   const items = []
   for (const question of pending) {
-    if (shuttingDown) return
+    if (shuttingDown) return null
     try {
       items.push({ questionId: question.id, embedding: await embed(question.promptText) })
     } catch (error) {
@@ -385,7 +425,9 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
     }
   }
 
-  if (items.length === 0) return
+  // Nothing embedded, but the caller has already marked these as tried, so the
+  // next page is different questions rather than these again.
+  if (items.length === 0) return { applied: 0, coarse: 0 }
 
   const shortlistResponse = await api(`/api/worker/classify/${worksheetId}/shortlist`, {
     method: 'POST',
@@ -394,7 +436,7 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
 
   if (!shortlistResponse.ok) {
     log(`  classify: shortlist rejected (${shortlistResponse.status}); skipping`)
-    return
+    return null
   }
 
   const { batch } = (await shortlistResponse.json()) as {
@@ -405,7 +447,7 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
   const results = []
 
   for (const entry of batch) {
-    if (shuttingDown) return
+    if (shuttingDown) return null
 
     const promptText = promptById.get(entry.questionId)
     if (!promptText || entry.candidates.length === 0) continue
@@ -434,19 +476,19 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
     }
   }
 
-  if (results.length === 0) return
+  if (results.length === 0) return { applied: 0, coarse: 0 }
 
   const post = await api(`/api/worker/classify/${worksheetId}`, {
     method: 'POST',
     body: JSON.stringify({ results }),
   })
 
-  if (post.ok) {
-    const summary = (await post.json()) as { applied: number; coarse: number }
-    log(`  classified ${summary.applied}/${pending.length} (${summary.coarse} coarse)`)
-  } else {
+  if (!post.ok) {
     log(`  classify: server rejected results (${post.status})`)
+    return null
   }
+
+  return (await post.json()) as { applied: number; coarse: number }
 }
 
 /**

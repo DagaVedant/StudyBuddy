@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 
 import type { AIProvider, TopicCandidate } from '@/lib/ai/types'
 import type { Db } from '@/lib/db/types'
@@ -49,10 +49,42 @@ export function isEmbedding(value: unknown): value is number[] {
 }
 
 export interface ShortlistOptions {
-  /** Restricts the search to one subject root, e.g. `high-school-math`. */
+  /** Restricts the search to one subtree, e.g. `high-school-math.algebra-1`. */
   subjectHint?: string | null
   /** How many candidates the model is shown. Defaults to {@link SHORTLIST_SIZE}. */
   limit?: number
+}
+
+/**
+ * The hint as a filter on the subtree it names, or nothing.
+ *
+ * The upload form offers a root ("All of High School Math") and every one of
+ * its children, and this used to run `slug like ${hint.split('.')[0]}%`, which
+ * threw the child away: choosing Algebra 1 filtered to the same set as
+ * choosing the whole subject. The one control a student has over how their
+ * questions get sorted did nothing beyond its first segment.
+ *
+ * Anchored rather than prefixed, too. `like 'high-school-math%'` also matches
+ * a sibling root whose slug merely starts the same way, which is not something
+ * the taxonomy has today and is not something this should depend on.
+ *
+ * An unrecognised hint is ignored rather than filtered on. `subjectHint` is a
+ * free string on the worksheet route, so a caller that is not the form can put
+ * anything in it, and a hint matching no slug would filter the shortlist down
+ * to nothing. Empty candidates is how "this question could not be classified"
+ * looks, so the whole paper would come back untagged with nothing to say why.
+ * Ignoring it degrades to searching every subject, which is what a student who
+ * picks "Not sure" already gets. This also means the value never reaches a
+ * `like` pattern without having matched a known slug first, so `%` and `_` in
+ * it are not wildcards on the way in.
+ */
+function subjectSubtree(subjectHint: string | null | undefined) {
+  const hint = subjectHint?.trim()
+  if (!hint || !pathBySlug.has(hint)) return undefined
+
+  // Parenthesised because this is one term of an `and`, and an unwrapped `or`
+  // would bind looser than the conditions around it and match the whole table.
+  return sql`(${topics.slug} = ${hint} or ${topics.slug} like ${`${hint}.%`})`
 }
 
 /**
@@ -79,7 +111,6 @@ export async function shortlistByVector(
   options: ShortlistOptions = {},
 ): Promise<TopicCandidate[]> {
   const literal = `[${vector.join(',')}]`
-  const subjectHint = options.subjectHint
 
   const rows = await db
     .select({ slug: topics.slug, name: topics.name })
@@ -96,7 +127,7 @@ export async function shortlistByVector(
         // from, and the next question that did not fit raised the same proposal
         // again, which is the loop accepting one is supposed to end.
         isNotNull(topics.embedding),
-        subjectHint ? sql`${topics.slug} like ${`${subjectHint.split('.')[0]}%`}` : undefined,
+        subjectSubtree(options.subjectHint),
       ),
     )
     .orderBy(sql`${topics.embedding} <=> ${literal}::vector`)
@@ -151,18 +182,37 @@ export async function shortlistTopics(
   return shortlistByVector(db, vector, { subjectHint, limit })
 }
 
+/**
+ * The closest existing topic above this slug, in one query rather than one per
+ * level.
+ *
+ * The slug carries its own ancestry, so every candidate is known before asking
+ * anything: `a.b.c.d` can only hang off `a.b.c`, `a.b` or `a`. This used to
+ * walk up a level at a time and issue a query per step, and it runs once per
+ * question that comes back coarse, which on a paper the model is unsure about
+ * is most of them.
+ */
 async function nearestAncestor(db: Db, slug: string): Promise<string | null> {
   const parts = slug.split('.')
 
-  while (parts.length > 1) {
-    parts.pop()
-    const [row] = await db
-      .select({ id: topics.id })
-      .from(topics)
-      .where(eq(topics.slug, parts.join('.')))
-      .limit(1)
+  // Deepest first, which is the order the answer is wanted in.
+  const ancestors: string[] = []
+  for (let depth = parts.length - 1; depth >= 1; depth -= 1) {
+    ancestors.push(parts.slice(0, depth).join('.'))
+  }
 
-    if (row) return row.id
+  if (ancestors.length === 0) return null
+
+  const rows = await db
+    .select({ id: topics.id, slug: topics.slug })
+    .from(topics)
+    .where(inArray(topics.slug, ancestors))
+
+  const idBySlug = new Map(rows.map((row) => [row.slug, row.id]))
+
+  for (const ancestor of ancestors) {
+    const id = idBySlug.get(ancestor)
+    if (id) return id
   }
 
   return null
@@ -336,18 +386,25 @@ export async function classifyWorksheet(
     .from(questions)
     .where(eq(questions.worksheetId, worksheetId))
 
+  // One query for the whole paper rather than one per question. This loop is
+  // the resume path as much as the first run, so on a worksheet that is
+  // already tagged it was 114 round trips to decide there was nothing to do.
+  const tagged = new Set(
+    (
+      await db
+        .select({ questionId: questionTopics.questionId })
+        .from(questionTopics)
+        .innerJoin(questions, eq(questionTopics.questionId, questions.id))
+        .where(eq(questions.worksheetId, worksheetId))
+    ).map((row) => row.questionId),
+  )
+
   let classified = 0
   let coarse = 0
   let failed = 0
 
   for (const question of rows) {
-    const existing = await db
-      .select({ topicId: questionTopics.topicId })
-      .from(questionTopics)
-      .where(eq(questionTopics.questionId, question.id))
-      .limit(1)
-
-    if (existing.length > 0) continue
+    if (tagged.has(question.id)) continue
 
     try {
       const outcome = await classifyQuestion(db, provider, question, subjectHint)

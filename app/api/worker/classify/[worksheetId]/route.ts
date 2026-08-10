@@ -4,8 +4,9 @@ import { z } from 'zod'
 
 import { classificationSchema } from '@/lib/ai/types'
 import { applyClassification, isEmbedding } from '@/lib/classify'
+import { pendingQuestions } from '@/lib/classify/pending'
 import { db } from '@/lib/db'
-import { questionTopics, questions, worksheets } from '@/lib/db/schema'
+import { questions, worksheets } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ worksheetId: string }> }
@@ -16,6 +17,10 @@ type Params = { params: Promise<{ worksheetId: string }> }
  * Shortlisting used to happen here, which meant embedding here, and this
  * server cannot load the embedding model. The worker embeds these itself and
  * posts the vectors to ./shortlist to get candidates back.
+ *
+ * One page at a time, and the worker keeps asking until a page holds nothing it
+ * has not already tried. See {@link pendingQuestions} for what the page used to
+ * leave out.
  */
 export async function GET(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
@@ -35,23 +40,9 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const rows = await db
-    .select({ id: questions.id, promptText: questions.promptText })
-    .from(questions)
-    .where(eq(questions.worksheetId, worksheetId))
-    .limit(100)
-
-  const assigned = await db
-    .select({ questionId: questionTopics.questionId })
-    .from(questionTopics)
-    .innerJoin(questions, eq(questionTopics.questionId, questions.id))
-    .where(eq(questions.worksheetId, worksheetId))
-
-  const done = new Set(assigned.map((row) => row.questionId))
-
   return NextResponse.json({
     subjectHint: worksheet.subjectHint,
-    questions: rows.filter((row) => !done.has(row.id)),
+    questions: await pendingQuestions(db, worksheetId),
   })
 }
 

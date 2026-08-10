@@ -69,6 +69,103 @@ function axis(index: number): number[] {
   return vector
 }
 
+/**
+ * `topics.slug` is unique, and picking a free one is a read followed by a
+ * write. Two admins working the queue at once, or one double-clicking Accept,
+ * could both read the same slug as free; the one that inserted second used to
+ * get the constraint violation thrown at it as a 500, with its proposal left
+ * pending and nothing saying the name was the problem.
+ *
+ * Both halves are inside one transaction now, so losing the race is a clean
+ * violation, and the answer to a violation is to look again. PGlite runs one
+ * statement at a time, so these inject the collision rather than racing for
+ * one: what is under test is the response to a violation, not the window.
+ */
+describe('losing the race for a slug', () => {
+  it('retries when someone takes the slug mid-transaction', async () => {
+    const parentId = await makeParent('high-school-math.vectors')
+    const proposalId = await makeProposal({
+      proposedName: 'Dot product',
+      suggestedParentId: parentId,
+    })
+
+    let failures = 1
+    const flaky = new Proxy(client(), {
+      get(target, property, receiver) {
+        if (property === 'transaction' && failures > 0) {
+          failures -= 1
+          return async () => {
+            throw Object.assign(new Error('duplicate key value'), { code: '23505' })
+          }
+        }
+
+        const value = Reflect.get(target, property, receiver)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+
+    const accepted = await acceptTopicProposal(flaky, proposalId)
+
+    if (!accepted.ok) throw new Error(`expected acceptance, got ${accepted.reason}`)
+    expect(accepted.slug).toBe('high-school-math.vectors.dot-product')
+    expect(failures).toBe(0)
+  })
+
+  it('gives up rather than looping when the collision never clears', async () => {
+    const parentId = await makeParent('high-school-math.matrices')
+    const proposalId = await makeProposal({
+      proposedName: 'Determinants',
+      suggestedParentId: parentId,
+    })
+
+    let attempts = 0
+    const stuck = new Proxy(client(), {
+      get(target, property, receiver) {
+        if (property === 'transaction') {
+          return async () => {
+            attempts += 1
+            throw Object.assign(new Error('duplicate key value'), { code: '23505' })
+          }
+        }
+
+        const value = Reflect.get(target, property, receiver)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+
+    await expect(acceptTopicProposal(stuck, proposalId)).rejects.toThrow(/duplicate key/)
+    expect(attempts).toBe(3)
+  })
+
+  it('does not swallow a failure that is not a collision', async () => {
+    const parentId = await makeParent('high-school-math.complex-numbers')
+    const proposalId = await makeProposal({
+      proposedName: 'Argand diagrams',
+      suggestedParentId: parentId,
+    })
+
+    let attempts = 0
+    const broken = new Proxy(client(), {
+      get(target, property, receiver) {
+        if (property === 'transaction') {
+          return async () => {
+            attempts += 1
+            throw Object.assign(new Error('connection terminated'), { code: '08006' })
+          }
+        }
+
+        const value = Reflect.get(target, property, receiver)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+
+    await expect(acceptTopicProposal(broken, proposalId)).rejects.toThrow(
+      /connection terminated/,
+    )
+    expect(attempts).toBe(1)
+  })
+})
+
 describe('acceptTopicProposal', () => {
   it('adds the topic under its suggested parent', async () => {
     const parentId = await makeParent('high-school-math.geometry')

@@ -24,6 +24,15 @@ export type AcceptOutcome =
  * coherent together: a topic whose parent is still a leaf, or a proposal
  * pointing at a topic that was never created, is worse than a proposal nobody
  * has got to yet.
+ *
+ * Picking the slug is inside that transaction and the whole thing retries on a
+ * collision, because `topics.slug` is unique and choosing a free one is a read
+ * followed by a write. Two admins accepting from the queue at the same time,
+ * or the same admin double-clicking Accept, could both read the same slug as
+ * free; whoever inserted second used to get a constraint violation thrown out
+ * of here as a 500, with the proposal left pending and no indication that the
+ * name was the problem. Two proposals with names that slugify the same is not
+ * a rare shape either: "Circle theorems" and "circle theorems!" are one slug.
  */
 export async function acceptTopicProposal(
   db: Db,
@@ -51,9 +60,51 @@ export async function acceptTopicProposal(
 
   if (!parent) return { ok: false, reason: 'no_parent' }
 
-  const slug = await uniqueSlug(db, `${parent.slug}.${slugify(proposal.proposedName)}`)
+  const wanted = `${parent.slug}.${slugify(proposal.proposedName)}`
 
+  // A violation aborts the transaction it happened in, so the retry has to be
+  // around the whole thing rather than around the insert.
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await accept(db, proposal, parent, wanted)
+    } catch (error) {
+      if (!isUniqueViolation(error) || attempt >= SLUG_ATTEMPTS) throw error
+
+      // Someone took the slug between the read and the write. Re-reading is the
+      // whole fix: `uniqueSlug` will now see it taken and step past it.
+      console.warn(
+        `[proposals] slug collision on ${wanted}, attempt ${attempt}; retrying`,
+      )
+    }
+  }
+}
+
+/** How many times to lose a race for a slug before giving up on it. */
+const SLUG_ATTEMPTS = 3
+
+/**
+ * Postgres reports a unique violation as SQLSTATE 23505.
+ *
+ * Checked on the error and on its cause, because production runs on postgres-js
+ * and the tests run on PGlite, and only one of them puts the driver error at the
+ * top level.
+ */
+function isUniqueViolation(error: unknown): boolean {
+  const codes = [error, (error as { cause?: unknown } | null)?.cause]
+  return codes.some(
+    (candidate) => (candidate as { code?: unknown } | null)?.code === '23505',
+  )
+}
+
+async function accept(
+  db: Db,
+  proposal: typeof topicProposals.$inferSelect,
+  parent: typeof topics.$inferSelect,
+  wanted: string,
+): Promise<AcceptOutcome> {
   return db.transaction(async (tx) => {
+    const slug = await uniqueSlug(tx, wanted)
+
     const [created] = await tx
       .insert(topics)
       .values({
@@ -98,7 +149,7 @@ export async function acceptTopicProposal(
     await tx
       .update(topicProposals)
       .set({ status: 'accepted', mergedIntoTopicId: created.id })
-      .where(eq(topicProposals.id, proposalId))
+      .where(eq(topicProposals.id, proposal.id))
 
     return { ok: true, topicId: created.id, slug, taggedSource }
   })
