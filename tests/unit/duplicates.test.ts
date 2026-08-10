@@ -4,6 +4,7 @@ import {
   duplicatePrintedNumbers,
   planDuplicateMerges,
   planNumberDuplicateMerges,
+  promptSimilarity,
 } from '@/lib/questions/duplicates-plan'
 import { questionInputSchema } from '@/lib/questions/shape'
 
@@ -282,6 +283,64 @@ describe('planNumberDuplicateMerges', () => {
     )
 
     expect(plans).toEqual([])
+  })
+
+  /**
+   * Why this guard is prompt similarity and not choice containment.
+   *
+   * The fix list asked for containment here, the same check `planDuplicateMerges`
+   * uses, on the reasoning that it is what separates a phantom question from a
+   * real one. Measured against the cases above it is the wrong instrument, and
+   * not marginally: it folds nothing at all on a maths paper.
+   *
+   * `choicesAreContainedIn` requires a match of at least twelve characters,
+   * because a shorter needle matches almost anything. That floor is right where
+   * it is used: there the phantom's options are whole source sentences. Here the
+   * options are "4", "6", "9", "12". Every one is below the floor, so the check
+   * can never fire, and requiring it would mean never folding a re-read.
+   *
+   * Kept as a test rather than a comment because the next person to read
+   * FIXES.md will have the same idea.
+   */
+  it('folds the re-read that a containment check would have missed', () => {
+    const reread = [
+      {
+        id: 'clean',
+        printedNumber: 5,
+        promptText: 'A ball is dropped from the top of a tower, and its height above the ground after t seconds is given by the expression shown.',
+        choices: FOUR,
+      },
+      {
+        id: 'damaged',
+        printedNumber: 5,
+        promptText: 'A ball is dropped from the top of a tower, and its height above the _ after t seconds is given by the expression shown.',
+        choices: FOUR.slice(0, 2),
+      },
+    ]
+
+    // What the shipping rule sees: near-identical prompts.
+    expect(promptSimilarity(reread[0].promptText, reread[1].promptText)).toBeGreaterThan(0.8)
+
+    // What a containment rule would have seen: nothing long enough to compare.
+    expect(FOUR.every((choice) => choice.text.length < 12)).toBe(true)
+
+    expect(planNumberDuplicateMerges(reread, 4)).toHaveLength(1)
+  })
+
+  // The other half of the same argument. Similarity is what spares the Edison
+  // collision, and it spares it by a wide margin rather than by a hair.
+  it('separates the collision from the re-read by a wide margin', () => {
+    const reread = promptSimilarity(
+      'A ball is dropped from the top of a tower, and its height above the ground after t seconds is given by the expression shown.',
+      'A ball is dropped from the top of a tower, and its height above the _ after t seconds is given by the expression shown.',
+    )
+    const collision = promptSimilarity(
+      'What value of x satisfies 3x - 7 = 20?',
+      'What value of x satisfies 5(x - 3) = 2x + 9?',
+    )
+
+    expect(reread).toBeGreaterThan(0.9)
+    expect(collision).toBeLessThan(0.5)
   })
 })
 

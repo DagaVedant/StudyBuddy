@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { db } from '@/lib/db'
 import { accounts, users } from '@/lib/db/schema'
+import { testEndpointsEnabled } from '@/lib/test-endpoints'
 
 const schema = z.object({
   email: z.string().email(),
@@ -22,7 +23,7 @@ const schema = z.object({
  * standing up an OAuth round trip.
  */
 export async function POST(request: Request) {
-  if (process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
+  if (!testEndpointsEnabled()) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 

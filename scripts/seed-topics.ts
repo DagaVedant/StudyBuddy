@@ -42,7 +42,10 @@ async function main() {
     throw new Error('DATABASE_URL is not set. Copy .env.example to .env.local first.')
   }
 
-  const sql = postgres(url, { max: 1 })
+  // prepare: false: .env.example recommends a pooled connection string, and
+  // prepared statements fail against one. This is one of the two commands the
+  // README tells every new user to run.
+  const sql = postgres(url, { max: 1, prepare: false })
   const db = drizzle(sql, { schema }) as unknown as Db
 
   // Parents must exist before children can reference them.

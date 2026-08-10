@@ -32,18 +32,23 @@ export async function GET(
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const object = await storage.get(segments.join('/'))
+  // Streamed rather than buffered: this route only passes the bytes along, and
+  // holding a 4 MB scan resident to do that cost about twice that per request
+  // in flight, since the Uint8Array copy is a second allocation.
+  const object = await storage.getStream(segments.join('/'))
   if (!object) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  return new NextResponse(new Uint8Array(object.body), {
-    headers: {
-      'Content-Type': object.contentType,
-      'Content-Length': String(object.body.byteLength),
-      'Cache-Control': 'private, max-age=3600',
-      'Content-Security-Policy': "default-src 'none'; sandbox",
-      'X-Content-Type-Options': 'nosniff',
-    },
+  const headers = new Headers({
+    'Content-Type': object.contentType,
+    'Cache-Control': 'private, max-age=3600',
+    'Content-Security-Policy': "default-src 'none'; sandbox",
+    'X-Content-Type-Options': 'nosniff',
   })
+
+  // Only when the driver knows it. A wrong Content-Length truncates the image.
+  if (object.size !== null) headers.set('Content-Length', String(object.size))
+
+  return new NextResponse(object.stream, { headers })
 }

@@ -391,7 +391,12 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
         proposalEmbedding: await embed(proposedName),
       })
     } catch (error) {
-      log(`  classify: "${promptText.slice(0, 40)}" failed: ${(error as Error).message}`)
+      // The question id, not the question. spec.md:593 keeps student worksheet
+      // text out of operator logs, and this line was putting the first 40
+      // characters of it on the console of a machine the student has never
+      // heard of. The id is enough to find the row when one of these needs
+      // chasing, and it is already all over the rest of this file.
+      log(`  classify: question ${entry.questionId} failed: ${(error as Error).message}`)
     }
   }
 

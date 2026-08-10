@@ -2,20 +2,14 @@
 
 import { useSyncExternalStore } from 'react'
 
+import { THEME_STORAGE_KEY } from '@/lib/theme-script'
+
 type Theme = 'light' | 'dark'
 
-export const THEME_STORAGE_KEY = 'studybuddy-theme'
-
-export const themeInitScript = `
-(function () {
-  try {
-    var stored = localStorage.getItem('${THEME_STORAGE_KEY}');
-    if (stored === 'light' || stored === 'dark') {
-      document.documentElement.setAttribute('data-theme', stored);
-    }
-  } catch (e) {}
-})();
-`.trim()
+// The key and the pre-paint script moved to lib/theme-script.ts so
+// next.config.ts can hash the script for the CSP without importing this client
+// component. Re-exported because both names were part of this module's surface.
+export { THEME_STORAGE_KEY, themeInitScript } from '@/lib/theme-script'
 
 function resolveTheme(): Theme {
   const explicit = document.documentElement.getAttribute('data-theme')

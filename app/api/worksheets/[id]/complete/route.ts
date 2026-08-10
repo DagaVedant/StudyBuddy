@@ -5,7 +5,12 @@ import { consumeTrial } from '@/lib/ai/quota'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
-import { enqueueJob, workerStatus } from '@/lib/queue'
+import {
+  MAX_IN_FLIGHT_EXTRACTS,
+  enqueueJob,
+  inFlightExtractCount,
+  workerStatus,
+} from '@/lib/queue'
 import { claimWorksheetForCompletion } from '@/lib/upload/claim'
 import { guardWorksheet } from '@/lib/upload/guard'
 import { drainServerQueue } from '@/lib/worker/server-job'
@@ -66,6 +71,34 @@ export async function POST(_request: Request, { params }: Params) {
   }
 
   if (executor === 'operator_gpu') {
+    // Before the claim and before the charge, so a refusal costs the student
+    // neither a trial credit nor their worksheet's status. spec.md:583 caps
+    // this at one, and nothing enforced it: the enqueue endpoint would take as
+    // many worksheets as a script could post, and one account could hold the
+    // whole queue against everyone else.
+    //
+    // Falls through to the manual editor rather than erroring, which is what
+    // the exhausted-trial branch below already does. The student gets a working
+    // screen and a reason, instead of a worksheet stuck mid-upload.
+    if (
+      guard.role !== 'admin' &&
+      (await inFlightExtractCount(db, guard.userId)) >= MAX_IN_FLIGHT_EXTRACTS
+    ) {
+      if (!(await claimForCompletion(worksheetId, 'awaiting_review', 'free'))) {
+        return alreadyCompleted(worksheetId)
+      }
+
+      return NextResponse.json({
+        ok: true,
+        tier: 'free',
+        mode: 'manual',
+        message:
+          'Another worksheet of yours is still being read. This one was not counted ' +
+          'against your trial: add its questions here, or come back once the first finishes.',
+        next: `/worksheets/${worksheetId}/review`,
+      })
+    }
+
     // Claimed before the trial is charged, so a losing request cannot spend
     // one. If the charge then fails, the status is put back below.
     if (!(await claimForCompletion(worksheetId, 'queued', 'trial'))) {

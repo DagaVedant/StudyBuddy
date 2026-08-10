@@ -12,6 +12,7 @@ import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { SIGNUP_LIMIT, callerIp, consumeRateLimit } from '@/lib/rate-limit'
 
+import { isDisposableEmail } from './disposable'
 import { isAdminEmail, validateDob } from './policy'
 
 export interface FormState {
@@ -20,7 +21,16 @@ export interface FormState {
 }
 
 const signupSchema = z.object({
-  email: z.string().trim().toLowerCase().email('Enter a valid email address.'),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('Enter a valid email address.')
+    // After .email(), so a malformed address is reported as malformed rather
+    // than as a throwaway one.
+    .refine((email) => !isDisposableEmail(email), {
+      message: 'Use an email address you will still have later, not a temporary one.',
+    }),
   password: z
     .string()
     .min(10, 'Use at least 10 characters.')

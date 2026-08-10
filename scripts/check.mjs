@@ -26,7 +26,11 @@ const TASKS = [
   {
     name: 'eslint',
     script: 'node_modules/eslint/bin/eslint.js',
-    args: ['--cache', '--cache-location', '.eslintcache'],
+    // --max-warnings 0: a warning nothing fails on is a comment. The
+    // no-unused-vars rule is configured as a warning on purpose so an
+    // in-progress edit is not fatal in the editor, and this is what makes it
+    // fatal at the gate.
+    args: ['--cache', '--cache-location', '.eslintcache', '--max-warnings', '0'],
   },
   { name: 'vitest', script: 'node_modules/vitest/vitest.mjs', args: ['run'] },
 ]

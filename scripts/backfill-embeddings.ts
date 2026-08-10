@@ -106,7 +106,9 @@ async function main() {
     throw new Error(`Unknown argument ${only}. Use --topics or --questions, or neither.`)
   }
 
-  const sql = postgres(url, { max: 1 })
+  // prepare: false: .env.example recommends a pooled connection string, and
+  // prepared statements fail against one.
+  const sql = postgres(url, { max: 1, prepare: false })
   const db = drizzle(sql)
 
   console.log('Model: all-MiniLM-L6-v2 (384d)')

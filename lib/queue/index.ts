@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, sql } from 'drizzle-orm'
 
 import { unwrapDriverRows } from '@/lib/db/rows'
 import { gpuWorkers, processingJobs } from '@/lib/db/schema'
@@ -49,6 +49,43 @@ export interface EnqueueArgs {
    * explanation is about one question, and this is where it says which.
    */
   checkpoint?: Record<string, unknown>
+}
+
+/**
+ * Extraction jobs one student may have waiting on the GPU at once (spec.md:583).
+ *
+ * One, because that is also how many the GPU can do at once: the worker claims
+ * a single job and works it to the end. A student with five queued is not
+ * getting five worksheets faster, they are holding the queue against everybody
+ * else, and the enqueue endpoint had nothing at all stopping them from doing it
+ * on purpose.
+ *
+ * Counted for extract only. Explanations go through the same executor but are
+ * already bounded twice over: `pendingExplainJob` folds a second click on the
+ * same question into the first, and EXPLAIN_LIMIT caps the rate. Folding them
+ * into this number would mean a student who uploaded a worksheet could not ask
+ * about a question from last week until it finished, which is a worse product
+ * for no extra safety.
+ */
+export const MAX_IN_FLIGHT_EXTRACTS = 1
+
+const IN_FLIGHT = ['pending', 'claimed', 'running'] as const
+
+/** How many extraction jobs this student already has waiting on the GPU. */
+export async function inFlightExtractCount(db: Db, userId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: count() })
+    .from(processingJobs)
+    .where(
+      and(
+        eq(processingJobs.userId, userId),
+        eq(processingJobs.stage, 'extract'),
+        eq(processingJobs.executor, 'operator_gpu'),
+        inArray(processingJobs.status, IN_FLIGHT),
+      ),
+    )
+
+  return Number(row?.count ?? 0)
 }
 
 export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {

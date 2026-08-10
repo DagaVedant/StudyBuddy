@@ -6,7 +6,7 @@ import { ViewTransition } from 'react'
 
 import AppTopbar from '@/components/app-topbar'
 import AutoRefresh from '@/components/auto-refresh'
-import { themeInitScript } from '@/components/theme-toggle'
+import { themeInitScript } from '@/lib/theme-script'
 import { appBaseUrl } from '@/lib/app-url'
 
 import './globals.css'

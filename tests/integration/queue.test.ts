@@ -6,12 +6,14 @@ import { processingJobs } from '@/lib/db/schema'
 import {
   CLAIM_TTL_MS,
   MAX_ATTEMPTS,
+  MAX_IN_FLIGHT_EXTRACTS,
   checkpointJob,
   claimJob,
   completeJob,
   enqueueJob,
   failJob,
   heartbeat,
+  inFlightExtractCount,
   queueDepth,
   workerStatus,
 } from '@/lib/queue'
@@ -310,5 +312,90 @@ describe('completeJob', () => {
 
     const later = new Date(Date.now() + CLAIM_TTL_MS * 10)
     expect(await claimJob(db as Db, 'operator_gpu', null, later)).toBeNull()
+  })
+})
+
+/**
+ * spec.md:583 caps a student at one extraction waiting on the GPU, and nothing
+ * enforced it: the enqueue endpoint took as many worksheets as a script could
+ * post, and one account could hold the whole queue against everybody else.
+ */
+describe('inFlightExtractCount', () => {
+  it('counts nothing for a student with no work queued', async () => {
+    await drain()
+    expect(await inFlightExtractCount(db as Db, userId)).toBe(0)
+  })
+
+  it('counts a job from the moment it is enqueued, not from when it is claimed', async () => {
+    await drain()
+    await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+
+    // Pending counts. A cap that only saw claimed work would let a student
+    // queue a hundred and call none of them in flight.
+    expect(await inFlightExtractCount(db as Db, userId)).toBe(MAX_IN_FLIGHT_EXTRACTS)
+
+    await claimJob(db as Db, 'operator_gpu')
+    expect(await inFlightExtractCount(db as Db, userId)).toBe(1)
+  })
+
+  it('stops counting once the job finishes', async () => {
+    await drain()
+    await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+
+    const job = await claimJob(db as Db, 'operator_gpu')
+    await completeJob(db as Db, job!.id)
+
+    expect(await inFlightExtractCount(db as Db, userId)).toBe(0)
+  })
+
+  // The reason the cap is extract-only. Folding explanations in would mean a
+  // student who uploaded a worksheet could not ask about a question from last
+  // week until it finished.
+  it('ignores explanation jobs, which are bounded separately', async () => {
+    await drain()
+    await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'explain',
+      executor: 'operator_gpu',
+      checkpoint: { questionId: 'q1' },
+    })
+
+    expect(await inFlightExtractCount(db as Db, userId)).toBe(0)
+  })
+
+  it('is per student, so one account cannot block another', async () => {
+    await drain()
+    const otherUser = await makeUser(db)
+    const otherWorksheet = await makeWorksheet(db, otherUser)
+
+    await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+
+    expect(await inFlightExtractCount(db as Db, userId)).toBe(1)
+    expect(await inFlightExtractCount(db as Db, otherUser)).toBe(0)
+
+    await enqueueJob(db as Db, {
+      worksheetId: otherWorksheet,
+      userId: otherUser,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+
+    expect(await inFlightExtractCount(db as Db, otherUser)).toBe(1)
   })
 })

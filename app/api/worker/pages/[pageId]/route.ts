@@ -45,16 +45,17 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const object = await storage.get(page.imageKey)
+  const object = await storage.getStream(page.imageKey)
   if (!object) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  return new NextResponse(new Uint8Array(object.body), {
-    headers: {
-      'Content-Type': object.contentType,
-      'Content-Length': String(object.body.byteLength),
-      'Cache-Control': 'no-store',
-    },
+  const headers = new Headers({
+    'Content-Type': object.contentType,
+    'Cache-Control': 'no-store',
   })
+
+  if (object.size !== null) headers.set('Content-Length', String(object.size))
+
+  return new NextResponse(object.stream, { headers })
 }

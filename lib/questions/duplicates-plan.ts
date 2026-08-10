@@ -214,6 +214,15 @@ function damage(question: DuplicateCandidate, expectedChoices: number): number {
  * well: a number held by two questions that read differently means one of them
  * is misnumbered, and misnumbering is repaired by renumbering, never by
  * deleting.
+ *
+ * Prompt similarity, and deliberately not the `choicesAreContainedIn` check the
+ * rule above uses. That check needs a match of twelve characters or more, which
+ * is correct where it is used, because there the options are whole source
+ * sentences. The options here are "4", "6", "9", "12". Every one is under the
+ * floor, so containment can never fire on a maths paper and requiring it would
+ * mean never folding a re-read at all. Measured, not assumed: see
+ * "folds the re-read that a containment check would have missed" in
+ * tests/unit/duplicates.test.ts.
  */
 export function planNumberDuplicateMerges(
   questions: DuplicateCandidate[],
