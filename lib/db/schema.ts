@@ -183,16 +183,26 @@ export const accounts = pgTable(
     id_token: text('id_token'),
     session_state: text('session_state'),
   },
-  (t) => [primaryKey({ columns: [t.provider, t.providerAccountId] })],
+  (t) => [
+    primaryKey({ columns: [t.provider, t.providerAccountId] }),
+    // Postgres indexes the target of a reference and not the source, so
+    // without this, deleting a user scans this table, and so does the admin
+    // check, which asks whether this account has a Google row.
+    index('accounts_user_idx').on(t.userId),
+  ],
 )
 
-export const sessions = pgTable('sessions', {
-  sessionToken: text('session_token').primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  expires: timestamp('expires', { withTimezone: true }).notNull(),
-})
+export const sessions = pgTable(
+  'sessions',
+  {
+    sessionToken: text('session_token').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expires: timestamp('expires', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('sessions_user_idx').on(t.userId)],
+)
 
 export const verificationTokens = pgTable(
   'verification_tokens',
@@ -308,6 +318,7 @@ export const questions = pgTable(
   (t) => [
     index('questions_user_idx').on(t.userId),
     index('questions_worksheet_idx').on(t.worksheetId),
+    index('questions_page_idx').on(t.pageId),
     index('questions_content_hash_idx').on(t.userId, t.contentHash),
     index('questions_embedding_idx').using(
       'hnsw',
@@ -396,6 +407,10 @@ export const topicProposals = pgTable(
   },
   (t) => [
     index('topic_proposals_status_idx').on(t.status),
+    index('topic_proposals_source_question_idx').on(t.sourceQuestionId),
+    index('topic_proposals_user_idx').on(t.userId),
+    index('topic_proposals_suggested_parent_idx').on(t.suggestedParentId),
+    index('topic_proposals_merged_into_idx').on(t.mergedIntoTopicId),
     index('topic_proposals_embedding_idx').using(
       'hnsw',
       t.embedding.op('vector_cosine_ops'),
@@ -425,6 +440,11 @@ export const attempts = pgTable(
   (t) => [
     index('attempts_user_question_idx').on(t.userId, t.questionId),
     index('attempts_user_created_idx').on(t.userId, t.createdAt),
+    // On its own, not just behind user_id. The repair passes ask whether any
+    // attempt points at a question before deleting it, and the composite above
+    // cannot answer that without scanning.
+    index('attempts_question_idx').on(t.questionId),
+    index('attempts_choice_idx').on(t.selectedChoiceId),
   ],
 )
 
@@ -444,7 +464,10 @@ export const explanations = pgTable(
     reportedWrong: boolean('reported_wrong').default(false).notNull(),
     generatedAt: createdAt(),
   },
-  (t) => [index('explanations_question_idx').on(t.questionId)],
+  (t) => [
+    index('explanations_question_idx').on(t.questionId),
+    index('explanations_attempt_idx').on(t.attemptId),
+  ],
 )
 
 /**
@@ -488,6 +511,9 @@ export const reports = pgTable(
     // The admin page reads newest first and filters to the unresolved ones.
     index('reports_created_idx').on(t.createdAt),
     index('reports_worksheet_idx').on(t.worksheetId),
+    index('reports_user_idx').on(t.userId),
+    index('reports_question_idx').on(t.questionId),
+    index('reports_explanation_idx').on(t.explanationId),
   ],
 )
 
@@ -520,6 +546,10 @@ export const reviewCards = pgTable(
     unique('review_cards_user_question').on(t.userId, t.questionId),
 
     index('review_cards_user_due_idx').on(t.userId, t.dueAt),
+    // The unique above leads with user_id, so it cannot answer "does any card
+    // point at this question", which is what the repair passes ask before
+    // deleting one and what a cascade has to find.
+    index('review_cards_question_idx').on(t.questionId),
   ],
 )
 
@@ -571,6 +601,7 @@ export const processingJobs = pgTable(
     index('processing_jobs_claim_idx').on(t.status, t.executor, t.priority, t.createdAt),
     index('processing_jobs_worksheet_idx').on(t.worksheetId),
     index('processing_jobs_user_idx').on(t.userId),
+    index('processing_jobs_claimed_by_idx').on(t.claimedBy),
   ],
 )
 
@@ -602,7 +633,10 @@ export const usageEvents = pgTable(
     jobId: text('job_id').references(() => processingJobs.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },
-  (t) => [index('usage_events_user_kind_idx').on(t.userId, t.kind, t.createdAt)],
+  (t) => [
+    index('usage_events_user_kind_idx').on(t.userId, t.kind, t.createdAt),
+    index('usage_events_job_idx').on(t.jobId),
+  ],
 )
 
 /**

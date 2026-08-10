@@ -50,6 +50,13 @@
       "when": 1786212008702,
       "tag": "0006_new_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786332860180,
+      "tag": "0007_secret_king_bedlam",
+      "breakpoints": true
     }
   ]
 }
