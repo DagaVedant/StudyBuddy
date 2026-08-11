@@ -1,0 +1,332 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+/**
+ * Every route, asked the one question that matters most: what does it do for a
+ * caller who has not authenticated?
+ *
+ * There are twenty-nine of them and there was no test that held any of them to
+ * refusing. That is the wrong shape for a surface where one missed gate is
+ * somebody else's worksheets, so this covers all of them at once and, more
+ * usefully, fails when a new one is added without a gate.
+ *
+ * Two claims per handler. It must not answer 2xx, and it must not write. The
+ * second is the one that catches the interesting mistake: a route that reads
+ * the body, does the work, and only then decides the caller was not allowed.
+ */
+
+const state = vi.hoisted(() => ({
+  /** Anything that would have written. Must stay empty for every case here. */
+  writes: [] as string[],
+}))
+
+vi.mock('@/auth', () => ({
+  // No session. The whole point.
+  auth: async () => null,
+  signOut: async () => {},
+}))
+
+vi.mock('@/lib/db', () => {
+  const chain: Record<string, unknown> = {
+    then: (onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
+      Promise.resolve([]).then(onOk, onErr),
+  }
+  for (const method of [
+    'from',
+    'where',
+    'limit',
+    'offset',
+    'orderBy',
+    'groupBy',
+    'innerJoin',
+    'leftJoin',
+    'set',
+    'values',
+    'returning',
+    'onConflictDoUpdate',
+    'onConflictDoNothing',
+  ]) {
+    chain[method] = () => chain
+  }
+
+  const record = (name: string) => () => {
+    state.writes.push(name)
+    return chain
+  }
+
+  return {
+    db: {
+      select: () => chain,
+      execute: async () => [],
+      insert: record('insert'),
+      update: record('update'),
+      delete: record('delete'),
+      transaction: async () => {
+        state.writes.push('transaction')
+      },
+    },
+    schema: {},
+  }
+})
+
+vi.mock('@/lib/storage', () => ({
+  storage: {
+    put: async () => state.writes.push('storage.put'),
+    remove: async () => state.writes.push('storage.remove'),
+    get: async () => null,
+    getStream: async () => null,
+  },
+  pageImageKey: () => 'pages/ws-1/001.webp',
+}))
+
+const account = await import('@/app/api/account/route')
+const explain = await import('@/app/api/explain/route')
+const blooket = await import('@/app/api/export/blooket/route')
+const blooketOne = await import('@/app/api/export/blooket/[worksheetId]/route')
+const files = await import('@/app/api/files/[...key]/route')
+const question = await import('@/app/api/questions/[questionId]/route')
+const reports = await import('@/app/api/reports/route')
+const rate = await import('@/app/api/review/rate/route')
+const retire = await import('@/app/api/review/retire/route')
+const credentials = await import('@/app/api/settings/credentials/route')
+const adminAccount = await import('@/app/api/test/admin-account/route')
+const trialUsed = await import('@/app/api/test/trial-worksheets-used/route')
+const workerClaim = await import('@/app/api/worker/claim/route')
+const workerClassify = await import('@/app/api/worker/classify/[worksheetId]/route')
+const workerShortlist = await import(
+  '@/app/api/worker/classify/[worksheetId]/shortlist/route'
+)
+const workerCoverage = await import('@/app/api/worker/coverage/[worksheetId]/route')
+const workerExplain = await import('@/app/api/worker/explain/[jobId]/route')
+const workerHeartbeat = await import('@/app/api/worker/heartbeat/route')
+const workerJob = await import('@/app/api/worker/jobs/[jobId]/route')
+const workerPage = await import('@/app/api/worker/pages/[pageId]/route')
+const workerQuestions = await import('@/app/api/worker/questions/[worksheetId]/route')
+const worksheets = await import('@/app/api/worksheets/route')
+const worksheet = await import('@/app/api/worksheets/[id]/route')
+const attempts = await import('@/app/api/worksheets/[id]/attempts/route')
+const complete = await import('@/app/api/worksheets/[id]/complete/route')
+const confirm = await import('@/app/api/worksheets/[id]/confirm/route')
+const pages = await import('@/app/api/worksheets/[id]/pages/route')
+const questions = await import('@/app/api/worksheets/[id]/questions/route')
+const verifyAll = await import('@/app/api/worksheets/[id]/verify-all/route')
+
+type Handler = (request: Request, context: never) => Promise<Response>
+
+function request(url = 'https://studybuddy.test/api/x', method = 'POST'): Request {
+  return new Request(url, {
+    method,
+    ...(method === 'GET' || method === 'DELETE'
+      ? {}
+      : { headers: { 'Content-Type': 'application/json' }, body: '{}' }),
+  })
+}
+
+const id = (value: Record<string, string>) =>
+  ({ params: Promise.resolve(value) }) as never
+
+const WS = id({ id: 'ws-1', worksheetId: 'ws-1' })
+
+/** name, handler, verb, context */
+const ROUTES: [string, Handler, string, never][] = [
+  ['DELETE /api/account', account.DELETE as Handler, 'DELETE', undefined as never],
+  ['GET /api/explain', explain.GET as Handler, 'GET', undefined as never],
+  ['POST /api/explain', explain.POST as Handler, 'POST', undefined as never],
+  ['GET /api/export/blooket', blooket.GET as Handler, 'GET', undefined as never],
+  ['GET /api/export/blooket/[id]', blooketOne.GET as Handler, 'GET', WS],
+  ['GET /api/files/[...key]', files.GET as Handler, 'GET', id({ key: 'x' })],
+  [
+    'PATCH /api/questions/[id]',
+    question.PATCH as Handler,
+    'PATCH',
+    id({ questionId: 'q-1' }),
+  ],
+  [
+    'DELETE /api/questions/[id]',
+    question.DELETE as Handler,
+    'DELETE',
+    id({ questionId: 'q-1' }),
+  ],
+  ['POST /api/reports', reports.POST as Handler, 'POST', undefined as never],
+  ['POST /api/review/rate', rate.POST as Handler, 'POST', undefined as never],
+  ['POST /api/review/retire', retire.POST as Handler, 'POST', undefined as never],
+  ['GET /api/settings/credentials', credentials.GET as Handler, 'GET', undefined as never],
+  [
+    'POST /api/settings/credentials',
+    credentials.POST as Handler,
+    'POST',
+    undefined as never,
+  ],
+  [
+    'DELETE /api/settings/credentials',
+    credentials.DELETE as Handler,
+    'DELETE',
+    undefined as never,
+  ],
+  ['POST /api/worksheets', worksheets.POST as Handler, 'POST', undefined as never],
+  ['GET /api/worksheets', worksheets.GET as Handler, 'GET', undefined as never],
+  ['DELETE /api/worksheets/[id]', worksheet.DELETE as Handler, 'DELETE', WS],
+  ['POST /api/worksheets/[id]/attempts', attempts.POST as Handler, 'POST', WS],
+  ['POST /api/worksheets/[id]/complete', complete.POST as Handler, 'POST', WS],
+  ['POST /api/worksheets/[id]/confirm', confirm.POST as Handler, 'POST', WS],
+  ['POST /api/worksheets/[id]/pages', pages.POST as Handler, 'POST', WS],
+  ['PATCH /api/worksheets/[id]/pages', pages.PATCH as Handler, 'PATCH', WS],
+  ['GET /api/worksheets/[id]/questions', questions.GET as Handler, 'GET', WS],
+  ['POST /api/worksheets/[id]/questions', questions.POST as Handler, 'POST', WS],
+  ['POST /api/worksheets/[id]/verify-all', verifyAll.POST as Handler, 'POST', WS],
+]
+
+const WORKER_ROUTES: [string, Handler, string, never][] = [
+  ['POST /api/worker/claim', workerClaim.POST as Handler, 'POST', undefined as never],
+  ['GET /api/worker/classify/[id]', workerClassify.GET as Handler, 'GET', WS],
+  ['POST /api/worker/classify/[id]', workerClassify.POST as Handler, 'POST', WS],
+  [
+    'POST /api/worker/classify/[id]/shortlist',
+    workerShortlist.POST as Handler,
+    'POST',
+    WS,
+  ],
+  ['GET /api/worker/coverage/[id]', workerCoverage.GET as Handler, 'GET', WS],
+  [
+    'GET /api/worker/explain/[jobId]',
+    workerExplain.GET as Handler,
+    'GET',
+    id({ jobId: 'j-1' }),
+  ],
+  [
+    'POST /api/worker/heartbeat',
+    workerHeartbeat.POST as Handler,
+    'POST',
+    undefined as never,
+  ],
+  ['POST /api/worker/jobs/[jobId]', workerJob.POST as Handler, 'POST', id({ jobId: 'j-1' })],
+  [
+    'GET /api/worker/pages/[pageId]',
+    workerPage.GET as Handler,
+    'GET',
+    id({ pageId: 'p-1' }),
+  ],
+  ['GET /api/worker/questions/[id]', workerQuestions.GET as Handler, 'GET', WS],
+]
+
+const TEST_ROUTES: [string, Handler, string, never][] = [
+  [
+    'POST /api/test/admin-account',
+    adminAccount.POST as Handler,
+    'POST',
+    undefined as never,
+  ],
+  [
+    'POST /api/test/trial-worksheets-used',
+    trialUsed.POST as Handler,
+    'POST',
+    undefined as never,
+  ],
+]
+
+const original = { ...process.env }
+
+beforeEach(() => {
+  state.writes.length = 0
+})
+
+afterEach(() => {
+  process.env = { ...original }
+})
+
+describe('a caller with no session', () => {
+  it.each(ROUTES)('is refused by %s', async (_name, handler, verb, context) => {
+    const response = await handler(request('https://studybuddy.test/api/x', verb), context)
+
+    expect(response.status).toBe(401)
+    expect(state.writes).toEqual([])
+  })
+
+  it('is asked about by every route in the tree', () => {
+    // The list above is hand-written, so this is what stops a route being added
+    // without one. 25 student handlers across 18 route files.
+    expect(ROUTES).toHaveLength(25)
+  })
+})
+
+describe('a caller with no worker credential', () => {
+  it.each(WORKER_ROUTES)('is refused by %s', async (_name, handler, verb, context) => {
+    process.env.WORKER_API_TOKEN = 'the-real-token'
+
+    const response = await handler(request('https://studybuddy.test/api/x', verb), context)
+
+    expect(response.status).toBe(401)
+    expect(state.writes).toEqual([])
+  })
+
+  it.each(WORKER_ROUTES)(
+    '%s is refused a wrong token rather than crashing on it',
+    async (_name, handler, verb, context) => {
+      process.env.WORKER_API_TOKEN = 'the-real-token'
+
+      const wrong = new Request('https://studybuddy.test/api/x', {
+        method: verb,
+        headers: {
+          authorization: 'Bearer x',
+          ...(verb === 'GET' ? {} : { 'Content-Type': 'application/json' }),
+        },
+        ...(verb === 'GET' ? {} : { body: '{}' }),
+      })
+
+      const response = await handler(wrong, context)
+
+      expect(response.status).toBe(401)
+      expect(state.writes).toEqual([])
+    },
+  )
+
+  /**
+   * A worker route reached on a deployment with no token configured must refuse
+   * rather than wave everything through, which is what an `if (expected &&
+   * ...)` shaped check would do.
+   */
+  it.each(WORKER_ROUTES)(
+    '%s refuses when no token is configured at all',
+    async (_name, handler, verb, context) => {
+      delete process.env.WORKER_API_TOKEN
+
+      const response = await handler(
+        request('https://studybuddy.test/api/x', verb),
+        context,
+      )
+
+      expect(response.status).toBe(403)
+      expect(state.writes).toEqual([])
+    },
+  )
+})
+
+/**
+ * These two create an admin account and rewrite trial usage. They exist for the
+ * e2e suite and are gated on an opt-in flag, not on NODE_ENV, because that
+ * suite runs a production build. 404 rather than 403, so a deployment does not
+ * advertise that they are there.
+ */
+describe('the test-only endpoints', () => {
+  it.each(TEST_ROUTES)('%s is not there unless opted in', async (_name, handler, verb) => {
+    delete process.env.ENABLE_TEST_ENDPOINTS
+
+    const response = await handler(
+      request('https://studybuddy.test/api/x', verb),
+      undefined as never,
+    )
+
+    expect(response.status).toBe(404)
+    expect(state.writes).toEqual([])
+  })
+
+  it.each(TEST_ROUTES)('%s is not opened by a truthy-ish value', async (_name, handler, verb) => {
+    process.env.ENABLE_TEST_ENDPOINTS = '1'
+
+    const response = await handler(
+      request('https://studybuddy.test/api/x', verb),
+      undefined as never,
+    )
+
+    expect(response.status).toBe(404)
+  })
+})

@@ -10,15 +10,29 @@ import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'
 
 type Params = { params: Promise<{ questionId: string }> }
 
+type Ownership =
+  | { ok: true; userId: string; worksheetId: string }
+  | { ok: false; status: 401 | 404 }
+
 /**
- * The question's owner and the worksheet it belongs to, or null.
+ * The question's owner and the worksheet it belongs to.
  *
  * The worksheet id comes back because `pageId` has to be checked against it: a
  * page from another worksheet is a valid foreign key and still the wrong page.
+ *
+ * 404 for a question that is not yours, deliberately, and the same 404 for one
+ * that does not exist: telling the two apart turns an id into a probe.
+ *
+ * 401 is separate, and used to be folded into that 404. It is not an ownership
+ * answer. `fetchJson` navigates to the sign-in page on a 401 and carries the
+ * student back afterwards, so collapsing it meant a tab whose session had
+ * expired mid-edit reported "Not found" and lost what they had typed, with no
+ * way forward. That is the same failure the 401 handling in `fetchJson` was
+ * written for; this route was the one that could not produce one.
  */
-async function ownsQuestion(questionId: string) {
+async function ownsQuestion(questionId: string): Promise<Ownership> {
   const session = await auth()
-  if (!session?.user?.id) return null
+  if (!session?.user?.id) return { ok: false, status: 401 }
 
   const [row] = await db
     .select({ userId: questions.userId, worksheetId: questions.worksheetId })
@@ -26,16 +40,19 @@ async function ownsQuestion(questionId: string) {
     .where(eq(questions.id, questionId))
     .limit(1)
 
-  if (!row || row.userId !== session.user.id) return null
-  return { userId: session.user.id, worksheetId: row.worksheetId }
+  if (!row || row.userId !== session.user.id) return { ok: false, status: 404 }
+  return { ok: true, userId: session.user.id, worksheetId: row.worksheetId }
 }
 
 export async function PATCH(request: Request, { params }: Params) {
   const { questionId } = await params
 
   const owner = await ownsQuestion(questionId)
-  if (!owner) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!owner.ok) {
+    return NextResponse.json(
+      { error: owner.status === 401 ? 'Unauthorized' : 'Not found' },
+      { status: owner.status },
+    )
   }
 
   // Caught to null rather than {}, because every field here is optional and {}
@@ -141,8 +158,12 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   const { questionId } = await params
 
-  if (!(await ownsQuestion(questionId))) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const owner = await ownsQuestion(questionId)
+  if (!owner.ok) {
+    return NextResponse.json(
+      { error: owner.status === 401 ? 'Unauthorized' : 'Not found' },
+      { status: owner.status },
+    )
   }
 
   await db.delete(questions).where(eq(questions.id, questionId))
