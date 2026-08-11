@@ -2,9 +2,9 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
 
 import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
+import { openDatabase } from './db'
 
 async function main() {
   // The first argument that is not a flag, so `reset-trial --yes bob@x` does
@@ -15,7 +15,7 @@ async function main() {
 
   requireLocalDb()
 
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   // Read the counters first so the prompt can show what is being thrown away.
   // An email is one account rather than a wildcard, but it is still somebody

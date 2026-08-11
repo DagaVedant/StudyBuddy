@@ -29,7 +29,6 @@ config({ path: '.env.local' })
 
 import { and, asc, eq, isNotNull, like, notInArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 
 import { answerChoices, questions, worksheetPages, worksheets } from '../lib/db/schema'
 import type { Db } from '../lib/db/types'
@@ -38,6 +37,7 @@ import { questionsOnPage } from '../lib/questions/page-options'
 import { hashQuestion, normalizeChoiceLabel } from '../lib/questions/shape'
 import { runRepairPasses } from '../lib/worker/pipeline'
 import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
+import { connect } from './db'
 
 /**
  * How alike the stored prompt and the printed one must be.
@@ -178,7 +178,7 @@ async function main() {
   // insert: it rewrites questionType and then runs two repair passes.
   if (apply) requireLocalDb()
 
-  const sql = postgres(url, { max: 1, prepare: false })
+  const sql = connect(url)
   const db = drizzle(sql) as unknown as Db
 
   const { fixes, skips } = await plan(db, prefix)

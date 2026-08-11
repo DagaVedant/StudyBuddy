@@ -23,12 +23,12 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 
 import { TOPIC_LABELS } from './topic-labels'
 import { SHORTLIST_SIZE, shortlistByVector } from '../lib/classify'
 import type { Db } from '../lib/db/types'
 import { embed } from '../lib/embeddings'
+import { connect } from './db'
 
 const AT = [1, 3, 5, 10, 15, 20, 25, 30, 40, 50]
 
@@ -41,7 +41,7 @@ async function main() {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set.')
 
-  const sql = postgres(url, { max: 1, prepare: false })
+  const sql = connect(url)
   const db = drizzle(sql) as unknown as Db
 
   const limit = Number(arg('limit') ?? SHORTLIST_SIZE)

@@ -2,7 +2,7 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
+import { openDatabase } from './db'
 
 async function main() {
   const [prefix, ...pages] = process.argv.slice(2)
@@ -10,7 +10,7 @@ async function main() {
     throw new Error('Usage: npx tsx scripts/peek-page.ts <title prefix> <page>...')
   }
 
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   const [worksheet] = await sql`
     select id, title from worksheets

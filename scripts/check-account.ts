@@ -1,11 +1,11 @@
 import { config } from 'dotenv'
+import { openDatabase } from './db'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
 
 async function main() {
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   const rows = await sql`
     select email, role, email_verified is not null as verified,

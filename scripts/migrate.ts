@@ -4,7 +4,7 @@ config({ path: '.env.local' })
 
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import postgres from 'postgres'
+import { connect } from './db'
 
 async function main() {
   // The end-to-end suite points DATABASE_URL at a PGlite socket that is not
@@ -51,7 +51,7 @@ async function main() {
   // prepare: false because .env.example recommends a pooled connection string,
   // against which prepared statements fail, and this is one of the two commands
   // the README tells every new user to run.
-  const sql = postgres(url, { max: 1, prepare: false })
+  const sql = connect(url)
 
   await sql`CREATE EXTENSION IF NOT EXISTS vector`
 

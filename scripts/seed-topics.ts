@@ -4,13 +4,13 @@ config({ path: '.env.local' })
 
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 
 import * as schema from '../lib/db/schema'
 import { topics } from '../lib/db/schema'
 import type { Db } from '../lib/db/types'
 import { demoteParentsWithChildren } from '../lib/taxonomy/leaves'
 import { flattenTaxonomy } from '../lib/taxonomy/trees'
+import { connect } from './db'
 
 const dryRun = process.argv.includes('--dry-run')
 
@@ -45,7 +45,7 @@ async function main() {
   // prepare: false: .env.example recommends a pooled connection string, and
   // prepared statements fail against one. This is one of the two commands the
   // README tells every new user to run.
-  const sql = postgres(url, { max: 1, prepare: false })
+  const sql = connect(url)
   const db = drizzle(sql, { schema }) as unknown as Db
 
   // Parents must exist before children can reference them.

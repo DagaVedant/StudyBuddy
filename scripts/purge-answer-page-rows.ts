@@ -28,10 +28,10 @@ config({ path: '.env.local' })
 
 import { writeFile } from 'node:fs/promises'
 
-import postgres from 'postgres'
 
 import { isAnswerPage } from '../lib/questions/answer-key'
 import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
+import { connect } from './db'
 
 interface Candidate {
   worksheetId: string
@@ -70,7 +70,7 @@ async function main() {
   // the operator has just read and agreed with.
   if (apply) requireLocalDb()
 
-  const sql = postgres(url, { max: 1, prepare: false })
+  const sql = connect(url)
 
   const pages = await sql<
     {

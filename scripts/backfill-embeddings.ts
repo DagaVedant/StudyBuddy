@@ -4,11 +4,11 @@ config({ path: '.env.local' })
 
 import { and, eq, isNull, ne } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 
 import { questions, topics } from '../lib/db/schema'
 import { embed } from '../lib/embeddings'
 import { flattenTaxonomy } from '../lib/taxonomy/trees'
+import { connect } from './db'
 
 type Db = ReturnType<typeof drizzle>
 
@@ -108,7 +108,7 @@ async function main() {
 
   // prepare: false: .env.example recommends a pooled connection string, and
   // prepared statements fail against one.
-  const sql = postgres(url, { max: 1, prepare: false })
+  const sql = connect(url)
   const db = drizzle(sql)
 
   console.log('Model: all-MiniLM-L6-v2 (384d)')

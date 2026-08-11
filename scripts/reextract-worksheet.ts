@@ -2,8 +2,8 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
 import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
+import { openDatabase } from './db'
 
 /**
  * Throws away a worksheet's questions and queues a fresh extract.
@@ -51,7 +51,7 @@ async function main() {
 
   requireLocalDb()
 
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   // Everything the delete reaches, counted before it runs. The counts are the
   // only way to tell the worksheet you meant from one that shares its title:

@@ -31,13 +31,13 @@ import { pathToFileURL } from 'node:url'
 
 import { eq, inArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 
 import { answerChoices, questions, worksheetPages, worksheets } from '../lib/db/schema'
 import type { Db } from '../lib/db/types'
 import { isAnswerPage, mergeAnswerKeys, parseAnswerKey } from '../lib/questions/answer-key'
 import { questionNumbersOn } from '../lib/questions/page-text'
 import { normalizeChoiceLabel } from '../lib/questions/shape'
+import { connect } from './db'
 
 /**
  * PDFs whose filename is not the worksheet title they were stored under.
@@ -369,7 +369,7 @@ async function main() {
     return
   }
 
-  const sql = postgres(url, { max: 1, prepare: false })
+  const sql = connect(url)
   const db = drizzle(sql) as unknown as Db
 
   const titles = new Set(

@@ -2,7 +2,6 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local', quiet: true })
 
-import postgres from 'postgres'
 
 import {
   planNumberDuplicateMerges,
@@ -11,7 +10,8 @@ import {
 } from '../lib/questions/duplicates-plan'
 import { normalizeForCompare } from '../lib/questions/shape'
 
-import { databaseHost, isLocalDatabaseUrl } from './_confirm'
+import { databaseHost } from './_confirm'
+import { connect } from './db'
 
 /**
  * What the printed-number merge would fold under each candidate rule.
@@ -71,11 +71,7 @@ async function main() {
 
   const prefix = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? ''
 
-  const sql = postgres(url, {
-    max: 1,
-    prepare: false,
-    ssl: isLocalDatabaseUrl(url) ? false : 'require',
-  })
+  const sql = connect(url)
 
   console.log(`Reading ${databaseHost(url)}, titles "${prefix || '(all)'}"\n`)
 

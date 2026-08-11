@@ -1,8 +1,8 @@
 import { config } from 'dotenv'
+import { openDatabase } from './db'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
 
 async function main() {
   const prefix = process.argv[2]
@@ -10,7 +10,7 @@ async function main() {
     throw new Error('Usage: npx tsx scripts/tally-questions.ts <title prefix>')
   }
 
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   const [worksheet] = await sql`
     select id, title, page_count from worksheets

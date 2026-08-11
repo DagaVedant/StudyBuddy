@@ -2,9 +2,9 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
 
 import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
+import { openDatabase } from './db'
 
 async function main() {
   // `--yes` belongs to confirmDestructive, so it is skipped when looking for
@@ -15,7 +15,7 @@ async function main() {
 
   requireLocalDb()
 
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   const stranded = await sql<
     { id: string; title: string; user_id: string; email: string; pages: number }[]

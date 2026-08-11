@@ -2,9 +2,9 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
 
 import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
+import { openDatabase } from './db'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -29,7 +29,7 @@ async function main() {
 
   requireLocalDb()
 
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   const [sheet] = await sql<
     {

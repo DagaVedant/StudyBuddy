@@ -2,13 +2,13 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
+import { openDatabase } from './db'
 
 async function main() {
   const target = process.argv[2]
   if (!target) throw new Error('Usage: npx tsx scripts/check-worksheet-attempts.ts <title>')
 
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   const rows = await sql`
     select w.id, w.title,

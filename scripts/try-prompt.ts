@@ -2,12 +2,12 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
 import sharp from 'sharp'
 
 import { EXTRACTION_JSON_SCHEMA, EXTRACTION_SYSTEM, extractionUserText } from '../lib/ai/prompts'
 import { parseExtraction } from '../lib/ai/types'
 import { storage } from '../lib/storage'
+import { openDatabase } from './db'
 
 const BASE = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
 const MODEL = process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b'
@@ -18,7 +18,7 @@ async function main() {
     throw new Error('Usage: npx tsx scripts/try-prompt.ts <title prefix> <page>...')
   }
 
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   const [worksheet] = await sql`
     select id from worksheets where title like ${`${prefix}%`}

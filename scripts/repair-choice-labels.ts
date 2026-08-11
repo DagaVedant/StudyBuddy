@@ -4,11 +4,11 @@ config({ path: '.env.local' })
 
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 
 import { answerChoices, questions, worksheets } from '../lib/db/schema'
 import { normalizeChoiceLabel } from '../lib/questions/shape'
 import { requireLocalDb } from './_confirm'
+import { connect } from './db'
 
 /**
  * Rewrites option labels that arrived with the option stuck to them.
@@ -35,7 +35,7 @@ async function main() {
   // form has no title filter at all: it rewrites labels on every account.
   if (write) requireLocalDb()
 
-  const sql = postgres(url, { max: 1, prepare: false })
+  const sql = connect(url)
   const db = drizzle(sql)
 
   const rows = await db

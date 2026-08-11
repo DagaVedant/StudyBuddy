@@ -2,10 +2,10 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import postgres from 'postgres'
+import { openDatabase } from './db'
 
 async function main() {
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false })
+  const sql = openDatabase()
 
   const [{ total }] = await sql<{ total: number }[]>`
     select count(*)::int as total from questions

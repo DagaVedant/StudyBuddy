@@ -3,12 +3,12 @@ import { config } from 'dotenv'
 config({ path: '.env.local', quiet: true })
 
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 
 import { looksUnrendered } from '../lib/questions/math'
 import type { Db } from '../lib/db/types'
 import { runRepairPasses } from '../lib/worker/pipeline'
-import { confirmDestructive, databaseHost, isLocalDatabaseUrl, requireLocalDb } from './_confirm'
+import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
+import { connect } from './db'
 
 /**
  * Checks recently extracted worksheets for everything known to go wrong.
@@ -100,11 +100,7 @@ async function main() {
   // not reach a local Postgres at all, which is the only database the repair
   // path will now write to. `prepare: false` is for the pooled connection
   // string in .env.example, which cannot hold prepared statements.
-  const sql = postgres(url, {
-    max: 1,
-    prepare: false,
-    ssl: isLocalDatabaseUrl(url) ? false : 'require',
-  })
+  const sql = connect(url)
   // renumberQuestions uses the query builder, so it needs a real Drizzle
   // handle rather than the raw client the reporting queries use.
   const orm = drizzle(sql) as unknown as Db
