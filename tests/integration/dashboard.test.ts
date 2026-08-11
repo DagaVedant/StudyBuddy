@@ -130,19 +130,20 @@ describe('getOverview', () => {
   })
 
   /**
-   * The two sit side by side on the dashboard. Unbounded below, every overdue
-   * card was in both, so a student with forty overdue and nothing new saw the
-   * same number twice and read the second tile as more work waiting.
+   * The two tiles describe the review queue, which is the same set the review
+   * tab draws from, so a student cannot read one number on the dashboard and
+   * find a different one behind the link.
    */
-  it('counts the week ahead without recounting what is already due', async () => {
+  it('counts the review queue, and the slice of it due today', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
 
     const day = 24 * 3600_000
-    const dueAt = [-3 * day, -day, 2 * day, 5 * day, 30 * day]
 
-    for (const offset of dueAt) {
+    // Two overdue, two ahead: all four are in the queue, two are due today.
+    for (const offset of [-3 * day, -day, 2 * day, 30 * day]) {
       const q = await makeQuestion(db, userId, worksheetId)
+      await makeAttempt(db, userId, q.id, 'wrong')
       await db.insert(reviewCards).values({
         userId,
         questionId: q.id,
@@ -152,10 +153,34 @@ describe('getOverview', () => {
       })
     }
 
+    // Markup writes a card for every question on the paper, including the ones
+    // the student got right. Those were never what this screen is about.
+    const known = await makeQuestion(db, userId, worksheetId)
+    await makeAttempt(db, userId, known.id, 'correct')
+    await db.insert(reviewCards).values({
+      userId,
+      questionId: known.id,
+      dueAt: new Date(Date.now() - day),
+      stability: 1,
+      difficulty: 5,
+    })
+
+    // And one the student has said they have.
+    const mastered = await makeQuestion(db, userId, worksheetId)
+    await makeAttempt(db, userId, mastered.id, 'wrong')
+    await db.insert(reviewCards).values({
+      userId,
+      questionId: mastered.id,
+      dueAt: new Date(Date.now() - day),
+      stability: 1,
+      difficulty: 5,
+      retiredAt: new Date(),
+    })
+
     const overview = await getOverview(db as Db, userId)
 
+    expect(overview.toPractise).toBe(4)
     expect(overview.dueNow).toBe(2)
-    expect(overview.dueThisWeek).toBe(2)
   })
 })
 

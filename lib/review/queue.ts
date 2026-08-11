@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
 import { CHOICE_ORDER } from '@/lib/questions/choice-order'
@@ -12,6 +12,51 @@ import {
   questionTopics,
 } from '@/lib/db/schema'
 import { formatInterval, previewIntervals, type ReviewRating } from '@/lib/review/fsrs'
+
+/**
+ * The cards the review tab draws from: still wanted, not retired.
+ *
+ * "Ever wrong or guessed" is the same test the Blooket export applies, and the
+ * two are meant to describe the same set of questions minus whatever the
+ * student has said they have. A guess is a question answered by luck, so it
+ * belongs here for the same reason a miss does.
+ *
+ * `exists` rather than a join: a question carries one attempt from markup and
+ * another from every review sitting, so joining would return the card once per
+ * time it was answered.
+ */
+export function inReviewQueue(userId: string, now: Date = new Date()) {
+  return and(
+    isNull(reviewCards.retiredAt),
+    // Never practised here, or practised and due again.
+    //
+    // The first half is what makes the tab a complete list of what you got
+    // wrong: a question is available the moment it is marked, rather than
+    // waiting out whatever interval ts-fsrs picked from the mark. The second is
+    // what lets a sitting finish, since a card you have just answered goes back
+    // on the schedule instead of coming round again.
+    //
+    // "Practised here" is an attempt written by the review screen. `lastReview`
+    // cannot answer this and neither can `review_logs`: marking a worksheet
+    // writes both, so every card would look practised the moment it was
+    // created, which is the behaviour this replaced.
+    or(
+      sql`not exists (
+        select 1 from ${attempts}
+        where ${attempts.questionId} = ${reviewCards.questionId}
+          and ${attempts.userId} = ${userId}
+          and ${attempts.source} = 'review'
+      )`,
+      lte(reviewCards.dueAt, now),
+    ),
+    sql`exists (
+      select 1 from ${attempts}
+      where ${attempts.questionId} = ${reviewCards.questionId}
+        and ${attempts.userId} = ${userId}
+        and ${attempts.outcome} in ('wrong', 'unsure')
+    )`,
+  )
+}
 
 export interface ReviewChoice {
   id: string
@@ -42,6 +87,26 @@ export interface ReviewItem {
   intervals: Record<ReviewRating, string>
 }
 
+/**
+ * Everything still worth practising, most overdue first.
+ *
+ * A question you have never practised is here from the moment it is marked
+ * wrong, rather than waiting out whatever interval ts-fsrs picked: hiding it
+ * for three days left the review tab empty on an evening a student sat down
+ * specifically to work through their mistakes. Once it has been practised it
+ * goes on the schedule like anything else, which is what lets a sitting finish
+ * instead of dealing the same card round after round.
+ *
+ * What takes a question out is the student saying so. `retiredAt` is set by the
+ * "Got it" button and is the only thing that removes a card from this list.
+ * The card is not deleted and the attempts behind it are untouched, so the
+ * question still counts as one they got wrong on the worksheet card, on the
+ * topic page and in the Blooket export.
+ *
+ * A card whose question was only ever answered correctly is not in here at all:
+ * markup writes a card for every question on the paper, including the ones the
+ * student got right, and those were never the point of this screen.
+ */
 export async function getDueCards(
   db: Db,
   userId: string,
@@ -69,7 +134,7 @@ export async function getDueCards(
     })
     .from(reviewCards)
     .innerJoin(questions, eq(questions.id, reviewCards.questionId))
-    .where(and(eq(reviewCards.userId, userId), lte(reviewCards.dueAt, now)))
+    .where(and(eq(reviewCards.userId, userId), inReviewQueue(userId, now)))
     .orderBy(asc(reviewCards.dueAt))
     .limit(limit)
 

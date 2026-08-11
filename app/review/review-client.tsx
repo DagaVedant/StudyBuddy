@@ -247,6 +247,55 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
     }
   }, [currentQuestionId])
 
+  /**
+   * Move past the card just dealt with.
+   *
+   * The last one in the batch refreshes rather than advancing, because the
+   * queue is a server render: what comes next is whatever is still unretired
+   * and unanswered, and the client has no way to know that itself.
+   */
+  const advance = useCallback(() => {
+    setDone((count) => count + 1)
+
+    if (index + 1 >= items.length) {
+      setRefreshing(true)
+      router.refresh()
+      setIndex(items.length)
+    } else {
+      setIndex((current) => current + 1)
+      setRevealed(false)
+    }
+  }, [index, items.length, router])
+
+  /**
+   * "Got it": take this question out of the queue for good.
+   *
+   * Not a rating. Rating it "easy" pushes it a few months out and it comes
+   * back, which is the thing a student is trying to escape when they say they
+   * have this one. The question stays wrong everywhere it is counted as wrong;
+   * only the queue lets go of it.
+   */
+  const retire = useCallback(async () => {
+    if (!item || busy) return
+    setBusy(true)
+    setError(null)
+
+    try {
+      const response = await fetchJson('/api/review/retire', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardId: item.cardId }),
+      })
+      if (!response.ok) throw new Error('Could not put that one away')
+
+      advance()
+    } catch {
+      setError('Could not put that one away. Check your connection and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }, [item, busy, advance])
+
   const rate = useCallback(
     async (rating: Rating) => {
       if (!item || busy) return
@@ -261,23 +310,14 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
         })
         if (!response.ok) throw new Error('Could not save that rating')
 
-        setDone((count) => count + 1)
-
-        if (index + 1 >= items.length) {
-          setRefreshing(true)
-          router.refresh()
-          setIndex(items.length)
-        } else {
-          setIndex((current) => current + 1)
-          setRevealed(false)
-        }
+        advance()
       } catch {
         setError('Could not save that rating. Check your connection and try again.')
       } finally {
         setBusy(false)
       }
     },
-    [item, busy, index, items.length, router],
+    [item, busy, advance],
   )
 
   useEffect(() => {
@@ -523,6 +563,28 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
           <p className="hidden text-xs text-muted sm:mt-2 sm:block">
             Keys <kbd>1</kbd>–<kbd>4</kbd>, or <kbd>Space</kbd> to reveal
           </p>
+
+          {/*
+            The way out of the queue. Every question got wrong stays in the
+            review tab until the student says otherwise, which is the point,
+            but it does mean there has to be an otherwise. Set apart from the
+            four ratings above because it is not one: those schedule, this
+            stops.
+          */}
+          <div className="mt-4 border-t border-border pt-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void retire()}
+              className="btn-compact rounded-xl px-1 text-sm text-muted underline underline-offset-2 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+            >
+              Got it, stop asking me this one
+            </button>
+            <p className="hint">
+              It stays counted as one you missed, and stays in your Blooket
+              export. It just leaves the practice queue.
+            </p>
+          </div>
         </div>
       )}
 

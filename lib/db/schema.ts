@@ -561,6 +561,16 @@ export const reviewCards = pgTable(
     state: cardState('state').default('new').notNull(),
     lastReview: timestamp('last_review', { withTimezone: true }),
 
+    /**
+     * When the student said they had this one, and stopped being asked.
+     *
+     * The card stays: the question is still one they got wrong, so it still
+     * counts on the worksheet card, on the topic page and in the Blooket
+     * export. This only takes it out of the queue. Answering it wrong again
+     * anywhere clears this and puts it back.
+     */
+    retiredAt: timestamp('retired_at', { withTimezone: true }),
+
     createdAt: createdAt(),
   },
   (t) => [

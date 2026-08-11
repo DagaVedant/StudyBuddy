@@ -1,10 +1,11 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { Db } from '@/lib/db/types'
-import { explanations, reviewCards } from '@/lib/db/schema'
+import { attempts, explanations, reviewCards } from '@/lib/db/schema'
 import { scheduleFromOutcome } from '@/lib/review/fsrs'
 import { getDueCards } from '@/lib/review/queue'
+import { countMissedQuestions, getMissedQuestions } from '@/lib/blooket/missed'
 
 import { createTestDb, type TestDb } from '../helpers/db'
 import {
@@ -32,11 +33,27 @@ afterAll(async () => {
   await close()
 })
 
+/**
+ * A card in the review queue, which means a question got wrong.
+ *
+ * The attempt is part of the setup rather than a detail each test repeats: the
+ * queue is defined as the questions a student got wrong or guessed, so a card
+ * with no wrong attempt behind it is not a state the app can reach.
+ */
 async function makeCard(
   userId: string,
   questionId: string,
   dueAt: Date,
+  outcome: 'wrong' | 'unsure' = 'wrong',
 ): Promise<string> {
+  const [existing] = await db
+    .select({ id: attempts.id })
+    .from(attempts)
+    .where(and(eq(attempts.userId, userId), eq(attempts.questionId, questionId)))
+    .limit(1)
+
+  if (!existing) await makeAttempt(db, userId, questionId, outcome)
+
   const card = scheduleFromOutcome(null, 'wrong').card
   const [row] = await db
     .insert(reviewCards)
@@ -46,7 +63,13 @@ async function makeCard(
 }
 
 describe('getDueCards', () => {
-  it('returns only cards that are actually due, most overdue first', async () => {
+  /**
+   * Most overdue first, but nothing is held back. Spaced repetition decides the
+   * order here; it stopped deciding what a student is allowed to see, because a
+   * question you got wrong is one you cannot do yet and hiding it for three days
+   * left the tab empty on the evening someone sat down to work through it.
+   */
+  it('returns every question still to practise, most overdue first', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
     const now = new Date()
@@ -61,7 +84,7 @@ describe('getDueCards', () => {
 
     const queue = await getDueCards(db as Db, userId, 20, now)
 
-    expect(queue.map((item) => item.questionId)).toEqual([overdue.id, soon.id])
+    expect(queue.map((item) => item.questionId)).toEqual([overdue.id, soon.id, future.id])
   })
 
   it('never returns another student’s cards', async () => {
@@ -187,5 +210,104 @@ describe('card uniqueness', () => {
       .from(reviewCards)
       .where(eq(reviewCards.questionId, question.id))
     expect(cards).toHaveLength(1)
+  })
+})
+
+/**
+ * The queue is every question got wrong or guessed, not only what the scheduler
+ * has got round to. Hiding a question for three days because ts-fsrs picked
+ * that interval left the tab empty on an evening a student sat down to work
+ * through their mistakes.
+ */
+describe('the review queue', () => {
+  it('holds a question that is not due yet', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const q = await makeQuestion(db, userId, worksheetId)
+
+    await makeAttempt(db, userId, q.id, 'wrong')
+    await makeCard(userId, q.id, new Date(Date.now() + 30 * 24 * 3600_000))
+
+    const queue = await getDueCards(db as Db, userId)
+
+    expect(queue.map((card) => card.questionId)).toContain(q.id)
+  })
+
+  it('holds a question that was guessed, not only ones got wrong', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const q = await makeQuestion(db, userId, worksheetId)
+
+    await makeAttempt(db, userId, q.id, 'unsure')
+    await makeCard(userId, q.id, new Date(Date.now() + 24 * 3600_000))
+
+    expect((await getDueCards(db as Db, userId)).map((c) => c.questionId)).toContain(q.id)
+  })
+
+  /**
+   * Markup writes a card for every question on the paper, including the ones
+   * the student got right, and those were never what this screen is about.
+   */
+  it('leaves out a question that was only ever answered correctly', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const q = await makeQuestion(db, userId, worksheetId)
+
+    await makeAttempt(db, userId, q.id, 'correct')
+    await makeCard(userId, q.id, new Date(Date.now() - 60_000))
+
+    expect((await getDueCards(db as Db, userId)).map((c) => c.questionId)).not.toContain(
+      q.id,
+    )
+  })
+
+  it('lets go of one the student has said they have', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const q = await makeQuestion(db, userId, worksheetId)
+
+    await makeAttempt(db, userId, q.id, 'wrong')
+    const cardId = await makeCard(userId, q.id, new Date(Date.now() - 60_000))
+
+    expect((await getDueCards(db as Db, userId)).map((c) => c.questionId)).toContain(q.id)
+
+    await db
+      .update(reviewCards)
+      .set({ retiredAt: new Date() })
+      .where(eq(reviewCards.id, cardId))
+
+    expect((await getDueCards(db as Db, userId)).map((c) => c.questionId)).not.toContain(
+      q.id,
+    )
+  })
+
+  /**
+   * The whole point of retiring rather than deleting: the question is still one
+   * they got wrong, so everything that counts wrong answers still counts it.
+   * The attempts are what those read, and retiring does not touch them.
+   */
+  it('keeps a retired question in the Blooket export', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const q = await makeQuestion(db, userId, worksheetId, {
+      promptText: 'What is the remainder when 7^100 is divided by 5?',
+      choices: [
+        { label: 'A', text: '1', isCorrect: true },
+        { label: 'B', text: '2', isCorrect: false },
+      ],
+    })
+
+    await makeAttempt(db, userId, q.id, 'wrong')
+    const cardId = await makeCard(userId, q.id, new Date(Date.now() - 60_000))
+    await db
+      .update(reviewCards)
+      .set({ retiredAt: new Date() })
+      .where(eq(reviewCards.id, cardId))
+
+    expect((await getDueCards(db as Db, userId)).map((c) => c.questionId)).not.toContain(
+      q.id,
+    )
+    expect((await getMissedQuestions(db as Db, userId)).map((e) => e.id)).toContain(q.id)
+    expect(await countMissedQuestions(db as Db, userId)).toBeGreaterThan(0)
   })
 })

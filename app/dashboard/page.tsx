@@ -129,12 +129,17 @@ export default async function DashboardPage() {
 
       <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Due now', value: overview.dueNow, href: '/review', tint: 'bg-tint-mint' },
-          // "Later this week" rather than "Due this week": the count is now
-          // cards becoming due in the next seven days, with the overdue ones
-          // left to the tile beside it. Under the old label and the old query
-          // the two tiles showed the same number and read as two piles of work.
-          { label: 'Later this week', value: overview.dueThisWeek, tint: 'bg-tint-peach' },
+          { label: 'Due today', value: overview.dueNow, href: '/review', tint: 'bg-tint-mint' },
+          // The whole queue, not a second slice of time. "Later this week"
+          // stopped meaning anything once the review tab stopped hiding what
+          // the scheduler had not got to yet: everything is available, and
+          // what this says is how much of it is left.
+          {
+            label: 'To practise',
+            value: overview.toPractise,
+            href: '/review',
+            tint: 'bg-tint-peach',
+          },
           {
             label: 'Questions tracked',
             value: overview.questionsTracked,

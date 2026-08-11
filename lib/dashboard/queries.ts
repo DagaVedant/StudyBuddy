@@ -1,7 +1,8 @@
-import { and, desc, eq, gt, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, lte, sql } from 'drizzle-orm'
 
 import { unwrapDriverRows as rows } from '@/lib/db/rows'
 import { IS_QUESTION } from '@/lib/questions/is-question'
+import { inReviewQueue } from '@/lib/review/queue'
 import {
   attempts,
   questionTopics,
@@ -52,15 +53,21 @@ export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[
 export interface Overview {
   questionsTracked: number
   worksheetsUploaded: number
+  /** In the queue and scheduled for today or earlier. */
   dueNow: number
-  /** Cards becoming due within seven days. Excludes {@link dueNow}. */
-  dueThisWeek: number
+  /**
+   * The whole review queue: every question got wrong or guessed that has not
+   * been retired with "Got it", whatever the scheduler says about it.
+   *
+   * This replaced a "due this week" count, which stopped meaning anything once
+   * the queue stopped hiding what was not due yet.
+   */
+  toPractise: number
   attemptsLogged: number
 }
 
 export async function getOverview(db: Db, userId: string): Promise<Overview> {
   const now = new Date()
-  const weekOut = new Date(now.getTime() + 7 * 24 * 3600_000)
 
   const [counts] = rows<{
     questions_tracked: number
@@ -79,32 +86,32 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
     `),
   )
 
+  // Both counts are over the review queue, which is the same set the review tab
+  // draws from, so the tiles and the tab cannot disagree. A card for a question
+  // the student got right is not in either: markup writes one for every
+  // question on the paper and those were never what this screen is about.
   const [dueNow] = await db
-    .select({ value: sql<number>`count(*)::int` })
-    .from(reviewCards)
-    .where(and(eq(reviewCards.userId, userId), lte(reviewCards.dueAt, now)))
-
-  // Strictly after now, so this and `dueNow` partition rather than nest. With
-  // no lower bound every overdue card was in both, and the two sit side by side
-  // on the dashboard: a student with 40 overdue and nothing new saw "Due now
-  // 40" beside "Due this week 40" and read the second as more work waiting.
-  const [dueWeek] = await db
     .select({ value: sql<number>`count(*)::int` })
     .from(reviewCards)
     .where(
       and(
         eq(reviewCards.userId, userId),
-        gt(reviewCards.dueAt, now),
-        lte(reviewCards.dueAt, weekOut),
+        inReviewQueue(userId),
+        lte(reviewCards.dueAt, now),
       ),
     )
+
+  const [queued] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(reviewCards)
+    .where(and(eq(reviewCards.userId, userId), inReviewQueue(userId)))
 
   return {
     questionsTracked: Number(counts?.questions_tracked ?? 0),
     worksheetsUploaded: Number(counts?.worksheets_uploaded ?? 0),
     attemptsLogged: Number(counts?.attempts_logged ?? 0),
     dueNow: Number(dueNow?.value ?? 0),
-    dueThisWeek: Number(dueWeek?.value ?? 0),
+    toPractise: Number(queued?.value ?? 0),
   }
 }
 
