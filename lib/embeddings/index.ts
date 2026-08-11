@@ -27,6 +27,22 @@ async function getExtractor(): Promise<FeatureExtractionPipeline> {
   return extractorPromise
 }
 
+/**
+ * Releases the model and the ONNX session behind it.
+ *
+ * For long-lived processes that embed once and then go on to do something else,
+ * and for the tests, which otherwise leave a ~25MB model and a native runtime
+ * held open for the rest of the run. Nothing in a request path needs this: the
+ * whole point of the cached promise is that the next request reuses it.
+ */
+export async function disposeExtractor(): Promise<void> {
+  const pending = extractorPromise
+  if (!pending) return
+
+  extractorPromise = null
+  await (await pending).dispose()
+}
+
 export async function embed(text: string): Promise<number[]> {
   const trimmed = text.trim()
   if (!trimmed) return new Array(EMBEDDING_DIMENSIONS).fill(0)
