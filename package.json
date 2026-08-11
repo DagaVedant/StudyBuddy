@@ -5,7 +5,7 @@
   "scripts": {
     "postinstall": "node scripts/copy-pdf-worker.mjs",
     "predev": "node scripts/copy-pdf-worker.mjs",
-    "prebuild": "node scripts/copy-pdf-worker.mjs && npm run db:migrate:deploy",
+    "prebuild": "node scripts/copy-pdf-worker.mjs && node scripts/fetch-embedding-model.mjs && npm run db:migrate:deploy",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

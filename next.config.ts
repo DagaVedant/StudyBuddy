@@ -70,6 +70,23 @@ const reportOnlyCsp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  /*
+   * The embedding weights, which nothing imports.
+   *
+   * `models/` is written by scripts/fetch-embedding-model.mjs during prebuild
+   * and read at runtime through a path built from process.cwd(), so tracing
+   * cannot see it: there is no import to follow. Without this the serverless
+   * bundle ships the ONNX runtime and no model, and the first classification
+   * falls back to downloading 23MB from huggingface.co inside an `after()`.
+   *
+   * Keyed to the upload completion route, which is the only one that reaches
+   * classification, rather than to `/*`: the other 38 routes have no use for
+   * 23MB and every one of them would carry it.
+   */
+  outputFileTracingIncludes: {
+    "/api/worksheets/[id]/complete": ["./models/**/*"],
+  },
+
   experimental: {
     /*
      * Opts into React's <ViewTransition> integration. Next then runs every

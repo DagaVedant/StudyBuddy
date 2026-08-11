@@ -1,7 +1,16 @@
+import { existsSync } from 'node:fs'
+import path from 'node:path'
+
 import type { FeatureExtractionPipeline } from '@huggingface/transformers'
 
 export const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
 export const EMBEDDING_DIMENSIONS = 384
+
+/**
+ * Where `scripts/fetch-embedding-model.mjs` puts the weights, and where
+ * `outputFileTracingIncludes` in next.config.ts copies them from.
+ */
+const VENDORED = path.join(process.cwd(), 'models')
 
 let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
 
@@ -18,10 +27,31 @@ let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
  */
 async function getExtractor(): Promise<FeatureExtractionPipeline> {
   extractorPromise ??= import('@huggingface/transformers').then(
-    ({ pipeline }) =>
-      pipeline('feature-extraction', EMBEDDING_MODEL, {
+    ({ env, pipeline }) => {
+      /*
+       * Read from the repo, not from huggingface.co.
+       *
+       * npm ships the runtime and none of the weights, so left alone this
+       * downloads 23MB on first use into a cache inside node_modules. On a
+       * developer machine that happens once. On a serverless host every cold
+       * start is a fresh filesystem, so it happens inside `after()`, after the
+       * response has gone, on a connection nothing is watching, and a failure
+       * leaves the worksheet extracted with every question untagged.
+       *
+       * The build fetches the same four files into `models/` and traces them
+       * into the bundle, so this is a disk read. `allowRemoteModels: false`
+       * makes that a guarantee rather than a preference: a missing file is an
+       * error here instead of a silent 23MB download.
+       */
+      if (existsSync(VENDORED)) {
+        env.localModelPath = VENDORED
+        env.allowRemoteModels = false
+      }
+
+      return pipeline('feature-extraction', EMBEDDING_MODEL, {
         dtype: 'q8',
-      }) as Promise<FeatureExtractionPipeline>,
+      }) as Promise<FeatureExtractionPipeline>
+    },
   )
 
   return extractorPromise

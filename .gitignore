@@ -65,11 +65,7 @@ next-env.d.ts
 /.claude/settings.local.json
 
 # local audit write-ups: kept on disk, deliberately not published
-/PRESHIP-AUDIT.md
-/AUDIT-ENGINEERING.md
-/FIXES.md
-/WORKLIST.md
-/EXTRACTION-FAILURES.md
+/fixes/
 
 # throwaway one-off scripts. Written to answer a single question against the
 # live database and abandoned; three of them were sitting untracked at once,
@@ -83,3 +79,7 @@ next-env.d.ts
 
 # devlogs are written here and posted elsewhere; they are not part of the repo
 /devlog/
+
+# Embedding weights, fetched by scripts/fetch-embedding-model.mjs at build
+# time. 23MB of quantised ONNX that npm does not ship and git should not carry.
+/models
