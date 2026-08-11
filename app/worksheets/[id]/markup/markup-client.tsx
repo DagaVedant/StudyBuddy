@@ -5,6 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { reflowText } from '@/lib/questions/reflow'
 import { fetchJson } from '@/lib/client/fetch-json'
+import {
+  clearMarkupDraft,
+  readMarkupDraft,
+  writeMarkupDraft,
+} from '@/lib/client/markup-draft'
 
 export interface MarkableQuestion {
   id: string
@@ -37,8 +42,53 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
   const [cursor, setCursor] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [restored, setRestored] = useState(false)
+
+  /**
+   * Whatever was marked before the page went away.
+   *
+   * In an effect rather than in `useState`'s initialiser, because this
+   * component is server-rendered: `localStorage` does not exist there, so
+   * seeding from it would make the first client render disagree with the HTML
+   * React is hydrating.
+   *
+   * That is the case `set-state-in-effect` is written to catch, and the reason
+   * it does not apply here is that this runs once on mount and reads something
+   * outside React entirely. It cannot loop: the only state it sets is state it
+   * does not depend on, and it returns early once there is nothing to restore.
+   */
+  useEffect(() => {
+    const draft = readMarkupDraft(worksheetId)
+    if (Object.keys(draft.outcomes).length === 0) return
+
+    /* eslint-disable react-hooks/set-state-in-effect -- reading browser-only
+       storage after hydration; see the note above. */
+    setOutcomes(draft.outcomes)
+    setAnswers(draft.answers)
+    setCursor(Math.min(draft.cursor, questions.length - 1))
+    setRestored(true)
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [worksheetId, questions.length])
 
   const marked = Object.keys(outcomes).length
+
+  useEffect(() => {
+    if (marked === 0) return
+    writeMarkupDraft(worksheetId, { outcomes, answers, cursor })
+  }, [worksheetId, outcomes, answers, cursor, marked])
+
+  /**
+   * The same guard the upload flow has, for the same reason.
+   *
+   * Marking is one atomic post at the end, so anything not yet submitted is
+   * only in this tab. Closing it loses the lot.
+   */
+  useEffect(() => {
+    if (marked === 0 || submitting) return
+    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [marked, submitting])
   const currentQuestion = questions[cursor]
   /**
    * The ones worth asking "what did you put" about.
@@ -113,10 +163,13 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       // Already marked: the marks this form would write are the ones already
       // stored, so there is nothing to retry and nothing to warn about.
       if (response.status === 409) {
+        // Already marked, so what is in the draft is what is already stored.
+        clearMarkupDraft(worksheetId)
         router.push(body.next ?? '/dashboard')
         return
       }
       if (!response.ok) throw new Error(body.error ?? 'Could not save')
+      clearMarkupDraft(worksheetId)
       router.push(body.next ?? '/dashboard')
     } catch (cause) {
       setSubmitting(false)
@@ -336,6 +389,33 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         >
           {error}
         </p>
+      )}
+
+      {/* Said out loud rather than silently reinstated. Coming back to a
+          half-marked paper and finding marks you do not remember making is
+          worse than starting again, so the screen names what happened and
+          offers the way out. */}
+      {restored && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-3 py-2 text-sm"
+        >
+          <span>Picked up where you left off on this device.</span>
+          <button
+            type="button"
+            className="btn-compact rounded px-1 text-sm text-muted underline underline-offset-2 hover:text-fg"
+            onClick={() => {
+              clearMarkupDraft(worksheetId)
+              setOutcomes({})
+              setAnswers({})
+              setCursor(0)
+              setPhase('outcomes')
+              setRestored(false)
+            }}
+          >
+            Start again
+          </button>
+        </div>
       )}
 
       <p aria-live="polite" className="sr-only">

@@ -201,6 +201,28 @@ test('confirming moves the worksheet to markup', async () => {
   await expect(page.getByRole('heading', { name: 'How Did You Do?' })).toBeVisible()
 })
 
+/**
+ * Marking is one atomic post at the end, so everything decided before that
+ * lives only in the tab. A reload used to lose the lot, and on a 114-question
+ * paper that is a whole sitting.
+ */
+test('a mark survives a reload of the markup screen', async () => {
+  await visible(page).getByText('Missed It').first().click()
+  await expect(visible(page).getByText('1 of 1 marked')).toBeVisible()
+
+  await page.reload()
+
+  await expect(visible(page).getByText('1 of 1 marked')).toBeVisible()
+  await expect(
+    visible(page).getByText('Picked up where you left off on this device.'),
+  ).toBeVisible()
+
+  // And thrown away on request, which is also what hands the next step a clean
+  // paper to mark.
+  await page.getByRole('button', { name: 'Start again' }).click()
+  await expect(visible(page).getByText('0 of 1 marked')).toBeVisible()
+})
+
 test('marking a miss prompts for the answer actually given', async () => {
   await visible(page).getByText('Missed It').first().click()
 
@@ -260,3 +282,4 @@ test('rating a card completes the session', async () => {
     visible(page).getByRole('heading', { name: 'Session complete' }),
   ).toBeVisible({ timeout: 30_000 })
 })
+
