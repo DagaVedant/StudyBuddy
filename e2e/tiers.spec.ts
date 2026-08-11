@@ -15,10 +15,10 @@ test('a fresh account queues its upload for the GPU worker', async ({ page }) =>
   await uploadWorksheet(page, 'Queued Set')
 
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/status/)
-  await expect(page.getByRole('heading', { name: 'Working on It' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Working on It' })).toBeVisible()
 
   await expect(visible(page).getByText(/queue|offline/i).first()).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Back to dashboard' })).toBeVisible()
+  await expect(visible(page).getByRole('link', { name: 'Back to dashboard' })).toBeVisible()
 })
 
 test('an exhausted trial falls through to the manual editor, not a dead end', async ({
@@ -30,7 +30,7 @@ test('an exhausted trial falls through to the manual editor, not a dead end', as
   await uploadWorksheet(page, 'After Trial')
 
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/review/)
-  await expect(page.getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
 })
 
 test('settings offers both upgrade paths and states where trial work runs', async ({
@@ -39,13 +39,13 @@ test('settings offers both upgrade paths and states where trial work runs', asyn
   await registerAndSignIn(page)
   await page.goto('/settings')
 
-  await expect(page.getByRole('heading', { name: 'How StudyBuddy Thinks' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'How StudyBuddy Thinks' })).toBeVisible()
 
   await expect(visible(page).getByText(/hardware we operate/i)).toBeVisible()
   await expect(visible(page).getByText(/never used for training/i)).toBeVisible()
 
-  await expect(page.getByRole('heading', { name: 'Your own API key' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Your own GPU (Ollama)' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Your own API key' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Your own GPU (Ollama)' })).toBeVisible()
 
   await expect(visible(page).getByText(/still being built/i)).toBeVisible()
 })
@@ -54,8 +54,8 @@ test('an Ollama address outside localhost is rejected', async ({ page }) => {
   await registerAndSignIn(page)
   await page.goto('/settings')
 
-  await page.getByLabel('Ollama address').fill('http://169.254.169.254')
-  await page.getByRole('button', { name: 'Connect Ollama' }).click()
+  await visible(page).getByLabel('Ollama address').fill('http://169.254.169.254')
+  await visible(page).getByRole('button', { name: 'Connect Ollama' }).click()
 
   await expect(alertBox(page)).toContainText(/localhost/i)
 })
@@ -65,8 +65,8 @@ test('a saved API key is never shown again', async ({ page }) => {
   await page.goto('/settings')
 
   const secret = 'sk-ant-e2e-secret-value-do-not-echo-4f2a'
-  await page.getByRole('textbox', { name: 'API key' }).fill(secret)
-  await page.getByRole('button', { name: 'Save Key' }).click()
+  await visible(page).getByRole('textbox', { name: 'API key' }).fill(secret)
+  await visible(page).getByRole('button', { name: 'Save Key' }).click()
 
   await expect(visible(page).getByText(/key ending 4f2a/)).toBeVisible()
 
@@ -88,13 +88,13 @@ test('an account can be deleted, and only by typing its own address', async ({
 
   await visible(page).getByRole('button', { name: 'Delete account' }).click()
 
-  const confirm = page.getByRole('button', { name: 'Delete everything' })
+  const confirm = visible(page).getByRole('button', { name: 'Delete everything' })
   await expect(confirm).toBeDisabled()
 
-  await page.getByLabel(/Type .* to confirm/).fill('someone-else@example.com')
+  await visible(page).getByLabel(/Type .* to confirm/).fill('someone-else@example.com')
   await expect(confirm).toBeDisabled()
 
-  await page.getByLabel(/Type .* to confirm/).fill(email)
+  await visible(page).getByLabel(/Type .* to confirm/).fill(email)
   await expect(confirm).toBeEnabled()
   await confirm.click()
 

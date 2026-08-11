@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { registerAndSignIn, uniqueEmail } from './support/helpers'
+import { registerAndSignIn, uniqueEmail, visible } from './support/helpers'
 
 /**
  * Sign-in used to hand `redirectTo` the raw `next` form field, so
@@ -27,9 +27,9 @@ test('an off-site next is ignored and sign-in lands on the dashboard', async ({
   await page.getByRole('button', { name: /sign out/i }).click().catch(() => {})
 
   await page.goto('/signin?next=https://example.com/steal')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill('correct-horse-battery')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByLabel('Email').fill(email)
+  await visible(page).getByLabel('Password').fill('correct-horse-battery')
+  await visible(page).getByRole('button', { name: 'Sign in' }).click()
 
   await page.waitForURL('**/dashboard')
   expect(new URL(page.url()).origin).toBe(new URL(page.url()).origin)

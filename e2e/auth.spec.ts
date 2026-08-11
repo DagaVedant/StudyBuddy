@@ -22,10 +22,10 @@ test('the 13+ gate is enforced on the server, not just the date input', async ({
   page,
 }) => {
   await page.goto('/signup')
-  await page.getByLabel('Email').fill(uniqueEmail('minor'))
-  await page.getByLabel('Password').fill('correct-horse-battery')
-  await page.getByLabel('Date of birth').fill(minorDob())
-  await page.getByRole('button', { name: 'Create account' }).click()
+  await visible(page).getByLabel('Email').fill(uniqueEmail('minor'))
+  await visible(page).getByLabel('Password').fill('correct-horse-battery')
+  await visible(page).getByLabel('Date of birth').fill(minorDob())
+  await visible(page).getByRole('button', { name: 'Create account' }).click()
 
   await expect(alertBox(page)).toContainText('at least 13')
 })
@@ -37,10 +37,10 @@ test('signup does not reveal whether an email is already registered', async ({
 
   const signUp = async () => {
     await page.goto('/signup')
-    await page.getByLabel('Email').fill(email)
-    await page.getByLabel('Password').fill('correct-horse-battery')
-    await page.getByLabel('Date of birth').fill(adultDob())
-    await page.getByRole('button', { name: 'Create account' }).click()
+    await visible(page).getByLabel('Email').fill(email)
+    await visible(page).getByLabel('Password').fill('correct-horse-battery')
+    await visible(page).getByLabel('Date of birth').fill(adultDob())
+    await visible(page).getByRole('button', { name: 'Create account' }).click()
     await expect(statusBox(page)).toBeVisible()
     return statusBox(page).textContent()
   }
@@ -55,16 +55,16 @@ test('a new password account can sign in straight away', async ({ page }) => {
   const email = uniqueEmail('unverified')
 
   await page.goto('/signup')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill('correct-horse-battery')
-  await page.getByLabel('Date of birth').fill(adultDob())
-  await page.getByRole('button', { name: 'Create account' }).click()
+  await visible(page).getByLabel('Email').fill(email)
+  await visible(page).getByLabel('Password').fill('correct-horse-battery')
+  await visible(page).getByLabel('Date of birth').fill(adultDob())
+  await visible(page).getByRole('button', { name: 'Create account' }).click()
   await expect(statusBox(page)).toBeVisible()
 
   await page.goto('/signin')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill('correct-horse-battery')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByLabel('Email').fill(email)
+  await visible(page).getByLabel('Password').fill('correct-horse-battery')
+  await visible(page).getByRole('button', { name: 'Sign in' }).click()
 
   // Nothing sends mail any more, so an account is usable as soon as it is
   // made. This used to assert the opposite.
@@ -77,9 +77,9 @@ test('a wrong password is rejected', async ({ page }) => {
   await page.getByRole('button', { name: 'Sign out' }).click()
   await page.waitForURL(/\/signin/)
 
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill('not-the-password')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByLabel('Email').fill(email)
+  await visible(page).getByLabel('Password').fill('not-the-password')
+  await visible(page).getByRole('button', { name: 'Sign in' }).click()
 
   await expect(alertBox(page)).toBeVisible()
 })
@@ -87,7 +87,7 @@ test('a wrong password is rejected', async ({ page }) => {
 test('verify and sign in reaches the dashboard', async ({ page }) => {
   await registerAndSignIn(page)
 
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Dashboard' })).toBeVisible()
   await expect(visible(page).getByText('Nothing tracked yet')).toBeVisible()
 })
 
@@ -97,7 +97,7 @@ test('the admin console is hidden from students', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0)
 
   await page.goto('/admin/topics')
-  await expect(page.getByRole('heading', { name: 'Admin' })).toHaveCount(0)
+  await expect(visible(page).getByRole('heading', { name: 'Admin' })).toHaveCount(0)
 })
 
 test('an account in ADMIN_EMAILS gets the admin console', async ({ page }) => {
@@ -106,7 +106,7 @@ test('an account in ADMIN_EMAILS gets the admin console', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible()
 
   await page.goto('/admin/topics')
-  await expect(page.getByRole('heading', { name: 'Admin' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Admin' })).toBeVisible()
   await expect(visible(page).getByText('Workers & queue')).toBeVisible()
 })
 
@@ -116,10 +116,10 @@ test('an account in ADMIN_EMAILS gets the admin console', async ({ page }) => {
 // halves have to fail for the attack to be closed.
 test('a password signup cannot take an admin address', async ({ page }) => {
   await page.goto('/signup')
-  await page.getByLabel('Email').fill('boss@studybuddy.test')
-  await page.getByLabel('Password').fill('correct-horse-battery')
-  await page.getByLabel('Date of birth').fill(adultDob())
-  await page.getByRole('button', { name: 'Create account' }).click()
+  await visible(page).getByLabel('Email').fill('boss@studybuddy.test')
+  await visible(page).getByLabel('Password').fill('correct-horse-battery')
+  await visible(page).getByLabel('Date of birth').fill(adultDob())
+  await visible(page).getByRole('button', { name: 'Create account' }).click()
 
   // The same reply every other outcome gives, so it does not say which
   // addresses are admin.
@@ -127,10 +127,30 @@ test('a password signup cannot take an admin address', async ({ page }) => {
 
   // Nothing was created, so there is nothing to sign in to.
   await page.goto('/signin')
-  await page.getByLabel('Email').fill('boss@studybuddy.test')
-  await page.getByLabel('Password').fill('correct-horse-battery')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByLabel('Email').fill('boss@studybuddy.test')
+  await visible(page).getByLabel('Password').fill('correct-horse-battery')
+  await visible(page).getByRole('button', { name: 'Sign in' }).click()
 
   await expect(alertBox(page)).toBeVisible()
   await expect(page).toHaveURL(/\/signin/)
+})
+
+/**
+ * The pitch is prerendered, so its buttons cannot be chosen on the server.
+ *
+ * `HomeCta` picks them on the client instead, and the HTML ships the
+ * signed-out pair because that is who the page is for. This is the other half:
+ * a reader who does have a session is not left looking at a Sign in button.
+ */
+test('the pitch offers a signed-in reader the dashboard', async ({ page }) => {
+  await registerAndSignIn(page, `pitch-${Date.now()}@example.com`)
+
+  await page.goto('/')
+
+  await expect(
+    visible(page).getByRole('link', { name: 'Go to your dashboard' }),
+  ).toBeVisible()
+  await expect(
+    visible(page).getByRole('link', { name: 'Get started' }),
+  ).toHaveCount(0)
 })

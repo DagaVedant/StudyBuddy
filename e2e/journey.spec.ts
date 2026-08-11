@@ -47,9 +47,9 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
   await uploadWorksheet(page)
 
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/review/)
-  await expect(page.getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
 
-  const image = page.getByRole('img', { name: /Page 1 of/ })
+  const image = visible(page).getByRole('img', { name: /Page 1 of/ })
   await expect(image).toBeVisible()
 
   const natural = await image.evaluate(
@@ -78,7 +78,7 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
 // dragged box, and the create. What it gives up is the browser's hit testing,
 // which is the part that is broken here and is not ours.
 test('dragging a region creates a question with its text filled in', async () => {
-  const image = page.getByRole('img', { name: /Page 1 of/ })
+  const image = visible(page).getByRole('img', { name: /Page 1 of/ })
 
   await expect(image).toBeVisible()
   await image.evaluate((element: HTMLImageElement) =>
@@ -111,14 +111,14 @@ test('dragging a region creates a question with its text filled in', async () =>
     fire('pointerup', 0.96, 0.17)
   })
 
-  const prompt = page.getByLabel('Question text')
+  const prompt = visible(page).getByLabel('Question text')
   await expect(prompt).toBeVisible()
 
   await expect(prompt).toHaveValue(/triangle/i)
 })
 
 test('a topic can be assigned from the canonical tree', async () => {
-  await page.getByRole('combobox', { name: 'Topic' }).fill('triangle angle')
+  await visible(page).getByRole('combobox', { name: 'Topic' }).fill('triangle angle')
 
   // Scoped to the picker's own listbox: an unscoped option lookup matches the
   // question-type <select> first, whose native options a browser reports as
@@ -143,19 +143,19 @@ test('a topic can be assigned from the canonical tree', async () => {
 test('answer choices can be added and one marked correct', async () => {
   for (const label of ['A', 'B']) {
     let saved = editorSaved()
-    await page.getByRole('button', { name: 'Add choice' }).click()
+    await visible(page).getByRole('button', { name: 'Add choice' }).click()
     await saved
 
     saved = editorSaved()
-    await page.getByLabel(`Text for choice ${label}`).fill(label === 'A' ? '75' : '105')
+    await visible(page).getByLabel(`Text for choice ${label}`).fill(label === 'A' ? '75' : '105')
     await saved
   }
 
   const marked = editorSaved()
-  await page.getByRole('radio', { name: 'Mark choice A correct' }).check()
+  await visible(page).getByRole('radio', { name: 'Mark choice A correct' }).check()
   await marked
 
-  await expect(page.getByRole('radio', { name: 'Mark choice A correct' })).toBeChecked()
+  await expect(visible(page).getByRole('radio', { name: 'Mark choice A correct' })).toBeChecked()
 })
 
 test('the verify flow shows a card and records a check', async () => {
@@ -178,15 +178,15 @@ test('the verify flow shows a card and records a check', async () => {
 
   await page.goto(`/worksheets/${worksheetId}/verify`)
 
-  await expect(page.getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
-  await expect(page.getByRole('progressbar', { name: 'Questions checked' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
+  await expect(visible(page).getByRole('progressbar', { name: 'Questions checked' })).toBeVisible()
   // Scoped to the page rather than the document. With a `loading.tsx` in the
   // tree this route streams, and Next parks the streamed content in a hidden
   // div at the end of <body> until an inline script moves it into place. That
   // copy is inert and nobody sees it, but it does match on text.
   await expect(visible(page).getByText(/0 of \d+ checked/)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Looks right' }).click()
+  await visible(page).getByRole('button', { name: 'Looks right' }).click()
 
   // One question in this fixture, so accepting it finishes the worksheet.
   await expect(visible(page).getByText(/All \d+ questions? checked/)).toBeVisible()
@@ -195,10 +195,10 @@ test('the verify flow shows a card and records a check', async () => {
 })
 
 test('confirming moves the worksheet to markup', async () => {
-  await page.getByRole('button', { name: /Looks Right, Mark \d+ Question/ }).click()
+  await visible(page).getByRole('button', { name: /Looks Right, Mark \d+ Question/ }).click()
 
   await page.waitForURL(/\/worksheets\/[^/]+\/markup/, { timeout: 30_000 })
-  await expect(page.getByRole('heading', { name: 'How Did You Do?' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'How Did You Do?' })).toBeVisible()
 })
 
 /**
@@ -219,7 +219,7 @@ test('a mark survives a reload of the markup screen', async () => {
 
   // And thrown away on request, which is also what hands the next step a clean
   // paper to mark.
-  await page.getByRole('button', { name: 'Start again' }).click()
+  await visible(page).getByRole('button', { name: 'Start again' }).click()
   await expect(visible(page).getByText('0 of 1 marked')).toBeVisible()
 })
 
@@ -228,19 +228,19 @@ test('marking a miss prompts for the answer actually given', async () => {
 
   await expect(visible(page).getByText('1 of 1 marked')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Next: What You Put' }).click()
+  await visible(page).getByRole('button', { name: 'Next: What You Put' }).click()
   await expect(visible(page).getByText(/What did you put/)).toBeVisible()
 
   // Exact, because the question stem quotes every option, so a loose match
   // finds the prompt before it finds the choice.
   await visible(page).getByText('105', { exact: true }).click()
-  await page.getByRole('button', { name: 'Save and Finish' }).click()
+  await visible(page).getByRole('button', { name: 'Save and Finish' }).click()
 
   await page.waitForURL('**/dashboard', { timeout: 30_000 })
 })
 
 test('the dashboard reflects the attempt', async () => {
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 
   await expect(visible(page).getByText('Nothing tracked yet')).toHaveCount(0)
   await expect(visible(page).getByText('Questions tracked')).toBeVisible()
@@ -266,15 +266,15 @@ test('a missed question comes back for review', async () => {
     })
   }).toPass({ timeout: 150_000 })
 
-  await expect(page.getByRole('heading', { name: 'Answer' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Show answer' }).click()
+  await expect(visible(page).getByRole('heading', { name: 'Answer' })).toHaveCount(0)
+  await visible(page).getByRole('button', { name: 'Show answer' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Answer' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'You put' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Answer' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'You put' })).toBeVisible()
 })
 
 test('rating a card completes the session', async () => {
-  await page.getByRole('button', { name: 'Good' }).click()
+  await visible(page).getByRole('button', { name: 'Good' }).click()
 
   // Scoped, like the two above: the review route streams, and the copy Next
   // parks in a hidden div at the end of <body> matches on text as well.
