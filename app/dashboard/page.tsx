@@ -443,7 +443,8 @@ export default async function DashboardPage() {
                     {sheet.title}
                   </Link>
                   <span className="shrink-0 text-xs tabular-nums text-muted">
-                    {sheet.questionCount} questions
+                    {sheet.questionCount}{' '}
+                    {sheet.questionCount === 1 ? 'question' : 'questions'}
                     {sheet.wrongCount > 0 && ` · ${sheet.wrongCount} missed`}
                   </span>
                 </li>

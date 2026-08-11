@@ -246,7 +246,10 @@ export function VerifyClient({
   if (remaining === 0) {
     return (
       <div className="card p-6">
-        <p className="font-medium">All {questions.length} questions checked.</p>
+        <p className="font-medium">
+          All {questions.length}{' '}
+          {questions.length === 1 ? 'question' : 'questions'} checked.
+        </p>
         <p className="hint mt-1">Nothing left to confirm on this worksheet.</p>
         <Link
           href={`/worksheets/${worksheetId}/review`}

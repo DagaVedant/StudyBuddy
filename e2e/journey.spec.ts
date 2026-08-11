@@ -186,7 +186,7 @@ test('the verify flow shows a card and records a check', async () => {
   await page.getByRole('button', { name: 'Looks right' }).click()
 
   // One question in this fixture, so accepting it finishes the worksheet.
-  await expect(page.getByText(/All \d+ questions checked/)).toBeVisible()
+  await expect(page.getByText(/All \d+ questions? checked/)).toBeVisible()
 
   await page.goto(`/worksheets/${worksheetId}/review`)
 })

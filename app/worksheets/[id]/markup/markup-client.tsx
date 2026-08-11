@@ -325,7 +325,8 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       )}
 
       <p aria-live="polite" className="sr-only">
-        {marked} of {questions.length} questions marked
+        {marked} of {questions.length}{' '}
+        {questions.length === 1 ? 'question' : 'questions'} marked
       </p>
 
       {marked >= questions.length && (

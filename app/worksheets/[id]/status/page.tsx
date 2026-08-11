@@ -111,7 +111,7 @@ export default async function StatusPage({
           <p aria-live="polite" className="hint text-pretty">
             {job?.executor === 'server' || worker.online
               ? stillReading
-                ? `Reading your worksheet. ${found.length} questions found so far.`
+                ? `Reading your worksheet. ${found.length} ${found.length === 1 ? 'question' : 'questions'} found so far.`
                 : phase === 'classifying'
                   ? 'Sorting the questions into topics.'
                   : 'Checking every question was picked up, and going back over anything that was missed.'
