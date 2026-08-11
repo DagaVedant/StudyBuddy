@@ -123,8 +123,28 @@ describe('drainServerQueue', () => {
     expect(await claimJob(db as Db, 'server')).toBeNull()
   })
 
+  /**
+   * `resolves.toBeUndefined()` on a `Promise<void>` is true of every possible
+   * implementation, including one that throws away a queued job. What "does
+   * nothing" has to mean is that the queue and the worksheets are as they were.
+   */
   it('does nothing on an empty queue', async () => {
-    await expect(drainServerQueue(db as Db, 10, asServer)).resolves.toBeUndefined()
+    const { worksheetId } = await setup()
+
+    const before = await db
+      .select({ status: worksheets.status })
+      .from(worksheets)
+      .where(eq(worksheets.id, worksheetId))
+
+    await drainServerQueue(db as Db, 10, asServer)
+
+    expect(await claimJob(db as Db, 'server')).toBeNull()
+    expect(
+      await db
+        .select({ status: worksheets.status })
+        .from(worksheets)
+        .where(eq(worksheets.id, worksheetId)),
+    ).toEqual(before)
   })
 
   /*
