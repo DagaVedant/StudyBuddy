@@ -181,7 +181,11 @@ test('the verify flow shows a card and records a check', async () => {
 
   await expect(page.getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
   await expect(page.getByRole('progressbar', { name: 'Questions checked' })).toBeVisible()
-  await expect(page.getByText(/0 of \d+ checked/)).toBeVisible()
+  // Scoped to the page rather than the document. With a `loading.tsx` in the
+  // tree this route streams, and Next parks the streamed content in a hidden
+  // div at the end of <body> until an inline script moves it into place. That
+  // copy is inert and nobody sees it, but it does match on text.
+  await expect(page.locator('#main').getByText(/0 of \d+ checked/)).toBeVisible()
 
   await page.getByRole('button', { name: 'Looks right' }).click()
 
@@ -251,5 +255,9 @@ test('a missed question comes back for review', async () => {
 test('rating a card completes the session', async () => {
   await page.getByRole('button', { name: 'Good' }).click()
 
-  await expect(page.getByText('Session complete')).toBeVisible({ timeout: 30_000 })
+  // Scoped, like the two above: the review route streams, and the copy Next
+  // parks in a hidden div at the end of <body> matches on text as well.
+  await expect(
+    page.locator('#main').getByRole('heading', { name: 'Session complete' }),
+  ).toBeVisible({ timeout: 30_000 })
 })

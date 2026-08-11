@@ -63,7 +63,12 @@ test('the split editor still opens and saves from the question list', async () =
   // empty-list copy below belongs to, and it is why journey.spec.ts leans on
   // its drag to produce the only question it ever has.
   await expect(page.getByRole('heading', { name: '0 questions found' })).toBeVisible()
-  await expect(page.getByText('Nothing was picked up from this page.')).toBeVisible()
+  // Scoped to the page. Every route streams now that there is a `loading.tsx`
+  // above it, and Next parks streamed content in a hidden div at the end of
+  // <body>, which matches on text even though nobody can see it.
+  await expect(
+    page.locator('#main').getByText('Nothing was picked up from this page.'),
+  ).toBeVisible()
 
   // Adding by hand is the other half of the create path the split touched: it
   // passes a null bbox, and it should select and expand the new card.

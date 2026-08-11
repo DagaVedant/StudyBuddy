@@ -159,6 +159,16 @@ body {
       disabled:opacity-60;
   }
 
+  /* A placeholder block, sized by the caller.
+
+     Its job is to hold the shape of what is coming so the page does not jump
+     when it lands, which means a skeleton is only worth having where it matches
+     the real layout. `bg-border` rather than a grey: it is the one surface
+     colour both themes already define as "a division, not content". */
+  .skeleton {
+    @apply animate-pulse rounded-xl bg-border;
+  }
+
   /* Room for the notch and the home indicator on a bar pinned to an edge.
      `max()` because these report 0 on everything without an intrusion, and a
      bar with no padding at all reads as cramped even on a rectangular screen.
