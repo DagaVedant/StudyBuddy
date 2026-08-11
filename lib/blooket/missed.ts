@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 
 import { answerChoices, attempts, questions, worksheets } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 
 import type { ExportQuestion } from './csv'
 
@@ -17,7 +18,12 @@ import type { ExportQuestion } from './csv'
 export const EXPORT_LIMIT = 1000
 
 /**
- * Questions this user has ever got wrong.
+ * Questions this user has ever got wrong, or got right without knowing why.
+ *
+ * `unsure` is the markup screen's "Right, but I guessed", and a guess is a
+ * question you cannot do: the mark landed on the paper, and it landed by luck.
+ * It belongs in a drilling set for exactly the reason a miss does, and leaving
+ * it out meant the set quietly agreed with the guess.
  *
  * Ever, not most recently. A question missed in markup and later answered
  * correctly in review is still a question worth drilling, and it is the one a
@@ -33,7 +39,7 @@ function everMissed(userId: string) {
     select 1 from ${attempts}
     where ${attempts.questionId} = ${questions.id}
       and ${attempts.userId} = ${userId}
-      and ${attempts.outcome} = 'wrong'
+      and ${attempts.outcome} in ('wrong', 'unsure')
   )`
 }
 
@@ -106,7 +112,7 @@ export async function getMissedQuestions(
     // Position is not stored, so label order is the question's order. The
     // review screen resolves it the same way, and the two have to agree: the
     // answer numbers this export writes are positions in this list.
-    .orderBy(asc(answerChoices.label), asc(answerChoices.id))
+    .orderBy(...CHOICE_ORDER)
 
   const choicesFor = new Map<string, ExportQuestion['choices']>()
   for (const choice of choices) {

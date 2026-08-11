@@ -2,6 +2,7 @@ import { asc, eq, inArray } from 'drizzle-orm'
 
 import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import type { BBox } from '@/lib/db/schema'
 
 export interface LoadedChoice {
@@ -77,6 +78,7 @@ export async function loadQuestionsWithChoices(
         rows.map((row) => row.id),
       ),
     )
+    .orderBy(...CHOICE_ORDER)
 
   const choicesFor = new Map<string, LoadedChoice[]>()
   for (const choice of choiceRows) {

@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { consumeTrial } from '@/lib/ai/quota'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { storedProvider } from '@/lib/ai/stored-provider'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { ProviderRefused, ProviderUnavailable } from '@/lib/ai/types'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
@@ -123,6 +124,7 @@ export async function POST(request: Request) {
     .select()
     .from(answerChoices)
     .where(eq(answerChoices.questionId, question.id))
+    .orderBy(...CHOICE_ORDER)
 
   const [lastAttempt] = await db
     .select()

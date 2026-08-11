@@ -29,7 +29,12 @@ const FOUR = [
 ]
 
 describe('getMissedQuestions', () => {
-  it('returns the questions got wrong and leaves the rest alone', async () => {
+  /**
+   * A guess is a question you cannot do. "Right, but I guessed" put the mark on
+   * the paper by luck, so it belongs in a drilling set for the same reason a
+   * miss does; the set used to agree with the guess and leave it out.
+   */
+  it('returns the ones got wrong or guessed, and leaves the rest alone', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
 
@@ -55,8 +60,11 @@ describe('getMissedQuestions', () => {
 
     const missed = await getMissedQuestions(asDb(db), userId)
 
-    expect(missed.map((question) => question.id)).toEqual([wrong.id])
-    expect(await countMissedQuestions(asDb(db), userId)).toBe(1)
+    expect(missed.map((question) => question.id)).toEqual([wrong.id, unsure.id])
+    expect(await countMissedQuestions(asDb(db), userId)).toBe(2)
+
+    // The one actually known stays out of it.
+    expect(missed.map((question) => question.id)).not.toContain(right.id)
   })
 
   it('returns a question once however many times it was answered', async () => {

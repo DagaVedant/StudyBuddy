@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import type { TopicChoice } from '@/components/topic-picker'
 import { db } from '@/lib/db'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import {
   answerChoices,
   questionTopics,
@@ -133,7 +134,7 @@ export default async function ReviewPage({
     // a question's rows in any order it likes, and the PATCH route deletes and
     // reinserts every choice with whatever labels it was handed, so one
     // reordered read would write the scramble back permanently.
-    .orderBy(asc(answerChoices.label), asc(answerChoices.id))
+    .orderBy(...CHOICE_ORDER)
 
   const topicRows = await db
     .select({

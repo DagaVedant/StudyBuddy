@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { answerChoices, attempts, questions, worksheets } from '@/lib/db/schema'
 
 import MarkupClient, { type MarkableQuestion } from './markup-client'
@@ -91,6 +92,7 @@ export default async function MarkupPage({
     .from(answerChoices)
     .innerJoin(questions, eq(answerChoices.questionId, questions.id))
     .where(eq(questions.worksheetId, id))
+    .orderBy(...CHOICE_ORDER)
 
   const markable: MarkableQuestion[] = questionRows.map((question) => ({
     ...question,

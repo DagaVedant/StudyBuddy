@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
 import { checkReferences, referenceError } from '@/lib/questions/references'
 import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'
@@ -34,7 +35,7 @@ export async function GET(_request: Request, { params }: Params) {
     // a question's rows in any order it likes, and the PATCH route deletes and
     // reinserts every choice with whatever labels it was handed, so one
     // reordered read would write the scramble back permanently.
-    .orderBy(asc(answerChoices.label), asc(answerChoices.id))
+    .orderBy(...CHOICE_ORDER)
 
   const topics = await db
     .select()

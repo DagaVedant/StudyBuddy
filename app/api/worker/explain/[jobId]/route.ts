@@ -2,6 +2,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { answerChoices, attempts, processingJobs, questions } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
 
@@ -51,6 +52,7 @@ export async function GET(request: Request, { params }: Params) {
     .select()
     .from(answerChoices)
     .where(eq(answerChoices.questionId, question.id))
+    .orderBy(...CHOICE_ORDER)
 
   const [lastAttempt] = await db
     .select()

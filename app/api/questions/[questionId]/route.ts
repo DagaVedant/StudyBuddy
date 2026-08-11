@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
 import { checkReferences, referenceError } from '@/lib/questions/references'
 import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'
@@ -82,7 +83,11 @@ export async function PATCH(request: Request, { params }: Params) {
         (await tx
           .select({ text: answerChoices.text })
           .from(answerChoices)
-          .where(eq(answerChoices.questionId, questionId)))
+          .where(eq(answerChoices.questionId, questionId))
+          // The hash is order-sensitive and this is the dedupe identity for
+          // the whole pipeline, so an unordered read could hash one untouched
+          // question two different ways on two different edits.
+          .orderBy(...CHOICE_ORDER))
 
       const promptText =
         input.promptText ??

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, lte } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import {
   answerChoices,
   attempts,
@@ -80,7 +81,8 @@ export async function getDueCards(
     db
       .select()
       .from(answerChoices)
-      .where(inArray(answerChoices.questionId, questionIds)),
+      .where(inArray(answerChoices.questionId, questionIds))
+      .orderBy(...CHOICE_ORDER),
     db
       .select()
       .from(attempts)

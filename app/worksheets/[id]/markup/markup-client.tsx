@@ -40,8 +40,21 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
 
   const marked = Object.keys(outcomes).length
   const currentQuestion = questions[cursor]
-  const missed = useMemo(
-    () => questions.filter((question) => outcomes[question.id] === 'wrong'),
+  /**
+   * The ones worth asking "what did you put" about.
+   *
+   * Guesses as well as misses. "Right, but I guessed" means the mark landed by
+   * luck, so which option they landed on is the same evidence a wrong answer
+   * is: it tells the explanation what to address, and it is the difference
+   * between a near miss and a shot in the dark. Only misses were asked before,
+   * so a paper full of guesses recorded no answers at all.
+   */
+  const unresolved = useMemo(
+    () =>
+      questions.filter((question) => {
+        const outcome = outcomes[question.id]
+        return outcome === 'wrong' || outcome === 'unsure'
+      }),
     [questions, outcomes],
   )
 
@@ -120,8 +133,9 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       <div className="space-y-6">
         <div className="card px-4 py-3">
           <h2 className="text-sm font-medium">
-            What did you put for the{' '}
-            <span className="tabular-nums">{missed.length}</span> you missed?
+            What did you put on the{' '}
+            <span className="tabular-nums">{unresolved.length}</span> you missed
+            or guessed?
           </h2>
           <p className="hint">
             Optional, but it lets the explanation address your actual mistake
@@ -130,7 +144,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         </div>
 
         <ul className="space-y-4">
-          {missed.map((question) => (
+          {unresolved.map((question) => (
             <li
               key={question.id}
               className="card p-4"
@@ -331,7 +345,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
 
       {marked >= questions.length && (
         <div className="flex flex-col gap-3 sm:flex-row-reverse">
-          {missed.length > 0 ? (
+          {unresolved.length > 0 ? (
             <button
               type="button"
               className="btn btn-primary touch-manipulation sm:w-auto sm:px-6"

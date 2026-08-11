@@ -16,6 +16,7 @@ import {
   worksheets,
 } from '@/lib/db/schema'
 import { reflowText } from '@/lib/questions/reflow'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { pathBySlug } from '@/lib/taxonomy/trees'
 
 export const metadata = { title: 'Topic · StudyBuddy' }
@@ -108,6 +109,7 @@ export default async function TopicPage({
         .innerJoin(questions, eq(questions.id, answerChoices.questionId))
         .innerJoin(questionTopics, eq(questionTopics.questionId, questions.id))
         .where(eq(questionTopics.topicId, topicId))
+        .orderBy(...CHOICE_ORDER)
     : []
 
   return (
