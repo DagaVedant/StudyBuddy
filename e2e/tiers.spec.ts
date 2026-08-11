@@ -73,3 +73,33 @@ test('a saved API key is never shown again', async ({ page }) => {
   await page.reload()
   expect(await page.content()).not.toContain(secret)
 })
+
+/**
+ * The one irreversible action in the product, so the flow is asserted end to
+ * end rather than only the function behind it: the wrong address must not
+ * enable the button, and a real delete must actually sign the account out
+ * rather than leaving a cookie pointing at a row that is gone.
+ */
+test('an account can be deleted, and only by typing its own address', async ({
+  page,
+}) => {
+  const email = await registerAndSignIn(page)
+  await page.goto('/settings')
+
+  await visible(page).getByRole('button', { name: 'Delete account' }).click()
+
+  const confirm = page.getByRole('button', { name: 'Delete everything' })
+  await expect(confirm).toBeDisabled()
+
+  await page.getByLabel(/Type .* to confirm/).fill('someone-else@example.com')
+  await expect(confirm).toBeDisabled()
+
+  await page.getByLabel(/Type .* to confirm/).fill(email)
+  await expect(confirm).toBeEnabled()
+  await confirm.click()
+
+  // Signed out and back on the public site.
+  await page.waitForURL('**/', { timeout: 30_000 })
+  await page.goto('/dashboard')
+  await expect(page).toHaveURL(/\/signin/)
+})

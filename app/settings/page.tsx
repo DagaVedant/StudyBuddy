@@ -7,6 +7,7 @@ import { getCredentialSummary } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { workerStatus } from '@/lib/queue'
 
+import DeleteAccount from './delete-account'
 import SettingsClient from './settings-client'
 
 export const metadata = { title: 'Settings · StudyBuddy' }
@@ -47,6 +48,10 @@ export default async function SettingsPage() {
         workerOnline={worker.online}
         appUrl={appBaseUrl()}
       />
+
+      {/* Last on the page and in its own card, because it is the one control
+          here that cannot be undone. */}
+      {session.user.email && <DeleteAccount email={session.user.email} />}
     </main>
   )
 }
