@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { PageInput, RawAIProvider } from '@/lib/ai/types'
+import { canReview, type PageInput, type RawAIProvider } from '@/lib/ai/types'
 import { validated } from '@/lib/ai/validated'
 
 const PAGE: PageInput = {
@@ -122,10 +122,16 @@ describe('validated', () => {
     warn.mockRestore()
   })
 
-  it('leaves reviewQuestions undefined when the provider cannot review', async () => {
+  /**
+   * Reviewing is its own interface, so "can this provider review" is a
+   * narrowing rather than a property check every caller repeats. The compiler
+   * now refuses `provider.reviewQuestions` on a provider that cannot, which is
+   * the half of this that no test can assert.
+   */
+  it('does not present a reviewer when the provider cannot review', async () => {
     const provider = validated(raw({}))
 
-    expect(provider.reviewQuestions).toBeUndefined()
+    expect(canReview(provider)).toBe(false)
   })
 
   it('carries the provider identity through unchanged', async () => {

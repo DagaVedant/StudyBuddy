@@ -18,6 +18,7 @@ import {
   type ExplainInput,
   type PageInput,
   type RawAIProvider,
+  type RawQuestionReviewer,
   type ReviewCandidate,
   type TopicCandidate,
 } from './types'
@@ -94,7 +95,7 @@ export interface OllamaOptions {
   onStats?: (stats: OllamaCallStats) => void
 }
 
-export class OllamaProvider implements RawAIProvider {
+export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   readonly name = 'ollama' as const
   readonly supportsVision = true
   readonly executionSite: ExecutionSite

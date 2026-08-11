@@ -61,8 +61,15 @@ export async function POST(request: Request) {
 
   await heartbeat(db, workerName, modelName ?? null, jobsInFlight + 1)
 
-  // Sent so the worker can size its own concurrency: how much of the paper
-  // there is decides whether reading pages in parallel is worth the memory.
+  // The count the student typed off the front of the paper, sent with the job
+  // so the coverage audit has it without asking a second endpoint for it. It
+  // is set when the worksheet is created and never changes, so claim time and
+  // audit time are the same value.
+  //
+  // The comment here used to say this was for sizing the worker's own
+  // concurrency, which was true of a parallel page-reading path that has since
+  // been deleted; nothing read it at all after that, and it stayed as an extra
+  // query per claim serving a type declaration.
   const [worksheet] = await db
     .select({ expectedQuestionCount: worksheets.expectedQuestionCount })
     .from(worksheets)

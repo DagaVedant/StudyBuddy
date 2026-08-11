@@ -128,7 +128,9 @@ export class NullProvider implements RawAIProvider {
   // than '' so a value that reaches a log or a column still reads as an answer.
   readonly model = 'none' as const
   readonly supportsVision = false
-  readonly executionSite = 'server' as const
+  // Not 'server'. It answers nothing here or anywhere, and claiming a site is
+  // what forced the one caller that needs to know to match on `name === 'null'`.
+  readonly executionSite = 'none' as const
 
   async extractQuestions(_page: PageInput): Promise<unknown> {
     throw new ProviderUnavailable()

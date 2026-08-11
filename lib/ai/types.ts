@@ -2,7 +2,15 @@ import { z } from 'zod'
 
 import { normalizeChoiceLabel } from '@/lib/questions/shape'
 
-export type ExecutionSite = 'server' | 'browser' | 'operator_gpu'
+/**
+ * Where a provider's work actually happens.
+ *
+ * `none` is the null provider, which is not a site at all: it answers nothing
+ * and throws on every method. It used to claim `server`, which is a statement
+ * that it runs here, and the one caller that needs to know otherwise had to
+ * find out by matching `provider.name === 'null'`.
+ */
+export type ExecutionSite = 'server' | 'browser' | 'operator_gpu' | 'none'
 export type ProviderName =
   | 'anthropic'
   | 'openai'
@@ -307,16 +315,6 @@ export interface RawAIProvider extends ProviderIdentity {
   extractQuestions(page: PageInput): Promise<unknown>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown>
   explain(input: ExplainInput): Promise<unknown>
-
-  /**
-   * A second opinion on whether extracted questions came out whole.
-   *
-   * Optional because it is worth doing only where a second model is already
-   * paid for and idle: the operator's GPU. Callers must treat its absence as
-   * "no opinion" rather than as a failure, and a provider that cannot do it is
-   * not a worse provider.
-   */
-  reviewQuestions?(candidates: ReviewCandidate[]): Promise<unknown>
 }
 
 /**
@@ -330,7 +328,34 @@ export interface AIProvider extends ProviderIdentity {
   extractQuestions(page: PageInput): Promise<ExtractedQuestion[]>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<Classification>
   explain(input: ExplainInput): Promise<Explanation>
-  reviewQuestions?(candidates: ReviewCandidate[]): Promise<QuestionReview[]>
+}
+
+/**
+ * A second opinion on whether extracted questions came out whole.
+ *
+ * Its own interface rather than an optional method on the two above, which is
+ * the same fact stated in a way the type system can act on. As `reviewQuestions?`
+ * it was a method every caller had to feature-detect at the call site, and every
+ * provider that cannot review had to be understood as a provider with a hole in
+ * it. There is nothing wrong with a provider that does not review; it is a
+ * different capability, so it is a different interface.
+ *
+ * Worth doing only where a second model is already paid for and idle, which in
+ * practice means the operator's GPU. Absence is "no opinion", never a failure.
+ */
+export interface RawQuestionReviewer {
+  reviewQuestions(candidates: ReviewCandidate[]): Promise<unknown>
+}
+
+export interface QuestionReviewer {
+  reviewQuestions(candidates: ReviewCandidate[]): Promise<QuestionReview[]>
+}
+
+/** Narrows to a provider that can also give a second opinion. */
+export function canReview<T extends object>(
+  provider: T,
+): provider is T & QuestionReviewer {
+  return typeof (provider as Partial<QuestionReviewer>).reviewQuestions === 'function'
 }
 
 export class ProviderUnavailable extends Error {

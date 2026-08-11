@@ -1,9 +1,11 @@
 import {
+  canReview,
   parseClassification,
   parseExplanation,
   parseExtraction,
   parseReview,
   type AIProvider,
+  type QuestionReviewer,
   type RawAIProvider,
 } from './types'
 
@@ -20,7 +22,9 @@ import {
  * Resolve every provider through here, including in scripts. A provider that
  * skips it is not a faster provider; it is an unchecked one.
  */
-export function validated(provider: RawAIProvider): AIProvider {
+export function validated<T extends RawAIProvider>(
+  provider: T,
+): T extends { reviewQuestions: unknown } ? AIProvider & QuestionReviewer : AIProvider {
   const wrapped: AIProvider = {
     name: provider.name,
     model: provider.model,
@@ -62,12 +66,19 @@ export function validated(provider: RawAIProvider): AIProvider {
     },
   }
 
-  // Left off entirely rather than defined-and-empty, because callers test for
-  // the method to decide whether a second opinion is available at all.
-  if (provider.reviewQuestions) {
-    wrapped.reviewQuestions = async (candidates) =>
-      parseReview(await provider.reviewQuestions!(candidates))
+  // Left off entirely rather than defined-and-empty, because `canReview` tests
+  // for the method to decide whether a second opinion is available at all, and
+  // a stub returning [] would read as a reviewer with no opinions rather than
+  // as a provider that does not review.
+  if (canReview(provider)) {
+    const reviewing: AIProvider & QuestionReviewer = {
+      ...wrapped,
+      reviewQuestions: async (candidates) =>
+        parseReview(await provider.reviewQuestions(candidates)),
+    }
+
+    return reviewing as ReturnType<typeof validated<T>>
   }
 
-  return wrapped
+  return wrapped as ReturnType<typeof validated<T>>
 }

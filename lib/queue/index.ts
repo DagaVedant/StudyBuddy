@@ -389,35 +389,64 @@ export async function heartbeat(
 }
 
 export interface WorkerStatus {
+  /** True when at least one worker is up. */
   online: boolean
+  /** How many are, so a fleet of two can say so. */
+  onlineCount: number
   name: string | null
   modelName: string | null
   lastHeartbeatAt: Date | null
 }
 
+/**
+ * How many worker rows are considered. The fleet is the operator's own
+ * machines, so this is a guard against a runaway table rather than a page size.
+ */
+const WORKERS_CONSIDERED = 50
+
+/**
+ * Whether anything is out there to take a job.
+ *
+ * This used to read the single most recently heard-from row and report its
+ * state as the fleet's. One worker going offline while another kept running
+ * took the whole queue down on every screen that asks: the status page told a
+ * student their worksheet was waiting on an offline worker, settings said the
+ * operator's GPU was unavailable, and a job was being processed the entire
+ * time. The reverse hid a real outage just as well, since a stale row that
+ * happened to heartbeat last could report online for a fleet where nothing was
+ * listening.
+ *
+ * The identity fields describe a live worker where there is one, so a screen
+ * showing "online (name)" names something that is actually running, and fall
+ * back to the most recent row otherwise so "last seen" still has a time in it.
+ */
 export async function workerStatus(
   db: Db,
   now: Date = new Date(),
 ): Promise<WorkerStatus> {
-  const [row] = await db
+  const rows = await db
     .select()
     .from(gpuWorkers)
     .orderBy(sql`${gpuWorkers.lastHeartbeatAt} desc nulls last`)
-    .limit(1)
+    .limit(WORKERS_CONSIDERED)
 
-  if (!row) {
-    return { online: false, name: null, modelName: null, lastHeartbeatAt: null }
-  }
+  const live = rows.filter(
+    (row) =>
+      row.status === 'online' &&
+      row.lastHeartbeatAt !== null &&
+      now.getTime() - row.lastHeartbeatAt.getTime() < HEARTBEAT_TTL_MS,
+  )
 
-  const fresh =
-    row.lastHeartbeatAt !== null &&
-    now.getTime() - row.lastHeartbeatAt.getTime() < HEARTBEAT_TTL_MS
+  // Ordered by heartbeat already, so the first live row is the one heard from
+  // most recently.
+  const representative = live[0] ?? rows[0] ?? null
 
   return {
-    online: fresh && row.status === 'online',
-    name: row.name,
-    modelName: row.modelName,
-    lastHeartbeatAt: row.lastHeartbeatAt,
+    online: live.length > 0,
+    onlineCount: live.length,
+    name: representative?.name ?? null,
+    modelName: representative?.modelName ?? null,
+    lastHeartbeatAt: representative?.lastHeartbeatAt ?? null,
   }
 }
 

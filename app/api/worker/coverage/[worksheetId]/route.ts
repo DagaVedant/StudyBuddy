@@ -17,8 +17,12 @@ export async function GET(request: Request, { params }: Params) {
 
   const { worksheetId } = await params
 
+  // Existence only. `expectedQuestionCount` used to be read here and returned
+  // as `expectedTotal`, and the worker already holds it: the claim response
+  // carries it, and it is written once when the worksheet is created and never
+  // changes. Two reads of one unchanging column, for one number.
   const [worksheet] = await db
-    .select({ expectedTotal: worksheets.expectedQuestionCount })
+    .select({ id: worksheets.id })
     .from(worksheets)
     .where(eq(worksheets.id, worksheetId))
     .limit(1)
@@ -51,7 +55,6 @@ export async function GET(request: Request, { params }: Params) {
   }
 
   return NextResponse.json({
-    expectedTotal: worksheet.expectedTotal,
     pages: pages.map((page) => {
       const text = page.ocrText ?? ''
 

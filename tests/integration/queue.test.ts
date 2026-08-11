@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import type { Db } from '@/lib/db/types'
-import { processingJobs } from '@/lib/db/schema'
+import { gpuWorkers, processingJobs } from '@/lib/db/schema'
 import {
   CLAIM_TTL_MS,
   MAX_ATTEMPTS,
@@ -13,6 +13,7 @@ import {
   enqueueJob,
   failJob,
   heartbeat,
+  markWorkerOffline,
   inFlightExtractCount,
   queueDepth,
   reapAbandonedJobs,
@@ -295,6 +296,69 @@ describe('worker heartbeat', () => {
 
     const status = await workerStatus(db as Db)
     expect(status.modelName).toBe('b')
+  })
+})
+
+/**
+ * This used to read the single most recently heard-from row and report its
+ * state as the fleet's, so one machine going down took the queue offline on
+ * every screen that asks while another was still working through it.
+ */
+describe('a fleet of more than one worker', () => {
+  // The suite shares one database, and the block above leaves a worker behind.
+  // These count rows, so they start from an empty fleet.
+  beforeEach(async () => {
+    await db.delete(gpuWorkers)
+  })
+
+  it('is online while any one of them is', async () => {
+    await heartbeat(db as Db, 'shed-3090', 'qwen2.5vl:7b')
+    await heartbeat(db as Db, 'desk-5080', 'qwen2.5vl:7b')
+
+    // The one heard from most recently is the one that stops, which is exactly
+    // the row the old query would have picked.
+    await markWorkerOffline(db as Db, 'desk-5080')
+
+    const status = await workerStatus(db as Db)
+
+    expect(status.online).toBe(true)
+    expect(status.onlineCount).toBe(1)
+    // And it names the one that is actually up, not the one that went down.
+    expect(status.name).toBe('shed-3090')
+  })
+
+  it('is offline only once every one of them is', async () => {
+    await heartbeat(db as Db, 'shed-3090', 'qwen2.5vl:7b')
+    await heartbeat(db as Db, 'desk-5080', 'qwen2.5vl:7b')
+
+    await markWorkerOffline(db as Db, 'shed-3090')
+    await markWorkerOffline(db as Db, 'desk-5080')
+
+    const status = await workerStatus(db as Db)
+
+    expect(status.online).toBe(false)
+    expect(status.onlineCount).toBe(0)
+    // Still says when something was last heard from, so the screen can tell a
+    // fleet that has gone quiet from one that was never set up.
+    expect(status.lastHeartbeatAt).not.toBeNull()
+  })
+
+  it('counts them all when they are all up', async () => {
+    await heartbeat(db as Db, 'shed-3090', 'qwen2.5vl:7b')
+    await heartbeat(db as Db, 'desk-5080', 'qwen2.5vl:7b')
+
+    expect((await workerStatus(db as Db)).onlineCount).toBe(2)
+  })
+
+  it('does not count one whose heartbeat has gone stale', async () => {
+    await heartbeat(db as Db, 'shed-3090', 'qwen2.5vl:7b')
+    await heartbeat(db as Db, 'desk-5080', 'qwen2.5vl:7b')
+
+    const muchLater = new Date(Date.now() + 10 * 60_000)
+    const status = await workerStatus(db as Db, muchLater)
+
+    expect(status.online).toBe(false)
+    expect(status.onlineCount).toBe(0)
   })
 })
 

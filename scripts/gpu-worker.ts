@@ -252,7 +252,7 @@ async function reviewExtractedQuestions(
 }
 
 async function recoverMissingQuestions(
-  job: { id: string; worksheetId: string },
+  job: { id: string; worksheetId: string; expectedQuestionCount?: number | null },
   pages: WorkerPage[],
 ): Promise<void> {
   const response = await api(`/api/worker/coverage/${job.worksheetId}`)
@@ -260,10 +260,12 @@ async function recoverMissingQuestions(
 
   const coverage = (await response.json()) as {
     pages: { pageNumber: number; printed: number[]; expectsQuestions?: boolean }[]
-    expectedTotal: number | null
   }
 
-  const audit = auditExtraction(coverage.pages, coverage.expectedTotal)
+  // The count came with the job. It is a column on the worksheet that is
+  // written once at upload and never changes, so fetching it again here was
+  // a second read of the same row for the same answer.
+  const audit = auditExtraction(coverage.pages, job.expectedQuestionCount ?? null)
 
   // Worth saying out loud even though nothing is deleted over it: more
   // questions than the paper has means a misread number or a double-count,

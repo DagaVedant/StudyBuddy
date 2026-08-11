@@ -152,7 +152,13 @@ export async function POST(request: Request) {
   // Until this existed the request fell through to a provider that always
   // refuses, and the student was told no AI was set up for their account,
   // which was never true.
-  if (executor === 'operator_gpu' && provider.name === 'null') {
+  // `executionSite === 'none'` rather than `provider.name === 'null'`. Both
+  // pick out the same object today, but one of them is a fact about what the
+  // provider can do and the other is a string. It matters that this stays a
+  // capability check: with mock AI switched on the resolver hands back a
+  // MockProvider on this same path, and that one does run here, which is how
+  // the end-to-end suite gets an explanation without a worker attached.
+  if (executor === 'operator_gpu' && provider.executionSite === 'none') {
     const existing = await pendingExplainJob(db, userId, question.id)
 
     const jobId =
