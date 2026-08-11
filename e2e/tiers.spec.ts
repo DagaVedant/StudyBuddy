@@ -4,15 +4,11 @@ import { TRIAL_WORKSHEET_LIMIT } from '../lib/ai/limits'
 
 import {
   alertBox,
-  closeDbClient,
   registerAndSignIn,
   setTrialWorksheetsUsed,
   uploadWorksheet,
+  visible,
 } from './support/helpers'
-
-test.afterAll(async () => {
-  await closeDbClient()
-})
 
 test('a fresh account queues its upload for the GPU worker', async ({ page }) => {
   await registerAndSignIn(page)
@@ -21,7 +17,7 @@ test('a fresh account queues its upload for the GPU worker', async ({ page }) =>
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/status/)
   await expect(page.getByRole('heading', { name: 'Working on It' })).toBeVisible()
 
-  await expect(page.getByText(/queue|offline/i).first()).toBeVisible()
+  await expect(visible(page).getByText(/queue|offline/i).first()).toBeVisible()
   await expect(page.getByRole('link', { name: 'Back to dashboard' })).toBeVisible()
 })
 
@@ -45,13 +41,13 @@ test('settings offers both upgrade paths and states where trial work runs', asyn
 
   await expect(page.getByRole('heading', { name: 'How StudyBuddy Thinks' })).toBeVisible()
 
-  await expect(page.getByText(/hardware we operate/i)).toBeVisible()
-  await expect(page.getByText(/never used for training/i)).toBeVisible()
+  await expect(visible(page).getByText(/hardware we operate/i)).toBeVisible()
+  await expect(visible(page).getByText(/never used for training/i)).toBeVisible()
 
   await expect(page.getByRole('heading', { name: 'Your own API key' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Your own GPU (Ollama)' })).toBeVisible()
 
-  await expect(page.getByText(/still being built/i)).toBeVisible()
+  await expect(visible(page).getByText(/still being built/i)).toBeVisible()
 })
 
 test('an Ollama address outside localhost is rejected', async ({ page }) => {
@@ -72,7 +68,7 @@ test('a saved API key is never shown again', async ({ page }) => {
   await page.getByRole('textbox', { name: 'API key' }).fill(secret)
   await page.getByRole('button', { name: 'Save Key' }).click()
 
-  await expect(page.getByText(/key ending 4f2a/)).toBeVisible()
+  await expect(visible(page).getByText(/key ending 4f2a/)).toBeVisible()
 
   await page.reload()
   expect(await page.content()).not.toContain(secret)

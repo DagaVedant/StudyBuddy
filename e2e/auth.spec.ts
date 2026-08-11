@@ -1,19 +1,15 @@
 ﻿import { expect, test } from '@playwright/test'
 
 import {
+  visible,
   adultDob,
   alertBox,
   statusBox,
-  closeDbClient,
   minorDob,
   registerAndSignIn,
   signInAsAdmin,
   uniqueEmail,
 } from './support/helpers'
-
-test.afterAll(async () => {
-  await closeDbClient()
-})
 
 test('signed-out visitors are sent to sign in, with a return path', async ({ page }) => {
   await page.goto('/dashboard')
@@ -92,7 +88,7 @@ test('verify and sign in reaches the dashboard', async ({ page }) => {
   await registerAndSignIn(page)
 
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
-  await expect(page.getByText('Nothing tracked yet')).toBeVisible()
+  await expect(visible(page).getByText('Nothing tracked yet')).toBeVisible()
 })
 
 test('the admin console is hidden from students', async ({ page }) => {
@@ -111,7 +107,7 @@ test('an account in ADMIN_EMAILS gets the admin console', async ({ page }) => {
 
   await page.goto('/admin/topics')
   await expect(page.getByRole('heading', { name: 'Admin' })).toBeVisible()
-  await expect(page.getByText('Workers & queue')).toBeVisible()
+  await expect(visible(page).getByText('Workers & queue')).toBeVisible()
 })
 
 // The escalation this used to allow: register an admin address with a password

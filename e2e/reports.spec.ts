@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { TRIAL_WORKSHEET_LIMIT } from '../lib/ai/limits'
 
 import {
-  closeDbClient,
+  visible,
   registerAndSignIn,
   setTrialWorksheetsUsed,
   signInAsAdmin,
@@ -51,7 +51,6 @@ test.beforeAll(async ({ browser }) => {
 
 test.afterAll(async () => {
   await page.close()
-  await closeDbClient()
 })
 
 test('the split editor still opens and saves from the question list', async () => {
@@ -67,7 +66,7 @@ test('the split editor still opens and saves from the question list', async () =
   // above it, and Next parks streamed content in a hidden div at the end of
   // <body>, which matches on text even though nobody can see it.
   await expect(
-    page.locator('#main').getByText('Nothing was picked up from this page.'),
+    visible(page).getByText('Nothing was picked up from this page.'),
   ).toBeVisible()
 
   // Adding by hand is the other half of the create path the split touched: it
@@ -89,7 +88,7 @@ test('the split editor still opens and saves from the question list', async () =
   // The summary card reads from the same state the editor writes, so this is
   // also the check that the memoized card still re-renders for its own edit.
   await expect(
-    page.getByText('What is the measure of the third angle in a triangle?').first(),
+    visible(page).getByText('What is the measure of the third angle in a triangle?').first(),
   ).toBeVisible()
 })
 
@@ -147,7 +146,7 @@ test('a whole worksheet can be reported from the verify screen', async () => {
 
   await page.getByRole('button', { name: 'Send report' }).click()
 
-  await expect(page.getByText('Thanks. That is on the list to look at.')).toBeVisible()
+  await expect(visible(page).getByText('Thanks. That is on the list to look at.')).toBeVisible()
 })
 
 test('the report reaches the admin queue', async ({ browser }) => {
@@ -176,10 +175,10 @@ test('rating buttons say when each answer brings the card back', async () => {
   await page.getByRole('button', { name: /Looks Right, Mark \d+ Question/ }).click()
   await page.waitForURL(/\/worksheets\/[^/]+\/markup/, { timeout: 30_000 })
 
-  await page.getByText('Missed It').first().click()
+  await visible(page).getByText('Missed It').first().click()
   await page.getByRole('button', { name: 'Next: What You Put' }).click()
-  await expect(page.getByText(/What did you put/)).toBeVisible()
-  await page.getByText('60 degrees', { exact: true }).click()
+  await expect(visible(page).getByText(/What did you put/)).toBeVisible()
+  await visible(page).getByText('60 degrees', { exact: true }).click()
   await page.getByRole('button', { name: 'Save and Finish' }).click()
   await page.waitForURL('**/dashboard', { timeout: 30_000 })
 

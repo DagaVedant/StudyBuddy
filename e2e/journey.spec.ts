@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { TRIAL_WORKSHEET_LIMIT } from '../lib/ai/limits'
 
 import {
-  closeDbClient,
+  visible,
   registerAndSignIn,
   setTrialWorksheetsUsed,
   uploadWorksheet,
@@ -41,7 +41,6 @@ test.beforeAll(async ({ browser }) => {
 
 test.afterAll(async () => {
   await page.close()
-  await closeDbClient()
 })
 
 test('a PDF is rasterized in the browser and its text layer extracted', async () => {
@@ -138,7 +137,7 @@ test('a topic can be assigned from the canonical tree', async () => {
   // The chosen topic is shown twice once assigned: beside the question in the
   // list, and as the full path in the editor, so this says which one it means
   // rather than failing for matching both.
-  await expect(page.getByText(/Triangle angle sum/).first()).toBeVisible()
+  await expect(visible(page).getByText(/Triangle angle sum/).first()).toBeVisible()
 })
 
 test('answer choices can be added and one marked correct', async () => {
@@ -185,12 +184,12 @@ test('the verify flow shows a card and records a check', async () => {
   // tree this route streams, and Next parks the streamed content in a hidden
   // div at the end of <body> until an inline script moves it into place. That
   // copy is inert and nobody sees it, but it does match on text.
-  await expect(page.locator('#main').getByText(/0 of \d+ checked/)).toBeVisible()
+  await expect(visible(page).getByText(/0 of \d+ checked/)).toBeVisible()
 
   await page.getByRole('button', { name: 'Looks right' }).click()
 
   // One question in this fixture, so accepting it finishes the worksheet.
-  await expect(page.getByText(/All \d+ questions? checked/)).toBeVisible()
+  await expect(visible(page).getByText(/All \d+ questions? checked/)).toBeVisible()
 
   await page.goto(`/worksheets/${worksheetId}/review`)
 })
@@ -203,16 +202,16 @@ test('confirming moves the worksheet to markup', async () => {
 })
 
 test('marking a miss prompts for the answer actually given', async () => {
-  await page.getByText('Missed It').first().click()
+  await visible(page).getByText('Missed It').first().click()
 
-  await expect(page.getByText('1 of 1 marked')).toBeVisible()
+  await expect(visible(page).getByText('1 of 1 marked')).toBeVisible()
 
   await page.getByRole('button', { name: 'Next: What You Put' }).click()
-  await expect(page.getByText(/What did you put/)).toBeVisible()
+  await expect(visible(page).getByText(/What did you put/)).toBeVisible()
 
   // Exact, because the question stem quotes every option, so a loose match
   // finds the prompt before it finds the choice.
-  await page.getByText('105', { exact: true }).click()
+  await visible(page).getByText('105', { exact: true }).click()
   await page.getByRole('button', { name: 'Save and Finish' }).click()
 
   await page.waitForURL('**/dashboard', { timeout: 30_000 })
@@ -221,10 +220,10 @@ test('marking a miss prompts for the answer actually given', async () => {
 test('the dashboard reflects the attempt', async () => {
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 
-  await expect(page.getByText('Nothing tracked yet')).toHaveCount(0)
-  await expect(page.getByText('Questions tracked')).toBeVisible()
-  await expect(page.getByText('Recent worksheets')).toBeVisible()
-  await expect(page.getByText('Unit 4 Practice')).toBeVisible()
+  await expect(visible(page).getByText('Nothing tracked yet')).toHaveCount(0)
+  await expect(visible(page).getByText('Questions tracked')).toBeVisible()
+  await expect(visible(page).getByText('Recent worksheets')).toBeVisible()
+  await expect(visible(page).getByText('Unit 4 Practice')).toBeVisible()
 })
 
 test('a missed question comes back for review', async () => {
@@ -240,7 +239,7 @@ test('a missed question comes back for review', async () => {
   // which means the heading no longer says anything about the queue.
   await expect(async () => {
     await page.goto('/review')
-    await expect(page.getByText(/triangle/i).first()).toBeVisible({
+    await expect(visible(page).getByText(/triangle/i).first()).toBeVisible({
       timeout: 3_000,
     })
   }).toPass({ timeout: 150_000 })
@@ -258,6 +257,6 @@ test('rating a card completes the session', async () => {
   // Scoped, like the two above: the review route streams, and the copy Next
   // parks in a hidden div at the end of <body> matches on text as well.
   await expect(
-    page.locator('#main').getByRole('heading', { name: 'Session complete' }),
+    visible(page).getByRole('heading', { name: 'Session complete' }),
   ).toBeVisible({ timeout: 30_000 })
 })

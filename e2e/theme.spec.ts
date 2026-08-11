@@ -1,10 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { closeDbClient, registerAndSignIn } from './support/helpers'
-
-test.afterAll(async () => {
-  await closeDbClient()
-})
+import { registerAndSignIn } from './support/helpers'
 
 test('the toggle switches theme, persists it, and survives reload', async ({ page }) => {
   await registerAndSignIn(page)

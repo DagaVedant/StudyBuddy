@@ -2,7 +2,24 @@ import { expect, type Page } from '@playwright/test'
 
 import { worksheetPdf } from './pdf'
 
-export async function closeDbClient(): Promise<void> {}
+/**
+ * The page as a reader sees it.
+ *
+ * Every route has a `loading.tsx` above it now, so every route streams, and
+ * Next parks streamed content in a hidden div at the end of <body> until an
+ * inline script moves it into place. That copy is inert and invisible, but it
+ * matches on text, so a bare `page.getByText(...)` can find two of everything
+ * and fail Playwright's strict-mode check. Which of the two is present depends
+ * on when the assertion samples the DOM, so it fails intermittently, which is
+ * the worst way for it to fail.
+ *
+ * `#main` is the layout's content wrapper and the buffer sits outside it, so
+ * scoping to it is both the fix and a truer statement of what these assertions
+ * mean: this text is on the page, not merely in the document.
+ */
+export function visible(page: Page) {
+  return page.locator('#main')
+}
 
 export function alertBox(page: Page) {
   return page.locator('p[role="alert"]')
