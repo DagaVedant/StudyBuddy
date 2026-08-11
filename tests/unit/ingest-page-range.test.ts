@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RasterPage } from '@/lib/client/rasterize'
 import { pageInRange } from '@/lib/upload/page-range'
 
+/** Every page the mock was allowed to hand back, in order. */
 const rendered: number[] = []
+
+/** What `ingestWorksheet` asked each PDF to be rasterized with. */
+const asked: { name: string; offset: number; range: unknown }[] = []
 
 function fakePage(pageNumber: number): RasterPage {
   return {
@@ -23,6 +27,25 @@ vi.mock('@/lib/client/rasterize', async (importOriginal) => {
   return {
     ...actual,
     hasUsableTextLayer: () => true,
+    /**
+     * Dumb on purpose: it records what it was asked for and renders exactly
+     * that, applying no rule of its own.
+     *
+     * It used to run `pageInRange(offset + n, range)` itself, which is the same
+     * line `rasterize.ts` runs. Three tests then measured the double: had the
+     * real loop stopped filtering entirely they would all still have passed.
+     *
+     * The real loop cannot be reached from here. `getPdfjs` loads pdf.js
+     * through `new Function('url', 'return import(url)')`, which exists to keep
+     * the bundler out of it and which no module mock can intercept, so the
+     * filtering itself is covered where the real rasterizer actually runs: by
+     * `pageInRange` and `countInRange` directly in page-range.test.ts, and end
+     * to end by journey.spec.ts, which rasterizes a real PDF in a browser.
+     *
+     * What is left here is what belongs to `ingestWorksheet` alone: the offset
+     * it hands each file, which is the running page count of everything before
+     * it, and the range it passes down untouched.
+     */
     rasterizePdf: vi.fn(
       async (
         file: File,
@@ -30,6 +53,7 @@ vi.mock('@/lib/client/rasterize', async (importOriginal) => {
         options: { offset?: number; range?: { from: number; to: number | null } | null } = {},
       ) => {
         const { offset = 0, range = null } = options
+        asked.push({ name: file.name, offset, range })
 
         const totalPages = Number(file.name.match(/(\d+)p/)?.[1] ?? 1)
         const pages: RasterPage[] = []
@@ -68,6 +92,7 @@ function image(name: string) {
 
 beforeEach(() => {
   rendered.length = 0
+  asked.length = 0
 
   let pageSeq = 0
   vi.stubGlobal('fetch', async (input: string | URL) => {
@@ -118,6 +143,32 @@ describe('ingestWorksheet page range', () => {
     await ingest([pdf('a-3p.pdf'), pdf('b-4p.pdf')], { from: 3, to: 5 })
 
     expect(rendered).toEqual([3, 4, 5])
+  })
+
+  /**
+   * The part that is `ingestWorksheet`'s own, and the part the mock cannot fake
+   * for it: each file is rasterized at the running page count of everything
+   * before it, and the range goes down untouched. Get the offset wrong and a
+   * range spanning a file boundary silently selects the wrong pages, which no
+   * assertion on the rendered numbers would catch if the mock were also the
+   * thing computing them.
+   */
+  it('hands each file the running page count and the range as given', async () => {
+    const range = { from: 3, to: 5 }
+    await ingest([pdf('a-3p.pdf'), pdf('b-4p.pdf'), pdf('c-2p.pdf')], range)
+
+    expect(asked).toEqual([
+      { name: 'a-3p.pdf', offset: 0, range },
+      { name: 'b-4p.pdf', offset: 3, range },
+      { name: 'c-2p.pdf', offset: 7, range },
+    ])
+  })
+
+  it('passes no range when none was chosen', async () => {
+    await ingest([pdf('a-2p.pdf'), pdf('b-2p.pdf')], null)
+
+    expect(asked.map((call) => call.range)).toEqual([null, null])
+    expect(asked.map((call) => call.offset)).toEqual([0, 2])
   })
 
   it('applies the range to loose images too', async () => {
