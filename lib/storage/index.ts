@@ -93,6 +93,40 @@ const localDriver: StorageDriver = {
   },
 }
 
+/**
+ * The same bytes, in a buffer `fetch` will accept.
+ *
+ * Uploading a page failed in production with `TypeError: ArrayBuffer:
+ * SharedArrayBuffer is not allowed`, thrown inside `fetch` from the blob SDK,
+ * on every POST to `/api/worksheets/[id]/pages`. Nothing on this side is wrong:
+ * the bytes are a `Buffer` handed straight from `sharp.toBuffer()`, which is
+ * exactly what the SDK's own types ask for.
+ *
+ * What it is really about is where those bytes live. `fetch` refuses a body
+ * whose backing store might be shared, and a `Buffer` returned by sharp is a
+ * view into memory the image library owns rather than one this process
+ * allocated. Which of the two builds of sharp is installed decides whether the
+ * platform can prove it is unshared, so this reproduces on the deployed Linux
+ * runtime and not on a Windows machine, which is why the tests and the local
+ * build never saw it.
+ *
+ * `Buffer.alloc` and then a copy, which is fussier than it looks. It is the only
+ * one of the obvious four that allocates memory of its own: `Buffer.from`,
+ * `allocUnsafe` and `copyBytesFrom` all carve their result out of Node's shared
+ * 64KB pool, so what they return is again a view into a buffer holding
+ * unrelated data. Measured, not assumed. The cost is one copy of an image
+ * already held in memory, on the upload path only.
+ *
+ * Applied in the driver rather than at the call site because the driver is what
+ * hands bytes to `fetch`; any future caller gets the same protection without
+ * knowing this exists.
+ */
+function detached(body: Buffer): Buffer {
+  const copy = Buffer.alloc(body.byteLength)
+  body.copy(copy)
+  return copy
+}
+
 const blobDriver: StorageDriver = {
   name: 'vercel-blob',
 
@@ -101,7 +135,7 @@ const blobDriver: StorageDriver = {
     // uploading with access: 'public' is rejected outright, not just
     // served without a public URL. Reads go through the SDK's own
     // authenticated get() below rather than a bare public URL fetch.
-    await put(key, body, {
+    await put(key, detached(body), {
       access: 'private',
       contentType,
       addRandomSuffix: false,
