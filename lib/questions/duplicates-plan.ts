@@ -193,6 +193,55 @@ function damage(question: DuplicateCandidate, expectedChoices: number): number {
   return score
 }
 
+/** The words of a prompt, for asking whether one is contained in another. */
+function wordSet(text: string): Set<string> {
+  return new Set(normalizeForCompare(text).split(' ').filter(Boolean))
+}
+
+/**
+ * One row holding a stem the other one finishes.
+ *
+ * `promptSimilarity` is a Jaccard ratio, so it measures overlap against the
+ * union and is punished by the length gap rather than by disagreement. On the
+ * 2020 AMC 8 question 22 came back twice, the second copy carrying the whole
+ * stem and its five options and the first stopping at "the rule shown below.":
+ * eighteen words, every one of them present in the longer copy, and a
+ * similarity of 0.44 against a threshold of 0.8. Two rows for one question, and
+ * the pass declined because a prefix does not look like a match.
+ *
+ * Containment rather than overlap, which is what a truncation actually is. The
+ * conditions are narrow on purpose, because this deletes a row and the rule
+ * above it has already been wrong twice on real data:
+ *
+ *   - every word of the short one appears in the long one, not merely most;
+ *   - the short one carries no options at all and the long one carries some.
+ *
+ * That second condition is what makes it safe. Two genuinely different
+ * questions sharing a misread number do not stand in that relationship: the
+ * shorter would have to be a strict subset of the longer *and* be the only one
+ * missing its answers. The shape it does describe is one read that stopped at a
+ * page break and one that did not.
+ */
+function truncationPair(
+  a: DuplicateCandidate,
+  b: DuplicateCandidate,
+): { keep: DuplicateCandidate; drop: DuplicateCandidate } | null {
+  const pair = (short: DuplicateCandidate, long: DuplicateCandidate) => {
+    if (short.choices.length > 0 || long.choices.length === 0) return null
+    if (short.promptText.length >= long.promptText.length) return null
+
+    const words = wordSet(short.promptText)
+    if (words.size === 0) return null
+
+    const inLong = wordSet(long.promptText)
+    for (const word of words) if (!inLong.has(word)) return null
+
+    return { keep: long, drop: short }
+  }
+
+  return pair(a, b) ?? pair(b, a)
+}
+
 /**
  * Folds two rows that claim the same printed number.
  *
@@ -244,6 +293,14 @@ export function planNumberDuplicateMerges(
     if (group.length !== 2) continue
 
     const [a, b] = group
+
+    // A stem cut short is the same question, and similarity cannot see it.
+    const cut = truncationPair(a, b)
+    if (cut) {
+      plans.push({ keepId: cut.keep.id, dropId: cut.drop.id, printedNumber })
+      continue
+    }
+
     if (promptSimilarity(a.promptText, b.promptText) < SAME_QUESTION_SIMILARITY) continue
 
     const keep = damage(a, expectedChoices) <= damage(b, expectedChoices) ? a : b

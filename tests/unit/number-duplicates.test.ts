@@ -208,4 +208,98 @@ describe('planNumberDuplicateMerges', () => {
 
     for (const plan of plans) expect(plan.keepId).not.toBe(plan.dropId)
   })
+
+  /**
+   * A stem cut short by a page break, which similarity cannot see.
+   *
+   * promptSimilarity is a Jaccard ratio, so it is punished by the length gap
+   * rather than by disagreement. The real case: 2020 AMC 8 question 22 came
+   * back twice, one copy stopping at "the rule shown below." with no options
+   * and the other carrying the whole stem and its five. Eighteen words, every
+   * one present in the longer copy, and a similarity of 0.44 against a
+   * threshold of 0.8.
+   */
+  describe('a stem the other copy finishes', () => {
+    const short = 'When a positive integer N is fed into a machine, the output is a number calculated according to the rule shown below.'
+    const long = `${short} if N is even N if N is odd 3 N + 1 For example, starting with an input of N = 7, the machine will output 22.`
+
+    it('folds a truncated copy into the one that finished', () => {
+      const plans = planNumberDuplicateMerges(
+        [
+          { id: 'cut', printedNumber: 22, promptText: short, choices: [] },
+          question('whole', 22, long, ['73', '74', '75', '82', '83']),
+        ],
+        FOUR,
+      )
+
+      expect(plans).toEqual([{ keepId: 'whole', dropId: 'cut', printedNumber: 22 }])
+    })
+
+    it('folds it whichever order the two arrive in', () => {
+      const plans = planNumberDuplicateMerges(
+        [
+          question('whole', 22, long, ['73', '74', '75', '82', '83']),
+          { id: 'cut', printedNumber: 22, promptText: short, choices: [] },
+        ],
+        FOUR,
+      )
+
+      expect(plans[0]).toMatchObject({ keepId: 'whole', dropId: 'cut' })
+    })
+
+    /**
+     * The condition that makes this safe to delete on. Two different questions
+     * that collided on a misread number do not stand in this relationship: the
+     * shorter would have to be a strict subset of the longer and be the only
+     * one missing its answers.
+     */
+    it('refuses when the shorter copy has options of its own', () => {
+      expect(
+        planNumberDuplicateMerges(
+          [
+            question('cut', 22, short, ['1', '2']),
+            question('whole', 22, long, ['73', '74', '75', '82', '83']),
+          ],
+          FOUR,
+        ),
+      ).toEqual([])
+    })
+
+    it('refuses when neither copy has options', () => {
+      expect(
+        planNumberDuplicateMerges(
+          [
+            { id: 'cut', printedNumber: 22, promptText: short, choices: [] },
+            { id: 'whole', printedNumber: 22, promptText: long, choices: [] },
+          ],
+          FOUR,
+        ),
+      ).toEqual([])
+    })
+
+    it('refuses when a word of the short one is missing from the long one', () => {
+      expect(
+        planNumberDuplicateMerges(
+          [
+            { id: 'other', printedNumber: 22, promptText: 'What is the area of a triangle with base 6', choices: [] },
+            question('whole', 22, long, ['73', '74', '75', '82', '83']),
+          ],
+          FOUR,
+        ),
+      ).toEqual([])
+    })
+
+    it('still refuses three rows on one number', () => {
+      expect(
+        planNumberDuplicateMerges(
+          [
+            { id: 'cut', printedNumber: 22, promptText: short, choices: [] },
+            question('whole', 22, long, ['73', '74']),
+            question('third', 22, long, ['73', '74']),
+          ],
+          FOUR,
+        ),
+      ).toEqual([])
+    })
+  })
 })
