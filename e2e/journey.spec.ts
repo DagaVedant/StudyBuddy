@@ -58,25 +58,48 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
   expect(natural).toBeGreaterThan(500)
 })
 
-// Driven by dispatched PointerEvents instead of page.mouse, because in this
-// headless Chromium the canvas card's hit-test region does not line up with
-// its layout box, so a press inside the box lands on <html> and the handler
-// never runs. Measured: with the image box at x 24-784 and the page
-// unscrolled, a press at x=70 reports <html> as its target while x=252 and
-// x=738 report the image, and a press page.mouse cannot land at all is landed
-// by locator.click() at the very same coordinates. The card is position:
-// sticky, which is what puts its hit region on the compositor.
-//
-// This was previously recorded as "sticky ruled out" on the evidence of
-// document.elementsFromPoint. That API cannot settle it: here it returns only
-// <html> for every point on the page, including the centre of a button that
-// Playwright then clicks successfully, so it disagrees with the browser's own
-// input hit testing rather than reporting it.
-//
-// The dispatch still covers everything this app owns: the pointer handlers in
-// PageCanvas, the mapping back to page coordinates, the text lookup inside the
-// dragged box, and the create. What it gives up is the browser's hit testing,
-// which is the part that is broken here and is not ours.
+/**
+ * One assertion, and it would have caught the bug above in seconds.
+ *
+ * The symptom was drag-to-add-a-question silently not working, which took four
+ * commits and a full e2e run to chase each time. The cause was a stuck
+ * ::view-transition tree in the top layer swallowing every press, and that is
+ * visible directly: if hit testing at an arbitrary point reports <html>, or
+ * anything is still animating after the page has settled, the screen is inert
+ * whatever else the suite says.
+ *
+ * Placed here because reaching this route by clicking through the app is what
+ * triggers it. A reload clears it, so a test that navigates directly cannot see
+ * it at all.
+ */
+test('hit testing survives a client navigation', async () => {
+  const inert = await page.evaluate(() => ({
+    atTopbar: document.elementFromPoint(100, 28)?.tagName ?? 'null',
+    depth: document.elementsFromPoint(100, 28).length,
+    stuck: document
+      .getAnimations()
+      .filter((animation) => animation.playState === 'running')
+      .map((animation) => {
+        const effect = animation.effect as KeyframeEffect | null
+        return effect?.pseudoElement ?? 'element'
+      }),
+  }))
+
+  expect(inert.atTopbar).not.toBe('HTML')
+  expect(inert.depth).toBeGreaterThan(1)
+  expect(inert.stuck).toEqual([])
+})
+
+/**
+ * The real gesture, with page.mouse, which is the point.
+ *
+ * This used to dispatch PointerEvents by hand because the browser's own hit
+ * testing was dead on this screen after a client-side navigation: a press
+ * anywhere landed on <html>. That was a stuck ::view-transition tree sitting in
+ * the top layer, not a harness problem and not the sticky canvas card. It is
+ * fixed in globals.css, and driving the drag through real input is what proves
+ * it: a dispatched event would pass either way.
+ */
 test('dragging a region creates a question with its text filled in', async () => {
   const image = visible(page).getByRole('img', { name: /Page 1 of/ })
 
@@ -86,30 +109,15 @@ test('dragging a region creates a question with its text filled in', async () =>
   )
 
   // Top fifth of the fixture page, which is where question 1 is printed.
-  await image.evaluate((img) => {
-    const canvas = img.parentElement!
-    const rect = img.getBoundingClientRect()
+  const box = (await image.boundingBox())!
+  const at = (fx: number, fy: number) =>
+    [box.x + box.width * fx, box.y + box.height * fy] as const
 
-    const fire = (type: string, fx: number, fy: number) =>
-      canvas.dispatchEvent(
-        new PointerEvent(type, {
-          clientX: rect.x + rect.width * fx,
-          clientY: rect.y + rect.height * fy,
-          bubbles: true,
-          cancelable: true,
-          pointerId: 1,
-          pointerType: 'mouse',
-          button: type === 'pointermove' ? -1 : 0,
-          buttons: type === 'pointerup' ? 0 : 1,
-          isPrimary: true,
-        }),
-      )
-
-    fire('pointerdown', 0.04, 0.03)
-    fire('pointermove', 0.5, 0.08)
-    fire('pointermove', 0.96, 0.17)
-    fire('pointerup', 0.96, 0.17)
-  })
+  await page.mouse.move(...at(0.04, 0.03))
+  await page.mouse.down()
+  await page.mouse.move(...at(0.5, 0.08))
+  await page.mouse.move(...at(0.96, 0.17))
+  await page.mouse.up()
 
   const prompt = visible(page).getByLabel('Question text')
   await expect(prompt).toBeVisible()

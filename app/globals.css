@@ -320,6 +320,47 @@ body {
   }
 }
 
+/*
+ * The root snapshot does not animate, and this is load-bearing rather than
+ * tidiness.
+ *
+ * Every transition here also produces a `(root)` group, from the browser's own
+ * default styles, on top of the `.page` group below. Those root animations were
+ * never finishing: after a client-side navigation `document.getAnimations()`
+ * reported six of them still `running`, two old snapshots and two new ones,
+ * indefinitely. A `::view-transition` tree that never finishes stays in the top
+ * layer and covers the viewport, so `document.elementFromPoint` anywhere on the
+ * page returned `<html>` and `elementsFromPoint` returned a stack of one.
+ *
+ * Hit testing was dead document-wide. Nothing on the page could be pressed
+ * until a reload, and what that cost in practice was drag-to-add-a-question on
+ * the worksheet review screen, which is the whole of the manual editor: a
+ * student who reached it by clicking through the app could not draw a box.
+ * Reloading fixed it, which is why it looked like a test-harness problem for
+ * four commits.
+ *
+ * Bisected on production builds with `.next` deleted between each, since the
+ * two controls are independent and neither alone had settled it before:
+ *
+ *   flag on,  <ViewTransition> on   ->  broken
+ *   flag off, <ViewTransition> on   ->  broken
+ *   flag on,  <ViewTransition> off  ->  clean
+ *   flag off, <ViewTransition> off  ->  clean
+ *
+ * So it is React's component rather than Next's route integration, and the root
+ * group rather than the named ones: `.page` and `.topic-title` both reached
+ * `finished` in the same measurement. Suppressing the root animation lets the
+ * transition complete and the pseudo tree tear down, which keeps both of the
+ * animations this app actually wants. The crossfade is `.page`'s job anyway, so
+ * a second one underneath it was redundant before it was harmful.
+ *
+ * `e2e/journey.spec.ts` asserts hit testing survives a client navigation.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
 /* The wrapper is full-width on every route, so only its height changes between
    pages. Letting the group animate that height keeps the outgoing snapshot from
    being clipped off at the bottom when a long page gives way to a short one. */
