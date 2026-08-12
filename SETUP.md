@@ -21,7 +21,14 @@ You need Postgres with the `pgvector` extension.
 > Take the **pooled** string, not the direct one. Serverless opens and drops
 > connections constantly and the direct endpoint will run out.
 
-Open `.env.local` and replace the `DATABASE_URL` line with it.
+`.env.local` does not exist in a fresh clone: it is gitignored and nothing
+creates it, so make it first.
+
+```bash
+cp .env.example .env.local
+```
+
+Then open it and replace the `DATABASE_URL` line with the string above.
 
 You do **not** need to create tables or enable pgvector by hand; step 3 does
 both.
@@ -30,8 +37,9 @@ both.
 
 ## 2. Secrets (1 min)
 
-`.env.example` is the only `.env` file in the repo, so copy it to `.env.local`
-and generate your own secrets. Never commit the result.
+`.env.example` is the only `.env` file in the repo, and the copy you made in
+step 1 ships `AUTH_SECRET`, `CREDENTIALS_ENC_KEY` and `WORKER_API_TOKEN` as
+empty strings. Generate your own. Never commit the result.
 
 ```bash
 npm run gen:secrets
@@ -64,7 +72,7 @@ What each does:
 
 | Command | Effect |
 |---|---|
-| `db:migrate` | Enables pgvector, creates 20 tables |
+| `db:migrate` | Enables pgvector, creates 21 tables |
 | `db:seed` | Loads 341 topics (276 classifiable leaves) |
 | `db:embed` | Computes topic embeddings; auto-classification needs these |
 
@@ -103,8 +111,14 @@ git push -u origin main
 `.env.local` is gitignored, so your secrets do not go up. Worth confirming
 once:
 
-```bash
+```powershell
 git ls-files | Select-String "env"
+```
+
+or, on a POSIX shell:
+
+```bash
+git ls-files | grep env
 ```
 
 Should print only `.env.example`.
@@ -126,7 +140,7 @@ Should print only `.env.example`.
 | `ADMIN_EMAILS` | your emails, comma-separated |
 | `WORKER_API_TOKEN` | from `npm run gen:secrets` |
 | `NEXT_PUBLIC_APP_URL` | `https://your-project.vercel.app` |
-| `ENABLE_MOCK_AI` | `false` |
+| `ENABLE_MOCK_AI` | leave empty |
 
 5. Deploy.
 
@@ -181,8 +195,10 @@ it. Rather than ship a signup flow that only works for one inbox, the app does
 without.
 
 The consequence: **Google is the only way to prove an address**, so it is the
-recommended way in. A password account is created ready to use and is never
-verified, which also means there is no password reset; nothing can send one.
+recommended way in. A password account is created ready to use and is stamped
+`email_verified` at creation without any proof of ownership, which is worth
+knowing before you read that column and believe it. It also means there is no
+password reset; nothing can send one.
 
 ---
 

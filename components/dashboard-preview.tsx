@@ -53,9 +53,16 @@ const WEAKEST = [
   },
 ] as const
 
-/** Alphabetical, the way `rollUp` sorts. Attempts total the 218 above. */
-const SUBJECTS = [
-  { name: 'Algebra 1', correct: 28, attempts: 32 },
+/**
+ * Alphabetical, the way `rollUp` sorts. Attempts total the 218 above.
+ *
+ * These are subject roots, not topics, because that is what the real panel
+ * groups by: `rollUp` keys on `subjectRoot`, which is always one of four. This
+ * said "Algebra 1", which is a real part of the tree but three levels down, so
+ * the mock showed a row the product cannot produce.
+ */
+export const SUBJECTS = [
+  { name: 'High School Math', correct: 28, attempts: 32 },
   { name: 'SAT Math', correct: 71, attempts: 104 },
   { name: 'SAT Reading and Writing', correct: 65, attempts: 82 },
 ] as const

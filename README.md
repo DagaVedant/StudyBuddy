@@ -13,10 +13,14 @@ Full product and technical spec: [`spec.md`](./spec.md).
 ### 1. Database (the only thing that blocks you)
 
 You need Postgres with `pgvector`. [Neon](https://neon.tech) has a free tier and
-takes about two minutes. Put the **pooled** connection string in `.env.local` as
-`DATABASE_URL`. Everything else in that file already has a working default.
+takes about two minutes.
+
+`.env.local` is gitignored and nothing creates it, so copy the template first.
+Put the **pooled** connection string in it as `DATABASE_URL`, and generate the
+three secrets with `npm run gen:secrets`; the template ships them empty.
 
 ```bash
+cp .env.example .env.local
 npm install
 npm run db:migrate
 npm run db:seed
@@ -24,9 +28,10 @@ npm run db:embed
 npm run dev
 ```
 
-`db:migrate` creates 20 tables and enables pgvector. `db:seed` loads 341 topics
-(233 classifiable leaves). `db:embed` fills in topic embeddings, which
-auto-classification needs to build its candidate shortlist.
+`db:migrate` creates 21 tables and enables pgvector. `db:seed` loads 341 topics
+(276 classifiable leaves) and prints both numbers as it goes. `db:embed` fills
+in topic embeddings, which auto-classification needs to build its candidate
+shortlist.
 
 ### 2. Optional: your own GPU
 
@@ -56,11 +61,15 @@ The tier only changes how questions get off the page.
 | **0 (Trial)** | nothing | operator GPU, 3 worksheets lifetime | 20 |
 | **A (Free)** | nothing | manual editor + browser OCR | none |
 | **B (Cloud key)** | Anthropic/OpenAI key | server-side vision model | unlimited |
-| **C (Ollama)** | Ollama running | student's own GPU, in-browser | unlimited |
+| **C (Ollama)** *(planned)* | Ollama running | student's own GPU, in-browser | unlimited |
 
-Tier C runs in the browser because a server cannot reach a student's
-`localhost`, which also means the tab has to stay open. That's a permanent
-constraint of the design, not a bug.
+Tier C is **not built yet**. The settings screen takes an Ollama address and
+says so; `resolveProvider` never looks at an ollama credential, so an account
+with one saved still runs on whichever tier it qualified for otherwise.
+
+The design is settled even though the code is not: it runs in the browser
+because a server cannot reach a student's `localhost`, which also means the tab
+has to stay open. That is a permanent constraint of the approach, not a bug.
 
 ---
 
@@ -70,7 +79,7 @@ constraint of the design, not a bug.
 |---|---|
 | `npm run dev` | Development server |
 | `npm run check` | Typecheck + lint + tests |
-| `npm test` | 415 tests (Vitest, embedded Postgres via PGlite) |
+| `npm test` | 965 tests (Vitest, embedded Postgres via PGlite) |
 | `npm run worker` | Operator GPU pull-worker |
 | `npm run benchmark:ollama` | Benchmark the local vision model |
 | `npm run db:studio` | Browse the database |

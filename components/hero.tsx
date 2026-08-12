@@ -6,11 +6,18 @@ import styles from './hero.module.css'
  * The four topics the demo extracts. Kept honest on purpose: these are real
  * taxonomy names, each one is the topic of the matching question in
  * QUESTIONS below, and they add up to the 24 the counter lands on.
+ *
+ * "Kept honest on purpose" was not true when it was written: three of the four
+ * were invented, and only `Vocabulary in context` existed in the tree. Somebody
+ * arriving from this page and searching for `Reading inference` would have
+ * found nothing. `tests/unit/hero-topics.test.ts` now asserts every one of
+ * these against `flattenTaxonomy()`, so the comment is checked rather than
+ * merely claimed.
  */
-const TOPICS = [
-  { name: 'Ratio & proportion', count: 6 },
-  { name: 'Linear equations', count: 5 },
-  { name: 'Reading inference', count: 8 },
+export const TOPICS = [
+  { name: 'Ratios and rates', count: 6 },
+  { name: 'Multi-step equations', count: 5 },
+  { name: 'Inference', count: 8 },
   { name: 'Vocabulary in context', count: 5 },
 ] as const
 
@@ -67,7 +74,10 @@ export default function Hero({ children }: { children: React.ReactNode }) {
             <span className="sr-only">
               {TOTAL} questions found in one worksheet
             </span>
-            <p className="hint mt-1">pulled out, tagged and scheduled</p>
+            {/* Not "scheduled". Extraction schedules nothing: a review card
+                is created when the student marks the sheet, and only for the
+                ones they got wrong. */}
+            <p className="hint mt-1">pulled out, tagged and ready to mark</p>
 
             <ul className={styles.topics}>
               {TOPICS.map((topic) => (
@@ -91,9 +101,16 @@ export default function Hero({ children }: { children: React.ReactNode }) {
 
         {children}
 
+        {/*
+          This read "then each one comes back on the day you are about to lose
+          it", which promised two things the product does not do. Nothing comes
+          back: there is no mail, no push, no notification channel of any kind,
+          and the student is the one who opens the app. And not each one: a
+          question answered correctly never becomes a card at all.
+        */}
         <p className={`${styles.caption} text-sm text-pretty text-muted`}>
-          Then each one comes back on the day you are about to lose it. That is
-          the curve behind this page.
+          Then the ones you missed are waiting in review, spaced to the day you
+          are about to forget them. That is the curve behind this page.
         </p>
       </div>
 

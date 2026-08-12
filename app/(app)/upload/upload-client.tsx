@@ -235,9 +235,24 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         <h2 id="add-heading" className="text-pretty font-medium">
           Add Your Worksheet
         </h2>
+        {/*
+          This used to end "everything is rendered and read on your device, the
+          file itself never leaves your browser", which is true of the PDF and
+          false of everything that matters. The PDF is rasterized here and is
+          not uploaded, but the page images it produces are, and on the trial
+          they are read by a vision model on hardware the operator runs. A
+          reader deciding whether to upload their homework was being told the
+          opposite of what happens to it.
+
+          spec.md §9 lists a Tier 0 privacy disclosure at the point of upload as
+          v1 scope, and this was the one place it was missing. The wording is
+          the settings screen's, deliberately, so the two agree.
+        */}
         <p className="hint mx-auto max-w-sm text-pretty">
-          PDFs, scans, or photos of the pages. Everything is rendered and read on
-          your device. The file itself never leaves your browser.
+          PDFs, scans, or photos of the pages. The PDF is rendered here and is
+          never uploaded; the page images are, and on the free trial they are
+          read on hardware we operate, kept only while the job runs, and never
+          used for training.
         </p>
 
         <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2 sm:flex-row">

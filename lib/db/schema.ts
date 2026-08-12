@@ -236,6 +236,16 @@ export const userAiCredentials = pgTable(
     modelName: text('model_name'),
     visionModelName: text('vision_model_name'),
 
+    /*
+     * When the key was last shown to work, and therefore null on every row.
+     *
+     * Saving a credential used to stamp this, which made "verified" mean
+     * "somebody typed something". Nothing calls the provider: a key with a
+     * typo in it is stored as verified and first fails on an upload, inside
+     * `after()`, as a failed job. Left null until something actually checks,
+     * so the column says what it means and a verification step added later has
+     * somewhere honest to write.
+     */
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

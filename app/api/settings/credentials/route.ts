@@ -63,7 +63,6 @@ export async function POST(request: Request) {
         ollamaBaseUrl: input.baseUrl,
         visionModelName: input.visionModel,
         modelName: input.textModel,
-        verifiedAt: new Date(),
       })
       .onConflictDoUpdate({
         target: [userAiCredentials.userId, userAiCredentials.provider],
@@ -99,7 +98,6 @@ export async function POST(request: Request) {
       keyLast4: sealed.last4,
       modelName: input.model ?? null,
       visionModelName: input.model ?? null,
-      verifiedAt: new Date(),
     })
     .onConflictDoUpdate({
       target: [userAiCredentials.userId, userAiCredentials.provider],
