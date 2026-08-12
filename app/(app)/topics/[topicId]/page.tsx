@@ -18,6 +18,8 @@ import {
 import { reflowText } from '@/lib/questions/reflow'
 import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { pathBySlug } from '@/lib/taxonomy/trees'
+import { getLesson } from '@/lib/topics/lesson'
+import Prose from '@/components/prose'
 
 export const metadata = { title: 'Topic · StudyBuddy' }
 export const dynamic = 'force-dynamic'
@@ -51,6 +53,7 @@ export default async function TopicPage({
   if (!topic) notFound()
 
   const path = pathBySlug().get(topic.slug) ?? topic.name
+  const lesson = await getLesson(db, topicId)
 
   const [tally] = await db
     .select({
@@ -173,6 +176,69 @@ export default async function TopicPage({
           </p>
         )}
       </section>
+
+      {lesson && (
+        <section aria-labelledby="lesson-heading" className="card mt-6 p-4">
+          <h2 id="lesson-heading" className="text-sm font-medium">
+            How this works
+          </h2>
+
+          <div className="mt-3">
+            <Prose markdown={lesson.bodyMd} />
+          </div>
+
+          {lesson.examples.length > 0 && (
+            <>
+              <h3 className="mt-6 text-sm font-semibold tracking-tight">Worked examples</h3>
+              <ol className="mt-2 space-y-4">
+                {lesson.examples.map((example, index) => (
+                  <li key={index} className="rounded-xl border border-border p-3">
+                    <p className="text-pretty text-sm font-medium">{example.question}</p>
+                    <div className="mt-2">
+                      <Prose markdown={example.working} />
+                    </div>
+                    <p className="mt-2 text-sm">
+                      <span className="text-muted">Answer: </span>
+                      <span className="font-semibold">{example.answer}</span>
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+
+          {lesson.commonErrors.length > 0 && (
+            <>
+              <h3 className="mt-6 text-sm font-semibold tracking-tight">
+                Where people go wrong
+              </h3>
+              <ul className="mt-2 space-y-3">
+                {lesson.commonErrors.map((error, index) => (
+                  <li key={index}>
+                    <p className="text-pretty text-sm font-medium">{error.mistake}</p>
+                    <p className="hint text-pretty">{error.why}</p>
+                    <p className="mt-0.5 text-pretty text-sm">
+                      <span className="text-muted">Instead: </span>
+                      {error.fix}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {/*
+            Said plainly rather than left for the reader to assume. This is
+            teaching material a model wrote, not something a teacher checked,
+            and the questions below it are the student's own real work. Telling
+            the two apart matters more here than anywhere else on the site.
+          */}
+          <p className="hint mt-6 text-pretty">
+            Written by {lesson.model ?? 'a model'}, not by a teacher. The questions
+            below are your own.
+          </p>
+        </section>
+      )}
 
       <section aria-labelledby="vault-heading" className="mt-6">
         <h2 id="vault-heading" className="text-sm font-medium">
