@@ -70,7 +70,20 @@ Rules:
 - Some questions have no options and are answered by writing in a value. Those
   are still questions; return them with an empty choices list.
 - bbox is [x0, y0, x1, y1] in pixels of the supplied image, or null if unsure.
-- Set has_figure when the question depends on a diagram, graph, or table.`
+- Set has_figure when the question depends on a diagram, graph, or table.
+
+Questions that run over a page break:
+You may be given the end of the previous page and the start of the next one, as
+text only. They are context, never content. Everything you return must be a
+question printed on THIS page's image.
+- A question whose stem is on this page and whose options continue onto the
+  next page: return it once, from here, with those options included.
+- A question that began on the previous page and finishes at the top of this
+  one: it belongs to that page. Return nothing for it. The fragment at the top
+  of this page is not a question of its own, however much it looks like one.
+- Use the neighbouring text to complete a stem that is cut off mid-sentence at
+  the edge of this page. Keep the wording verbatim across the join.
+- Never return a question that appears only in the neighbouring text.`
 
 export function extractionUserText(page: PageInput, expect: number[] = []): string {
   const target =
@@ -83,6 +96,30 @@ export function extractionUserText(page: PageInput, expect: number[] = []): stri
         ]
       : []
 
+  // Fenced apart from the page's own text and labelled by what they are for.
+  // The system prompt spends a paragraph on the rule these carry; the risk
+  // being managed is the model reading them as more page and returning a
+  // question twice, once from each side of the fold.
+  const before = page.before
+    ? [
+        '',
+        'End of the PREVIOUS page. Context only, not content:',
+        '<previous_page_tail>',
+        fenced(page.before, 4_000),
+        '</previous_page_tail>',
+      ]
+    : []
+
+  const after = page.after
+    ? [
+        '',
+        'Start of the NEXT page. Context only, not content:',
+        '<next_page_head>',
+        fenced(page.after, 4_000),
+        '</next_page_head>',
+      ]
+    : []
+
   return [
     `Page ${page.pageNumber}, ${page.width}x${page.height} pixels.`,
     '',
@@ -90,6 +127,8 @@ export function extractionUserText(page: PageInput, expect: number[] = []): stri
     '<page_text>',
     fenced(page.text, 20_000),
     '</page_text>',
+    ...before,
+    ...after,
     ...target,
     '',
 

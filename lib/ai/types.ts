@@ -257,6 +257,23 @@ export interface PageInput {
   pageNumber: number
 
   expect?: number[]
+
+  /**
+   * The seam: the tail of the page before this one and the head of the page
+   * after it, as text.
+   *
+   * Text only, and deliberately. The model is reading one page image at a time
+   * and has no idea a question ran over the fold, which is the whole reason the
+   * join and carried-options passes exist downstream. Sending the neighbouring
+   * images too would double the cost of every extraction to help the one
+   * question in twenty that is cut; the text layer is already in the worker's
+   * hands and costs nothing to pass along.
+   *
+   * Optional because the first page has no before and the last has no after,
+   * and because a scan with no text layer has neither.
+   */
+  before?: string
+  after?: string
 }
 
 export interface TopicCandidate {

@@ -6,6 +6,7 @@ import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import { isAnswerPage } from '@/lib/questions/answer-key'
 import { foldLeadInChoices } from '@/lib/questions/lead-in'
 import { normalizeMath } from '@/lib/questions/math'
+import { seamAround } from '@/lib/questions/page-text'
 import { printedNumbersFor } from '@/lib/questions/printed-numbers'
 import { reflowText } from '@/lib/questions/reflow'
 import {
@@ -83,6 +84,11 @@ export async function runExtraction(
       width: page.width ?? 0,
       height: page.height ?? 0,
       pageNumber: page.pageNumber,
+      // The pages either side, so a question that ran over the fold can be read
+      // whole. Indexed against the full list rather than this loop's position,
+      // because answer-key pages are skipped above and the page a question
+      // continued onto is the one next to it in the document.
+      ...seamAround(pages, pages.indexOf(page)),
     })
 
     created += await persistQuestions(db, job, page.id, extracted)

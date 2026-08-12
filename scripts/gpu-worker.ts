@@ -9,6 +9,7 @@ import type { ExtractedQuestion } from '../lib/ai/types'
 import { validated } from '../lib/ai/validated'
 import { embed } from '../lib/embeddings'
 import { isAnswerPage } from '../lib/questions/answer-key'
+import { seamAround } from '../lib/questions/page-text'
 import { auditExtraction } from '../lib/worker/audit'
 import {
   MAX_REREAD_SHARE,
@@ -224,6 +225,11 @@ async function reviewExtractedQuestions(
         width: page.width ?? 0,
         height: page.height ?? 0,
         pageNumber: page.pageNumber,
+        // The pages either side, so a question that ran over the fold can be
+        // read whole. Indexed against the full list rather than this loop's
+        // subset: the page it continued onto is the one next to it in the
+        // document, not the next one this pass happens to be reading.
+        ...seamAround(pages, pages.indexOf(page)),
         expect: target.expect,
       })
 
@@ -341,6 +347,11 @@ async function recoverMissingQuestions(
         width: page.width ?? 0,
         height: page.height ?? 0,
         pageNumber: page.pageNumber,
+        // The pages either side, so a question that ran over the fold can be
+        // read whole. Indexed against the full list rather than this loop's
+        // subset: the page it continued onto is the one next to it in the
+        // document, not the next one this pass happens to be reading.
+        ...seamAround(pages, pages.indexOf(page)),
         expect: target.expect,
       })
 
@@ -616,6 +627,11 @@ async function processJob(claim: ClaimResponse): Promise<void> {
           width: page.width ?? 0,
           height: page.height ?? 0,
           pageNumber: page.pageNumber,
+          // The pages either side, so a question that ran over the fold can be
+          // read whole. Indexed against the full list rather than this loop's
+          // subset: the page it continued onto is the one next to it in the
+          // document, not the next one this pass happens to be reading.
+          ...seamAround(pages, pages.indexOf(page)),
         })
       } catch (error) {
         pageFailures += 1

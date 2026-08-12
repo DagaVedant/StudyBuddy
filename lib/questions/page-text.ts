@@ -84,3 +84,69 @@ export function questionNumbersOn(text: string): number[] {
 export function countQuestionStarts(text: string): number {
   return questionNumbersOn(text).length
 }
+
+/**
+ * How much of a neighbouring page to show the extractor.
+ *
+ * Enough to carry a stem that ran over the fold and the option block under it,
+ * and no more. This is prose sent on every page of every extraction, so it is
+ * paid for on all of them to help the few that need it.
+ */
+const SEAM_CHARS = 1200
+
+/**
+ * The end of the page before this one, for a question that ran over the fold.
+ *
+ * Extraction reads one page at a time and the model has never seen the page
+ * before or after, so a question whose stem ends at the foot of page N and
+ * whose options begin at the head of N+1 is not whole in either request. The
+ * repair passes recover the common shapes of that afterwards, and refuse the
+ * rest by design, because joining rows is a deletion and this codebase has been
+ * bitten twice by a join rule that read correctly and was wrong on real data.
+ *
+ * The cheaper fix is to stop cutting the question in the first place. The
+ * worker already holds every page's text when it extracts, so the two
+ * neighbours cost nothing to fetch and nothing in image tokens; they were
+ * simply never shown to the model.
+ *
+ * Trimmed to a whole line at both ends. Half a word at the seam is a word the
+ * model has to guess at, and guessing is the failure this is here to remove.
+ */
+export function tailOf(text: string, limit = SEAM_CHARS): string {
+  if (text.length <= limit) return text.trim()
+
+  const cut = text.slice(text.length - limit)
+  const firstBreak = cut.indexOf('\n')
+  return (firstBreak === -1 ? cut : cut.slice(firstBreak + 1)).trim()
+}
+
+/** The start of the page after this one. See {@link tailOf}. */
+export function headOf(text: string, limit = SEAM_CHARS): string {
+  if (text.length <= limit) return text.trim()
+
+  const cut = text.slice(0, limit)
+  const lastBreak = cut.lastIndexOf('\n')
+  return (lastBreak === -1 ? cut : cut.slice(0, lastBreak)).trim()
+}
+
+/**
+ * The seam either side of one page, ready to hand to the extractor.
+ *
+ * Indexed against the full ordered page list rather than whatever subset a
+ * caller is iterating. Pages get skipped, answer keys most often, and the page
+ * a question ran onto is the one physically next to it in the document, not the
+ * next one this loop happens to be extracting.
+ *
+ * Empty strings rather than undefined for the ends of the document: the prompt
+ * builder omits a blank block, so the first and last page simply carry one
+ * neighbour instead of two.
+ */
+export function seamAround(
+  pages: readonly { ocrText?: string | null }[],
+  index: number,
+): { before: string; after: string } {
+  return {
+    before: tailOf(pages[index - 1]?.ocrText ?? ''),
+    after: headOf(pages[index + 1]?.ocrText ?? ''),
+  }
+}
