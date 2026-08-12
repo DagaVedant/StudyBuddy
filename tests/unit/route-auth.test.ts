@@ -101,6 +101,7 @@ const workerHeartbeat = await import('@/app/api/worker/heartbeat/route')
 const workerJob = await import('@/app/api/worker/jobs/[jobId]/route')
 const workerPage = await import('@/app/api/worker/pages/[pageId]/route')
 const workerQuestions = await import('@/app/api/worker/questions/[worksheetId]/route')
+const workerSolutions = await import('@/app/api/worker/solutions/[worksheetId]/route')
 const worksheets = await import('@/app/api/worksheets/route')
 const worksheet = await import('@/app/api/worksheets/[id]/route')
 const attempts = await import('@/app/api/worksheets/[id]/attempts/route')
@@ -206,6 +207,7 @@ const WORKER_ROUTES: [string, Handler, string, never][] = [
     id({ pageId: 'p-1' }),
   ],
   ['GET /api/worker/questions/[id]', workerQuestions.GET as Handler, 'GET', WS],
+  ['GET /api/worker/solutions/[id]', workerSolutions.GET as Handler, 'GET', WS],
 ]
 
 const TEST_ROUTES: [string, Handler, string, never][] = [

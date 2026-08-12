@@ -23,10 +23,20 @@ export type JobExecutor = 'server' | 'browser' | 'operator_gpu'
  * against live data to buy back two labels nothing can now write. Narrowing
  * here costs nothing and makes the compiler say so.
  */
-export type JobStage = 'extract' | 'explain'
+/*
+ * `answer_key` was a dead label for a long time: the paper's own key is applied
+ * as a repair pass at the end of extraction, not as a stage, and nothing solved
+ * a question that had no key at all. Now something does, and it is a stage
+ * rather than another pass because it is the slow one. A 114-question paper is
+ * the better part of an hour on the operator's GPU, and holding the worksheet
+ * out of the student's hands for that long to fill in answers they may never
+ * look at is the wrong trade. Extraction finishes, the paper becomes readable,
+ * and the answers arrive behind it.
+ */
+export type JobStage = 'extract' | 'explain' | 'answer_key'
 
 /** Every label the column can hold, including the two nothing enqueues. */
-export type StoredJobStage = JobStage | 'answer_key' | 'classify'
+export type StoredJobStage = JobStage | 'classify'
 
 export type JobPriority = 'high' | 'normal' | 'low'
 

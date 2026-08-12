@@ -33,6 +33,17 @@ const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b'
  * setting this.
  */
 const REVIEW_MODEL = process.env.OLLAMA_REVIEW_MODEL ?? VISION_MODEL
+
+/**
+ * The model that works a question out, which is not the one that reads a page.
+ *
+ * The vision model was chosen by measuring how well it transcribes; solving is
+ * a different skill and gets its own contest, in
+ * scripts/benchmark-answers.ts, scored against the papers' own answer keys.
+ * Defaults to the vision model so an operator who sets nothing still gets
+ * working answers, badly, rather than none.
+ */
+const ANSWER_MODEL = process.env.OLLAMA_ANSWER_MODEL ?? VISION_MODEL
 const OLLAMA_URL = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
 
 const IDLE_POLL_MS = 5_000
@@ -65,6 +76,7 @@ const ollama = new OllamaProvider({
   baseUrl: OLLAMA_URL,
   visionModel: VISION_MODEL,
   textModel: VISION_MODEL,
+  answerModel: ANSWER_MODEL,
   reviewModel: REVIEW_MODEL,
   executionSite: 'operator_gpu',
   timeoutMs: 15 * 60_000,
@@ -505,6 +517,88 @@ async function classifyBatch(
 }
 
 /**
+ * Works out every question on one worksheet, one at a time.
+ *
+ * Asks the server for what is still unsolved rather than being handed a list,
+ * so a restart resumes: whatever has already been posted back is absent from
+ * the next answer. On a 114-question paper that is the difference between a
+ * retry costing minutes and costing the better part of an hour.
+ *
+ * Each solution is posted as it is produced rather than batched at the end. The
+ * job is long enough that the process will sometimes not survive it, and a
+ * batch lost at question 113 is 113 questions of GPU time thrown away.
+ *
+ * A question that fails is skipped rather than failing the job. Its row is
+ * simply absent, so the next run over this worksheet picks it up again.
+ */
+async function processAnswerJob(job: { id: string; worksheetId: string }): Promise<void> {
+  const response = await api(`/api/worker/solutions/${job.worksheetId}`)
+  if (!response.ok) {
+    throw new Error(`Could not fetch the questions to solve (${response.status})`)
+  }
+
+  const { questions: pending } = (await response.json()) as {
+    questions: {
+      id: string
+      promptText: string
+      printedNumber: number | null
+      choices: { label: string; text: string }[]
+    }[]
+  }
+
+  if (pending.length === 0) {
+    log(`  ${job.worksheetId}: nothing left to solve`)
+    return
+  }
+
+  log(`  solving ${pending.length} question(s)`)
+
+  let solved = 0
+  let declined = 0
+  let failed = 0
+
+  for (const [index, question] of pending.entries()) {
+    if (shuttingDown) {
+      log('  shutting down mid-solve; the rest will be reclaimed')
+      return
+    }
+
+    try {
+      const solution = await provider.answerQuestion({
+        promptText: question.promptText,
+        choices: question.choices,
+      })
+
+      await postJob(job.id, {
+        action: 'solution',
+        questionId: question.id,
+        answer: solution.answer,
+        workingMd: solution.working,
+        traps: solution.traps,
+        confidence: solution.confidence,
+        model: ANSWER_MODEL,
+      })
+
+      if (solution.answer === null) declined += 1
+      else solved += 1
+    } catch (error) {
+      failed += 1
+      log(`  question ${question.printedNumber ?? '?'} failed: ${(error as Error).message}`)
+    }
+
+    // Deliberately no progress post. The `phase` action is not a progress
+    // report: it runs the repair passes, which is right once at the end of an
+    // extraction and catastrophic once per question here. Answer progress
+    // needs its own action before it can be reported, and nothing shows it yet.
+    if ((index + 1) % 10 === 0) {
+      log(`  ${index + 1}/${pending.length}`)
+    }
+  }
+
+  log(`  solved ${solved}, declined ${declined}, failed ${failed}`)
+}
+
+/**
  * Explains one question for an account whose only model is this GPU.
  *
  * The server cannot reach here (the worker dials out and nothing listens)
@@ -556,6 +650,19 @@ async function processJob(claim: ClaimResponse): Promise<void> {
   const legacyHighWater = job.checkpoint?.lastPageNumber ?? 0
 
   // Not every job is a worksheet. Claiming is shared, so the stage decides.
+  if (job.stage === 'answer_key') {
+    log(`claimed ${job.id}: answers (attempt ${job.attemptCount})`)
+    try {
+      await processAnswerJob(job)
+      await postJob(job.id, { action: 'complete' })
+    } catch (error) {
+      const message = (error as Error).message
+      log(`failed ${job.id}: ${message}`)
+      await postJob(job.id, { action: 'fail', message }).catch(() => {})
+    }
+    return
+  }
+
   if (job.stage === 'explain') {
     log(`claimed ${job.id}: explanation (attempt ${job.attemptCount})`)
     try {

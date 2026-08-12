@@ -113,14 +113,13 @@ export async function deriveSolutions(
       } else {
         progress.solved += 1
 
-        const promoted = await promote(
-          db,
-          question.id,
-          solution.answer,
-          solution.confidence,
+        const promoted = await promoteDerivedAnswer(db, {
+          questionId: question.id,
+          answer: solution.answer,
+          confidence: solution.confidence,
           choices,
-          question.answerSource,
-        )
+          answerSource: question.answerSource,
+        })
         if (promoted) progress.promoted += 1
       }
     } catch (error) {
@@ -146,19 +145,29 @@ export async function deriveSolutions(
 /**
  * Fills in an answer only where the question had none.
  *
+ * Exported because two paths reach it: the server-side pass below, and the
+ * worker posting one solution at a time over HTTP. The never-overwrite rule is
+ * the whole point of this feature being safe, so it lives in one function
+ * rather than in two that have to agree.
+ *
  * Returns whether it wrote. The `answer_source = 'none'` in the WHERE is not
  * belt and braces over the check above it: the row is re-read here inside the
  * update, so a key applied by another pass between the select and now still
  * wins the race.
  */
-async function promote(
+export async function promoteDerivedAnswer(
   db: Db,
-  questionId: string,
-  answer: string,
-  confidence: number,
-  choices: { label: string; text: string }[],
-  answerSource: string,
+  input: {
+    questionId: string
+    answer: string | null
+    confidence: number
+    choices: { label: string; text: string }[]
+    answerSource: string
+  },
 ): Promise<boolean> {
+  const { questionId, answer, confidence, choices, answerSource } = input
+
+  if (answer === null) return false
   if (answerSource !== 'none') return false
   if (confidence < PROMOTE_ABOVE) return false
 

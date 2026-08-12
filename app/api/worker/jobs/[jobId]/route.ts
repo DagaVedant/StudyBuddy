@@ -5,16 +5,20 @@ import { z } from 'zod'
 import { extractedQuestionSchema } from '@/lib/ai/types'
 import { db } from '@/lib/db'
 import {
+  answerChoices,
   explanations,
   processingJobs,
+  questionSolutions,
   questions,
   worksheetPages,
   worksheets,
 } from '@/lib/db/schema'
-import { checkpointJob, completeJob, failJob } from '@/lib/queue'
+import { checkpointJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
+import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { authenticateWorker } from '@/lib/worker/auth'
 import { applyPermanentFailure } from '@/lib/worker/fail'
 import { persistQuestions } from '@/lib/worker/ingest'
+import { promoteDerivedAnswer } from '@/lib/worker/solutions'
 import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
 import { planPageReplacement } from '@/lib/worker/review'
 import { partitionByDeletability } from '@/lib/worker/safe-delete'
@@ -52,6 +56,19 @@ const bodySchema = z.discriminatedUnion('action', [
     attemptId: z.string().uuid().nullish(),
     bodyMd: z.string().min(1).max(6000),
     misconceptionNote: z.string().max(400).nullish(),
+    model: z.string().max(200),
+  }),
+  z.object({
+    action: z.literal('solution'),
+    questionId: z.string().uuid(),
+    /** Null is a real answer here: the model declining to guess. */
+    answer: z.string().max(400).nullable(),
+    workingMd: z.string().max(8000),
+    traps: z
+      .array(z.object({ label: z.string().max(8).nullable(), why: z.string().max(600) }))
+      .max(12)
+      .default([]),
+    confidence: z.number().min(0).max(1),
     model: z.string().max(200),
   }),
   z.object({ action: z.literal('complete') }),
@@ -231,12 +248,84 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ ok: true })
   }
 
+  if (body.action === 'solution') {
+    const [question] = await db
+      .select({
+        id: questions.id,
+        answerSource: questions.answerSource,
+        worksheetId: questions.worksheetId,
+      })
+      .from(questions)
+      .where(and(eq(questions.id, body.questionId), eq(questions.userId, job.userId)))
+      .limit(1)
+
+    if (!question || question.worksheetId !== job.worksheetId) {
+      return NextResponse.json(
+        { error: 'Question does not belong to this job' },
+        { status: 400 },
+      )
+    }
+
+    const choices = await db
+      .select({ label: answerChoices.label, text: answerChoices.text })
+      .from(answerChoices)
+      .where(eq(answerChoices.questionId, body.questionId))
+      .orderBy(...CHOICE_ORDER)
+
+    await db
+      .insert(questionSolutions)
+      .values({
+        questionId: body.questionId,
+        derivedAnswer: body.answer,
+        workingMd: body.workingMd,
+        traps: body.traps,
+        confidence: body.confidence,
+        // Left null for the same reason as an explanation's: the column names a
+        // cloud vendor and this came off the operator's own GPU.
+        provider: null,
+        model: body.model,
+      })
+      .onConflictDoNothing({ target: questionSolutions.questionId })
+
+    const promoted = await promoteDerivedAnswer(db, {
+      questionId: body.questionId,
+      answer: body.answer,
+      confidence: body.confidence,
+      choices,
+      answerSource: question.answerSource,
+    })
+
+    return NextResponse.json({ ok: true, promoted })
+  }
+
   if (body.action === 'complete') {
     await completeJob(db, jobId)
     await db
       .update(worksheets)
       .set({ status: 'awaiting_review' })
       .where(eq(worksheets.id, job.worksheetId))
+
+    /*
+     * The answers follow the paper rather than holding it up.
+     *
+     * Working out every question is the better part of an hour on a long
+     * paper, and the student wants to mark their work now. So extraction
+     * completing is what makes the worksheet readable, and this queues the
+     * solving behind it at low priority, where it yields to anybody else's
+     * extraction.
+     *
+     * Only off an extract job, or a solving job completing would queue another
+     * one and the worker would solve the same paper until somebody noticed.
+     */
+    if (job.stage === 'extract') {
+      await enqueueJob(db, {
+        worksheetId: job.worksheetId,
+        userId: job.userId,
+        stage: 'answer_key',
+        executor: 'operator_gpu',
+        priority: 'low',
+      })
+    }
 
     return NextResponse.json({ ok: true })
   }
