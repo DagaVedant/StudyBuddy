@@ -2,19 +2,27 @@ import Anthropic from '@anthropic-ai/sdk'
 
 import { parseModelJson } from './json'
 import {
+  ANSWER_JSON_SCHEMA,
+  ANSWER_SYSTEM,
+  answerUserText,
   CLASSIFY_JSON_SCHEMA,
   CLASSIFY_SYSTEM,
+  classifyUserText,
   EXPLAIN_JSON_SCHEMA,
   EXPLAIN_SYSTEM,
+  explainUserText,
   EXTRACTION_JSON_SCHEMA,
   EXTRACTION_SYSTEM,
-  classifyUserText,
-  explainUserText,
   extractionUserText,
+  LESSON_JSON_SCHEMA,
+  LESSON_SYSTEM,
+  lessonUserText,
 } from './prompts'
 import {
   ProviderRefused,
+  type AnswerInput,
   type ExplainInput,
+  type LessonInput,
   type PageInput,
   type RawAIProvider,
   type TopicCandidate,
@@ -124,6 +132,26 @@ export class AnthropicProvider implements RawAIProvider {
     )
 
     return raw
+  }
+
+  async answerQuestion(input: AnswerInput): Promise<unknown> {
+    return this.complete(
+      ANSWER_SYSTEM,
+      [{ type: 'text', text: answerUserText(input) }],
+      ANSWER_JSON_SCHEMA as unknown as Record<string, unknown>,
+      4000,
+    )
+  }
+
+  // Twice an explanation's budget: this returns a walkthrough, two worked
+  // examples and the error list in one object.
+  async teachTopic(input: LessonInput): Promise<unknown> {
+    return this.complete(
+      LESSON_SYSTEM,
+      [{ type: 'text', text: lessonUserText(input) }],
+      LESSON_JSON_SCHEMA as unknown as Record<string, unknown>,
+      8000,
+    )
   }
 
   async explain(input: ExplainInput): Promise<unknown> {

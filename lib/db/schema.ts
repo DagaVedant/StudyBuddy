@@ -502,6 +502,88 @@ export const explanations = pgTable(
 )
 
 /**
+ * The worked solution to one question, and the answer it arrived at.
+ *
+ * Distinct from `explanations`, which is written for a student who already
+ * knows they got a question wrong and wants to know why. This runs over every
+ * question on a paper whether anybody has answered it or not, so a student can
+ * check their own work, and it is what gives the Blooket export an answer
+ * column to fill.
+ *
+ * `derivedAnswer` is deliberately not written back onto `questions.correct_answer`
+ * by this table's existence alone. A key read off the paper or typed by the
+ * student always wins; the pipeline only promotes a derived answer where there
+ * was none, and stamps `answer_source = 'ai_derived'` when it does, so the
+ * review screen can badge it and a reader can tell the difference between what
+ * the paper said and what a model worked out.
+ *
+ * `confidence` is stored because it is the only thing standing between a
+ * student and a confidently wrong key. Below the threshold the pipeline leaves
+ * the question unanswered rather than guessing on their behalf.
+ */
+export const questionSolutions = pgTable(
+  'question_solutions',
+  {
+    id: id(),
+    questionId: text('question_id')
+      .notNull()
+      .references(() => questions.id, { onDelete: 'cascade' })
+      .unique(),
+
+    derivedAnswer: text('derived_answer'),
+    workingMd: text('working_md').notNull(),
+    /** Why each wrong option is tempting: [{ label, why }]. */
+    traps: jsonb('traps').$type<{ label: string | null; why: string }[]>(),
+    confidence: real('confidence'),
+
+    provider: aiProvider('provider'),
+    model: text('model'),
+    generatedAt: createdAt(),
+  },
+  (t) => [index('question_solutions_question_idx').on(t.questionId)],
+)
+
+/**
+ * A taught explanation of one topic, shared by everybody who reaches it.
+ *
+ * Keyed on the topic rather than on the student, because none of it is
+ * personal: the walkthrough, the worked examples and the common errors are the
+ * same for anyone who is weak at inscribed angles. What is personal is the list
+ * of questions they got wrong, and that is assembled from their own attempts at
+ * read time rather than written into the lesson.
+ *
+ * That split is what makes this affordable. A lesson costs one generation per
+ * topic for the whole install rather than one per student, and there are 276
+ * leaves in the taxonomy against an unbounded number of students.
+ */
+export const topicLessons = pgTable(
+  'topic_lessons',
+  {
+    id: id(),
+    topicId: text('topic_id')
+      .notNull()
+      .references(() => topics.id, { onDelete: 'cascade' })
+      .unique(),
+
+    /** The walkthrough: what the idea is and how to use it. */
+    bodyMd: text('body_md').notNull(),
+    /** Two worked examples: [{ question, working, answer }]. */
+    examples: jsonb('examples').$type<
+      { question: string; working: string; answer: string }[]
+    >(),
+    /** What people get wrong here: [{ mistake, why, fix }]. */
+    commonErrors: jsonb('common_errors').$type<
+      { mistake: string; why: string; fix: string }[]
+    >(),
+
+    provider: aiProvider('provider'),
+    model: text('model'),
+    generatedAt: createdAt(),
+  },
+  (t) => [index('topic_lessons_topic_idx').on(t.topicId)],
+)
+
+/**
  * What a student told us was wrong, in their own words.
  *
  * Kept as rows rather than a log file because the useful question is "which

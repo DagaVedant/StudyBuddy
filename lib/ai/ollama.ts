@@ -1,21 +1,29 @@
 import {
+  ANSWER_JSON_SCHEMA,
+  ANSWER_SYSTEM,
+  answerUserText,
   CLASSIFY_JSON_SCHEMA,
   CLASSIFY_SYSTEM,
+  classifyUserText,
   EXPLAIN_JSON_SCHEMA,
   EXPLAIN_SYSTEM,
+  explainUserText,
   EXTRACTION_JSON_SCHEMA,
   EXTRACTION_SYSTEM,
+  extractionUserText,
+  LESSON_JSON_SCHEMA,
+  LESSON_SYSTEM,
+  lessonUserText,
   REVIEW_JSON_SCHEMA,
   REVIEW_SYSTEM,
-  classifyUserText,
-  explainUserText,
-  extractionUserText,
   reviewUserText,
 } from './prompts'
 import { parseModelJson } from './json'
 import {
   type ExecutionSite,
+  type AnswerInput,
   type ExplainInput,
+  type LessonInput,
   type PageInput,
   type RawAIProvider,
   type RawQuestionReviewer,
@@ -70,6 +78,19 @@ export interface OllamaOptions {
    * than reading the page was, so a small fast model is the right tool. This
    * runs over every question on the worksheet.
    */
+  /**
+   * Model used to work a question out and to teach a topic, defaulting to
+   * textModel.
+   *
+   * Its own setting because solving is not the job the other two models were
+   * chosen for. The vision model was picked by measurement on reading a page,
+   * and the review model on judging whether a question came out whole; neither
+   * contest says anything about whether a model can do the maths. A derived
+   * answer is stored as the answer and shown to a student, so this is the one
+   * place where being slower and larger is worth it.
+   */
+  answerModel?: string
+
   reviewModel?: string
 
   /**
@@ -112,6 +133,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   private readonly baseUrl: string
   private readonly visionModel: string
   private readonly textModel: string
+  private readonly answerModel: string
   private readonly reviewModel: string
   private readonly fetchImpl: typeof fetch
   private readonly timeoutMs: number
@@ -125,6 +147,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     this.visionModel = options.visionModel
     this.textModel = options.textModel
     this.model = options.textModel
+    this.answerModel = options.answerModel ?? options.textModel
     this.reviewModel = options.reviewModel ?? options.textModel
     this.executionSite = options.executionSite ?? 'browser'
     this.fetchImpl = options.fetchImpl ?? fetch
@@ -271,6 +294,26 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     )
 
     return raw
+  }
+
+  async answerQuestion(input: AnswerInput): Promise<unknown> {
+    return this.chat(
+      this.answerModel,
+      ANSWER_SYSTEM,
+      answerUserText(input),
+      undefined,
+      ANSWER_JSON_SCHEMA as unknown as Record<string, unknown>,
+    )
+  }
+
+  async teachTopic(input: LessonInput): Promise<unknown> {
+    return this.chat(
+      this.answerModel,
+      LESSON_SYSTEM,
+      lessonUserText(input),
+      undefined,
+      LESSON_JSON_SCHEMA as unknown as Record<string, unknown>,
+    )
   }
 
   async explain(input: ExplainInput): Promise<unknown> {

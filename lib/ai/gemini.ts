@@ -1,17 +1,25 @@
 import { parseModelJson } from './json'
 import {
+  ANSWER_JSON_SCHEMA,
+  ANSWER_SYSTEM,
+  answerUserText,
   CLASSIFY_JSON_SCHEMA,
   CLASSIFY_SYSTEM,
+  classifyUserText,
   EXPLAIN_JSON_SCHEMA,
   EXPLAIN_SYSTEM,
+  explainUserText,
   EXTRACTION_JSON_SCHEMA,
   EXTRACTION_SYSTEM,
-  classifyUserText,
-  explainUserText,
   extractionUserText,
+  LESSON_JSON_SCHEMA,
+  LESSON_SYSTEM,
+  lessonUserText,
 } from './prompts'
 import {
+  type AnswerInput,
   type ExplainInput,
+  type LessonInput,
   type PageInput,
   type RawAIProvider,
   type TopicCandidate,
@@ -123,6 +131,22 @@ export class GeminiProvider implements RawAIProvider {
     )
 
     return raw
+  }
+
+  async answerQuestion(input: AnswerInput): Promise<unknown> {
+    return this.generate(
+      ANSWER_SYSTEM,
+      [{ text: answerUserText(input) }],
+      ANSWER_JSON_SCHEMA as unknown as Record<string, unknown>,
+    )
+  }
+
+  async teachTopic(input: LessonInput): Promise<unknown> {
+    return this.generate(
+      LESSON_SYSTEM,
+      [{ text: lessonUserText(input) }],
+      LESSON_JSON_SCHEMA as unknown as Record<string, unknown>,
+    )
   }
 
   async explain(input: ExplainInput): Promise<unknown> {

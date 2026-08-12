@@ -1,6 +1,8 @@
 import {
   ProviderUnavailable,
+  type AnswerInput,
   type ExplainInput,
+  type LessonInput,
   type PageInput,
   type RawAIProvider,
   type TopicCandidate,
@@ -109,6 +111,43 @@ export class MockProvider implements RawAIProvider {
     }
   }
 
+  /**
+   * Answers whichever option the fixture marked correct, or the first one.
+   *
+   * Deterministic on purpose. The e2e suite marks a paper and checks what the
+   * dashboard says afterwards, so an answer that moved between runs would make
+   * every downstream assertion flaky for reasons that have nothing to do with
+   * what is being tested.
+   */
+  async answerQuestion(input: AnswerInput): Promise<unknown> {
+    const answer = input.choices[0]?.label ?? '42'
+
+    return {
+      answer,
+      working: `Mock working for: ${input.promptText.slice(0, 60)}`,
+      traps: input.choices.slice(1).map((choice) => ({
+        label: choice.label,
+        why: `Mock trap for ${choice.label}.`,
+      })),
+      confidence: 0.9,
+    }
+  }
+
+  async teachTopic(input: LessonInput): Promise<unknown> {
+    return {
+      body_md: `## ${input.topicName}
+
+Mock lesson for ${input.topicPath}.`,
+      examples: [
+        { question: 'Mock example one', working: 'Step one.', answer: '1' },
+        { question: 'Mock example two', working: 'Step one.', answer: '2' },
+      ],
+      common_errors: [
+        { mistake: 'Mock mistake', why: 'Mock reason', fix: 'Mock fix' },
+      ],
+    }
+  }
+
   async explain(input: ExplainInput): Promise<unknown> {
     const chosen = input.studentAnswer
     const correct = input.correctAnswer ?? 'not recorded'
@@ -140,6 +179,14 @@ export class NullProvider implements RawAIProvider {
     _promptText: string,
     _candidates: TopicCandidate[],
   ): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async answerQuestion(_input: AnswerInput): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async teachTopic(_input: LessonInput): Promise<unknown> {
     throw new ProviderUnavailable()
   }
 

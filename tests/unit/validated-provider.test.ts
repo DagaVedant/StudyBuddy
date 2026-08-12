@@ -22,6 +22,8 @@ function raw(replies: Partial<Record<keyof RawAIProvider, unknown>>): RawAIProvi
     extractQuestions: async () => replies.extractQuestions,
     classifyTopic: async () => replies.classifyTopic,
     explain: async () => replies.explain,
+    answerQuestion: async () => replies.answerQuestion,
+    teachTopic: async () => replies.teachTopic,
   }
 }
 

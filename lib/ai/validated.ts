@@ -3,6 +3,8 @@ import {
   parseClassification,
   parseExplanation,
   parseExtraction,
+  parseLesson,
+  parseSolution,
   parseReview,
   type AIProvider,
   type QuestionReviewer,
@@ -59,6 +61,14 @@ export function validated<T extends RawAIProvider>(
 
     async classifyTopic(promptText, candidates) {
       return parseClassification(await provider.classifyTopic(promptText, candidates))
+    },
+
+    async answerQuestion(input) {
+      return parseSolution(await provider.answerQuestion(input))
+    },
+
+    async teachTopic(input) {
+      return parseLesson(await provider.teachTopic(input))
     },
 
     async explain(input) {

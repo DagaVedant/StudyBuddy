@@ -206,6 +206,76 @@ export function parseExplanation(raw: unknown): Explanation {
   return explanationSchema.parse(raw)
 }
 
+/**
+ * A worked solution, checked before anybody stores it as an answer.
+ *
+ * `answer` stays nullable all the way through. The prompt tells the model to
+ * return null rather than guess, and a schema that quietly coerced that to a
+ * string would throw away the one signal separating "I worked this out" from
+ * "I picked the closest option".
+ *
+ * `confidence` runs through the same normaliser as the classifier's, because
+ * models answer 0-100 however firmly the prompt says 0-1, and a 95 read as a
+ * confidence of 95 clears every threshold ever written against it.
+ */
+export const solutionSchema = z.object({
+  answer: z.string().max(400).nullable().default(null),
+  working: z.string().max(8000).default(''),
+  traps: z
+    .array(
+      z.object({
+        label: z.string().max(8).nullable().default(null),
+        why: z.string().max(600),
+      }),
+    )
+    .max(12)
+    .default([]),
+  confidence: confidenceSchema.default(0),
+})
+
+export type Solution = z.infer<typeof solutionSchema>
+
+export function parseSolution(raw: unknown): Solution {
+  return solutionSchema.parse(raw)
+}
+
+/**
+ * A topic lesson, checked the same way.
+ *
+ * The example count is clamped rather than required to be exactly two. A model
+ * that returns three has still done the job, and rejecting the whole lesson
+ * over the count would trade a good lesson for none.
+ */
+export const lessonSchema = z.object({
+  body_md: z.string().min(1).max(20000),
+  examples: z
+    .array(
+      z.object({
+        question: z.string().max(2000),
+        working: z.string().max(4000),
+        answer: z.string().max(400),
+      }),
+    )
+    .max(4)
+    .default([]),
+  common_errors: z
+    .array(
+      z.object({
+        mistake: z.string().max(400),
+        why: z.string().max(800),
+        fix: z.string().max(800),
+      }),
+    )
+    .max(8)
+    .default([]),
+})
+
+export type Lesson = z.infer<typeof lessonSchema>
+
+export function parseLesson(raw: unknown): Lesson {
+  return lessonSchema.parse(raw)
+}
+
 export interface ReviewCandidate {
   /** The number printed on the page, which is how the verdict points back. */
   number: number
@@ -282,6 +352,22 @@ export interface TopicCandidate {
   path: string
 }
 
+export interface AnswerInput {
+  promptText: string
+  choices: { label: string; text: string }[]
+}
+
+export interface LessonInput {
+  topicName: string
+  topicPath: string
+  /**
+   * A few real questions from this topic, so the lesson is pitched at the level
+   * the student is actually being tested at rather than at the topic name.
+   * "Circles" means something different on an AMC 8 paper and an SAT one.
+   */
+  samples: string[]
+}
+
 export interface ExplainInput {
   promptText: string
   choices: { label: string; text: string }[]
@@ -332,6 +418,19 @@ export interface RawAIProvider extends ProviderIdentity {
   extractQuestions(page: PageInput): Promise<unknown>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown>
   explain(input: ExplainInput): Promise<unknown>
+
+  /**
+   * Works one question out, for a student checking their own paper.
+   *
+   * Required rather than optional, deliberately. An optional method here used
+   * to mean every caller guessing whether a provider could do the job, and the
+   * fix for that was `executionSite`: a provider that cannot answer says so by
+   * being the null one, not by missing a method.
+   */
+  answerQuestion(input: AnswerInput): Promise<unknown>
+
+  /** Teaches one topic. See {@link LessonInput}. */
+  teachTopic(input: LessonInput): Promise<unknown>
 }
 
 /**
@@ -345,6 +444,8 @@ export interface AIProvider extends ProviderIdentity {
   extractQuestions(page: PageInput): Promise<ExtractedQuestion[]>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<Classification>
   explain(input: ExplainInput): Promise<Explanation>
+  answerQuestion(input: AnswerInput): Promise<Solution>
+  teachTopic(input: LessonInput): Promise<Lesson>
 }
 
 /**

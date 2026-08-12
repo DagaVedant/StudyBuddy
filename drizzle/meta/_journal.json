@@ -71,6 +71,13 @@
       "when": 1786466073975,
       "tag": "0009_colossal_la_nuit",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786551802426,
+      "tag": "0010_high_jackpot",
+      "breakpoints": true
     }
   ]
 }
