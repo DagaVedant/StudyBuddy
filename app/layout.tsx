@@ -2,9 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Archivo, Geist } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
-import { ViewTransition } from 'react'
 
-import AppTopbar from '@/components/app-topbar'
 import AutoRefresh from '@/components/auto-refresh'
 import { themeInitScript } from '@/lib/theme-script'
 import { appBaseUrl } from '@/lib/app-url'
@@ -100,41 +98,13 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <SessionProvider>
-          <AppTopbar />
-          {/*
-            Route changes crossfade the page body. `update` (not enter/exit) is
-            the right trigger: this wrapper persists across navigations, so what
-            React sees is a mutation inside it rather than a mount. `default`
-            stays "none" so nothing fires on unrelated transitions; Suspense
-            reveals, router.refresh() after a review rating, and so on.
-
-            The topbar sits outside this on purpose: it is never snapshotted, so
-            it stays put while the content underneath it changes.
-          */}
-          <ViewTransition default="none" update="page">
-            {/*
-              `tabIndex={-1}` is what makes the skip link above actually skip.
-              A plain `<div id="main">` is not focusable, so following the link
-              moved the viewport and left focus on the link: the next Tab went
-              to the topbar, which is the thing being skipped. Focus lands here
-              now, just outside each page's own `<main>`, and Tab continues into
-              the content.
-
-              No focus ring on it, deliberately. It is not reachable by Tab and
-              cannot be operated, so an outline around the entire page would be
-              feedback for something the reader cannot act on; the first real
-              control they reach shows its own.
-            */}
-            <div
-              id="main"
-              tabIndex={-1}
-              className="flex min-w-0 flex-1 flex-col outline-none"
-            >
-              {children}
-            </div>
-          </ViewTransition>
-        </SessionProvider>
+        {/*
+          The `#main` wrapper this skip link points at is rendered by each route
+          group rather than here, in `components/main-region.tsx`. It has to sit
+          below the topbar, and the topbar belongs to the (app) group, which
+          nests inside this layout.
+        */}
+        <SessionProvider>{children}</SessionProvider>
         <AutoRefresh />
         <Analytics />
       </body>
