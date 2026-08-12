@@ -4,7 +4,12 @@ import { GeminiProvider, geminiSchema } from '@/lib/ai/gemini'
 import { validated } from '@/lib/ai/validated'
 import { OpenAIProvider } from '@/lib/ai/openai'
 import { OpenRouterProvider } from '@/lib/ai/openrouter'
-import { EXTRACTION_JSON_SCHEMA } from '@/lib/ai/prompts'
+import {
+  CLASSIFY_JSON_SCHEMA,
+  EXPLAIN_JSON_SCHEMA,
+  EXTRACTION_JSON_SCHEMA,
+  REVIEW_JSON_SCHEMA,
+} from '@/lib/ai/prompts'
 
 const page = {
   image: new Uint8Array([1, 2, 3]),
@@ -224,5 +229,111 @@ describe('geminiSchema', () => {
 
     expect(JSON.stringify(cleaned)).not.toContain('additionalProperties')
     expect(JSON.stringify(cleaned)).toContain('inner')
+  })
+
+  /**
+   * The failure this guards was total and silent. Every nullable field in every
+   * schema is written `anyOf: [{ type: 'T' }, { type: 'null' }]`; the allow-list
+   * dropped `anyOf` and left `{}` behind while the field stayed in `required`.
+   * Gemini wants a type on every node, so a required property with no type is a
+   * rejected request, and the provider had never completed a single call.
+   *
+   * Stated as "every node has a type" rather than as the string `{}` not
+   * appearing, because that string is also absent from a schema that lost a
+   * whole subtree, and losing a subtree is the other way to break this.
+   */
+  describe('nullable fields', () => {
+    /** Every schema node reachable through properties or items with no `type`. */
+    function typeless(schema: unknown, path = '$'): string[] {
+      if (schema === null || typeof schema !== 'object') return []
+
+      const node = schema as Record<string, unknown>
+      const here = typeof node.type === 'string' ? [] : [path]
+
+      const children: string[] = []
+      if (node.properties && typeof node.properties === 'object') {
+        for (const [name, child] of Object.entries(
+          node.properties as Record<string, unknown>,
+        )) {
+          children.push(...typeless(child, `${path}.${name}`))
+        }
+      }
+      if (node.items) children.push(...typeless(node.items, `${path}[]`))
+
+      return [...here, ...children]
+    }
+
+    it.each([
+      ['extraction', EXTRACTION_JSON_SCHEMA],
+      ['classification', CLASSIFY_JSON_SCHEMA],
+      ['explanation', EXPLAIN_JSON_SCHEMA],
+      ['review', REVIEW_JSON_SCHEMA],
+    ])('leaves no node without a type in the %s schema', (_name, schema) => {
+      const cleaned = geminiSchema(schema as unknown as Record<string, unknown>)
+
+      expect(typeless(cleaned)).toEqual([])
+    })
+
+    it('turns a T-or-null union into the nullable Gemini understands', () => {
+      expect(
+        geminiSchema({
+          type: 'object',
+          properties: { note: { anyOf: [{ type: 'string' }, { type: 'null' }] } },
+          required: ['note'],
+        }),
+      ).toEqual({
+        type: 'object',
+        properties: { note: { type: 'string', nullable: true } },
+        required: ['note'],
+      })
+    })
+
+    it('keeps the inner shape of a nullable array rather than flattening it', () => {
+      const cleaned = geminiSchema({
+        type: 'object',
+        properties: {
+          bbox: {
+            anyOf: [{ type: 'array', items: { type: 'number' } }, { type: 'null' }],
+          },
+        },
+      }) as { properties: { bbox: Record<string, unknown> } }
+
+      expect(cleaned.properties.bbox).toEqual({
+        type: 'array',
+        items: { type: 'number' },
+        nullable: true,
+      })
+    })
+
+    it('still strips the keywords Gemini rejects from inside a union', () => {
+      const cleaned = geminiSchema({
+        type: 'object',
+        properties: {
+          nested: {
+            anyOf: [
+              { type: 'object', additionalProperties: false, properties: {} },
+              { type: 'null' },
+            ],
+          },
+        },
+      })
+
+      expect(JSON.stringify(cleaned)).not.toContain('additionalProperties')
+    })
+
+    /**
+     * A union of two concrete types has no Gemini equivalent. Guessing one of
+     * them would quietly narrow what the model is allowed to answer, so it is
+     * left alone to fail upstream where somebody can see it. Nothing in these
+     * four schemas has one; this records the choice.
+     */
+    it('leaves a union of two real types alone', () => {
+      const cleaned = geminiSchema({
+        type: 'object',
+        properties: { odd: { anyOf: [{ type: 'string' }, { type: 'number' }] } },
+      }) as { properties: { odd: Record<string, unknown> } }
+
+      expect(cleaned.properties.odd.nullable).toBeUndefined()
+    })
   })
 })

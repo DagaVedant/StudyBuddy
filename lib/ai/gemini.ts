@@ -136,6 +136,26 @@ export class GeminiProvider implements RawAIProvider {
   }
 }
 
+/**
+ * The four shared schemas, in the dialect Gemini's `responseSchema` accepts.
+ *
+ * An allow-list, because Gemini rejects a schema outright for a keyword it does
+ * not know rather than ignoring it, and the schemas here are written for the
+ * OpenAI and Anthropic dialect which has several.
+ *
+ * `anyOf` is the one that cannot simply be dropped. Every nullable field in
+ * every schema is written `anyOf: [{ type: 'T' }, { type: 'null' }]`, and
+ * filtering that away left an empty object behind while the field stayed in
+ * `required`. Gemini wants a `type` on every node, so a required property with
+ * no type is a rejected request: `bbox`, `topic_slug`, `suggested_name`,
+ * `misconception_note` and `reason` between them meant every Gemini call
+ * failed, for extraction, classification and explanation alike. The provider
+ * has never worked, and it is one of four offered in settings with a note
+ * recommending its free tier.
+ *
+ * The allow-list already listed `nullable`, which is Gemini's own spelling of
+ * the same idea. Nothing translated one into the other; this does.
+ */
 export function geminiSchema(schema: Record<string, unknown>): Record<string, unknown> {
   const allowed = new Set([
     'type',
@@ -152,8 +172,24 @@ export function geminiSchema(schema: Record<string, unknown>): Record<string, un
     if (Array.isArray(node)) return node.map(walk)
     if (node === null || typeof node !== 'object') return node
 
+    const source = node as Record<string, unknown>
+
+    // Before the filter, because the filter is what destroys it.
+    if (Array.isArray(source.anyOf)) {
+      const variants = source.anyOf as Record<string, unknown>[]
+      const concrete = variants.filter((variant) => variant?.type !== 'null')
+
+      // Only the "T or null" union, which is the only one these schemas use.
+      // A genuine union of two concrete types has no Gemini equivalent, and
+      // guessing one of the two would silently change what the model may
+      // answer, so it is left to fail loudly upstream instead.
+      if (concrete.length === 1 && concrete.length < variants.length) {
+        return { ...(walk(concrete[0]) as object), nullable: true }
+      }
+    }
+
     const out: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(source)) {
       if (!allowed.has(key)) continue
       out[key] = key === 'properties' ? mapValues(value, walk) : walk(value)
     }
