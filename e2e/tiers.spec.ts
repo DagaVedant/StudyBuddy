@@ -17,7 +17,30 @@ test('a fresh account queues its upload for the GPU worker', async ({ page }) =>
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/status/)
   await expect(visible(page).getByRole('heading', { name: 'Working on It' })).toBeVisible()
 
-  await expect(visible(page).getByText(/queue|offline/i).first()).toBeVisible()
+  /*
+   * The exact sentence, where this used to be `/queue|offline/i`.
+   *
+   * That regex could only ever pass down one branch, and not the one the test
+   * is named for. The offline copy contains both "Queued" and "offline", so it
+   * matched twice over; none of the three online phases contains either word,
+   * so a run against a live worker would have failed here. It asserted the
+   * offline branch while reading as though it proved queueing.
+   *
+   * Being exact is better than deleting it, because the sentence is real
+   * evidence. The status page renders it only when the job's executor is not
+   * `server` and no worker has a live heartbeat, which is the operator-GPU
+   * queue this test is named for. No worker runs in the e2e environment, so
+   * that is the branch every run takes, and pinning it means a change that
+   * starts routing a fresh account somewhere else fails here instead of
+   * passing quietly.
+   */
+  await expect(
+    visible(page).getByText('Queued. The processing machine is offline right now'),
+  ).toBeVisible()
+
+  // And not the server-side path, which would say this instead.
+  await expect(visible(page).getByText(/Reading your worksheet/)).toHaveCount(0)
+
   await expect(visible(page).getByRole('link', { name: 'Back to dashboard' })).toBeVisible()
 })
 
