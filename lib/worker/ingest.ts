@@ -178,7 +178,7 @@ export async function persistQuestions(
   // to, so the coverage audit counted them as covered and never re-read the
   // two pages test8_15 had actually lost.
   const [page] = await db
-    .select({ ocrText: worksheetPages.ocrText })
+    .select({ ocrText: worksheetPages.ocrText, pageNumber: worksheetPages.pageNumber })
     .from(worksheetPages)
     .where(eq(worksheetPages.id, pageId))
     .limit(1)
@@ -255,6 +255,9 @@ export async function persistQuestions(
     existing.map((row) => row.contentHash).filter((hash): hash is string => !!hash),
   )
 
+  /** Questions this page repeated, counted so the drop is not silent. */
+  let duplicatesDropped = 0
+
   // Everything is decided before anything is written, so the writes below are
   // two statements rather than two per question.
   const pending: {
@@ -280,7 +283,25 @@ export async function persistQuestions(
 
     const contentHash = hashQuestion(question.prompt_text, question.choices)
 
-    if (seen.has(contentHash)) continue
+    /*
+     * A repeat of something already read, dropped, and said out loud.
+     *
+     * This was a bare `continue`. Two identical hashes usually means the model
+     * returned the same question twice off one page, which is the case worth
+     * dropping silently, and sometimes means a paper really does ask the same
+     * thing twice, which is a question the student never sees again and no
+     * trace of anywhere. Every other pass that removes a question logs it; the
+     * quietest one was the one nobody had to reason about.
+     *
+     * Still dropped. A duplicate row would be worse than a missing one here,
+     * because the dedupe passes downstream take a view on which of a pair to
+     * keep and this one has no basis for choosing. But dropping is now
+     * something a reader of the logs can find.
+     */
+    if (seen.has(contentHash)) {
+      duplicatesDropped += 1
+      continue
+    }
     seen.add(contentHash)
 
     pending.push({
@@ -304,6 +325,13 @@ export async function persistQuestions(
     })
 
     nextOrdinal += 1
+  }
+
+  if (duplicatesDropped > 0) {
+    console.log(
+      `[ingest] page ${page?.pageNumber ?? '?'}: dropped ${duplicatesDropped} question(s) ` +
+        `already read word for word, kept ${pending.length}`,
+    )
   }
 
   if (pending.length === 0) return 0
