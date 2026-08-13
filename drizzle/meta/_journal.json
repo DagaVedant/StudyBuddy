@@ -85,6 +85,13 @@
       "when": 1786656636675,
       "tag": "0011_easy_tempest",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786660935362,
+      "tag": "0012_majestic_mikhail_rasputin",
+      "breakpoints": true
     }
   ]
 }

@@ -189,6 +189,21 @@ async function runOneServerJob(
           `${failed > 0 ? `, ${failed} failed` : ''}`,
       )
     } catch (error) {
+      // Written onto the worksheet as well as logged. The log reaches an
+      // operator who happens to be watching; the column reaches the student,
+      // on the one screen this worksheet is actually going to. A server log
+      // saying so was the whole fix once, and it fixed the deployment side of
+      // this without touching the side a student can see.
+      const summary =
+        error instanceof EmbeddingUnavailableError
+          ? 'The topic classifier was unavailable while this worksheet was processed, so no topics were assigned.'
+          : 'Topic classification failed while this worksheet was processed, so no topics were assigned.'
+
+      await db
+        .update(worksheets)
+        .set({ classificationError: summary })
+        .where(eq(worksheets.id, job.worksheetId))
+
       if (error instanceof EmbeddingUnavailableError) {
         // Loud, and once per job rather than once per question. Every worksheet
         // this host processes will be untagged until it is fixed, which is a

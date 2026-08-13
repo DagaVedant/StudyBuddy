@@ -22,7 +22,11 @@ export default async function VerifyPage({ params }: Params) {
   const { id } = await params
 
   const [worksheet] = await db
-    .select({ id: worksheets.id, title: worksheets.title })
+    .select({
+      id: worksheets.id,
+      title: worksheets.title,
+      classificationError: worksheets.classificationError,
+    })
     .from(worksheets)
     .where(and(eq(worksheets.id, id), eq(worksheets.userId, session.user.id)))
     .limit(1)
@@ -97,6 +101,23 @@ export default async function VerifyPage({ params }: Params) {
         {worksheet.title}. Compare each one against the page it came from and say
         whether we read it correctly.
       </p>
+
+      {/*
+        Written once, on the worksheet, by the server path that could not
+        assign a single topic to it. This is the one screen every one of
+        these worksheets reaches, so it is where a student finds out topics
+        never got a chance to be assigned, rather than quietly wondering why
+        their dashboard has nothing to say about this paper.
+      */}
+      {worksheet.classificationError && (
+        <p
+          role="alert"
+          className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution"
+        >
+          {worksheet.classificationError} Your answers still count once you mark
+          this worksheet; they just will not show up sorted by topic.
+        </p>
+      )}
 
       <VerifyClient worksheetId={worksheet.id} questions={ordered} />
     </main>

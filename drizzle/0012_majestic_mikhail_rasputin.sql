@@ -1,0 +1,1 @@
+ALTER TABLE "worksheets" ADD COLUMN "classification_error" text;

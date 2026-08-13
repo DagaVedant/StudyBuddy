@@ -295,6 +295,23 @@ export const worksheets = pgTable(
     status: worksheetStatus('status').default('uploading').notNull(),
 
     tierUsed: aiTier('tier_used'),
+
+    /**
+     * Set when classification ran and could not tag a single question on
+     * this worksheet, and null every other time — including the ordinary
+     * case where classification ran fine and simply found nothing confident
+     * enough to tag.
+     *
+     * The worksheet still reaches `awaiting_review` when this happens: the
+     * questions are extracted, the repair passes have run, and marking work
+     * without a topic is still marking work. What used to be missing was any
+     * way for the *student* to find out topics never got a chance to be
+     * assigned, as opposed to having been assigned and come back empty. A
+     * server log said so; nothing on the screen the worksheet actually
+     * reaches did.
+     */
+    classificationError: text('classification_error'),
+
     createdAt: createdAt(),
   },
   (t) => [index('worksheets_user_created_idx').on(t.userId, t.createdAt)],
