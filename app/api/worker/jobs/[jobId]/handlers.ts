@@ -10,10 +10,10 @@ import {
   questionSolutions,
   questions,
   worksheetPages,
-  worksheets,
 } from '@/lib/db/schema'
 import { checkpointJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
 import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { transitionWorksheet } from '@/lib/upload/claim'
 import { applyPermanentFailure } from '@/lib/worker/fail'
 import { persistQuestions } from '@/lib/worker/ingest'
 import { promoteDerivedAnswer } from '@/lib/worker/solutions'
@@ -244,10 +244,9 @@ export async function handleComplete(
   job: Job,
 ): Promise<NextResponse> {
   await completeJob(db, jobId)
-  await db
-    .update(worksheets)
-    .set({ status: 'awaiting_review' })
-    .where(eq(worksheets.id, job.worksheetId))
+  await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
+    status: 'awaiting_review',
+  })
 
   /*
    * The answers follow the paper rather than holding it up.

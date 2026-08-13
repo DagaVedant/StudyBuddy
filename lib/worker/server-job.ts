@@ -5,6 +5,7 @@ import { EmbeddingUnavailableError, classifyWorksheet } from '@/lib/classify'
 import type { Db } from '@/lib/db/types'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
+import { transitionWorksheet } from '@/lib/upload/claim'
 import { runExtraction } from '@/lib/worker/ingest'
 import { runRepairPasses } from '@/lib/worker/pipeline'
 import { deriveSolutions } from '@/lib/worker/solutions'
@@ -109,10 +110,9 @@ async function runOneServerJob(
       'No cloud API key is configured for this account anymore.',
       true,
     )
-    await db
-      .update(worksheets)
-      .set({ status: 'failed' })
-      .where(eq(worksheets.id, job.worksheetId))
+    await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
+      status: 'failed',
+    })
     return
   }
 
@@ -225,10 +225,9 @@ async function runOneServerJob(
     // are still adding, merging and deleting rows. `runExtraction` used to do
     // this the moment the pages were read, which put markup one link away from
     // a job that had not finished repairing itself.
-    await db
-      .update(worksheets)
-      .set({ status: 'awaiting_review' })
-      .where(eq(worksheets.id, job.worksheetId))
+    await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
+      status: 'awaiting_review',
+    })
 
     await completeJob(db, job.id)
 
@@ -258,10 +257,9 @@ async function runOneServerJob(
     // there is no refund to issue here; the student's own key paid for
     // whatever ran before the failure.
     if (permanent) {
-      await db
-        .update(worksheets)
-        .set({ status: 'failed' })
-        .where(eq(worksheets.id, job.worksheetId))
+      await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
+        status: 'failed',
+      })
     }
   }
 }

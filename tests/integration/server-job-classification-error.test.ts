@@ -54,6 +54,10 @@ const asServer: (db: Db, userId: string) => Promise<ResolvedProvider> = async ()
 async function setup() {
   const userId = await makeUser(db)
   const worksheetId = await makeWorksheet(db, userId)
+  // See server-job.test.ts's setup(): the guarded status transitions this
+  // module now goes through only fire out of `queued`/`processing`, not the
+  // `ready` default `makeWorksheet` gives fixtures that don't care.
+  await db.update(worksheets).set({ status: 'queued' }).where(eq(worksheets.id, worksheetId))
 
   const key = `test-pages/${worksheetId}.png`
   const onePixelPng = Buffer.from(

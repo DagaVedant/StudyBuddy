@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
+import { transitionWorksheet } from '@/lib/upload/claim'
 import { guardWorksheet } from '@/lib/upload/guard'
 
 type Params = { params: Promise<{ id: string }> }
@@ -32,10 +33,26 @@ export async function POST(_request: Request, { params }: Params) {
     .set({ userVerified: true })
     .where(eq(questions.worksheetId, worksheetId))
 
-  await db
-    .update(worksheets)
-    .set({ status: 'ready' })
-    .where(eq(worksheets.id, worksheetId))
+  const next = `/worksheets/${worksheetId}/markup`
 
-  return NextResponse.json({ ok: true, next: `/worksheets/${worksheetId}/markup` })
+  if (await transitionWorksheet(db, worksheetId, ['awaiting_review'], { status: 'ready' })) {
+    return NextResponse.json({ ok: true, next })
+  }
+
+  // Not a race worth failing over: a double-submit finds the door this
+  // request already opened, and markup is exactly as reachable either way.
+  const [current] = await db
+    .select({ status: worksheets.status })
+    .from(worksheets)
+    .where(eq(worksheets.id, worksheetId))
+    .limit(1)
+
+  if (current?.status === 'ready') {
+    return NextResponse.json({ ok: true, next })
+  }
+
+  return NextResponse.json(
+    { error: 'This worksheet is not ready to confirm.' },
+    { status: 409 },
+  )
 }

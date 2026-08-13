@@ -3,8 +3,42 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { worksheets } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 
+export type WorksheetStatus = (typeof worksheets.$inferSelect)['status']
+
 type CompletedStatus = 'queued' | 'awaiting_review'
 type Tier = 'trial' | 'free' | 'cloud' | 'ollama'
+
+/**
+ * The one place a worksheet's status is allowed to move.
+ *
+ * Every write to `worksheets.status` outside this file used to be a bare
+ * `UPDATE ... WHERE id = ?`, which does whatever the caller says regardless of
+ * what the row currently holds. That is how a permanently-failed job could
+ * flip a worksheet the student had already reviewed and marked up back to
+ * `failed`, or a retried job could re-complete a worksheet a second time: the
+ * write itself carried no memory of which transition it was supposed to be.
+ *
+ * `from` is the guard, in the same style `claimWorksheetForCompletion` and
+ * `claimWorksheetForManualFallback` already used: the check and the write are
+ * one statement, so two callers racing to make the same transition cannot
+ * both succeed, and a caller trying to make a transition that no longer
+ * applies (because someone else already moved the row) does nothing rather
+ * than clobbering whatever is there now.
+ */
+export async function transitionWorksheet(
+  db: Db,
+  worksheetId: string,
+  from: readonly WorksheetStatus[],
+  set: Partial<typeof worksheets.$inferInsert> & { status: WorksheetStatus },
+): Promise<boolean> {
+  const claimed = await db
+    .update(worksheets)
+    .set(set)
+    .where(and(eq(worksheets.id, worksheetId), inArray(worksheets.status, [...from])))
+    .returning({ id: worksheets.id })
+
+  return claimed.length > 0
+}
 
 /**
  * The states a worksheet is in before anyone has finished it.
@@ -36,18 +70,7 @@ export async function claimWorksheetForCompletion(
   status: CompletedStatus,
   tierUsed: Tier,
 ): Promise<boolean> {
-  const claimed = await db
-    .update(worksheets)
-    .set({ status, tierUsed })
-    .where(
-      and(
-        eq(worksheets.id, worksheetId),
-        inArray(worksheets.status, [...BEFORE_COMPLETION]),
-      ),
-    )
-    .returning({ id: worksheets.id })
-
-  return claimed.length > 0
+  return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, { status, tierUsed })
 }
 
 /**
@@ -68,16 +91,5 @@ export async function claimWorksheetForManualFallback(
   db: Db,
   worksheetId: string,
 ): Promise<boolean> {
-  const claimed = await db
-    .update(worksheets)
-    .set({ status: 'failed' })
-    .where(
-      and(
-        eq(worksheets.id, worksheetId),
-        inArray(worksheets.status, [...BEFORE_COMPLETION]),
-      ),
-    )
-    .returning({ id: worksheets.id })
-
-  return claimed.length > 0
+  return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, { status: 'failed' })
 }

@@ -67,6 +67,13 @@ async function makePage(worksheetId: string, hasImage: boolean) {
 async function setup(hasImage = true) {
   const userId = await makeUser(db)
   const worksheetId = await makeWorksheet(db, userId)
+  // `makeWorksheet` defaults to `ready`, a convenience for tests that verify
+  // or mark up a worksheet without caring how it got there. This module puts
+  // worksheets through the same guarded transitions `/complete` does, which
+  // only move a worksheet out of `queued`/`processing` — so a job claimed
+  // against a worksheet still sitting at `ready` is a fixture bug, not a real
+  // scenario, and would silently no-op the status writes under test here.
+  await db.update(worksheets).set({ status: 'queued' }).where(eq(worksheets.id, worksheetId))
   await makePage(worksheetId, hasImage)
   return { userId, worksheetId }
 }
@@ -286,6 +293,7 @@ describe('drainServerQueue', () => {
 
     for (let i = 0; i < 5; i += 1) {
       const worksheetId = await makeWorksheet(db, userId)
+      await db.update(worksheets).set({ status: 'queued' }).where(eq(worksheets.id, worksheetId))
       await makePage(worksheetId, true)
       ids.push(
         await enqueueJob(db as Db, {

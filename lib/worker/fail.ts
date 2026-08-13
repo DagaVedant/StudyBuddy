@@ -4,6 +4,7 @@ import { refundTrial } from '@/lib/ai/quota'
 import { worksheets } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 import type { StoredJobStage } from '@/lib/queue'
+import { transitionWorksheet } from '@/lib/upload/claim'
 
 export interface FailedJob {
   /**
@@ -83,10 +84,13 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
         await refundTrial(db, job.userId, 'worksheets', 1)
       }
 
-      await db
-        .update(worksheets)
-        .set({ status: 'failed' })
-        .where(eq(worksheets.id, job.worksheetId))
+      // Guarded to the states a job can still be running from. A worksheet
+      // that already reached `awaiting_review` or `ready` while this failure
+      // was being applied finished by some other route, and a stale failure
+      // arriving after it must not drag a delivered worksheet back to failed.
+      await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
+        status: 'failed',
+      })
 
       return
     }

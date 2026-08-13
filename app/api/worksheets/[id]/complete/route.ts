@@ -11,7 +11,7 @@ import {
   inFlightExtractCount,
   workerStatus,
 } from '@/lib/queue'
-import { claimWorksheetForCompletion } from '@/lib/upload/claim'
+import { claimWorksheetForCompletion, transitionWorksheet } from '@/lib/upload/claim'
 import { guardWorksheet } from '@/lib/upload/guard'
 import { drainServerQueue } from '@/lib/worker/server-job'
 
@@ -125,11 +125,12 @@ export async function POST(_request: Request, { params }: Params) {
         : await consumeTrial(db, guard.userId, 'worksheets', 1)
 
     if (!charge.ok) {
-
-      await db
-        .update(worksheets)
-        .set({ status: 'awaiting_review', tierUsed: 'free' })
-        .where(eq(worksheets.id, worksheetId))
+      // Only the claim above could have put it in `queued`, so that is the
+      // one state this fallback is allowed to move it out of.
+      await transitionWorksheet(db, worksheetId, ['queued'], {
+        status: 'awaiting_review',
+        tierUsed: 'free',
+      })
 
       return NextResponse.json({
         ok: true,
