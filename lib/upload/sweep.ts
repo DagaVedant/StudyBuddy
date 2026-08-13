@@ -1,7 +1,7 @@
-import { and, eq, lt } from 'drizzle-orm'
+import { and, eq, lt, notExists, or, sql } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
-import { worksheetPages, worksheets } from '@/lib/db/schema'
+import { processingJobs, worksheetPages, worksheets } from '@/lib/db/schema'
 import { storage } from '@/lib/storage'
 
 /**
@@ -28,9 +28,24 @@ export const ABANDONED_AFTER_MS = 60 * 60_000
  * is both the moment it is cheapest and the moment their own leftovers are
  * worth clearing. A global sweep would be a cron job that does not exist.
  *
- * `uploading` only. `processing` means the pages are up and the job is real
- * work in progress, and a worksheet that failed is left alone deliberately: the
- * student can see it failed, which is the point.
+ * A worksheet that failed is left alone deliberately: the student can see it
+ * failed, which is the point.
+ *
+ * This used to look at `uploading` only, on the reasoning that `processing`
+ * means real work in progress. The first page POST moves a worksheet to
+ * `processing` (app/api/worksheets/[id]/pages/route.ts), so `uploading` is the
+ * state before any page has landed, which is the one variant of an abandoned
+ * upload that holds no images at all. Every case this was written for, closing
+ * the tab at page 40 of 75, was in `processing` and invisible to it: 40 page
+ * rows and 40 blobs stayed, and the dashboard entry stayed too, reading
+ * "Processing" for ever.
+ *
+ * So `processing` counts as well, but only with nothing in the queue for it.
+ * Every path out of the completion route either enqueues a job or sets the
+ * worksheet to `awaiting_review` first, so a worksheet sitting in `processing`
+ * an hour later with no job was never completed and no longer can be. A real
+ * extraction has a row in `processing_jobs` from the moment it is handed off,
+ * including a failed one, so nothing in flight is in reach of this.
  */
 export async function sweepAbandonedUploads(
   db: Db,
@@ -45,8 +60,19 @@ export async function sweepAbandonedUploads(
     .where(
       and(
         eq(worksheets.userId, userId),
-        eq(worksheets.status, 'uploading'),
         lt(worksheets.createdAt, cutoff),
+        or(
+          eq(worksheets.status, 'uploading'),
+          and(
+            eq(worksheets.status, 'processing'),
+            notExists(
+              db
+                .select({ one: sql`1` })
+                .from(processingJobs)
+                .where(eq(processingJobs.worksheetId, worksheets.id)),
+            ),
+          ),
+        ),
       ),
     )
 
