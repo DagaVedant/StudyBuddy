@@ -467,8 +467,18 @@ return it.
 
 Return three things.
 
-body_md: the walkthrough. Markdown, no top-level heading, ## for sections if it
-needs them. Start with what the idea actually is, in one or two sentences a
+body_md: the walkthrough, and only the walkthrough. Markdown, ## for sections if
+it needs them.
+
+Never open with a # heading. The page prints the topic name above this, so a
+title here is the same words twice.
+
+Do not put the worked examples or the common errors in here. They are returned
+separately below and the page gives each its own section, so anything repeated
+here the reader meets twice: once in your prose and once again underneath. Write
+the walkthrough, stop, and put the examples in examples.
+
+Start with what the idea actually is, in one or two sentences a
 thirteen-year-old would follow. Then how to recognise a question that needs it,
 because knowing the method is useless if you cannot tell when to reach for it.
 Then the method itself, as numbered steps, each one saying what you do and why

@@ -39,10 +39,19 @@ describe('blocksOf', () => {
     ])
   })
 
-  /** A top-level heading is not in the subset, so it stays text. */
-  it('leaves a single hash as plain text', () => {
-    expect(blocksOf('# Not a heading here')).toEqual([
-      { kind: 'paragraph', text: '# Not a heading here' },
+  /**
+   * `#` used to stay text, deliberately: the page owns the only h1 above this
+   * and the parser should not mint a second one.
+   *
+   * The intent was right and the behaviour was not. A lesson that opened with
+   * a title, which one promptly did, put a paragraph reading "# Fundamental
+   * Counting Principle" in front of a student, hash and all. So it is a
+   * heading now, at level 2, which keeps the page's h1 the only h1 and stops
+   * printing punctuation at the reader.
+   */
+  it('reads a single hash as a level 2 heading', () => {
+    expect(blocksOf('# A title the model should not have written')).toEqual([
+      { kind: 'heading', level: 2, text: 'A title the model should not have written' },
     ])
   })
 

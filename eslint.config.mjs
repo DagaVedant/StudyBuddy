@@ -58,6 +58,13 @@ const eslintConfig = defineConfig([
     // Vendored pdf.js, copied by scripts/copy-pdf-worker.mjs:
     "public/pdf.min.mjs",
     "public/pdf.worker.min.mjs",
+    /*
+     * Where the local storage driver puts uploaded files. No source in it, and
+     * the tests write and delete directories there while they run, so linting
+     * it fails the whole gate with ENOENT on a directory a test has just
+     * removed. That is a lint run failing for a reason unrelated to lint.
+     */
+    ".uploads/**",
   ]),
 ]);
 

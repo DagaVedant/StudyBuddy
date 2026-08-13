@@ -61,12 +61,18 @@ export function blocksOf(markdown: string): Block[] {
       continue
     }
 
-    const heading = /^(#{2,3})\s+(.*)$/.exec(line)
+    // `#` counts, even though the prompt forbids it and the page owns the only
+    // h1 on it. This matched `#{2,3}`, so a model that opened with a title
+    // anyway did not produce a stray heading, which would have been harmless.
+    // It produced a paragraph beginning with a literal hash, printed to the
+    // reader. Rendering it as a heading is both what was meant and the less
+    // embarrassing failure.
+    const heading = /^(#{1,3})\s+(.*)$/.exec(line)
     if (heading) {
       flush()
       blocks.push({
         kind: 'heading',
-        level: heading[1].length === 2 ? 2 : 3,
+        level: heading[1].length <= 2 ? 2 : 3,
         text: heading[2],
       })
       continue
