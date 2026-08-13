@@ -179,14 +179,14 @@ test('the report reaches the admin queue', async ({ browser }) => {
 
 test('rating buttons say when each answer brings the card back', async () => {
   await page.goto(`/worksheets/${worksheetId}/review`)
-  await visible(page).getByRole('button', { name: /Looks Right, Mark \d+ Question/ }).click()
+  await visible(page).getByRole('button', { name: /Looks right, mark \d+ question/ }).click()
   await page.waitForURL(/\/worksheets\/[^/]+\/markup/, { timeout: 30_000 })
 
-  await visible(page).getByText('Missed It').first().click()
+  await visible(page).getByText('Missed it').first().click()
   await visible(page).getByRole('button', { name: 'Next: What You Put' }).click()
   await expect(visible(page).getByText(/What did you put/)).toBeVisible()
   await visible(page).getByText('60 degrees', { exact: true }).click()
-  await visible(page).getByRole('button', { name: 'Save and Finish' }).click()
+  await visible(page).getByRole('button', { name: 'Save and finish' }).click()
   await page.waitForURL('**/dashboard', { timeout: 30_000 })
 
   await page.goto('/review')

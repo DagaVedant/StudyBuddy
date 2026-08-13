@@ -89,7 +89,7 @@ test('a saved API key is never shown again', async ({ page }) => {
 
   const secret = 'sk-ant-e2e-secret-value-do-not-echo-4f2a'
   await visible(page).getByRole('textbox', { name: 'API key' }).fill(secret)
-  await visible(page).getByRole('button', { name: 'Save Key' }).click()
+  await visible(page).getByRole('button', { name: 'Save key' }).click()
 
   await expect(visible(page).getByText(/key ending 4f2a/)).toBeVisible()
 

@@ -542,7 +542,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           disabled={files.length === 0 || busy}
           onClick={start}
         >
-          {busy ? 'Working…' : 'Start Processing'}
+          {busy ? 'Working…' : 'Start processing'}
         </button>
 
         {busy && (

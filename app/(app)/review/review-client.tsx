@@ -534,7 +534,7 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
                     disabled={explaining}
                     onClick={() => void explain(item)}
                   >
-                    {explaining ? 'Writing…' : 'Explain This'}
+                    {explaining ? 'Writing…' : 'Explain this'}
                   </button>
                   <p aria-live="polite" className="hint">
                     {explainError ??

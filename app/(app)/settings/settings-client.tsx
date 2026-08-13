@@ -216,7 +216,7 @@ export default function SettingsClient({
                 void save({ provider, apiKey, model: model.trim() || null })
               }
             >
-              {busy ? 'Saving…' : 'Save Key'}
+              {busy ? 'Saving…' : 'Save key'}
             </button>
           </div>
         )}

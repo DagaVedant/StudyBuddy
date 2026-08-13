@@ -203,7 +203,7 @@ test('the verify flow shows a card and records a check', async () => {
 })
 
 test('confirming moves the worksheet to markup', async () => {
-  await visible(page).getByRole('button', { name: /Looks Right, Mark \d+ Question/ }).click()
+  await visible(page).getByRole('button', { name: /Looks right, mark \d+ question/ }).click()
 
   await page.waitForURL(/\/worksheets\/[^/]+\/markup/, { timeout: 30_000 })
   await expect(visible(page).getByRole('heading', { name: 'How Did You Do?' })).toBeVisible()
@@ -215,7 +215,7 @@ test('confirming moves the worksheet to markup', async () => {
  * paper that is a whole sitting.
  */
 test('a mark survives a reload of the markup screen', async () => {
-  await visible(page).getByText('Missed It').first().click()
+  await visible(page).getByText('Missed it').first().click()
   await expect(visible(page).getByText('1 of 1 marked')).toBeVisible()
 
   await page.reload()
@@ -232,7 +232,7 @@ test('a mark survives a reload of the markup screen', async () => {
 })
 
 test('marking a miss prompts for the answer actually given', async () => {
-  await visible(page).getByText('Missed It').first().click()
+  await visible(page).getByText('Missed it').first().click()
 
   await expect(visible(page).getByText('1 of 1 marked')).toBeVisible()
 
@@ -242,7 +242,7 @@ test('marking a miss prompts for the answer actually given', async () => {
   // Exact, because the question stem quotes every option, so a loose match
   // finds the prompt before it finds the choice.
   await visible(page).getByText('105', { exact: true }).click()
-  await visible(page).getByRole('button', { name: 'Save and Finish' }).click()
+  await visible(page).getByRole('button', { name: 'Save and finish' }).click()
 
   await page.waitForURL('**/dashboard', { timeout: 30_000 })
 })

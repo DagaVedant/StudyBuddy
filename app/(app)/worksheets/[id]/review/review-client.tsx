@@ -253,8 +253,8 @@ export default function ReviewClient({
           >
             {editor.confirming
               ? 'Confirming…'
-              : `Looks Right, Mark ${questions.length} ${
-                  questions.length === 1 ? 'Question' : 'Questions'
+              : `Looks right, mark ${questions.length} ${
+                  questions.length === 1 ? 'question' : 'questions'
                 }`}
           </button>
         </div>

@@ -28,9 +28,9 @@ interface Props {
 }
 
 const OUTCOMES: { value: Outcome; label: string; hint: string; key: string }[] = [
-  { value: 'correct', label: 'Got It', hint: 'Right, and I knew it', key: '1' },
+  { value: 'correct', label: 'Got it', hint: 'Right, and I knew it', key: '1' },
   { value: 'unsure', label: 'Unsure', hint: 'Right, but I guessed', key: '2' },
-  { value: 'wrong', label: 'Missed It', hint: 'Wrong answer', key: '3' },
+  { value: 'wrong', label: 'Missed it', hint: 'Wrong answer', key: '3' },
 ]
 
 export default function MarkupClient({ worksheetId, questions }: Props) {
@@ -287,7 +287,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
             disabled={submitting}
             onClick={() => void submit()}
           >
-            {submitting ? 'Saving…' : 'Save and Finish'}
+            {submitting ? 'Saving…' : 'Save and finish'}
           </button>
           <button
             type="button"
@@ -440,7 +440,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
               disabled={submitting}
               onClick={() => void submit()}
             >
-              {submitting ? 'Saving…' : 'Save and Finish'}
+              {submitting ? 'Saving…' : 'Save and finish'}
             </button>
           )}
         </div>
