@@ -332,6 +332,18 @@ export default async function DashboardPage() {
                     what stacks them from the bottom, which is the part
                     `items-end` looked like it was doing.
                   */}
+                  {/*
+                    A `title` attribute is a mouse-only affordance: nothing
+                    else can trigger it, so a sighted keyboard user, or anyone
+                    on a touchscreen, had no way to read what one bar actually
+                    stood for. Each column is focusable now, and the same text
+                    the title used to hold is a real element that shows on
+                    focus or hover instead of on hover alone. Still
+                    `aria-hidden`, and still deliberately so: the table below
+                    is the one channel screen readers read this chart through,
+                    so this stays visual-only and does not also announce
+                    itself as a redundant second copy of the same numbers.
+                  */}
                   <div className="flex h-28 items-stretch gap-1" aria-hidden="true">
                     {trend.map((point) => {
                       const total = point.correct + point.unsure + point.wrong
@@ -339,9 +351,14 @@ export default async function DashboardPage() {
                       return (
                         <div
                           key={point.weekStart}
-                          className="flex min-w-0 flex-1 flex-col justify-end"
-                          title={`${point.weekStart}: ${point.correct} correct, ${point.unsure} unsure, ${point.wrong} missed`}
+                          tabIndex={0}
+                          className="group relative flex min-w-0 flex-1 flex-col justify-end rounded-t-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                         >
+                          <span
+                            className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-fg px-2 py-1 text-xs text-bg group-hover:block group-focus-visible:block"
+                          >
+                            {point.correct} correct, {point.unsure} unsure, {point.wrong} missed
+                          </span>
                           <div
                             className="w-full rounded-t-sm bg-danger/70"
                             style={{ height: `${scale(point.wrong)}%` }}

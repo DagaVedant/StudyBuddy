@@ -350,7 +350,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
                   onClick={() => removeFile(index)}
                   disabled={busy}
                   aria-label={`Remove ${file.name}`}
-                  className="shrink-0 rounded px-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+                  className="btn-compact shrink-0 rounded px-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
                 >
                   Remove
                 </button>

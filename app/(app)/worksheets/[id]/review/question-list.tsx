@@ -222,7 +222,7 @@ const QuestionCard = memo(function QuestionCard({
                     <button
                       type="button"
                       aria-label={`Remove choice ${choice.label}`}
-                      className="shrink-0 rounded px-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      className="btn-compact shrink-0 rounded px-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       onClick={() =>
                         onUpdate(question.id, {
                           // The relabel stays positional on purpose: what is
@@ -300,7 +300,7 @@ const QuestionCard = memo(function QuestionCard({
 
           <button
             type="button"
-            className="rounded px-1 text-sm text-muted underline underline-offset-2 hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="btn-compact rounded px-1 text-sm text-muted underline underline-offset-2 hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             onClick={() => onRemove(question.id)}
           >
             Delete this question

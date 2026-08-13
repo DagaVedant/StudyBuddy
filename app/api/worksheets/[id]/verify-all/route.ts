@@ -1,9 +1,8 @@
-import { and, eq, notInArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { db } from '@/lib/db'
-import { questions } from '@/lib/db/schema'
+import { unverifyQuestions, verifyRemaining } from '@/lib/questions/verify-all'
 import { guardWorksheet } from '@/lib/upload/guard'
 
 type Params = { params: Promise<{ id: string }> }
@@ -36,31 +35,30 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const exclude = parsed.data.exclude ?? []
-
-  /*
-   * One statement for the whole worksheet.
-   *
-   * The verify screen used to fire one PATCH per question behind this button,
-   * which on the 114-question benchmark paper is 114 requests queued against a
-   * five-connection pool, most of them still in flight when the student
-   * navigates away.
-   *
-   * `notInArray` is only applied when there is something to exclude: with an
-   * empty list it compiles to `id not in ()`, which is a syntax error rather
-   * than a no-op.
-   */
-  const updated = await db
-    .update(questions)
-    .set({ userVerified: true })
-    .where(
-      and(
-        eq(questions.worksheetId, worksheetId),
-        eq(questions.userVerified, false),
-        exclude.length > 0 ? notInArray(questions.id, exclude) : undefined,
-      ),
-    )
-    .returning({ id: questions.id })
+  const updated = await verifyRemaining(db, worksheetId, parsed.data.exclude ?? [])
 
   return NextResponse.json({ verified: updated.length })
+}
+
+const unverifySchema = z.object({
+  ids: z.array(z.string().min(1).max(64)).min(1).max(500),
+})
+
+/** Undoes exactly what a batch accept just did. See lib/questions/verify-all.ts. */
+export async function DELETE(request: Request, { params }: Params) {
+  const { id: worksheetId } = await params
+
+  const guard = await guardWorksheet(worksheetId)
+  if (!guard.ok) {
+    return NextResponse.json({ error: 'Not found' }, { status: guard.status })
+  }
+
+  const parsed = unverifySchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
+
+  const updated = await unverifyQuestions(db, worksheetId, parsed.data.ids)
+
+  return NextResponse.json({ unverified: updated.length })
 }

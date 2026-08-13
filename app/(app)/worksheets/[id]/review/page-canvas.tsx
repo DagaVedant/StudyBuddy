@@ -117,7 +117,7 @@ export default function PageCanvas({
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
-            className="rounded-xl border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+            className="min-h-11 rounded-xl border border-border px-3 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
             disabled={!canGoBack}
             onClick={onBack}
           >
@@ -125,7 +125,7 @@ export default function PageCanvas({
           </button>
           <button
             type="button"
-            className="rounded-xl border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+            className="min-h-11 rounded-xl border border-border px-3 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
             disabled={!canGoForward}
             onClick={onForward}
           >
@@ -231,7 +231,15 @@ export default function PageCanvas({
           Sticky, because the button has to be reachable from wherever the
           student has scrolled to. A page image is several screens tall, and the
           question they want to box is rarely the one next to the heading. */}
-      <div className="sticky bottom-2 mt-1.5 hidden items-center gap-2 any-pointer-coarse:flex">
+      {/* `inset-safe-bottom` rather than the fixed `bottom-2` offset it
+          replaced: that was a guess at clearing the home indicator that
+          happened to be close, and on a device that actually reports one,
+          env(safe-area-inset-bottom) is what makes the guess correct instead
+          of coincidental. The class is padding on a background-less wrapper
+          sized to its own button, so it reads the same as the offset it
+          replaced: empty space below the button, not a bar extending to the
+          edge with its own fill. */}
+      <div className="inset-safe-bottom sticky bottom-0 mt-1.5 hidden items-center gap-2 any-pointer-coarse:flex">
         <button
           type="button"
           aria-pressed={drawing}
