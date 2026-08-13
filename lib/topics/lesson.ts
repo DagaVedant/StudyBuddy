@@ -4,6 +4,7 @@ import type { AIProvider } from '@/lib/ai/types'
 import { questionTopics, questions, topicLessons, topics } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 import { pathBySlug } from '@/lib/taxonomy/trees'
+import { trimLessonBody } from './lesson-body'
 
 /**
  * How many real questions the lesson writer is shown.
@@ -87,7 +88,10 @@ export async function generateLesson(
 
   const values = {
     topicId,
-    bodyMd: lesson.body_md,
+    // Trimmed rather than trusted. The prompt forbids the body carrying its
+    // own examples and pitfalls, and three rewordings of that instruction did
+    // not stop it happening; the page renders both separately.
+    bodyMd: trimLessonBody(lesson.body_md),
     examples: lesson.examples,
     commonErrors: lesson.common_errors,
     provider: null,
@@ -102,7 +106,7 @@ export async function generateLesson(
     .onConflictDoUpdate({ target: topicLessons.topicId, set: values })
 
   return {
-    bodyMd: lesson.body_md,
+    bodyMd: values.bodyMd,
     examples: lesson.examples,
     commonErrors: lesson.common_errors,
     model: provider.answeringModel,

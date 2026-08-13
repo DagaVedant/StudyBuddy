@@ -262,8 +262,12 @@ export const lessonSchema = z.object({
     .array(
       z.object({
         mistake: z.string().max(400),
-        why: z.string().max(800),
-        fix: z.string().max(800),
+        // 800 each, and a lesson whose every field was good except one 850
+        // character `why` was thrown away whole after a minute of GPU. These
+        // are prose fields in a card, so the bound is there to stop something
+        // absurd reaching the page, not to enforce a house style on a sentence.
+        why: z.string().max(2000),
+        fix: z.string().max(2000),
       }),
     )
     .max(8)
