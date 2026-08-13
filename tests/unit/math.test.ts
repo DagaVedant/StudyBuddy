@@ -101,6 +101,28 @@ describe('looksUnrendered', () => {
     expect(looksUnrendered('The ribbon costs $5.00.')).toBe(false)
     expect(looksUnrendered('Two lines.\nStill clean.')).toBe(false)
   })
+
+  /*
+   * A bare brace is set-builder or interval notation the model wrote on
+   * purpose, not leftover markup. It used to flag any brace at all, which
+   * meant every question written this way printed as "UNRENDERED MATH" in
+   * the audit script even though nothing was wrong.
+   */
+  it('does not flag set-builder or interval notation', () => {
+    expect(looksUnrendered('Let S = {1, 2, 3}. How many subsets does S have?')).toBe(
+      false,
+    )
+    expect(looksUnrendered('The domain is {x | x > 0}.')).toBe(false)
+    expect(looksUnrendered('f(x) = {2x if x > 0, -x otherwise}')).toBe(false)
+  })
+
+  // The shape a brace-only bug actually takes: `\left\{...\right\}` has its
+  // `\left`/`\right` stripped by normalizeMath, leaving a literal `\{...\}`
+  // behind that nothing else touches. That backslash is the tell a bare
+  // brace does not carry.
+  it('still flags a backslash-escaped brace normalizeMath could not reach', () => {
+    expect(looksUnrendered('Solve \\{x : x > 0\\}')).toBe(true)
+  })
 })
 
 /**

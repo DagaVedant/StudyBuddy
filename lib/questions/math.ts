@@ -182,5 +182,14 @@ export function looksUnrendered(text: string): boolean {
   // The control characters are the eaten-command case: no backslash survives,
   // so the braces are usually the only tell, and a command taking no argument
   // leaves not even those.
-  return /\\[a-zA-Z]+|\\\(|\\\)|\$\$|\{|\}|[\u0008\u000c]/.test(text)
+  //
+  // Braces only count when a backslash sits right before them, not on their
+  // own. A bare `{` or `}` is set-builder or interval notation the model
+  // wrote on purpose ("Let S = {1, 2, 3}", "{x | x > 0}"), and this text has
+  // already been through `normalizeMath`, which unwraps `^{...}` and `_{...}`
+  // before this ever runs. What normalizeMath cannot reach is `\left\{...
+  // \right\}`: stripping `\left`/`\right` leaves a literal `\{...\}`
+  // behind, a backslash-escaped brace nothing else touches, and that is the
+  // shape this is actually looking for.
+  return /\\[a-zA-Z]+|\\\(|\\\)|\$\$|\\\{|\\\}|[\u0008\u000c]/.test(text)
 }
