@@ -78,12 +78,29 @@ export async function mergeDuplicateQuestions(
    * with two rows both claiming 7, which is the exact state the audit then
    * tries to repair by deleting one of them.
    *
-   * So the numbers are tracked as they are handed out, and a plan whose number
-   * has already gone to somebody else keeps its row instead of merging it.
-   * Refusing to merge leaves a visible duplicate the student can delete;
-   * merging wrongly loses a question.
+   * `planDuplicateMerges` hands the survivor `Math.min` of the pair's two
+   * numbers with no view of the rest of the worksheet, so the number it picks
+   * can belong to a third row neither plan ever mentions: a phantom at 5
+   * merged into a real question at 9 sends the survivor to 5, and if some
+   * unrelated row already legitimately carries 5, the worksheet now holds two
+   * of them, which is exactly what this pass exists to prevent.
+   *
+   * So every row's number is tracked from the start, not only the numbers
+   * plans hand out as they run. A plan's target number collides when anyone
+   * other than the plan's own two rows currently holds it; the plan's own
+   * phantom holding it is not a collision; that is the source of the number.
    */
-  const claimedNumbers = new Set<number>()
+  const holderOf = new Map<string, number>()
+  const rowsWithNumber = new Map<number, Set<string>>()
+
+  for (const candidate of candidates) {
+    if (typeof candidate.printedNumber !== 'number') continue
+    holderOf.set(candidate.id, candidate.printedNumber)
+    const holders = rowsWithNumber.get(candidate.printedNumber) ?? new Set<string>()
+    holders.add(candidate.id)
+    rowsWithNumber.set(candidate.printedNumber, holders)
+  }
+
   const gone = new Set<string>()
 
   for (const plan of plans) {
@@ -104,12 +121,19 @@ export async function mergeDuplicateQuestions(
       continue
     }
 
-    if (plan.printedNumber !== null && claimedNumbers.has(plan.printedNumber)) {
-      console.log(
-        `[dedupe] kept ${plan.dropId} on ${worksheetId}: number ` +
-          `${plan.printedNumber} was already given to another row this pass`,
+    if (plan.printedNumber !== null) {
+      const holders = rowsWithNumber.get(plan.printedNumber) ?? new Set<string>()
+      const others = [...holders].filter(
+        (id) => id !== plan.keepId && id !== plan.dropId,
       )
-      continue
+
+      if (others.length > 0) {
+        console.log(
+          `[dedupe] kept ${plan.dropId} on ${worksheetId}: number ` +
+            `${plan.printedNumber} is already held by another row on this worksheet`,
+        )
+        continue
+      }
     }
 
     // The surviving row takes the number the phantom was occupying, which
@@ -120,7 +144,23 @@ export async function mergeDuplicateQuestions(
         .set({ printedNumber: plan.printedNumber })
         .where(eq(questions.id, plan.keepId))
 
-      claimedNumbers.add(plan.printedNumber)
+      // Both rows' old numbers are freed and the survivor's new one is
+      // claimed, so a later plan sees this merge's result rather than the
+      // snapshot it was planned against.
+      const keptOldNumber = holderOf.get(plan.keepId)
+      if (typeof keptOldNumber === 'number') {
+        rowsWithNumber.get(keptOldNumber)?.delete(plan.keepId)
+      }
+      const droppedOldNumber = holderOf.get(plan.dropId)
+      if (typeof droppedOldNumber === 'number') {
+        rowsWithNumber.get(droppedOldNumber)?.delete(plan.dropId)
+      }
+
+      const newHolders = rowsWithNumber.get(plan.printedNumber) ?? new Set<string>()
+      newHolders.add(plan.keepId)
+      rowsWithNumber.set(plan.printedNumber, newHolders)
+      holderOf.set(plan.keepId, plan.printedNumber)
+      holderOf.delete(plan.dropId)
     }
 
     await db.delete(questions).where(eq(questions.id, plan.dropId))
