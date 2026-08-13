@@ -103,9 +103,41 @@ async function main() {
   // queue. Left alone, a re-seed puts their parents back in the shortlist.
   const demoted = await demoteParentsWithChildren(db)
 
+  /*
+   * Reported, not removed.
+   *
+   * A canonical topic (`isCanonical: true`, meaning it came from this file
+   * rather than from an accepted proposal) whose slug is no longer in
+   * `flattenTaxonomy()` was renamed or deleted here and orphaned in the
+   * database. It used to vanish from this script's view entirely: nothing
+   * logged it, nothing flagged it, and it sat there, possibly still carrying
+   * questions and attempts, until someone happened to notice.
+   *
+   * Not deleted, on the same principle every other pass in this codebase that
+   * touches a row follows: this script cannot tell a genuine rename (the slug
+   * changed, a new canonical row now covers the same ground) from a topic
+   * someone simply took out. Guessing wrong destroys a student's topic
+   * assignments and their dashboard history. An operator who reads this list
+   * can tell the difference; the script cannot.
+   */
+  const currentSlugs = new Set(flat.map((node) => node.slug))
+  const orphaned = await db
+    .select({ slug: topics.slug, name: topics.name })
+    .from(topics)
+    .where(eq(topics.isCanonical, true))
+
+  const stale = orphaned.filter((row) => !currentSlugs.has(row.slug))
+
   await sql.end()
 
   console.log(`\nSeeded: ${inserted} inserted, ${updated} updated.`)
+  if (stale.length) {
+    console.log(
+      `\n${stale.length} canonical topic(s) in the database are no longer in the taxonomy file:`,
+    )
+    for (const row of stale) console.log(`  ${row.slug}  (${row.name})`)
+    console.log('Left alone. Renamed or genuinely removed? Check by hand before touching them.')
+  }
   if (demoted.length) {
     console.log(`Demoted ${demoted.length} topic(s) that have children: ${demoted.join(', ')}`)
   }
