@@ -83,6 +83,22 @@ export const EXPLAIN_LIMIT: LimitRule = { action: 'explain', limit: 60, windowSe
  */
 export const REPORT_LIMIT: LimitRule = { action: 'report', limit: 40, windowSeconds: 3600 }
 
+/**
+ * Adding questions by hand, which is the one route that creates rows without
+ * an upload behind it.
+ *
+ * Generous against real use and still a bound. A student boxing every question
+ * on a long paper themselves is the heaviest honest case and it is one request
+ * per question, so a 114-question paper drawn entirely by hand fits inside
+ * this twice over. What it stops is a loop: the endpoint took a JSON body and
+ * wrote a row, unbounded, on an account that costs nothing to make.
+ */
+export const QUESTION_WRITE_LIMIT: LimitRule = {
+  action: 'question-write',
+  limit: 300,
+  windowSeconds: 3600,
+}
+
 export function limitKey(rule: LimitRule, subject: string): string {
   return `${rule.action}:${subject.slice(0, 180)}`
 }

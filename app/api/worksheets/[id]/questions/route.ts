@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
+import { QUESTION_WRITE_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
 import { checkReferences, referenceError } from '@/lib/questions/references'
@@ -75,6 +76,27 @@ export async function POST(request: Request, { params }: Params) {
   const guard = await guardWorksheet(worksheetId)
   if (!guard.ok) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
+  }
+
+  /*
+   * The one route that writes a question with no upload behind it.
+   *
+   * Everything else that creates rows is gated by something costly: pages go
+   * through blob storage and its own limit, worksheets through the upload
+   * limit and the trial. This took a JSON body and wrote a row, on an account
+   * that costs nothing to make, with nothing counting.
+   *
+   * Before the body is parsed, like the page route, so a refused request does
+   * no work. Keyed by account rather than by IP because it is behind a session
+   * already, and the account is the thing being bounded.
+   */
+  const allowance = await consumeRateLimit(db, QUESTION_WRITE_LIMIT, `user:${guard.userId}`)
+
+  if (!allowance.ok) {
+    return NextResponse.json(
+      { error: "That's a lot of questions in one go. Try again shortly." },
+      { status: 429, headers: { 'Retry-After': String(allowance.retryAfter) } },
+    )
   }
 
   const parsed = questionInputSchema.safeParse(
