@@ -149,6 +149,13 @@ test('a whole worksheet can be reported from the verify screen', async () => {
   await expect(visible(page).getByText('Thanks. That is on the list to look at.')).toBeVisible()
 })
 
+/**
+ * Scoped through `visible()` like every other assertion here, and worth a note
+ * because this one escaped the sweep that scoped the rest: the page is called
+ * `adminPage`, so a search for `page.getBy` never saw it. It failed
+ * intermittently for months of runs afterwards, on the streamed copy of the
+ * page matching the same text as the real one.
+ */
 test('the report reaches the admin queue', async ({ browser }) => {
   const adminPage = await browser.newPage()
 
@@ -156,15 +163,15 @@ test('the report reaches the admin queue', async ({ browser }) => {
     await signInAsAdmin(adminPage, ADMIN_EMAIL)
     await adminPage.goto('/admin/reports')
 
-    await expect(adminPage.getByRole('heading', { name: 'Reports' })).toBeVisible()
-    await expect(adminPage.getByText('It missed every question on page 2.')).toBeVisible()
-    await expect(adminPage.getByText('Whole worksheet').first()).toBeVisible()
-    await expect(adminPage.getByText('Reports Fixture').first()).toBeVisible()
+    await expect(visible(adminPage).getByRole('heading', { name: 'Reports' })).toBeVisible()
+    await expect(visible(adminPage).getByText('It missed every question on page 2.')).toBeVisible()
+    await expect(visible(adminPage).getByText('Whole worksheet')).toBeVisible()
+    await expect(visible(adminPage).getByText('Reports Fixture')).toBeVisible()
 
     // Marking it done clears it from the queue and keeps the row.
-    await adminPage.getByRole('button', { name: 'Done' }).first().click()
-    await expect(adminPage.getByText('It missed every question on page 2.')).toHaveCount(0)
-    await expect(adminPage.getByText('Nothing reported.')).toBeVisible()
+    await visible(adminPage).getByRole('button', { name: 'Done' }).first().click()
+    await expect(visible(adminPage).getByText('It missed every question on page 2.')).toHaveCount(0)
+    await expect(visible(adminPage).getByText('Nothing reported.')).toBeVisible()
   } finally {
     await adminPage.close()
   }
