@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import ReportButton from '@/components/report-button'
+import QuestionCrop from '@/components/question-crop'
 import { reflowText } from '@/lib/questions/reflow'
 import type { ReviewItem } from '@/lib/review/queue'
 import { fetchJson } from '@/lib/client/fetch-json'
@@ -441,6 +442,21 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
         )}
 
         <p className="whitespace-pre-line text-pretty">{reflowText(item.promptText)}</p>
+
+        {/*
+          The figure, for the questions that are one.
+          
+          A question about a net, a graph or a shaded diagram cannot be
+          answered from its text, and this screen used to show only the text.
+          Nothing crops a figure to its own file anywhere in the pipeline, so
+          this is a crop window over the page image, the same one the verify
+          screen draws.
+        */}
+        {item.evidence && (
+          <div className="mt-3">
+            <QuestionCrop image={item.evidence} alt="The question as it was printed" />
+          </div>
+        )}
 
         {item.choices.length > 0 && (
           <ul className="mt-4 space-y-1.5">

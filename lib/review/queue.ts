@@ -10,7 +10,9 @@ import {
   reviewCards,
   topics,
   questionTopics,
+  worksheetPages,
 } from '@/lib/db/schema'
+import { evidenceFor, type QuestionEvidence } from '@/lib/questions/evidence'
 import { formatInterval, previewIntervals, type ReviewRating } from '@/lib/review/fsrs'
 
 /**
@@ -78,6 +80,16 @@ export interface ReviewItem {
   lastChoiceId: string | null
   lastFreeText: string | null
   explanation: { body: string; reportedWrong: boolean } | null
+  /**
+   * The page, cropped to this question, or null when it cannot be placed.
+   *
+   * A question about a diagram, a net or a graph cannot be answered from its
+   * text, and nothing in the pipeline ever cropped a figure to its own file, so
+   * this screen showed those as text with no picture. The box and the page
+   * image are both already stored; this is the same crop window the verify
+   * screen draws, which is why it needs no new pass and no new storage.
+   */
+  evidence: QuestionEvidence | null
   dueAt: string
   /**
    * What each rating would cost you, as a label under the button ("3 d").
@@ -87,26 +99,6 @@ export interface ReviewItem {
   intervals: Record<ReviewRating, string>
 }
 
-/**
- * Everything still worth practising, most overdue first.
- *
- * A question you have never practised is here from the moment it is marked
- * wrong, rather than waiting out whatever interval ts-fsrs picked: hiding it
- * for three days left the review tab empty on an evening a student sat down
- * specifically to work through their mistakes. Once it has been practised it
- * goes on the schedule like anything else, which is what lets a sitting finish
- * instead of dealing the same card round after round.
- *
- * What takes a question out is the student saying so. `retiredAt` is set by the
- * "Got it" button and is the only thing that removes a card from this list.
- * The card is not deleted and the attempts behind it are untouched, so the
- * question still counts as one they got wrong on the worksheet card, on the
- * topic page and in the Blooket export.
- *
- * A card whose question was only ever answered correctly is not in here at all:
- * markup writes a card for every question on the paper, including the ones the
- * student got right, and those were never the point of this screen.
- */
 /**
  * How many cards {@link getDueCards} would return without its limit.
  *
@@ -135,6 +127,26 @@ export async function countReviewQueue(
   return Number(row?.value ?? 0)
 }
 
+/**
+ * Everything still worth practising, most overdue first.
+ *
+ * A question you have never practised is here from the moment it is marked
+ * wrong, rather than waiting out whatever interval ts-fsrs picked: hiding it
+ * for three days left the review tab empty on an evening a student sat down
+ * specifically to work through their mistakes. Once it has been practised it
+ * goes on the schedule like anything else, which is what lets a sitting finish
+ * instead of dealing the same card round after round.
+ *
+ * What takes a question out is the student saying so. `retiredAt` is set by the
+ * "Got it" button and is the only thing that removes a card from this list.
+ * The card is not deleted and the attempts behind it are untouched, so the
+ * question still counts as one they got wrong on the worksheet card, on the
+ * topic page and in the Blooket export.
+ *
+ * A card whose question was only ever answered correctly is not in here at all:
+ * markup writes a card for every question on the paper, including the ones the
+ * student got right, and those were never the point of this screen.
+ */
 export async function getDueCards(
   db: Db,
   userId: string,
@@ -159,9 +171,16 @@ export async function getDueCards(
       questionType: questions.questionType,
       correctAnswer: questions.correctAnswer,
       answerSource: questions.answerSource,
+      bbox: questions.bbox,
+      // Left, not inner: a question added by hand has no page, and losing it
+      // from the queue to fetch a picture it never had would be a poor trade.
+      pageImageKey: worksheetPages.imageKey,
+      pageWidth: worksheetPages.width,
+      pageHeight: worksheetPages.height,
     })
     .from(reviewCards)
     .innerJoin(questions, eq(questions.id, reviewCards.questionId))
+    .leftJoin(worksheetPages, eq(worksheetPages.id, questions.pageId))
     .where(and(eq(reviewCards.userId, userId), inReviewQueue(userId, now)))
     .orderBy(asc(reviewCards.dueAt))
     .limit(limit)
@@ -271,6 +290,13 @@ export async function getDueCards(
       lastFreeText: last?.freeTextAnswer ?? null,
       explanation: explanation
         ? { body: explanation.bodyMd, reportedWrong: explanation.reportedWrong }
+        : null,
+      evidence: card.pageImageKey
+        ? evidenceFor(card.bbox, {
+            imageKey: card.pageImageKey,
+            width: card.pageWidth,
+            height: card.pageHeight,
+          })
         : null,
       dueAt: card.dueAt.toISOString(),
       intervals: {
