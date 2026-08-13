@@ -62,6 +62,18 @@ class EmptyReplyError extends Error {
   }
 }
 
+/**
+ * One question, its options, and room for a reasoning model to think.
+ *
+ * The longest stored question is a few hundred tokens and the system prompt is
+ * under one thousand, so 8k leaves the whole budget to the working. Reasoning
+ * models spend the output allowance thinking, which is why this is not smaller.
+ */
+const ANSWER_CONTEXT_TOKENS = 8_192
+
+/** A lesson carries five sample questions in and a long answer out. */
+const LESSON_CONTEXT_TOKENS = 12_288
+
 export interface OllamaOptions {
   baseUrl: string
   visionModel: string
@@ -174,10 +186,30 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     userText: string,
     images: string[] | undefined,
     schema: Record<string, unknown>,
+    /**
+     * Context to reserve, when the caller knows it needs far less than a page.
+     *
+     * The default is sized for the densest page measured, which is the right
+     * size for reading one and five times too big for solving one. Every
+     * request reserves its own KV cache, so a 24k reservation for a question
+     * that fits in one is not merely wasteful: on a 16GB card it is the
+     * difference between the model sitting in VRAM and spilling out of it.
+     * Measured on the backfill, where the same model that answered a benchmark
+     * question in five seconds was taking twenty-five.
+     */
+    contextTokens = this.contextTokens,
   ): Promise<unknown> {
     for (let attempt = 1; ; attempt += 1) {
       try {
-        return await this.chatOnce(model, system, userText, images, schema, attempt)
+        return await this.chatOnce(
+          model,
+          system,
+          userText,
+          images,
+          schema,
+          attempt,
+          contextTokens,
+        )
       } catch (error) {
         if (!(error instanceof EmptyReplyError) || attempt >= this.maxAttempts) throw error
 
@@ -195,6 +227,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     images: string[] | undefined,
     schema: Record<string, unknown>,
     attempt: number,
+    contextTokens: number,
   ): Promise<unknown> {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), this.timeoutMs)
@@ -215,7 +248,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
             // amount of randomness is what lets the retry take another path.
             temperature: attempt === 1 ? 0 : 0.2 * (attempt - 1),
 
-            num_ctx: this.contextTokens,
+            num_ctx: contextTokens,
             num_predict: this.maxOutputTokens,
           },
           messages: [
@@ -303,6 +336,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       answerUserText(input),
       undefined,
       ANSWER_JSON_SCHEMA as unknown as Record<string, unknown>,
+      ANSWER_CONTEXT_TOKENS,
     )
   }
 
@@ -313,6 +347,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       lessonUserText(input),
       undefined,
       LESSON_JSON_SCHEMA as unknown as Record<string, unknown>,
+      LESSON_CONTEXT_TOKENS,
     )
   }
 

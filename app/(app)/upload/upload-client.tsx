@@ -92,6 +92,27 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [busy])
 
+  /*
+   * Leaving the page shuts the OCR worker down.
+   *
+   * Tesseract runs in a web worker holding a decoded page and a language model,
+   * and it cannot be interrupted mid-recognition: cancelling stops us waiting,
+   * it does not stop the work. Navigating away from a scanned upload therefore
+   * left a core busy on a page nobody would ever read, for as long as the tab
+   * stayed open, and the next upload would create a second worker beside it.
+   *
+   * Runs on unmount only, and after the abort above, so a still-running
+   * recognition is already unwanted by the time this fires.
+   */
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+      void import('@/lib/client/ocr').then(({ terminateOcr }) =>
+        terminateOcr().catch(() => {}),
+      )
+    }
+  }, [])
+
   const addFiles = useCallback(
     (incoming: FileList | null) => {
       if (!incoming?.length) return

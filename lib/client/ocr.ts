@@ -38,7 +38,12 @@ export async function ocrPage(image: Blob, signal?: AbortSignal): Promise<OcrRes
       signal,
     ))
   } catch (cause) {
-    if (signal?.aborted) void terminateOcr()
+    // Caught, not `void`ed. This runs while another error is already on its
+    // way up, and `void` on a promise that rejects is an unhandled rejection
+    // in a browser tab: it takes down the upload the cancellation was meant to
+    // end cleanly. Failing to terminate a worker nobody is waiting for is not
+    // worth reporting, so the rejection is swallowed deliberately.
+    if (signal?.aborted) terminateOcr().catch(() => {})
     throw cause
   }
 

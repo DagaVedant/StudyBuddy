@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 import { E2E_DATABASE_URL } from './e2e/support/database'
+import { TEST_SECRETS } from './e2e/support/test-secrets'
 
 const PORT = 3100
 // Auth.js's Server Actions (signIn/signOut) infer the host from request
@@ -56,8 +57,7 @@ export default defineConfig({
       // switched off here.
       DATABASE_IDLE_TIMEOUT: '0',
       DATABASE_MAX_LIFETIME: '0',
-      AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-abcd=',
-      CREDENTIALS_ENC_KEY: Buffer.alloc(32, 7).toString('base64'),
+      ...TEST_SECRETS,
       // Two, so the test that admin works and the test that it cannot be
       // squatted do not share an account.
       ADMIN_EMAILS: 'admin@studybuddy.test,boss@studybuddy.test',
@@ -65,7 +65,6 @@ export default defineConfig({
       DISABLE_RATE_LIMITS: 'true',
       SKIP_MIGRATIONS: 'true',
       NEXT_PUBLIC_APP_URL: BASE_URL,
-      WORKER_API_TOKEN: 'e2e-worker-token',
       BLOB_READ_WRITE_TOKEN: '',
       // Unlocks app/api/test/*: routes the E2E harness reads/writes test
       // state through, since they share the app's own DB connection instead
