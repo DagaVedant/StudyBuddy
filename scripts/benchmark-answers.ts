@@ -2,6 +2,9 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local', quiet: true })
 
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+
 import { ANSWER_JSON_SCHEMA, ANSWER_SYSTEM, answerUserText } from '../lib/ai/prompts'
 import { connect, requireDatabaseUrl } from './db'
 
@@ -25,7 +28,13 @@ import { connect, requireDatabaseUrl } from './db'
  * refusals and confident-wrong separately rather than folding both into
  * accuracy.
  *
- *   npx tsx scripts/benchmark-answers.ts [--limit 40] [--models a,b,c]
+ * Results are written to a file as each model finishes, not only printed.
+ * Node buffers stdout when it is a pipe and flushes on exit, so a run watched
+ * from another process shows nothing at all until it ends: this one looked
+ * stuck for an hour and had in fact finished three models. A synchronous append
+ * per model is worth more than the tidiness of printing only.
+ *
+ *   npx tsx scripts/benchmark-answers.ts [--limit 40] [--models a,b,c] [--out path]
  */
 
 const OLLAMA = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
@@ -140,6 +149,17 @@ function label(answer: string | null, choices: Row['choices']): string | null {
 async function main(): Promise<void> {
   const limit = Number(arg('limit', '40'))
   const models = arg('models', DEFAULT_MODELS.join(',')).split(',').filter(Boolean)
+  const out = arg('out', 'benchmark/results/answers.txt')
+
+  mkdirSync(dirname(out), { recursive: true })
+  writeFileSync(out, '')
+
+  /** Printed and appended. The append is the one that survives a kill. */
+  const record = (line: string) => {
+    console.log(line)
+    appendFileSync(out, `${line}
+`)
+  }
 
   const sql = connect(requireDatabaseUrl())
 
@@ -158,7 +178,7 @@ async function main(): Promise<void> {
     order by q.id
     limit ${limit}`
 
-  console.log(`${rows.length} questions, ${models.length} model(s)\n`)
+  record(`${rows.length} questions, ${models.length} model(s)`)
 
   const scores: Scored[] = []
 
@@ -202,19 +222,19 @@ async function main(): Promise<void> {
     score.seconds = Math.round((Date.now() - started) / 1000)
     scores.push(score)
 
-    console.log(
+    record(
       `${model.padEnd(16)} correct ${String(score.correct).padStart(3)}/${rows.length}` +
         `  refused ${score.refused}  confident-wrong ${score.confidentWrong}` +
         `  truncated ${score.truncated}  failed ${score.failed}  ${score.seconds}s`,
     )
   }
 
-  console.log('\n--- ranked by correct, then by confident-wrong ---')
+  record('--- ranked by correct, then by confident-wrong ---')
   for (const score of [...scores].sort(
     (a, b) => b.correct - a.correct || a.confidentWrong - b.confidentWrong,
   )) {
     const accuracy = rows.length ? ((score.correct / rows.length) * 100).toFixed(0) : '0'
-    console.log(
+    record(
       `  ${score.model.padEnd(16)} ${accuracy.padStart(3)}%  ` +
         `${(score.seconds / Math.max(rows.length, 1)).toFixed(1)}s/question`,
     )
