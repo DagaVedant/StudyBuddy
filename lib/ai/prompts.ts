@@ -478,6 +478,12 @@ separately below and the page gives each its own section, so anything repeated
 here the reader meets twice: once in your prose and once again underneath. Write
 the walkthrough, stop, and put the examples in examples.
 
+This holds however you label it. No list of pitfalls, traps, mistakes, things
+to watch out for or things to avoid, under a heading, in bold, or with no
+heading at all. A bulleted summary of the same four mistakes is the duplication
+this is asking you to avoid, not a way around it. Naming a trap in the middle
+of a step, where it belongs to that step, is fine; collecting them is not.
+
 Start with what the idea actually is, in one or two sentences a
 thirteen-year-old would follow. Then how to recognise a question that needs it,
 because knowing the method is useless if you cannot tell when to reach for it.
