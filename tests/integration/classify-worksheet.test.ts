@@ -142,6 +142,45 @@ describe('classifyWorksheet', () => {
     expect(await tagCount(worksheetId)).toBe(3)
   })
 
+  /*
+   * Finding 87. The vector this computes to run the pgvector shortlist search
+   * used to be thrown away the moment the search returned, so every worksheet
+   * classified through this path (the Tier B server drain, the only ingest
+   * path that reaches this function rather than the worker's own classify
+   * route) left `questions.embedding` NULL. The cross-worksheet duplicate
+   * check reads exactly that column, so the feature was silently dead for
+   * every student on their own cloud key: not absent, just never given
+   * anything to search.
+   */
+  it('persists the embedding it computed to run the shortlist search', async () => {
+    const { worksheetId, ids } = await worksheet(1)
+
+    await classifyWorksheet(client(), provider(picks), worksheetId)
+
+    const [row] = await db
+      .select({ embedding: questions.embedding })
+      .from(questions)
+      .where(eq(questions.id, ids[0]))
+
+    expect(row.embedding).not.toBeNull()
+    expect(row.embedding).toHaveLength(EMBEDDING_DIMENSIONS)
+  })
+
+  // An abstain still runs the shortlist search to find out there was nothing
+  // good enough in it, so the vector still exists and is still worth keeping.
+  it('persists the embedding even when the question abstains', async () => {
+    const { worksheetId, ids } = await worksheet(1)
+
+    await classifyWorksheet(client(), provider(abstains), worksheetId)
+
+    const [row] = await db
+      .select({ embedding: questions.embedding })
+      .from(questions)
+      .where(eq(questions.id, ids[0]))
+
+    expect(row.embedding).not.toBeNull()
+  })
+
   it('reports an abstain as a proposal rather than as a tag', async () => {
     const { worksheetId } = await worksheet(2)
 

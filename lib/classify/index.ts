@@ -164,18 +164,39 @@ export class EmbeddingUnavailableError extends Error {
  * question looks like, so a host that could not load onnxruntime at all
  * produced a worksheet where every question was untagged and a job that
  * reported success. The dashboard is empty and nothing anywhere is an error.
+ *
+ * `questionId`, when given, is what makes this the second writer of
+ * `questions.embedding`. The worker's own classify route
+ * (app/api/worker/classify/[worksheetId]/shortlist/route.ts) is the first,
+ * and until this one existed it was the *only* one: the Tier B server path
+ * computed this exact vector to run the pgvector search and then discarded
+ * it, so every worksheet processed with a student's own cloud key left
+ * `questions.embedding` NULL. The cross-worksheet duplicate check
+ * (lib/questions/library-duplicates.ts) reads that column to find a near
+ * match on another worksheet, and a NULL row is invisible to it both as a
+ * subject and as a candidate — so the check silently never ran for that
+ * whole tier, and a student was told "no near-duplicates found" when nothing
+ * had actually looked. Optional rather than required because a handful of
+ * scripts want the search without committing to a row (see
+ * scripts/topic-gaps.ts), and forcing an id on every caller for the sake of
+ * one would make persistence look load-bearing to callers it is not.
  */
 export async function shortlistTopics(
   db: Db,
   questionText: string,
   subjectHint?: string | null,
   limit = SHORTLIST_SIZE,
+  questionId?: string,
 ): Promise<TopicCandidate[]> {
   let vector: number[]
   try {
     vector = await embed(questionText)
   } catch (error) {
     throw new EmbeddingUnavailableError((error as Error).message)
+  }
+
+  if (questionId) {
+    await db.update(questions).set({ embedding: vector }).where(eq(questions.id, questionId))
   }
 
   return shortlistByVector(db, vector, { subjectHint, limit })
@@ -223,7 +244,13 @@ export async function classifyQuestion(
   question: { id: string; promptText: string; userId: string },
   subjectHint?: string | null,
 ): Promise<ClassifyOutcome> {
-  const candidates = await shortlistTopics(db, question.promptText, subjectHint)
+  const candidates = await shortlistTopics(
+    db,
+    question.promptText,
+    subjectHint,
+    undefined,
+    question.id,
+  )
 
   if (candidates.length === 0) {
     return { topicId: null, coarse: false, proposalId: null, confidence: 0 }
