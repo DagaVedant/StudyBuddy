@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { RasterPage } from '@/lib/client/rasterize'
-import { pageInRange } from '@/lib/upload/page-range'
 
 /** Every page the mock was allowed to hand back, in order. */
 const rendered: number[] = []
@@ -28,12 +27,19 @@ vi.mock('@/lib/client/rasterize', async (importOriginal) => {
     ...actual,
     hasUsableTextLayer: () => true,
     /**
-     * Dumb on purpose: it records what it was asked for and renders exactly
-     * that, applying no rule of its own.
+     * A stand-in rasterizer that states the range rule itself, in arithmetic,
+     * rather than calling the one the real one calls.
      *
-     * It used to run `pageInRange(offset + n, range)` itself, which is the same
-     * line `rasterize.ts` runs. Three tests then measured the double: had the
-     * real loop stopped filtering entirely they would all still have passed.
+     * It used to run `pageInRange(offset + n, range)`, which is the same line
+     * `rasterize.ts` runs, so the tests measured the production function
+     * against itself. The comment here already said it did not, which is worse
+     * than either: it read as covered.
+     *
+     * It cannot be dumb, because a rasterizer that returns out-of-range pages
+     * is not one this code ever meets, and the "range selects nothing" case
+     * below needs it to behave. So it keeps the behaviour and owns the rule,
+     * which makes this file an independent statement of what `ingestWorksheet`
+     * expects from a rasterizer instead of an echo of one.
      *
      * The real loop cannot be reached from here. `getPdfjs` loads pdf.js
      * through `new Function('url', 'return import(url)')`, which exists to keep
@@ -59,9 +65,14 @@ vi.mock('@/lib/client/rasterize', async (importOriginal) => {
         const pages: RasterPage[] = []
 
         for (let n = 1; n <= totalPages; n += 1) {
-          if (!pageInRange(offset + n, range)) continue
-          rendered.push(offset + n)
-          pages.push(fakePage(offset + n))
+          const page = offset + n
+
+          // Spelled out rather than shared with the code under test.
+          if (range && page < range.from) continue
+          if (range && range.to !== null && page > range.to) continue
+
+          rendered.push(page)
+          pages.push(fakePage(page))
         }
 
         return { pages, totalPages }
