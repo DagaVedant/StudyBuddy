@@ -355,6 +355,24 @@ export interface TopicCandidate {
 export interface AnswerInput {
   promptText: string
   choices: { label: string; text: string }[]
+
+  /**
+   * The page this question is printed on, for the ones that need to be seen.
+   *
+   * Optional, and asked for only after a text-only attempt has declined. A
+   * third of the questions on a competition paper depend on a graph, a net or a
+   * shaded diagram, and the prompt tells the model to return null rather than
+   * guess at one it cannot see: on three AMC 8 papers that was twenty questions
+   * refused, correctly, with the answer sitting in a page image nobody looked
+   * at.
+   *
+   * Sent on the retry rather than always, because it is the expensive path and
+   * most questions do not need it. Which model reads it is the provider's
+   * business: on Ollama the text model cannot take an image at all, so the
+   * vision model answers these.
+   */
+  image?: Uint8Array
+  mediaType?: string
 }
 
 export interface LessonInput {

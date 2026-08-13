@@ -330,13 +330,26 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   }
 
   async answerQuestion(input: AnswerInput): Promise<unknown> {
+    /*
+     * The vision model when there is a page to look at, the answer model when
+     * there is not.
+     *
+     * Not a preference. The answer model is chosen for reasoning and is text
+     * only, so handing it an image is not a worse answer, it is an error. The
+     * two are different models on purpose and this is the one place the
+     * distinction has to be made at call time rather than at construction.
+     */
+    const image = input.image
+    const model = image ? this.visionModel : this.answerModel
+
     return this.chat(
-      this.answerModel,
+      model,
       ANSWER_SYSTEM,
       answerUserText(input),
-      undefined,
+      image ? [Buffer.from(image).toString('base64')] : undefined,
       ANSWER_JSON_SCHEMA as unknown as Record<string, unknown>,
-      ANSWER_CONTEXT_TOKENS,
+      // A page image is worth several thousand tokens on its own.
+      image ? this.contextTokens : ANSWER_CONTEXT_TOKENS,
     )
   }
 
