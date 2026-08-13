@@ -92,8 +92,33 @@ const LOOKS_LIKE_MATHS = /[\\=<>+*/^_{}×÷≤≥≠≈±√π−]/
  * question asks and nothing downstream can tell.
  */
 function unwrapInlineMath(text: string): string {
-  return text.replace(/\$([^$\n]+)\$/g, (match, inner: string) =>
-    !/\s/.test(inner) || LOOKS_LIKE_MATHS.test(inner) ? inner : match,
+  return text.replace(
+    /\$([^$\n]+)\$/g,
+    (match, inner: string, offset: number, whole: string) => {
+      /*
+       * A closing `$` with a digit after it was never a closing `$`.
+       *
+       * The span runs from one dollar sign to the next, so a sentence pricing
+       * two things hands this the prose between them. "Sam has $5 and Ana has
+       * $12" was caught by the maths test below, because "5 and Ana has " holds
+       * nothing mathematical. A unit rate is not: "She earns $15/hour and he
+       * earns $18/hour" gives "15/hour and he earns ", and the slash is a
+       * maths character, so both prices were eaten. So were the parts of an
+       * equation written in money, "$40 = $25 + $15", on the `=`.
+       *
+       * Both are the same shape and it is one the reader can see: the run
+       * starts with a digit and the character past the closing dollar is a
+       * digit too, because that dollar is opening the next price. Genuine
+       * inline maths does not end one span where the next begins with a
+       * numeral, and if it ever does, the cost is a visible dollar sign rather
+       * than a question that quietly asks something else.
+       */
+      if (/^\d/.test(inner) && /\d/.test(whole[offset + match.length] ?? '')) {
+        return match
+      }
+
+      return !/\s/.test(inner) || LOOKS_LIKE_MATHS.test(inner) ? inner : match
+    },
   )
 }
 

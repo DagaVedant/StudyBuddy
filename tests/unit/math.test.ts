@@ -129,11 +129,32 @@ describe('normalizeMath and money', () => {
     expect(normalizeMath('$x^{2}$')).toBe('x^2')
   })
 
-  // The one it gets wrong, recorded rather than hidden. A price with an
-  // operator between it and the next price reads as maths, and unwraps. It is
-  // the safer direction to be wrong in: a stray dollar sign is legible, a
-  // missing one changes the question.
-  it('is documented as fallible on a price next to an operator', () => {
-    expect(normalizeMath('It costs $5 + tax, or $12 delivered.')).not.toContain('$5')
+  /*
+   * These used to be lost, and one of them was recorded here as a known
+   * failure: a price with an operator between it and the next price read as
+   * maths and unwrapped. It was filed as one odd case and it was a family.
+   * A unit rate is the same shape, and unit rates are as ordinary at this
+   * level as two-price sentences.
+   *
+   * What tells them apart is the character past the closing dollar. That
+   * dollar is opening the next price, so a digit follows it, which is not
+   * something a genuine maths span does.
+   */
+  it('keeps a price separated from the next one by an operator', () => {
+    expect(normalizeMath('It costs $5 + tax, or $12 delivered.')).toBe(
+      'It costs $5 + tax, or $12 delivered.',
+    )
+    expect(normalizeMath('The total was $40 = $25 + $15.')).toBe(
+      'The total was $40 = $25 + $15.',
+    )
+  })
+
+  it('keeps a unit rate, where the slash reads as maths', () => {
+    expect(normalizeMath('She earns $15/hour and he earns $18/hour.')).toBe(
+      'She earns $15/hour and he earns $18/hour.',
+    )
+    expect(normalizeMath('Apples are $3.50/lb and pears are $2.00/lb.')).toBe(
+      'Apples are $3.50/lb and pears are $2.00/lb.',
+    )
   })
 })
