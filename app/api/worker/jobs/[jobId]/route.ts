@@ -1,79 +1,22 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
 
-import { extractedQuestionSchema } from '@/lib/ai/types'
 import { db } from '@/lib/db'
-import {
-  answerChoices,
-  explanations,
-  processingJobs,
-  questionSolutions,
-  questions,
-  worksheetPages,
-  worksheets,
-} from '@/lib/db/schema'
-import { checkpointJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
-import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { processingJobs } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
-import { applyPermanentFailure } from '@/lib/worker/fail'
-import { persistQuestions } from '@/lib/worker/ingest'
-import { promoteDerivedAnswer } from '@/lib/worker/solutions'
-import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
-import { planPageReplacement } from '@/lib/worker/review'
-import { partitionByDeletability } from '@/lib/worker/safe-delete'
-import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
+
+import {
+  handleComplete,
+  handleExplanation,
+  handleFail,
+  handlePageResult,
+  handlePageReview,
+  handlePhase,
+  handleSolution,
+} from './handlers'
+import { bodySchema } from './schema'
 
 type Params = { params: Promise<{ jobId: string }> }
-
-const bodySchema = z.discriminatedUnion('action', [
-  z.object({
-    action: z.literal('page_result'),
-    pageId: z.string().min(1),
-    pageNumber: z.number().int().min(1),
-    totalPages: z.number().int().min(1),
-    questions: z.array(extractedQuestionSchema).max(100),
-  }),
-  // Moves the bar past page-reading once the worker starts a later stage, so
-  // it does not sit at full while the audit and classification still run.
-  z.object({
-    action: z.literal('phase'),
-    phase: z.enum(['verifying', 'classifying']),
-  }),
-  // A page read a second time because the review pass doubted some of what it
-  // produced. Distinct from page_result: that one only ever adds, so a
-  // corrected question would land beside the broken one instead of replacing
-  // it, and the student would see both.
-  z.object({
-    action: z.literal('page_review'),
-    pageId: z.string().min(1),
-    replace: z.array(z.string().uuid()).max(100),
-    questions: z.array(extractedQuestionSchema).max(100),
-  }),
-  z.object({
-    action: z.literal('explanation'),
-    questionId: z.string().uuid(),
-    attemptId: z.string().uuid().nullish(),
-    bodyMd: z.string().min(1).max(6000),
-    misconceptionNote: z.string().max(400).nullish(),
-    model: z.string().max(200),
-  }),
-  z.object({
-    action: z.literal('solution'),
-    questionId: z.string().uuid(),
-    /** Null is a real answer here: the model declining to guess. */
-    answer: z.string().max(400).nullable(),
-    workingMd: z.string().max(8000),
-    traps: z
-      .array(z.object({ label: z.string().max(8).nullable(), why: z.string().max(600) }))
-      .max(12)
-      .default([]),
-    confidence: z.number().min(0).max(1),
-    model: z.string().max(200),
-  }),
-  z.object({ action: z.literal('complete') }),
-  z.object({ action: z.literal('fail'), message: z.string().max(2000) }),
-])
 
 export async function POST(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
@@ -86,7 +29,6 @@ export async function POST(request: Request, { params }: Params) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
-
 
   const [job] = await db
     .select()
@@ -115,252 +57,25 @@ export async function POST(request: Request, { params }: Params) {
     )
   }
 
-  if (body.action === 'fail') {
-    const { permanent } = await failJob(db, jobId, body.message)
-
-    if (permanent) {
-      await applyPermanentFailure(db, job)
-    }
-
-    return NextResponse.json({ ok: true, permanent })
+  // One handler per action (./handlers.ts). The route's job is authenticating,
+  // validating the body, loading the job row, and enforcing that it is still
+  // live — everything every action needs regardless of which one it is —
+  // and then handing off. What each action actually does lives beside its
+  // own reasoning in the handler, not interleaved with the other six here.
+  switch (body.action) {
+    case 'fail':
+      return handleFail(db, jobId, job, body)
+    case 'phase':
+      return handlePhase(db, jobId, job, body)
+    case 'page_review':
+      return handlePageReview(db, job, body)
+    case 'explanation':
+      return handleExplanation(db, job, body)
+    case 'solution':
+      return handleSolution(db, job, body)
+    case 'complete':
+      return handleComplete(db, jobId, job)
+    case 'page_result':
+      return handlePageResult(db, jobId, job, body)
   }
-
-  if (body.action === 'phase') {
-    // Repaired before the audit reads the numbering, so it audits a repaired
-    // run rather than chasing a gap a phantom row created.
-    //
-    // Both phases run the same passes in the same order (see
-    // lib/worker/pipeline.ts) and the set only widens. Verifying holds the
-    // numbering back because the audit and the review pass are still writing
-    // rows after it. Classifying is the run that matters: a split only becomes
-    // visible once both halves are stored, and on the AMC8 paper neither half
-    // existed at the end of verifying: the stem and the orphaned options were
-    // both recovered by the audit re-read, which runs after it. Repeating the
-    // passes is safe; the second run finds nothing left to do.
-    await runRepairPasses(db, job.worksheetId, {
-      only: body.phase === 'classifying' ? FINAL_PASSES : VERIFYING_PASSES,
-    })
-
-    await checkpointJob(
-      db,
-      jobId,
-      body.phase === 'classifying' ? CLASSIFYING_AT : VERIFYING_AT,
-      // Carried through untouched: a phase change moves the bar, it does not
-      // change where a resumed job would pick up from.
-      job.checkpoint ?? {},
-    )
-
-    return NextResponse.json({ ok: true })
-  }
-
-  if (body.action === 'page_review') {
-    const [target] = await db
-      .select({
-        id: worksheetPages.id,
-        worksheetId: worksheetPages.worksheetId,
-        ocrText: worksheetPages.ocrText,
-      })
-      .from(worksheetPages)
-      .where(eq(worksheetPages.id, body.pageId))
-      .limit(1)
-
-    if (!target || target.worksheetId !== job.worksheetId) {
-      return NextResponse.json({ error: 'Page does not belong to this job' }, { status: 400 })
-    }
-
-    const doubted = body.replace.length
-      ? await db
-          .select({ id: questions.id, printedNumber: questions.printedNumber })
-          .from(questions)
-          .where(
-            and(
-              eq(questions.worksheetId, job.worksheetId),
-              inArray(questions.id, body.replace),
-            ),
-          )
-      : []
-
-    // The same guard the repair passes run behind (FIXES.md B-2), which this
-    // path never had. Replacing a doubted row means deleting it, and
-    // `questions` cascades to `attempts` and `review_cards`, so on a worksheet
-    // the student had already marked up the audit re-read could take their
-    // answer and its place in the revision schedule with it. Nothing would show
-    // afterwards: the job reports the row as replaced either way.
-    //
-    // Applied before the plan is built rather than to its output, because
-    // `planPageReplacement` pairs each doubted row with its replacement by
-    // printed number. Dropping a row from the plan's input drops its
-    // replacement with it; filtering afterwards would leave the replacement
-    // behind and store it beside the original.
-    const { removable: suspects, held } = await partitionByDeletability(db, doubted)
-
-    if (held.length > 0) {
-      console.log(
-        `[review] kept ${held.length} doubted question(s) on ${job.worksheetId}: ` +
-          'somebody has already answered them, and damaged beats absent',
-      )
-    }
-
-    const plan = planPageReplacement(target.ocrText ?? '', body.questions, suspects)
-
-    if (plan.replace.length > 0) {
-      await db.delete(questions).where(
-        inArray(
-          questions.id,
-          plan.replace.map((row) => row.id),
-        ),
-      )
-    }
-
-    const restored = await persistQuestions(db, job, target.id, plan.replacements)
-
-    return NextResponse.json({
-      ok: true,
-      replaced: plan.replace.length,
-      held: held.length,
-      kept: plan.keep.length,
-      restored,
-    })
-  }
-
-  if (body.action === 'explanation') {
-    const [question] = await db
-      .select({ id: questions.id })
-      .from(questions)
-      .where(and(eq(questions.id, body.questionId), eq(questions.userId, job.userId)))
-      .limit(1)
-
-    if (!question) {
-      return NextResponse.json({ error: 'Question does not belong to this job' }, { status: 400 })
-    }
-
-    await db.insert(explanations).values({
-      questionId: body.questionId,
-      attemptId: body.attemptId ?? null,
-      bodyMd: body.bodyMd,
-      misconceptionNote: body.misconceptionNote ?? null,
-      // Left null: the column names a cloud vendor, and this came off the
-      // operator's own GPU, which is not one of them.
-      provider: null,
-      model: body.model,
-    })
-
-    return NextResponse.json({ ok: true })
-  }
-
-  if (body.action === 'solution') {
-    const [question] = await db
-      .select({
-        id: questions.id,
-        answerSource: questions.answerSource,
-        worksheetId: questions.worksheetId,
-      })
-      .from(questions)
-      .where(and(eq(questions.id, body.questionId), eq(questions.userId, job.userId)))
-      .limit(1)
-
-    if (!question || question.worksheetId !== job.worksheetId) {
-      return NextResponse.json(
-        { error: 'Question does not belong to this job' },
-        { status: 400 },
-      )
-    }
-
-    const choices = await db
-      .select({ label: answerChoices.label, text: answerChoices.text })
-      .from(answerChoices)
-      .where(eq(answerChoices.questionId, body.questionId))
-      .orderBy(...CHOICE_ORDER)
-
-    await db
-      .insert(questionSolutions)
-      .values({
-        questionId: body.questionId,
-        derivedAnswer: body.answer,
-        workingMd: body.workingMd,
-        traps: body.traps,
-        confidence: body.confidence,
-        // Left null for the same reason as an explanation's: the column names a
-        // cloud vendor and this came off the operator's own GPU.
-        provider: null,
-        model: body.model,
-      })
-      .onConflictDoNothing({ target: questionSolutions.questionId })
-
-    const promoted = await promoteDerivedAnswer(db, {
-      questionId: body.questionId,
-      answer: body.answer,
-      confidence: body.confidence,
-      choices,
-      answerSource: question.answerSource,
-    })
-
-    return NextResponse.json({ ok: true, promoted })
-  }
-
-  if (body.action === 'complete') {
-    await completeJob(db, jobId)
-    await db
-      .update(worksheets)
-      .set({ status: 'awaiting_review' })
-      .where(eq(worksheets.id, job.worksheetId))
-
-    /*
-     * The answers follow the paper rather than holding it up.
-     *
-     * Working out every question is the better part of an hour on a long
-     * paper, and the student wants to mark their work now. So extraction
-     * completing is what makes the worksheet readable, and this queues the
-     * solving behind it at low priority, where it yields to anybody else's
-     * extraction.
-     *
-     * Only off an extract job, or a solving job completing would queue another
-     * one and the worker would solve the same paper until somebody noticed.
-     */
-    if (job.stage === 'extract') {
-      await enqueueJob(db, {
-        worksheetId: job.worksheetId,
-        userId: job.userId,
-        stage: 'answer_key',
-        executor: 'operator_gpu',
-        priority: 'low',
-      })
-    }
-
-    return NextResponse.json({ ok: true })
-  }
-
-
-  const [page] = await db
-    .select({ id: worksheetPages.id, worksheetId: worksheetPages.worksheetId })
-    .from(worksheetPages)
-    .where(eq(worksheetPages.id, body.pageId))
-    .limit(1)
-
-  if (!page || page.worksheetId !== job.worksheetId) {
-    return NextResponse.json({ error: 'Page does not belong to this job' }, { status: 400 })
-  }
-
-  const created = await persistQuestions(db, job, page.id, body.questions)
-
-  // Recorded as a set rather than a high-water mark. With more than one page
-  // in flight they finish out of order, so "everything up to N is done" would
-  // be a lie, and a resumed job would skip whatever was still running below N.
-  const previous = (job.checkpoint as { donePages?: number[] } | null)?.donePages ?? []
-  const donePages = [...new Set([...previous, body.pageNumber])].sort((a, b) => a - b)
-
-  await checkpointJob(
-    db,
-    jobId,
-    readingProgress(donePages.length, body.totalPages),
-    // lastPageNumber stays for a job enqueued before this shipped, whose
-    // checkpoint has no donePages to read.
-    { donePages, lastPageNumber: Math.max(...donePages) },
-  )
-
-  return NextResponse.json({
-    ok: true,
-    created,
-    duplicates: body.questions.length - created,
-  })
 }
