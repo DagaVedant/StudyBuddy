@@ -47,7 +47,14 @@ async function main(): Promise<void> {
     new OllamaProvider({
       baseUrl: process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434',
       visionModel: process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b',
-      textModel: process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b',
+
+      // Its own variable. This read OLLAMA_VISION_MODEL, which is how a run
+      // asked to write lessons with gpt-oss ended up crediting the vision
+      // model for them: nothing here writes a lesson, but `provider.model`
+      // followed this line and that is what got stored.
+      textModel: process.env.OLLAMA_TEXT_MODEL ?? process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b',
+
+      // The model that actually writes the lesson.
       answerModel: process.env.OLLAMA_ANSWER_MODEL ?? process.env.OLLAMA_VISION_MODEL,
       executionSite: 'operator_gpu',
       timeoutMs: 15 * 60_000,
@@ -56,7 +63,7 @@ async function main(): Promise<void> {
 
   const targets = only
     ? [{ topicId: only, name: only, attempts: 0 }]
-    : await topicsNeedingLessons(db, limit)
+    : await topicsNeedingLessons(db, limit, { includeWritten: force })
 
   if (targets.length === 0) {
     console.log('Every topic with answered questions already has a lesson.')
@@ -64,7 +71,10 @@ async function main(): Promise<void> {
     return
   }
 
-  console.log(`${targets.length} topic(s), model ${provider.model}\n`)
+  // The model that writes the lesson, not the provider's text model. Reporting
+  // the latter is what made a run with OLLAMA_ANSWER_MODEL set look as though
+  // it had been ignored.
+  console.log(`${targets.length} topic(s), model ${provider.answeringModel}\n`)
 
   let written = 0
   for (const target of targets) {
