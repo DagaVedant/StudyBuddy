@@ -158,6 +158,21 @@ export const users = pgTable('users', {
   id: id(),
   name: text('name'),
   email: text('email').unique().notNull(),
+
+  /**
+   * A handle, not a login. Nothing authenticates against this: sign-in is
+   * still by email or Google, so a taken username never has to mean a taken
+   * account the way a taken email does.
+   *
+   * Stored lowercase, the same normalization `email` already gets at signup
+   * (`.trim().toLowerCase()`), so the plain `unique()` below is a
+   * case-insensitive constraint without needing a citext column or a
+   * lower-cased expression index. `validateUsername` in
+   * `lib/auth/username.ts` is the one place that decides what a username may
+   * contain; nothing here re-derives that rule.
+   */
+  username: text('username').unique(),
+
   emailVerified: timestamp('email_verified', { withTimezone: true }),
   image: text('image'),
 
