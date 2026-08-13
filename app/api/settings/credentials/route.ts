@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { auth } from '@/auth'
 import { isAllowedOllamaUrl, sealApiKey } from '@/lib/ai/crypto'
+import { verifyCloudKey } from '@/lib/ai/verify-key'
 import { CLOUD_PROVIDERS, deleteCredential, getCredentialSummary } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { userAiCredentials } from '@/lib/db/schema'
@@ -87,11 +88,33 @@ export async function POST(request: Request) {
     )
   }
 
+  /*
+   * Asked before it is stored, rather than found out later.
+   *
+   * This route used to answer "Saved." to anything shaped like a key, and a
+   * typo surfaced as a failed job on a worksheet the student had already
+   * uploaded and waited for, with nothing on the settings screen suggesting
+   * the key was the problem.
+   *
+   * Only a refusal stops the save. If the provider cannot be reached, that
+   * says nothing about the key, and refusing to store a good key because of a
+   * network blip is the worse failure: it is stored, and the reply says it
+   * could not be checked.
+   */
+  const verdict = await verifyCloudKey(input.provider, input.apiKey)
+
+  if (verdict.status === 'rejected') {
+    return NextResponse.json({ error: verdict.reason }, { status: 400 })
+  }
+
   await db
     .insert(userAiCredentials)
     .values({
       userId,
       provider: input.provider,
+      // Stamped only when something actually checked. Null still means
+      // unverified, which is what it meant when nothing ever checked.
+      verifiedAt: verdict.status === 'ok' ? new Date() : null,
       encryptedKey: sealed.ciphertext,
       keyIv: sealed.iv,
       keyAuthTag: sealed.authTag,
@@ -108,11 +131,22 @@ export async function POST(request: Request) {
         keyLast4: sealed.last4,
         modelName: input.model ?? null,
         visionModelName: input.model ?? null,
+        verifiedAt: verdict.status === 'ok' ? new Date() : null,
         updatedAt: new Date(),
       },
     })
 
-  return NextResponse.json({ ok: true, last4: sealed.last4 })
+  return NextResponse.json({
+    ok: true,
+    last4: sealed.last4,
+    verified: verdict.status === 'ok',
+    // Said plainly when it could not be checked, so "Saved." never stands in
+    // for "works".
+    message:
+      verdict.status === 'ok'
+        ? undefined
+        : `Saved, but ${input.provider} could not be reached to check it.`,
+  })
 }
 
 export async function DELETE(request: Request) {
