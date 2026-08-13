@@ -139,10 +139,18 @@ Should print only `.env.example`.
 | `CREDENTIALS_ENC_KEY` | from `npm run gen:secrets` |
 | `ADMIN_EMAILS` | your emails, comma-separated |
 | `WORKER_API_TOKEN` | from `npm run gen:secrets` |
+| `CRON_SECRET` | from `npm run gen:secrets` |
 | `NEXT_PUBLIC_APP_URL` | `https://your-project.vercel.app` |
 | `ENABLE_MOCK_AI` | leave empty |
 
 5. Deploy.
+
+`vercel.json` registers a cron job that hits `/api/cron/drain-server-queue`
+every 5 minutes: the drain for worksheets processed against a student's own
+cloud key (Tier B), which otherwise only ran piggybacked on whichever upload
+request happened to enqueue it. Vercel adds the `Authorization: Bearer
+$CRON_SECRET` header to its own cron requests automatically once that
+variable is set; nothing else needs configuring.
 
 ### 6a. File storage: required in production
 

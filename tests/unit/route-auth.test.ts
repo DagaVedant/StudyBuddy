@@ -78,6 +78,7 @@ vi.mock('@/lib/storage', () => ({
   pageImageKey: () => 'pages/ws-1/001.webp',
 }))
 
+const cronDrain = await import('@/app/api/cron/drain-server-queue/route')
 const account = await import('@/app/api/account/route')
 const explain = await import('@/app/api/explain/route')
 const blooket = await import('@/app/api/export/blooket/route')
@@ -210,6 +211,15 @@ const WORKER_ROUTES: [string, Handler, string, never][] = [
   ['GET /api/worker/solutions/[id]', workerSolutions.GET as Handler, 'GET', WS],
 ]
 
+const CRON_ROUTES: [string, Handler, string, never][] = [
+  [
+    'GET /api/cron/drain-server-queue',
+    cronDrain.GET as Handler,
+    'GET',
+    undefined as never,
+  ],
+]
+
 const TEST_ROUTES: [string, Handler, string, never][] = [
   [
     'POST /api/test/admin-account',
@@ -290,6 +300,49 @@ describe('a caller with no worker credential', () => {
     '%s refuses when no token is configured at all',
     async (_name, handler, verb, context) => {
       delete process.env.WORKER_API_TOKEN
+
+      const response = await handler(
+        request('https://studybuddy.test/api/x', verb),
+        context,
+      )
+
+      expect(response.status).toBe(403)
+      expect(state.writes).toEqual([])
+    },
+  )
+})
+
+describe('a caller with no cron credential', () => {
+  it.each(CRON_ROUTES)('is refused by %s', async (_name, handler, verb, context) => {
+    process.env.CRON_SECRET = 'the-real-secret'
+
+    const response = await handler(request('https://studybuddy.test/api/x', verb), context)
+
+    expect(response.status).toBe(401)
+    expect(state.writes).toEqual([])
+  })
+
+  it.each(CRON_ROUTES)(
+    '%s is refused a wrong secret rather than crashing on it',
+    async (_name, handler, verb, context) => {
+      process.env.CRON_SECRET = 'the-real-secret'
+
+      const wrong = new Request('https://studybuddy.test/api/x', {
+        method: verb,
+        headers: { authorization: 'Bearer x' },
+      })
+
+      const response = await handler(wrong, context)
+
+      expect(response.status).toBe(401)
+      expect(state.writes).toEqual([])
+    },
+  )
+
+  it.each(CRON_ROUTES)(
+    '%s refuses when no secret is configured at all',
+    async (_name, handler, verb, context) => {
+      delete process.env.CRON_SECRET
 
       const response = await handler(
         request('https://studybuddy.test/api/x', verb),
