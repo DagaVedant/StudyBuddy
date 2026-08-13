@@ -102,7 +102,7 @@ export async function deriveSolutions(
           traps: solution.traps,
           confidence: solution.confidence,
           provider: storedProviderName(provider.name),
-          model: provider.model,
+          model: provider.answeringModel,
         })
         // A retry that raced the row it was about to write is not a failure,
         // and the question is unique here.

@@ -38,7 +38,11 @@ const client = () => asDb(db)
 function solver(answer: Partial<Solution>): AIProvider {
   return {
     name: 'ollama',
-    model: 'test-model',
+    // Deliberately different from `answeringModel`. A solution is the
+    // answering model's work, and these were the same string for long enough
+    // that nothing noticed the stored column was reading the other one.
+    model: 'test-text-model',
+    answeringModel: 'test-model',
     supportsVision: false,
     executionSite: 'operator_gpu',
     extractQuestions: () => {

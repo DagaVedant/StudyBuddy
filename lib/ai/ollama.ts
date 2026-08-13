@@ -142,6 +142,15 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
    */
   readonly model: string
 
+  /**
+   * The answering model, which is also the one that writes lessons.
+   *
+   * Separate from `model` because this provider runs a different model per
+   * task, and the two jobs that record what wrote them (a solution and a
+   * lesson) both run here rather than on the text model.
+   */
+  readonly answeringModel: string
+
   private readonly baseUrl: string
   private readonly visionModel: string
   private readonly textModel: string
@@ -160,6 +169,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     this.textModel = options.textModel
     this.model = options.textModel
     this.answerModel = options.answerModel ?? options.textModel
+    this.answeringModel = this.answerModel
     this.reviewModel = options.reviewModel ?? options.textModel
     this.executionSite = options.executionSite ?? 'browser'
     this.fetchImpl = options.fetchImpl ?? fetch

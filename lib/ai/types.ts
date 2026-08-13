@@ -414,6 +414,24 @@ interface ProviderIdentity {
    */
   readonly model: string
 
+  /**
+   * The model that answers questions and writes lessons.
+   *
+   * The same thing as `model` on every provider that runs one model for
+   * everything, and not on Ollama, which runs a different one per task. That
+   * distinction is not academic: `topic_lessons.model` is printed on the page
+   * under "Written by", and recording `model` there credited the vision model
+   * for prose the answering model wrote. Every install running a split
+   * configuration was telling students something untrue about where their
+   * teaching material came from.
+   *
+   * Which model wrote it is the one fact that column exists to carry, so it
+   * reads from the provider rather than from however a caller happened to
+   * construct one. `provider.model` stays correct for explanations, which
+   * really are the text model's work.
+   */
+  readonly answeringModel: string
+
   readonly supportsVision: boolean
   readonly executionSite: ExecutionSite
 }

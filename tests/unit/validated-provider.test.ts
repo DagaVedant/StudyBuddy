@@ -17,6 +17,7 @@ function raw(replies: Partial<Record<keyof RawAIProvider, unknown>>): RawAIProvi
   return {
     name: 'mock',
     model: 'mock-1',
+    answeringModel: 'mock-answers-1',
     supportsVision: true,
     executionSite: 'server',
     extractQuestions: async () => replies.extractQuestions,
@@ -143,6 +144,11 @@ describe('validated', () => {
     // The model separately from the name, because the one caller that stores
     // this used to store the name in both columns.
     expect(provider.model).toBe('mock-1')
+    // And the answering model separately again, because a lesson records this
+    // one and prints it to the reader. Dropping it here would not fail a type
+    // check on the way past: the wrapper builds a fresh object, so a field it
+    // forgets is simply undefined by the time a column stores it.
+    expect(provider.answeringModel).toBe('mock-answers-1')
     expect(provider.supportsVision).toBe(true)
     expect(provider.executionSite).toBe('server')
   })

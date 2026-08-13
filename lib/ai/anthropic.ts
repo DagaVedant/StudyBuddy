@@ -36,6 +36,11 @@ export class AnthropicProvider implements RawAIProvider {
 
   readonly model: string
 
+  /** One model does every job here, so this is that model. */
+  get answeringModel(): string {
+    return this.model
+  }
+
   private readonly client: Anthropic
 
   /**

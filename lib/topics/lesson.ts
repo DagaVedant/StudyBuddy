@@ -91,7 +91,9 @@ export async function generateLesson(
     examples: lesson.examples,
     commonErrors: lesson.common_errors,
     provider: null,
-    model: provider.model,
+    // The model that wrote it, which on a split configuration is not the
+    // provider's text model. This string is printed to the reader.
+    model: provider.answeringModel,
   }
 
   await db
@@ -103,7 +105,7 @@ export async function generateLesson(
     bodyMd: lesson.body_md,
     examples: lesson.examples,
     commonErrors: lesson.common_errors,
-    model: provider.model,
+    model: provider.answeringModel,
     generatedAt: new Date(),
   }
 }
@@ -138,6 +140,7 @@ async function sampleQuestions(db: Db, topicId: string): Promise<string[]> {
 export async function topicsNeedingLessons(
   db: Db,
   limit = 20,
+  options: { includeWritten?: boolean } = {},
 ): Promise<{ topicId: string; name: string; attempts: number }[]> {
   const rows = await db
     .select({
@@ -148,7 +151,13 @@ export async function topicsNeedingLessons(
     .from(questionTopics)
     .innerJoin(topics, eq(topics.id, questionTopics.topicId))
     .where(
-      sql`not exists (select 1 from ${topicLessons} where ${topicLessons.topicId} = ${topics.id})`,
+      // Skipping written topics is the whole point of this normally, and it is
+      // also what made `--force` a no-op: the flag reached `generateLesson`,
+      // which was never handed a topic to overwrite, so a run meant to rewrite
+      // five lessons quietly wrote five different ones instead.
+      options.includeWritten
+        ? sql`true`
+        : sql`not exists (select 1 from ${topicLessons} where ${topicLessons.topicId} = ${topics.id})`,
     )
     .groupBy(topics.id, topics.name)
     .orderBy(desc(sql`count(*)`), asc(topics.name))

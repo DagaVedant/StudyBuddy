@@ -43,6 +43,11 @@ export class OpenAIProvider implements RawAIProvider {
 
   readonly model: string
 
+  /** One model does every job here, so this is that model. */
+  get answeringModel(): string {
+    return this.model
+  }
+
   private readonly apiKey: string
   private readonly fetchImpl: typeof fetch
   private readonly endpoint: string

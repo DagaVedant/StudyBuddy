@@ -30,6 +30,7 @@ export function validated<T extends RawAIProvider>(
   const wrapped: AIProvider = {
     name: provider.name,
     model: provider.model,
+    answeringModel: provider.answeringModel,
     supportsVision: provider.supportsVision,
     executionSite: provider.executionSite,
 

@@ -11,6 +11,7 @@ import {
 export class MockProvider implements RawAIProvider {
   readonly name = 'mock' as const
   readonly model = 'mock' as const
+  readonly answeringModel = 'mock' as const
   readonly supportsVision = true
   readonly executionSite = 'server' as const
 
@@ -166,6 +167,7 @@ export class NullProvider implements RawAIProvider {
   // It never generates anything, so there is no model to name. 'none' rather
   // than '' so a value that reaches a log or a column still reads as an answer.
   readonly model = 'none' as const
+  readonly answeringModel = 'none' as const
   readonly supportsVision = false
   // Not 'server'. It answers nothing here or anywhere, and claiming a site is
   // what forced the one caller that needs to know to match on `name === 'null'`.
