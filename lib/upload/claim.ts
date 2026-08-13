@@ -49,3 +49,35 @@ export async function claimWorksheetForCompletion(
 
   return claimed.length > 0
 }
+
+/**
+ * The other way out of `BEFORE_COMPLETION`: the student gives up on waiting.
+ *
+ * A worksheet queued while the operator's GPU is offline had no escape at
+ * all. It sits in `processing` until the worker comes back, however long
+ * that takes, with the only control on the page a link back to the
+ * dashboard. This is what lets `POST /api/worksheets/[id]/go-manual` move it
+ * to `failed` instead, which reuses the status page's existing manual-entry
+ * branch rather than inventing a second one.
+ *
+ * Same shape as {@link claimWorksheetForCompletion} and for the same reason:
+ * the check and the write are one statement, so a double click cannot cancel
+ * the same job twice or refund the same trial credit twice.
+ */
+export async function claimWorksheetForManualFallback(
+  db: Db,
+  worksheetId: string,
+): Promise<boolean> {
+  const claimed = await db
+    .update(worksheets)
+    .set({ status: 'failed' })
+    .where(
+      and(
+        eq(worksheets.id, worksheetId),
+        inArray(worksheets.status, [...BEFORE_COMPLETION]),
+      ),
+    )
+    .returning({ id: worksheets.id })
+
+  return claimed.length > 0
+}

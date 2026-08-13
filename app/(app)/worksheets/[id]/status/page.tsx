@@ -8,6 +8,8 @@ import { processingJobs, questions, worksheets } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
 import { phaseFor } from '@/lib/worker/progress'
 
+import GoManualButton from './go-manual-button'
+
 export const metadata = { title: 'Processing · StudyBuddy' }
 
 export const revalidate = 0
@@ -66,6 +68,11 @@ export default async function StatusPage({
   const countIsTrustworthy = !expected || found.length < expected
   const stillReading = phase === 'reading' && countIsTrustworthy
 
+  // Tier B (`executor === 'server'`) needs no physical worker at all, so it is
+  // never "offline" in the sense this page means; only a Tier 0 job stuck
+  // behind an operator GPU that has not sent a heartbeat is.
+  const isOnline = job?.executor === 'server' || worker.online
+
   return (
     <main className="mx-auto w-full max-w-xl px-6 py-16">
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
@@ -109,7 +116,7 @@ export default async function StatusPage({
           </div>
 
           <p aria-live="polite" className="hint text-pretty">
-            {job?.executor === 'server' || worker.online
+            {isOnline
               ? stillReading
                 ? `Reading your worksheet. ${found.length} ${found.length === 1 ? 'question' : 'questions'} found so far.`
                 : phase === 'classifying'
@@ -124,7 +131,15 @@ export default async function StatusPage({
             lost.
           </p>
 
-          <div className="mt-6">
+          {/*
+            spec.md:374's manual fallback used to exist only after a hard
+            failure, which a worksheet queued against an offline worker never
+            reaches on its own: it just waits, for as long as the operator's
+            machine is down. This is the same escape, offered from the state a
+            student actually gets stuck in.
+          */}
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            {!isOnline && <GoManualButton worksheetId={id} />}
             <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
               Back to dashboard
             </Link>
