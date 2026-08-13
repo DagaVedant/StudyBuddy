@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { isDisposableEmail } from '@/lib/auth/disposable'
+import { missingDatabaseUrlIsFatal, shouldSkipBuildMigration } from '@/lib/migrate-guard'
 import { selectDriver } from '@/lib/storage'
 import { testEndpointsEnabled } from '@/lib/test-endpoints'
 
@@ -77,6 +78,52 @@ describe('selectDriver', () => {
         BLOB_READ_WRITE_TOKEN: 'x',
       }).name,
     ).toBe('vercel-blob')
+  })
+})
+
+/*
+ * Finding 33. The first version of this guard keyed on
+ * `VERCEL_ENV === 'production'` alone, which let every preview build - most
+ * builds, since they fire on every push - migrate the single shared
+ * DATABASE_URL unattended. See lib/migrate-guard.ts for the full reasoning.
+ */
+describe('shouldSkipBuildMigration', () => {
+  it('migrates a genuinely local build, which has no VERCEL_ENV at all', () => {
+    expect(shouldSkipBuildMigration({})).toBe(false)
+    expect(shouldSkipBuildMigration({ VERCEL_ENV: undefined })).toBe(false)
+  })
+
+  it('skips every Vercel build, preview included, not just production', () => {
+    for (const env of ['production', 'preview', 'development']) {
+      expect(shouldSkipBuildMigration({ VERCEL_ENV: env }), env).toBe(true)
+    }
+  })
+
+  it('opts back in when MIGRATE_ON_BUILD is exactly "1"', () => {
+    expect(
+      shouldSkipBuildMigration({ VERCEL_ENV: 'production', MIGRATE_ON_BUILD: '1' }),
+    ).toBe(false)
+    expect(
+      shouldSkipBuildMigration({ VERCEL_ENV: 'preview', MIGRATE_ON_BUILD: '1' }),
+    ).toBe(false)
+  })
+
+  it('does not opt in on anything other than exactly "1"', () => {
+    expect(
+      shouldSkipBuildMigration({ VERCEL_ENV: 'production', MIGRATE_ON_BUILD: 'true' }),
+    ).toBe(true)
+  })
+})
+
+describe('missingDatabaseUrlIsFatal', () => {
+  it('is not fatal on a genuinely local build', () => {
+    expect(missingDatabaseUrlIsFatal({})).toBe(false)
+  })
+
+  it('is fatal on any real Vercel deployment', () => {
+    for (const env of ['production', 'preview', 'development']) {
+      expect(missingDatabaseUrlIsFatal({ VERCEL_ENV: env }), env).toBe(true)
+    }
   })
 })
 

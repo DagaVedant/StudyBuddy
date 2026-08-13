@@ -5,6 +5,7 @@ config({ path: '.env.local' })
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { connect } from './db'
+import { missingDatabaseUrlIsFatal, shouldSkipBuildMigration } from '../lib/migrate-guard'
 
 async function main() {
   // The end-to-end suite points DATABASE_URL at a PGlite socket that is not
@@ -16,18 +17,16 @@ async function main() {
     return
   }
 
-  // Migrating from the build hook is fine everywhere except the one place it
-  // matters. On a production deployment it means every build writes to the live
-  // schema: two deploys finishing together race each other through the same
-  // migration folder, and a rollback puts yesterday's code in front of today's
-  // schema, which drizzle has no way to undo. Vercel has no release phase to
-  // move this to, so the release step is a person running `npm run db:migrate`
-  // before they deploy. MIGRATE_ON_BUILD=1 opts back in.
+  // Migrating from the build hook is fine everywhere except a real Vercel
+  // deployment, whichever one it is: see lib/migrate-guard.ts for why this
+  // covers preview and vercel dev alongside production. Vercel has no release
+  // phase to move this to, so the release step is a person running
+  // `npm run db:migrate` before they deploy. MIGRATE_ON_BUILD=1 opts back in.
   const fromBuild = process.argv.includes('--if-configured')
 
-  if (fromBuild && process.env.VERCEL_ENV === 'production' && process.env.MIGRATE_ON_BUILD !== '1') {
+  if (fromBuild && shouldSkipBuildMigration()) {
     console.log(
-      'Production deployment: not migrating from the build.\n' +
+      `Vercel ${process.env.VERCEL_ENV} deployment: not migrating from the build.\n` +
         'Run `npm run db:migrate` against production first, then deploy.\n' +
         'Set MIGRATE_ON_BUILD=1 to restore the old behaviour.',
     )
@@ -37,11 +36,19 @@ async function main() {
   const url = process.env.DATABASE_URL
 
   if (!url) {
-    // Run straight from the build, where a missing URL means this is a build
-    // that was never going to reach a database, so skipping is correct and
-    // failing would break it for no reason. Run by hand it is a real mistake
-    // and worth stopping for.
     if (fromBuild) {
+      // A real Vercel build with no DATABASE_URL is a misconfigured
+      // environment, not a build with nowhere to migrate to - every
+      // environment there is supposed to carry it. Only a genuinely local
+      // build, with no Vercel env at all, gets the quiet skip: someone
+      // running `npm run build` before `cp .env.example .env.local` should
+      // not be stopped by a database they have not set up yet.
+      if (missingDatabaseUrlIsFatal()) {
+        throw new Error(
+          `DATABASE_URL is not set on this ${process.env.VERCEL_ENV} deployment. ` +
+            'Add it in the Vercel project settings before deploying.',
+        )
+      }
       console.log('No DATABASE_URL, skipping migrations.')
       return
     }
