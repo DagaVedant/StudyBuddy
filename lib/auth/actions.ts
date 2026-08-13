@@ -10,13 +10,7 @@ import { AuthError } from 'next-auth'
 import { auth, signIn } from '@/auth'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
-import {
-  SIGNIN_EMAIL_LIMIT,
-  SIGNIN_IP_LIMIT,
-  SIGNUP_LIMIT,
-  callerIp,
-  consumeRateLimit,
-} from '@/lib/rate-limit'
+import { SIGNUP_LIMIT, callerIp, consumeRateLimit } from '@/lib/rate-limit'
 
 import { isDisposableEmail } from './disposable'
 import { isAdminEmail, validateDob } from './policy'
@@ -148,22 +142,18 @@ export async function signInWithCredentials(
     .trim()
     .toLowerCase()
 
-  // Before `signIn`, because the cost this is protecting is the bcrypt compare
-  // inside it. Charging the attempt after paying for it protects nothing.
-  const ip = callerIp(await headers())
-  const [byIp, byEmail] = await Promise.all([
-    consumeRateLimit(db, SIGNIN_IP_LIMIT, `ip:${ip}`),
-    // Only when an address was actually submitted, so an empty field cannot be
-    // used to burn the allowance of the empty-string key.
-    email
-      ? consumeRateLimit(db, SIGNIN_EMAIL_LIMIT, `email:${email}`)
-      : Promise.resolve({ ok: true, remaining: 0, retryAfter: 0 }),
-  ])
-
-  if (!byIp.ok || !byEmail.ok) {
-    return { error: SIGNIN_FAILED }
-  }
-
+  /*
+   * The throttle for this lives in `authorize` now, not here.
+   *
+   * It guarded the form and only the form. Auth.js serves its own credentials
+   * callback at /api/auth/callback/credentials, which reaches the same bcrypt
+   * compare without passing through this action at all, so the limit was one
+   * door of two. Both doors go through `authorize`, which is where it is.
+   *
+   * A throttled attempt fails there and comes back as the AuthError below, so
+   * the reader still sees SIGNIN_FAILED and still cannot tell a throttle from
+   * a wrong password.
+   */
   try {
     await signIn('credentials', {
       email,

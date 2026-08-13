@@ -8,6 +8,7 @@ import Google from 'next-auth/providers/google'
 import { accountMayBeAdmin } from '@/lib/auth/admin'
 import { db } from '@/lib/db'
 import { accounts, sessions, users, verificationTokens } from '@/lib/db/schema'
+import { signInThrottled } from '@/lib/auth/signin-throttle'
 
 type Role = 'student' | 'admin'
 
@@ -92,13 +93,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      /**
+       * The one place a password is checked, and so the only place worth
+       * throttling.
+       *
+       * The limit used to live in the `signIn` server action, which covers the
+       * form and nothing else. Auth.js mounts its own handlers unmodified at
+       * `/api/auth/[...nextauth]`, so `POST /api/auth/callback/credentials`
+       * arrives here directly and used to run a cost-12 bcrypt compare per
+       * request, unthrottled, against any address someone cares to name. The
+       * CSRF token that route wants is handed out by `GET /api/auth/csrf`, so
+       * it was never a barrier.
+       *
+       * Moved rather than copied. Both doors funnel through this function, and
+       * a second check in the action would charge a legitimate form sign-in
+       * twice, halving the limit for the people it is not aimed at.
+       *
+       * A throttled attempt returns null, exactly like a wrong password. The
+       * caller cannot tell the two apart, so this stays enumeration-safe: it
+       * says nothing about whether the address exists.
+       */
+      async authorize(credentials, request) {
         const email = String(credentials?.email ?? '')
           .trim()
           .toLowerCase()
         const password = String(credentials?.password ?? '')
 
         if (!email || !password) return null
+
+        // Before the lookup and the compare, because the bcrypt cost is the
+        // thing being protected and charging for it afterwards protects
+        // nothing.
+        const headers = request instanceof Request ? request.headers : new Headers()
+        if (await signInThrottled(db, headers, email)) return null
 
         const [user] = await db
           .select()
