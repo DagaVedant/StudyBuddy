@@ -28,7 +28,7 @@ npm run db:embed
 npm run dev
 ```
 
-`db:migrate` creates 21 tables and enables pgvector. `db:seed` loads 341 topics
+`db:migrate` creates 23 tables and enables pgvector. `db:seed` loads 341 topics
 (276 classifiable leaves) and prints both numbers as it goes. `db:embed` fills
 in topic embeddings, which auto-classification needs to build its candidate
 shortlist.
@@ -79,7 +79,7 @@ has to stay open. That is a permanent constraint of the approach, not a bug.
 |---|---|
 | `npm run dev` | Development server |
 | `npm run check` | Typecheck + lint + tests |
-| `npm test` | 965 tests (Vitest, embedded Postgres via PGlite) |
+| `npm test` | ~1080 tests (Vitest, embedded Postgres via PGlite) |
 | `npm run worker` | Operator GPU pull-worker |
 | `npm run benchmark:ollama` | Benchmark the local vision model |
 | `npm run db:studio` | Browse the database |

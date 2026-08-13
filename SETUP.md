@@ -72,7 +72,7 @@ What each does:
 
 | Command | Effect |
 |---|---|
-| `db:migrate` | Enables pgvector, creates 21 tables |
+| `db:migrate` | Enables pgvector, creates 23 tables |
 | `db:seed` | Loads 341 topics (276 classifiable leaves) |
 | `db:embed` | Computes topic embeddings; auto-classification needs these |
 
