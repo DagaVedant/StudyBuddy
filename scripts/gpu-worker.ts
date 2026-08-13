@@ -542,6 +542,7 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
       id: string
       promptText: string
       printedNumber: number | null
+      pageId: string | null
       choices: { label: string; text: string }[]
     }[]
   }
@@ -556,6 +557,8 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
   let solved = 0
   let declined = 0
   let failed = 0
+  /** Answered only after being shown the page. */
+  let looked = 0
 
   for (const [index, question] of pending.entries()) {
     if (shuttingDown) {
@@ -564,10 +567,45 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
     }
 
     try {
-      const solution = await provider.answerQuestion({
+      let solution = await provider.answerQuestion({
         promptText: question.promptText,
         choices: question.choices,
       })
+
+      /*
+       * Asked again with the page, when the text was not enough.
+       *
+       * A third of a competition paper turns on a graph, a net or a shaded
+       * diagram, and the prompt tells the model to decline rather than guess at
+       * one it cannot see. It does, correctly: on three AMC 8 papers that was
+       * twenty questions refused with the answer sitting in a page image
+       * nobody had looked at.
+       *
+       * Only on a refusal, and only once. The vision model is slower than the
+       * one that just declined and most questions never reach here, so making
+       * this the first attempt would pay that cost on every question to help
+       * the few that need it. A second refusal is taken at face value.
+       */
+      if (solution.answer === null && question.pageId) {
+        const page = await api(`/api/worker/pages/${question.pageId}`)
+
+        if (page.ok) {
+          const image = new Uint8Array(await page.arrayBuffer())
+          const { image: converted, mediaType } = await toOllamaImage(
+            image,
+            page.headers.get('content-type') ?? 'image/webp',
+          )
+
+          solution = await provider.answerQuestion({
+            promptText: question.promptText,
+            choices: question.choices,
+            image: converted,
+            mediaType,
+          })
+
+          if (solution.answer !== null) looked += 1
+        }
+      }
 
       await postJob(job.id, {
         action: 'solution',
@@ -595,7 +633,10 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
     }
   }
 
-  log(`  solved ${solved}, declined ${declined}, failed ${failed}`)
+  log(
+    `  solved ${solved}, declined ${declined}, failed ${failed}` +
+      (looked > 0 ? `, ${looked} needed the page image` : ''),
+  )
 }
 
 /**

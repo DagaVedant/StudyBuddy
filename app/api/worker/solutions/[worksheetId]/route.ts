@@ -36,6 +36,10 @@ export async function GET(request: Request, { params }: Params) {
       promptText: questions.promptText,
       printedNumber: questions.printedNumber,
       answerSource: questions.answerSource,
+      // For the retry: a question that turns on a graph or a net cannot be
+      // answered from its text, and the page it is printed on is the only
+      // place that information exists.
+      pageId: questions.pageId,
     })
     .from(questions)
     .where(
@@ -79,6 +83,7 @@ export async function GET(request: Request, { params }: Params) {
       id: row.id,
       promptText: row.promptText,
       printedNumber: row.printedNumber,
+      pageId: row.pageId,
       choices: byQuestion.get(row.id) ?? [],
     })),
   })
