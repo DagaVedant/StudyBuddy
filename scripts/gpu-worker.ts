@@ -860,8 +860,16 @@ async function main(): Promise<void> {
   log(`  api:    ${API}`)
   log(`  ollama: ${OLLAMA_URL} (${VISION_MODEL})`)
 
-  const models = await ollama.listModels().catch(() => {
-    throw new Error(`Cannot reach Ollama at ${OLLAMA_URL}. Is it running?`)
+  // "Is it running?" is the wrong question when the answer is that it is
+  // running and wedged, which is what a timeout here means and what used to
+  // hang this line forever instead of reporting anything.
+  const models = await ollama.listModels().catch((error: unknown) => {
+    const timedOut = error instanceof Error && error.name === 'TimeoutError'
+    throw new Error(
+      timedOut
+        ? `Ollama at ${OLLAMA_URL} accepted the connection and did not answer. It is up but not responding.`
+        : `Cannot reach Ollama at ${OLLAMA_URL}. Is it running?`,
+    )
   })
 
   if (!models.includes(VISION_MODEL)) {

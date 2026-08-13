@@ -74,6 +74,15 @@ const ANSWER_CONTEXT_TOKENS = 8_192
 /** A lesson carries five sample questions in and a long answer out. */
 const LESSON_CONTEXT_TOKENS = 12_288
 
+/**
+ * How long to wait for a list of pulled models.
+ *
+ * Short on purpose, and unrelated to `timeoutMs`, which bounds generation and
+ * has to allow minutes. Reading tags is a local lookup that answers at once or
+ * is not going to.
+ */
+const TAGS_TIMEOUT_MS = 10_000
+
 export interface OllamaOptions {
   baseUrl: string
   visionModel: string
@@ -400,8 +409,24 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     return raw
   }
 
+  /**
+   * The models this Ollama has pulled.
+   *
+   * Bounded, and by a short timeout rather than the generous one the chat path
+   * uses. This is the first call the worker makes at boot, to check the model
+   * it needs is present, and it had no timeout at all: the `.catch` around it
+   * turns a refused connection into "Is it running?" but a socket that accepts
+   * and never answers is not a rejection, so the worker hung at startup having
+   * printed three lines and no error.
+   *
+   * Listing tags is a local read that returns immediately or not at all. Ten
+   * seconds is already generous for it, and waiting the chat timeout to find
+   * out Ollama is wedged helps nobody.
+   */
   async listModels(): Promise<string[]> {
-    const response = await this.fetchImpl(`${this.baseUrl}/api/tags`)
+    const response = await this.fetchImpl(`${this.baseUrl}/api/tags`, {
+      signal: AbortSignal.timeout(TAGS_TIMEOUT_MS),
+    })
     if (!response.ok) throw new Error(`Ollama responded ${response.status}`)
     const body = (await response.json()) as { models?: { name: string }[] }
     return (body.models ?? []).map((model) => model.name)
