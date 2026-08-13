@@ -59,15 +59,18 @@ interface WorkerPage {
   height: number | null
 }
 
+/** Named so `processJob`'s split-out pieces can say what they take. */
+interface ClaimedJob {
+  id: string
+  worksheetId: string
+  stage: string
+  attemptCount: number
+  expectedQuestionCount?: number | null
+  checkpoint: { lastPageNumber?: number; donePages?: number[] } | null
+}
+
 interface ClaimResponse {
-  job: {
-    id: string
-    worksheetId: string
-    stage: string
-    attemptCount: number
-    expectedQuestionCount?: number | null
-    checkpoint: { lastPageNumber?: number; donePages?: number[] } | null
-  } | null
+  job: ClaimedJob | null
   pages?: WorkerPage[]
   depth?: { pending: number; running: number }
 }
@@ -681,155 +684,205 @@ async function processExplainJob(job: { id: string }): Promise<void> {
   log(`explained ${input.questionId}`)
 }
 
+/**
+ * Claiming is shared across three unrelated pipelines, and the stage decides
+ * which one a job actually means. Split into one function per stage rather
+ * than kept as one function with three branches, because that is what let the
+ * extraction branch alone grow past 120 lines without anyone noticing the
+ * other two were still short: the length was never evenly spread, so neither
+ * was the difficulty of reviewing it.
+ */
 async function processJob(claim: ClaimResponse): Promise<void> {
   const job = claim.job!
   const pages = claim.pages ?? []
+
+  if (job.stage === 'answer_key') return processAnswerKeyJob(job)
+  if (job.stage === 'explain') return processExplainStageJob(job)
+  return processExtractionJob(job, pages)
+}
+
+async function processAnswerKeyJob(job: ClaimedJob): Promise<void> {
+  log(`claimed ${job.id}: answers (attempt ${job.attemptCount})`)
+  try {
+    await processAnswerJob(job)
+    await postJob(job.id, { action: 'complete' })
+  } catch (error) {
+    const message = (error as Error).message
+    log(`failed ${job.id}: ${message}`)
+    await postJob(job.id, { action: 'fail', message }).catch(() => {})
+  }
+}
+
+async function processExplainStageJob(job: ClaimedJob): Promise<void> {
+  log(`claimed ${job.id}: explanation (attempt ${job.attemptCount})`)
+  try {
+    await processExplainJob(job)
+  } catch (error) {
+    const message = (error as Error).message
+    log(`failed ${job.id}: ${message}`)
+    await postJob(job.id, { action: 'fail', message }).catch(() => {})
+  }
+}
+
+/** What one pass over a job's pages found, for the caller to judge. */
+interface PageReadResult {
+  attempted: number
+  pageFailures: number
+  lastError: string
+  /** True when a shutdown cut the pass short before every page was tried. */
+  interrupted: boolean
+}
+
+/**
+ * Reads every page still owed on this job, posting each result as it goes.
+ *
+ * Counts rather than throws on a single page's failure, because one bad page
+ * in seventy-five is not the job failing; `processExtractionJob` is the one
+ * that decides what the counts mean.
+ */
+async function readJobPages(
+  job: ClaimedJob,
+  pages: WorkerPage[],
+  todo: WorkerPage[],
+  done: Set<number>,
+): Promise<PageReadResult> {
+  let attempted = 0
+  let pageFailures = 0
+  let lastError = ''
+
+  for (const page of todo) {
+    if (shuttingDown) {
+      log('shutting down mid-job; leaving it to be reclaimed')
+      return { attempted, pageFailures, lastError, interrupted: true }
+    }
+
+    // The paper's answer key and worked solutions are not questions, and the
+    // model reads them as questions regardless of what the system prompt
+    // says. The server drops anything read off one; skipping here saves the
+    // call. Sixteen phantom rows in the last run came off these pages, and
+    // they carried real question numbers, which is what blinded the audit.
+    if (isAnswerPage(page.ocrText ?? '')) {
+      await postJob(job.id, {
+        action: 'page_result',
+        pageId: page.id,
+        pageNumber: page.pageNumber,
+        totalPages: pages.length,
+        questions: [],
+      })
+
+      log(`  page ${page.pageNumber}/${pages.length}: answer key or solutions, not extracted`)
+      done.add(page.pageNumber)
+      continue
+    }
+
+    const imageResponse = await api(`/api/worker/pages/${page.id}`)
+    if (!imageResponse.ok) {
+      throw new Error(`Could not fetch page ${page.pageNumber} (${imageResponse.status})`)
+    }
+
+    const raw = new Uint8Array(await imageResponse.arrayBuffer())
+    const { image, mediaType } = await toOllamaImage(
+      raw,
+      imageResponse.headers.get('content-type') ?? 'image/webp',
+    )
+
+    const started = Date.now()
+    attempted += 1
+
+    let questions: ExtractedQuestion[] = []
+    try {
+      questions = await provider.extractQuestions({
+        image,
+        mediaType,
+        text: page.ocrText ?? '',
+        width: page.width ?? 0,
+        height: page.height ?? 0,
+        pageNumber: page.pageNumber,
+        // The pages either side, so a question that ran over the fold can be
+        // read whole. Indexed against the full list rather than this loop's
+        // subset: the page it continued onto is the one next to it in the
+        // document, not the next one this pass happens to be reading.
+        ...seamAround(pages, pages.indexOf(page)),
+      })
+    } catch (error) {
+      pageFailures += 1
+      lastError = (error as Error).message
+      log(`  page ${page.pageNumber}: extraction failed, ${lastError}`)
+    }
+
+    await postJob(job.id, {
+      action: 'page_result',
+      pageId: page.id,
+      pageNumber: page.pageNumber,
+      totalPages: pages.length,
+      questions,
+    })
+
+    log(
+      `  page ${page.pageNumber}/${pages.length}: ${questions.length} questions ` +
+        `(${((Date.now() - started) / 1000).toFixed(1)}s)`,
+    )
+
+    done.add(page.pageNumber)
+  }
+
+  return { attempted, pageFailures, lastError, interrupted: false }
+}
+
+/**
+ * Everything that runs once every page has been read: the repair passes,
+ * classification, and marking the job complete.
+ */
+async function finishExtraction(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
+  await postJob(job.id, { action: 'phase', phase: 'verifying' })
+  await recoverMissingQuestions(job, pages)
+
+  // Again, because the audit just added rows that have never been through
+  // the repair passes. A question recovered by the re-read arrives in the
+  // shape a page break leaves: the stem and option A on one page, B, C and D
+  // at the top of the next. The review below would see the short option list,
+  // call it damaged and spend a second vision call re-reading the page, when
+  // the missing options are already sitting in the stored text and the
+  // carried-options pass takes them for nothing. It ran before the audit and
+  // would not run again until classifying, one step too late to save the
+  // call. Repeating it is safe; a second run with nothing to do finds
+  // nothing.
+  await postJob(job.id, { action: 'phase', phase: 'verifying' })
+
+  // After the numbering is repaired, so the review judges the questions the
+  // student will actually see rather than ones about to be replaced.
+  await reviewExtractedQuestions(job, pages)
+
+  await postJob(job.id, { action: 'phase', phase: 'classifying' })
+  await classifyWorksheet(job.worksheetId)
+
+  await postJob(job.id, { action: 'complete' })
+}
+
+async function processExtractionJob(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
   // A set, not a high-water mark. Pages finish out of order once more than
   // one is in flight, so "everything up to N is done" stops being true, and
   // a crash would silently skip whatever was still running below N.
   const done = new Set<number>(job.checkpoint?.donePages ?? [])
   const legacyHighWater = job.checkpoint?.lastPageNumber ?? 0
 
-  // Not every job is a worksheet. Claiming is shared, so the stage decides.
-  if (job.stage === 'answer_key') {
-    log(`claimed ${job.id}: answers (attempt ${job.attemptCount})`)
-    try {
-      await processAnswerJob(job)
-      await postJob(job.id, { action: 'complete' })
-    } catch (error) {
-      const message = (error as Error).message
-      log(`failed ${job.id}: ${message}`)
-      await postJob(job.id, { action: 'fail', message }).catch(() => {})
-    }
-    return
-  }
-
-  if (job.stage === 'explain') {
-    log(`claimed ${job.id}: explanation (attempt ${job.attemptCount})`)
-    try {
-      await processExplainJob(job)
-    } catch (error) {
-      const message = (error as Error).message
-      log(`failed ${job.id}: ${message}`)
-      await postJob(job.id, { action: 'fail', message }).catch(() => {})
-    }
-    return
-  }
-
   log(`claimed ${job.id}: ${pages.length} pages (attempt ${job.attemptCount})`)
-
-  let attempted = 0
-  let pageFailures = 0
-  let lastError = ''
 
   const todo = pages.filter(
     (page) => !done.has(page.pageNumber) && page.pageNumber > legacyHighWater,
   )
 
   try {
-    for (const page of todo) {
-      if (shuttingDown) {
-        log('shutting down mid-job; leaving it to be reclaimed')
-        return
-      }
+    const read = await readJobPages(job, pages, todo, done)
+    if (read.interrupted) return
 
-      // The paper's answer key and worked solutions are not questions, and the
-      // model reads them as questions regardless of what the system prompt
-      // says. The server drops anything read off one; skipping here saves the
-      // call. Sixteen phantom rows in the last run came off these pages, and
-      // they carried real question numbers, which is what blinded the audit.
-      if (isAnswerPage(page.ocrText ?? '')) {
-        await postJob(job.id, {
-          action: 'page_result',
-          pageId: page.id,
-          pageNumber: page.pageNumber,
-          totalPages: pages.length,
-          questions: [],
-        })
-
-        log(`  page ${page.pageNumber}/${pages.length}: answer key or solutions, not extracted`)
-        done.add(page.pageNumber)
-        continue
-      }
-
-      const imageResponse = await api(`/api/worker/pages/${page.id}`)
-      if (!imageResponse.ok) {
-        throw new Error(`Could not fetch page ${page.pageNumber} (${imageResponse.status})`)
-      }
-
-      const raw = new Uint8Array(await imageResponse.arrayBuffer())
-      const { image, mediaType } = await toOllamaImage(
-        raw,
-        imageResponse.headers.get('content-type') ?? 'image/webp',
+    if (read.attempted > 0 && read.pageFailures === read.attempted) {
+      throw new Error(
+        `Extraction failed on all ${read.attempted} pages. Last error: ${read.lastError}`,
       )
-
-      const started = Date.now()
-      attempted += 1
-
-      let questions: ExtractedQuestion[] = []
-      try {
-        questions = await provider.extractQuestions({
-          image,
-          mediaType,
-          text: page.ocrText ?? '',
-          width: page.width ?? 0,
-          height: page.height ?? 0,
-          pageNumber: page.pageNumber,
-          // The pages either side, so a question that ran over the fold can be
-          // read whole. Indexed against the full list rather than this loop's
-          // subset: the page it continued onto is the one next to it in the
-          // document, not the next one this pass happens to be reading.
-          ...seamAround(pages, pages.indexOf(page)),
-        })
-      } catch (error) {
-        pageFailures += 1
-        lastError = (error as Error).message
-        log(`  page ${page.pageNumber}: extraction failed, ${lastError}`)
-      }
-
-      await postJob(job.id, {
-        action: 'page_result',
-        pageId: page.id,
-        pageNumber: page.pageNumber,
-        totalPages: pages.length,
-        questions,
-      })
-
-      log(
-        `  page ${page.pageNumber}/${pages.length}: ${questions.length} questions ` +
-          `(${((Date.now() - started) / 1000).toFixed(1)}s)`,
-      )
-
-      done.add(page.pageNumber)
     }
 
-    if (attempted > 0 && pageFailures === attempted) {
-      throw new Error(`Extraction failed on all ${attempted} pages. Last error: ${lastError}`)
-    }
-
-    await postJob(job.id, { action: 'phase', phase: 'verifying' })
-    await recoverMissingQuestions(job, pages)
-
-    // Again, because the audit just added rows that have never been through
-    // the repair passes. A question recovered by the re-read arrives in the
-    // shape a page break leaves: the stem and option A on one page, B, C and D
-    // at the top of the next. The review below would see the short option list,
-    // call it damaged and spend a second vision call re-reading the page, when
-    // the missing options are already sitting in the stored text and the
-    // carried-options pass takes them for nothing. It ran before the audit and
-    // would not run again until classifying, one step too late to save the
-    // call. Repeating it is safe; a second run with nothing to do finds
-    // nothing.
-    await postJob(job.id, { action: 'phase', phase: 'verifying' })
-
-    // After the numbering is repaired, so the review judges the questions the
-    // student will actually see rather than ones about to be replaced.
-    await reviewExtractedQuestions(job, pages)
-
-    await postJob(job.id, { action: 'phase', phase: 'classifying' })
-    await classifyWorksheet(job.worksheetId)
-
-    await postJob(job.id, { action: 'complete' })
+    await finishExtraction(job, pages)
     log(`completed ${job.id}`)
   } catch (error) {
     const message = (error as Error).message
