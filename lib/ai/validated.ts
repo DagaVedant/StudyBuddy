@@ -47,13 +47,35 @@ export function validated<T extends RawAIProvider>(
       // model returning nonsense from this schema being stricter than the
       // paper. Those are opposite problems and the fix for one makes the other
       // worse.
+      /*
+       * The preview is the student's own worksheet text, so where this runs
+       * decides whether it may be printed.
+       *
+       * On the operator's GPU it may not. That machine is somebody's home
+       * computer, its console scrolls in a terminal and its output is not a
+       * log anybody administers, and spec.md section 8 says page content does
+       * not go there. This printed up to 70 characters of a question for every
+       * schema rejection on every page, which is a more travelled path than
+       * the one that finding named.
+       *
+       * The count and the reason still print everywhere, because those are
+       * what say whether the model returned nonsense or this schema is
+       * stricter than the paper, and losing that distinction is what made a
+       * page dropping six of its seven questions look like a model failure for
+       * two days. `path` and `message` carry it; only the text stays behind.
+       */
       if (rejected > 0) {
+        const onOperatorMachine = provider.executionSite === 'operator_gpu'
+
         console.warn(
           `[ai] ${provider.name} page ${page.pageNumber}: dropped ${rejected} ` +
             `unreadable question(s), kept ${questions.length}`,
         )
         for (const rejection of rejections) {
-          console.warn(`  - ${rejection.path}: ${rejection.message} :: ${rejection.preview}`)
+          console.warn(
+            `  - ${rejection.path}: ${rejection.message}` +
+              (onOperatorMachine ? '' : ` :: ${rejection.preview}`),
+          )
         }
       }
 
