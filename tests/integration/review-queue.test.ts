@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Db } from '@/lib/db/types'
 import { attempts, explanations, reviewCards } from '@/lib/db/schema'
 import { scheduleFromOutcome } from '@/lib/review/fsrs'
-import { getDueCards } from '@/lib/review/queue'
+import { countReviewQueue, getDueCards } from '@/lib/review/queue'
 import { countMissedQuestions, getMissedQuestions } from '@/lib/blooket/missed'
 
 import { createTestDb, type TestDb } from '../helpers/db'
@@ -61,6 +61,50 @@ async function makeCard(
     .returning({ id: reviewCards.id })
   return row.id
 }
+
+/**
+ * The count the review screen prints beside its sitting.
+ *
+ * These have to be the same question asked two ways. The screen loads twenty
+ * and used to print that twenty as the total, so a student with sixty waiting
+ * read one number on the dashboard and a smaller one here, with nothing saying
+ * they counted different things.
+ */
+describe('countReviewQueue', () => {
+  it('counts what getDueCards would return without its limit', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const now = new Date()
+
+    for (let i = 0; i < 25; i += 1) {
+      const question = await makeQuestion(db, userId, worksheetId, { ordinal: i + 1 })
+      await makeCard(userId, question.id, new Date(now.getTime() - 60_000))
+    }
+
+    // The sitting is capped; the count is not, and that gap is the whole point.
+    expect(await getDueCards(db as Db, userId, 20, now)).toHaveLength(20)
+    expect(await countReviewQueue(db as Db, userId, now)).toBe(25)
+
+    // Raise the limit past the queue and the two agree exactly, which is what
+    // says they are counting the same set rather than two similar ones.
+    expect(await getDueCards(db as Db, userId, 500, now)).toHaveLength(25)
+  })
+
+  it('does not count another student’s cards, or a retired one', async () => {
+    const userId = await makeUser(db)
+    const otherId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const otherSheet = await makeWorksheet(db, otherId)
+
+    const mine = await makeQuestion(db, userId, worksheetId)
+    await makeCard(userId, mine.id, new Date(Date.now() - 60_000))
+
+    const foreign = await makeQuestion(db, otherId, otherSheet)
+    await makeCard(otherId, foreign.id, new Date(Date.now() - 60_000))
+
+    expect(await countReviewQueue(db as Db, userId)).toBe(1)
+  })
+})
 
 describe('getDueCards', () => {
   /**

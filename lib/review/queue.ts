@@ -107,6 +107,34 @@ export interface ReviewItem {
  * markup writes a card for every question on the paper, including the ones the
  * student got right, and those were never the point of this screen.
  */
+/**
+ * How many cards {@link getDueCards} would return without its limit.
+ *
+ * The review screen loads a sitting of twenty and used to print that twenty as
+ * the number due, so a student with sixty waiting read "60" on the dashboard,
+ * clicked through, and read "20 questions are due". Neither number was wrong
+ * and the screen never said they were counting different things.
+ *
+ * Deliberately built from the same predicate as the query it describes rather
+ * than from the dashboard's, which is a narrower one: the tile counts cards
+ * past their due date, and this queue also carries cards never practised here
+ * whatever the scheduler says. Two counts of "due" that disagree is the bug
+ * being fixed, so this one is defined as "what the next screen will draw from"
+ * and nothing else.
+ */
+export async function countReviewQueue(
+  db: Db,
+  userId: string,
+  now: Date = new Date(),
+): Promise<number> {
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(reviewCards)
+    .where(and(eq(reviewCards.userId, userId), inReviewQueue(userId, now)))
+
+  return Number(row?.value ?? 0)
+}
+
 export async function getDueCards(
   db: Db,
   userId: string,

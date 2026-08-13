@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
-import { getDueCards } from '@/lib/review/queue'
+import { countReviewQueue, getDueCards } from '@/lib/review/queue'
 
 import ReviewSession from './review-client'
 
@@ -12,7 +12,12 @@ export default async function ReviewPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-  const queue = await getDueCards(db, session.user.id, 20)
+  const SITTING = 20
+
+  const [queue, waiting] = await Promise.all([
+    getDueCards(db, session.user.id, SITTING),
+    countReviewQueue(db, session.user.id),
+  ])
 
   /*
    * The empty queue is rendered by the client, not by a different tree here.
@@ -33,9 +38,17 @@ export default async function ReviewPage() {
       <h1 className="text-balance text-2xl font-semibold tracking-tight">Review</h1>
       {queue.length > 0 && (
         <p className="hint mb-6 text-pretty">
-          <span className="tabular-nums">{queue.length}</span>{' '}
-          {queue.length === 1 ? 'question is' : 'questions are'} due. Try to answer
-          before revealing.
+          {/*
+            "20 of 60" when the queue is longer than one sitting. It used to
+            print the sitting as the total, so a student with sixty waiting saw
+            sixty on the dashboard and twenty here, with nothing saying the two
+            were counting different things.
+          */}
+          <span className="tabular-nums">
+            {waiting > queue.length ? `${queue.length} of ${waiting}` : queue.length}
+          </span>{' '}
+          {waiting === 1 ? 'question is' : 'questions are'} due. Try to answer before
+          revealing.
         </p>
       )}
 
