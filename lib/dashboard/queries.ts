@@ -13,7 +13,7 @@ import {
 } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 
-import type { TopicStats } from './ranking'
+import { MIN_ATTEMPTS, type TopicStats } from './ranking'
 
 export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[]> {
   const result = await db
@@ -258,6 +258,44 @@ export async function getDistractorPatterns(
       limit ${limit}
     `),
   )
+}
+
+export interface AccountAccuracy {
+  correct: number
+  attempts: number
+  accuracy: number
+  ranked: boolean
+}
+
+/**
+ * Accuracy across every attempt on the account, not per topic.
+ *
+ * `summarize` in `lib/dashboard/ranking.ts` does the same division for one
+ * topic's rows; this is the same arithmetic over all of them; for the profile
+ * page's stats summary, which is a personal record rather than something to
+ * act on, so it draws from the whole history rather than only what counts
+ * toward a ranked weakness.
+ */
+export async function getAccountAccuracy(db: Db, userId: string): Promise<AccountAccuracy> {
+  const [row] = rows<{ correct: number; total: number }>(
+    await db.execute(sql`
+      select
+        count(*) filter (where ${attempts.outcome} = 'correct')::int as correct,
+        count(*)::int as total
+      from ${attempts}
+      where ${attempts.userId} = ${userId}
+    `),
+  )
+
+  const correct = row?.correct ?? 0
+  const total = row?.total ?? 0
+
+  return {
+    correct,
+    attempts: total,
+    accuracy: total > 0 ? correct / total : 0,
+    ranked: total >= MIN_ATTEMPTS,
+  }
 }
 
 /**

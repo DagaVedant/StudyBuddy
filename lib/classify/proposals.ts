@@ -2,6 +2,7 @@ import { eq, inArray } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
 import { questionTopics, topicProposals, topics } from '@/lib/db/schema'
+import { isUniqueViolation } from '@/lib/db/errors'
 
 export type AcceptOutcome =
   | { ok: true; topicId: string; slug: string; taggedSource: boolean }
@@ -81,20 +82,6 @@ export async function acceptTopicProposal(
 
 /** How many times to lose a race for a slug before giving up on it. */
 const SLUG_ATTEMPTS = 3
-
-/**
- * Postgres reports a unique violation as SQLSTATE 23505.
- *
- * Checked on the error and on its cause, because production runs on postgres-js
- * and the tests run on PGlite, and only one of them puts the driver error at the
- * top level.
- */
-function isUniqueViolation(error: unknown): boolean {
-  const codes = [error, (error as { cause?: unknown } | null)?.cause]
-  return codes.some(
-    (candidate) => (candidate as { code?: unknown } | null)?.code === '23505',
-  )
-}
 
 async function accept(
   db: Db,
