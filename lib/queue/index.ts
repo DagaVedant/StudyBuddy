@@ -287,7 +287,13 @@ export async function failJob(
 
 export interface AbandonedJob {
   id: string
-  stage: string
+  /**
+   * The column's own type, because the only consumer decides what a failure
+   * costs from this and a `string` let it decide wrong. See
+   * `applyPermanentFailure`, where a stage nobody had classified used to
+   * inherit the branch that refunds a credit and fails the worksheet.
+   */
+  stage: StoredJobStage
   userId: string
   worksheetId: string
 }

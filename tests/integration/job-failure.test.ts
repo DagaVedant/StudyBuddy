@@ -126,6 +126,33 @@ describe('applyPermanentFailure', () => {
     expect(after.explanations).toBe(4)
   })
 
+  /*
+   * The same mistake as the explain one, made again by a stage added later.
+   *
+   * Solving runs after the worksheet is finished and readable, takes the better
+   * part of an hour on a long paper, and never checkpoints, so it is the stage
+   * most likely to be reaped at the attempt ceiling. Falling through to the
+   * extraction branch, it refunded a worksheet credit correctly spent on an
+   * extraction that had succeeded, and failed a paper the student may already
+   * have marked up.
+   */
+  it('leaves the worksheet alone when solving fails', async () => {
+    const { userId, worksheetId } = await seed({ tierUsed: 'trial' })
+
+    await applyPermanentFailure(client(), {
+      stage: 'answer_key',
+      userId,
+      worksheetId,
+    })
+
+    // The paper is exactly what it was. Answers are an addition to it.
+    expect(await statusOf(worksheetId)).toBe('ready')
+
+    const after = await counters(userId)
+    expect(after.worksheets).toBe(3) // the extraction it paid for succeeded
+    expect(after.explanations).toBe(4)
+  })
+
   it('does not push a counter below zero', async () => {
     const { userId, worksheetId } = await seed({
       tierUsed: 'trial',
