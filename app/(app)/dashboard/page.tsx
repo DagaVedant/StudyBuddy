@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { ViewTransition } from 'react'
 
 import { auth } from '@/auth'
+import { getAiStatus } from '@/lib/ai/resolve'
 import { AccuracyLabel, Meter } from '@/components/meter'
 import { countMissedQuestions } from '@/lib/blooket/missed'
 import { db } from '@/lib/db'
@@ -11,6 +12,7 @@ import {
   getDistractorPatterns,
   getOverview,
   getRecentWorksheets,
+  getStudyStreak,
   getTopicStats,
 } from '@/lib/dashboard/queries'
 import {
@@ -78,14 +80,17 @@ export default async function DashboardPage() {
 
   const userId = session.user.id
 
-  const [overview, rawStats, trend, recent, distractors, missed] = await Promise.all([
-    getOverview(db, userId),
-    getTopicStats(db, userId),
-    getAccuracyTrend(db, userId),
-    getRecentWorksheets(db, userId),
-    getDistractorPatterns(db, userId),
-    countMissedQuestions(db, userId),
-  ])
+  const [overview, rawStats, trend, recent, distractors, missed, streak, aiStatus] =
+    await Promise.all([
+      getOverview(db, userId),
+      getTopicStats(db, userId),
+      getAccuracyTrend(db, userId),
+      getRecentWorksheets(db, userId),
+      getDistractorPatterns(db, userId),
+      countMissedQuestions(db, userId),
+      getStudyStreak(db, userId),
+      getAiStatus(db, userId),
+    ])
 
   const paths = pathBySlug()
   const names = nameBySlug()
@@ -163,6 +168,34 @@ export default async function DashboardPage() {
             </dd>
           </div>
         ))}
+
+        {/*
+          spec.md:398 asks the top strip to carry the streak and either trial
+          pages remaining or AI status. These are cards, not tinted tiles, on
+          purpose: the four above are progress counts a student acts on, and
+          giving these two the same bright treatment would read them as a
+          fifth and sixth count of the same kind, which they are not. Reusing
+          one of the four tints instead of a plain card would have been worse:
+          it would tie a metric to a colour that already means something else.
+        */}
+        <div className="card px-4 py-3.5">
+          <dt className="text-sm text-muted">Study streak</dt>
+          <dd className="mt-1 text-2xl font-extrabold tabular-nums text-fg">
+            {streak > 0 ? `${streak} day${streak === 1 ? '' : 's'}` : '—'}
+          </dd>
+        </div>
+
+        <div className="card px-4 py-3.5">
+          <dt className="text-sm text-muted">AI setup</dt>
+          <dd className="mt-1 text-lg font-semibold text-fg">
+            <Link
+              href={aiStatus.href}
+              className="text-accent underline underline-offset-4"
+            >
+              {aiStatus.label}
+            </Link>
+          </dd>
+        </div>
       </dl>
 
       {!hasData && (

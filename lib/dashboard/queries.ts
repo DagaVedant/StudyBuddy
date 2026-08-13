@@ -259,3 +259,51 @@ export async function getDistractorPatterns(
     `),
   )
 }
+
+/**
+ * How many days in a row, ending today or yesterday, carry at least one
+ * attempt.
+ *
+ * Any attempt counts, from review or from marking a worksheet: the streak is
+ * about showing up, not about which screen. Days are UTC calendar days, the
+ * same convention {@link getAccuracyTrend}'s week buckets already use, so the
+ * two stay consistent with each other rather than one running on the reader's
+ * clock and the other on the server's.
+ *
+ * Not broken by an empty today. A student who has not yet opened the app
+ * today still has an active streak until the day actually passes with
+ * nothing logged; starting the count from yesterday when today is empty is
+ * what a streak is supposed to mean, and what every other streak feature
+ * does. Computed live rather than stored: the input is a handful of rows per
+ * active day, and storing a running count invites it drifting from what the
+ * attempts actually show.
+ */
+export async function getStudyStreak(
+  db: Db,
+  userId: string,
+  now: Date = new Date(),
+): Promise<number> {
+  const days = rows<{ day: string }>(
+    await db.execute(sql`
+      select distinct to_char(date_trunc('day', ${attempts.createdAt}), 'YYYY-MM-DD') as day
+      from ${attempts}
+      where ${attempts.userId} = ${userId}
+    `),
+  )
+
+  const daySet = new Set(days.map((row) => row.day))
+  const dayKey = (d: Date) => d.toISOString().slice(0, 10)
+
+  const cursor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  if (!daySet.has(dayKey(cursor))) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1)
+  }
+
+  let streak = 0
+  while (daySet.has(dayKey(cursor))) {
+    streak += 1
+    cursor.setUTCDate(cursor.getUTCDate() - 1)
+  }
+
+  return streak
+}
