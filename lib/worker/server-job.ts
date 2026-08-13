@@ -4,11 +4,26 @@ import { resolveProvider, type ResolvedProvider } from '@/lib/ai/resolve'
 import { EmbeddingUnavailableError, classifyWorksheet } from '@/lib/classify'
 import type { Db } from '@/lib/db/types'
 import { worksheets } from '@/lib/db/schema'
-import { claimJob, completeJob, failJob } from '@/lib/queue'
+import { claimJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
 import { runExtraction } from '@/lib/worker/ingest'
 import { runRepairPasses } from '@/lib/worker/pipeline'
+import { deriveSolutions } from '@/lib/worker/solutions'
 
 type Resolver = (db: Db, userId: string) => Promise<ResolvedProvider>
+
+/**
+ * How many questions one solving invocation attempts.
+ *
+ * Solving is the slow stage and this runs inside `after()`, which is bounded by
+ * the invocation's `maxDuration` exactly as extraction is. A 114-question paper
+ * solved in one callback is a callback killed partway through, so a job takes a
+ * bite and enqueues its successor.
+ *
+ * A fresh job rather than a retry, deliberately. Retries are a failure budget:
+ * spending one per batch would walk a healthy 114-question paper into
+ * MAX_ATTEMPTS and mark it permanently failed for the crime of being long.
+ */
+const SOLVE_BATCH = 25
 
 /**
  * Runs Tier B (student's own cloud key) processing in-process on the server.
@@ -76,6 +91,7 @@ async function runOneServerJob(
     id: string
     worksheetId: string
     userId: string
+    stage: 'extract' | 'answer_key' | 'classify' | 'explain'
     checkpoint: Record<string, unknown> | null
   },
   resolve: Resolver,
@@ -97,6 +113,33 @@ async function runOneServerJob(
       .update(worksheets)
       .set({ status: 'failed' })
       .where(eq(worksheets.id, job.worksheetId))
+    return
+  }
+
+  /*
+   * Which stage this is, which nothing here used to ask.
+   *
+   * This function ran extraction unconditionally, so it was the stage of every
+   * job it claimed regardless of what the row said. That was survivable while
+   * `extract` was the only thing enqueued for `server`, and it is exactly the
+   * shape of bug that stays survivable right up until it isn't: enqueue a
+   * solving job for Tier B and the server re-reads all the pages instead.
+   *
+   * So the stage is read, and a stage with no branch fails the job loudly
+   * rather than running whichever one happens to be first.
+   */
+  if (job.stage === 'answer_key') {
+    await runSolvingJob(db, provider, job)
+    return
+  }
+
+  if (job.stage !== 'extract') {
+    await failJob(
+      db,
+      job.id,
+      `The server runner has no ${job.stage} stage. Nothing should have enqueued this.`,
+      true,
+    )
     return
   }
 
@@ -173,6 +216,27 @@ async function runOneServerJob(
       .where(eq(worksheets.id, job.worksheetId))
 
     await completeJob(db, job.id)
+
+    /*
+     * Solving, behind the finished worksheet.
+     *
+     * This was enqueued only from the GPU path's completion handler, hard
+     * coded to `executor: 'operator_gpu'`, and Tier B never reaches that
+     * handler: it completes in process, on the line above. So a student
+     * processing with their own cloud key got every question extracted and
+     * every card reading "No answer key was recorded", which is the state the
+     * whole feature exists to prevent, on half the tiers it shipped for.
+     *
+     * Low priority and after completion, for the same reason it is a stage at
+     * all: the paper is readable now and the answers can arrive behind it.
+     */
+    await enqueueJob(db, {
+      worksheetId: job.worksheetId,
+      userId: job.userId,
+      stage: 'answer_key',
+      executor: 'server',
+      priority: 'low',
+    })
   } catch (error) {
     const { permanent } = await failJob(db, job.id, (error as Error).message)
     // Tier B never draws from the trial, so unlike the operator_gpu path
@@ -184,5 +248,66 @@ async function runOneServerJob(
         .set({ status: 'failed' })
         .where(eq(worksheets.id, job.worksheetId))
     }
+  }
+}
+
+/**
+ * Works out the answers to one batch of questions, then queues the next batch.
+ *
+ * Deliberately unable to fail the worksheet. By the time this runs the paper is
+ * extracted, repaired, classified and `awaiting_review`, and the student may
+ * already have marked it. Answers are worth having and are not worth any of
+ * that: a solving stage that failed the worksheet would take a finished piece
+ * of work away over a stage that only ever adds to it.
+ *
+ * So a failure here fails the job, says so in the log, and leaves the worksheet
+ * alone. Whatever was solved before the failure is already stored.
+ */
+async function runSolvingJob(
+  db: Db,
+  provider: Awaited<ReturnType<Resolver>>['provider'],
+  job: { id: string; worksheetId: string; userId: string },
+): Promise<void> {
+  try {
+    const progress = await deriveSolutions(db, provider, job.worksheetId, {
+      limit: SOLVE_BATCH,
+    })
+
+    await completeJob(db, job.id)
+
+    const attempted = progress.solved + progress.refused + progress.failed
+
+    console.log(
+      `[server-job] solved ${progress.solved} of ${attempted} on ${job.worksheetId}` +
+        `${progress.promoted > 0 ? `, ${progress.promoted} promoted to the answer` : ''}` +
+        `${progress.refused > 0 ? `, ${progress.refused} declined` : ''}`,
+    )
+
+    /*
+     * A full batch means there is probably more, so the successor is queued.
+     *
+     * Guarded on having got somewhere: a question that throws writes no
+     * solution row, so it is pending again next time, and a provider failing on
+     * every question would otherwise queue itself forever. Requiring at least
+     * one stored answer makes the chain terminate on a broken provider while
+     * still walking a long paper to the end.
+     */
+    if (attempted >= SOLVE_BATCH && progress.solved + progress.refused > 0) {
+      await enqueueJob(db, {
+        worksheetId: job.worksheetId,
+        userId: job.userId,
+        stage: 'answer_key',
+        executor: 'server',
+        priority: 'low',
+      })
+    }
+  } catch (error) {
+    const { permanent } = await failJob(db, job.id, (error as Error).message)
+
+    console.error(
+      `[server-job] solving failed on ${job.worksheetId}` +
+        `${permanent ? ' (permanently)' : ''}:`,
+      (error as Error).message,
+    )
   }
 }

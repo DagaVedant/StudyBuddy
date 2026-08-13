@@ -1,11 +1,11 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { MockProvider } from '@/lib/ai/mock'
 import { validated } from '@/lib/ai/validated'
 import type { ResolvedProvider } from '@/lib/ai/resolve'
 import type { Db } from '@/lib/db/types'
-import { processingJobs, worksheetPages, worksheets } from '@/lib/db/schema'
+import { processingJobs, questions, worksheetPages, worksheets } from '@/lib/db/schema'
 import { claimJob, enqueueJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
 import { drainServerQueue } from '@/lib/worker/server-job'
@@ -104,6 +104,82 @@ describe('drainServerQueue', () => {
         .from(worksheets)
         .where(eq(worksheets.id, worksheetId))
       expect(worksheet.status).toBe('awaiting_review')
+    },
+    30_000,
+  )
+
+  /*
+   * The gap that made the answering feature a one-tier feature.
+   *
+   * Solving was enqueued only from the GPU path's completion handler, hard
+   * coded to `executor: 'operator_gpu'`, and Tier B never reaches that handler:
+   * it completes in process. So a student on their own cloud key got every
+   * question extracted and every card reading "No answer key was recorded".
+   */
+  it(
+    'queues solving for itself once extraction finishes',
+    async () => {
+      const { userId, worksheetId } = await setup()
+      await enqueueJob(db as Db, {
+        worksheetId,
+        userId,
+        stage: 'extract',
+        executor: 'server',
+      })
+
+      await drainServerQueue(db as Db, 1, asServer)
+
+      const queued = await db
+        .select({ stage: processingJobs.stage, executor: processingJobs.executor })
+        .from(processingJobs)
+        .where(
+          and(
+            eq(processingJobs.worksheetId, worksheetId),
+            eq(processingJobs.stage, 'answer_key'),
+          ),
+        )
+
+      expect(queued).toHaveLength(1)
+      // For itself, not for a GPU that a Tier B student does not have.
+      expect(queued[0].executor).toBe('server')
+    },
+    30_000,
+  )
+
+  /*
+   * A solving job must not re-read the pages.
+   *
+   * `runOneServerJob` ran extraction unconditionally, without ever reading the
+   * stage off the row, which was survivable only while `extract` was the one
+   * thing enqueued for this executor.
+   */
+  it(
+    'runs the stage the job asks for, not extraction again',
+    async () => {
+      const { userId, worksheetId } = await setup()
+      await enqueueJob(db as Db, {
+        worksheetId,
+        userId,
+        stage: 'extract',
+        executor: 'server',
+      })
+
+      await drainServerQueue(db as Db, 1, asServer)
+
+      const before = await db
+        .select({ id: questions.id })
+        .from(questions)
+        .where(eq(questions.worksheetId, worksheetId))
+
+      // The successor queued above, which is the solving stage.
+      await drainServerQueue(db as Db, 1, asServer)
+
+      const after = await db
+        .select({ id: questions.id })
+        .from(questions)
+        .where(eq(questions.worksheetId, worksheetId))
+
+      expect(after).toHaveLength(before.length)
     },
     30_000,
   )
