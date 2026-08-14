@@ -1,5 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 
+import { TRIAL_WORKSHEET_LIMIT } from '../../lib/ai/limits'
+
 import { worksheetPdf } from './pdf'
 
 /**
@@ -127,4 +129,87 @@ export async function setTrialWorksheetsUsed(
     data: { email, used },
   })
   if (!response.ok()) throw new Error(`Could not set trial usage for ${email}`)
+}
+
+export interface SeededWorksheet {
+  worksheetId: string
+  questionId: string
+}
+
+/** The smallest valid PNG there is: one pixel, enough for sharp to decode. */
+const ONE_PIXEL_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+)
+
+/**
+ * A worksheet at `awaiting_review`, with one page image, one question and
+ * its choices already in place - the state a real upload reaches once
+ * extraction finishes, reached here without one.
+ *
+ * Built from the create-worksheet, page-upload and create-question routes
+ * directly, the same reasoning verify-bulk-accept.spec.ts's own fixture
+ * documents: a real upload's extraction runs on the trial tier's GPU queue,
+ * which nothing in this harness ever claims, so the worksheet would sit in
+ * `processing` forever with no question on it at all. The page image is
+ * part of that: the review screen this fixture exists for reads it
+ * directly ("This worksheet has no pages" otherwise), not through anything
+ * extraction would have produced.
+ *
+ * The trial is exhausted first so POST .../complete takes its
+ * `executor: 'none'` branch, which is what moves a worksheet straight to
+ * `awaiting_review` inside the same request rather than queuing a job -
+ * the only path this harness can drive synchronously, and the same one
+ * `uploadWorksheet` rides once the suite that calls it has already spent
+ * the trial.
+ */
+export async function seedReviewableWorksheet(
+  page: Page,
+  email: string,
+  opts: {
+    title?: string
+    promptText?: string
+    choices?: { label: string; text: string; isCorrect?: boolean }[]
+  } = {},
+): Promise<SeededWorksheet> {
+  await setTrialWorksheetsUsed(page, email, TRIAL_WORKSHEET_LIMIT)
+
+  const created = await page.request.post('/api/worksheets', {
+    data: {
+      title: opts.title ?? 'Unit 4 Practice',
+      sourceType: 'pdf_digital',
+      pageCount: 1,
+    },
+  })
+  const { worksheetId } = (await created.json()) as { worksheetId: string }
+
+  const paged = await page.request.post(`/api/worksheets/${worksheetId}/pages`, {
+    multipart: {
+      image: { name: 'page-1.png', mimeType: 'image/png', buffer: ONE_PIXEL_PNG },
+      pageNumber: '1',
+    },
+  })
+  if (!paged.ok()) {
+    throw new Error(`Could not upload a page for ${worksheetId}: ${await paged.text()}`)
+  }
+
+  const made = await page.request.post(`/api/worksheets/${worksheetId}/questions`, {
+    data: {
+      ordinal: 1,
+      promptText: opts.promptText ?? 'In triangle ABC, angle A is 75°. What is angle B?',
+      questionType: 'multiple_choice',
+      choices: opts.choices ?? [
+        { label: 'A', text: '75', isCorrect: true },
+        { label: 'B', text: '105', isCorrect: false },
+      ],
+    },
+  })
+  const { questionId } = (await made.json()) as { questionId: string }
+
+  const completed = await page.request.post(`/api/worksheets/${worksheetId}/complete`)
+  if (!completed.ok()) {
+    throw new Error(`Could not complete worksheet ${worksheetId}: ${await completed.text()}`)
+  }
+
+  return { worksheetId, questionId }
 }
