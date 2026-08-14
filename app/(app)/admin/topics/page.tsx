@@ -1,10 +1,10 @@
-import { desc, eq } from 'drizzle-orm'
+import { asc, desc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { acceptTopicProposal } from '@/lib/classify/proposals'
+import AdminNav from '@/components/admin-nav'
+import { acceptTopicProposal, mergeTopicProposal } from '@/lib/classify/proposals'
 import { db } from '@/lib/db'
 import { questions, topicProposals, topics } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
@@ -33,10 +33,18 @@ export default async function AdminTopicsPage() {
     .orderBy(desc(topicProposals.createdAt))
     .limit(100)
 
-  const [worker, gpuDepth, serverDepth] = await Promise.all([
+  const [worker, gpuDepth, serverDepth, leaves] = await Promise.all([
     workerStatus(db),
     queueDepth(db, 'operator_gpu'),
     queueDepth(db, 'server'),
+    // For the merge picker below: an existing leaf is the only thing a
+    // proposal can ever merge into, matching what `mergeTopicProposal`
+    // itself refuses anything else for.
+    db
+      .select({ slug: topics.slug, name: topics.name })
+      .from(topics)
+      .where(eq(topics.isLeaf, true))
+      .orderBy(asc(topics.slug)),
   ])
 
   async function resolve(formData: FormData) {
@@ -53,6 +61,22 @@ export default async function AdminTopicsPage() {
       if (!outcome.ok) {
         console.warn(`[admin] could not accept proposal ${id}: ${outcome.reason}`)
       }
+    } else if (action === 'merge') {
+      const slug = String(formData.get('targetSlug') ?? '').trim()
+      const [target] = await db
+        .select({ id: topics.id })
+        .from(topics)
+        .where(eq(topics.slug, slug))
+        .limit(1)
+
+      if (!target) {
+        console.warn(`[admin] could not merge proposal ${id}: no leaf at slug "${slug}"`)
+      } else {
+        const outcome = await mergeTopicProposal(db, id, target.id)
+        if (!outcome.ok) {
+          console.warn(`[admin] could not merge proposal ${id}: ${outcome.reason}`)
+        }
+      }
     } else {
       await db
         .update(topicProposals)
@@ -68,11 +92,7 @@ export default async function AdminTopicsPage() {
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-balance text-2xl font-semibold tracking-tight">Admin</h1>
       <p className="hint mb-6">
-        Signed in as {session.user.email}.{' '}
-        <Link href="/admin/reports" className="underline underline-offset-2">
-          Reports
-        </Link>
-        .
+        Signed in as {session.user.email}. <AdminNav current="/admin/topics" />
       </p>
 
       <section
@@ -121,8 +141,9 @@ export default async function AdminTopicsPage() {
         </h2>
         <p className="hint mb-3 text-pretty">
           Raised when the classifier could not fit a question to any canonical
-          leaf. Accepting one adds it to the tree under its suggested parent and
-          tags the question that raised it.
+          leaf. Accept adds it to the tree under its suggested parent; merge
+          tags the source question against an existing leaf instead, for a
+          proposal that turns out to already have a home the shortlist missed.
         </p>
 
         {proposals.length === 0 ? (
@@ -171,10 +192,40 @@ export default async function AdminTopicsPage() {
                     </form>
                   </div>
                 </div>
+
+                <form action={resolve} className="mt-2 flex items-center gap-2">
+                  <input type="hidden" name="id" value={proposal.id} />
+                  <input type="hidden" name="action" value="merge" />
+                  <label className="sr-only" htmlFor={`merge-${proposal.id}`}>
+                    Existing topic slug to merge into
+                  </label>
+                  <input
+                    id={`merge-${proposal.id}`}
+                    name="targetSlug"
+                    list="leaf-topics"
+                    placeholder="merge into existing leaf…"
+                    autoComplete="off"
+                    className="min-w-0 flex-1 rounded-xl border border-border bg-transparent px-2 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  />
+                  <button
+                    type="submit"
+                    className="btn-compact shrink-0 rounded-xl border border-border px-2 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    Merge
+                  </button>
+                </form>
               </li>
             ))}
           </ul>
         )}
+
+        <datalist id="leaf-topics">
+          {leaves.map((leaf) => (
+            <option key={leaf.slug} value={leaf.slug}>
+              {leaf.name}
+            </option>
+          ))}
+        </datalist>
       </section>
     </main>
   )

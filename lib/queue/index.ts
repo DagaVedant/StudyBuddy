@@ -1,8 +1,9 @@
-import { and, count, eq, gte, inArray, lt, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 
 import { unwrapDriverRows } from '@/lib/db/rows'
-import { gpuWorkers, processingJobs } from '@/lib/db/schema'
+import { processingJobs, gpuWorkers, users } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
+import { transitionWorksheet } from '@/lib/upload/claim'
 
 export type JobExecutor = 'server' | 'browser' | 'operator_gpu'
 
@@ -471,4 +472,133 @@ export async function markWorkerOffline(db: Db, name: string): Promise<void> {
     .update(gpuWorkers)
     .set({ status: 'offline', jobsInFlight: 0 })
     .where(eq(gpuWorkers.name, name))
+}
+
+export interface ActionableJob {
+  id: string
+  worksheetId: string
+  userId: string
+  userEmail: string | null
+  stage: StoredJobStage
+  executor: JobExecutor
+  // The column's own type rather than the four this deliberately queries for:
+  // `inArray` narrows the WHERE clause, not what drizzle infers a jobStatus
+  // column returns.
+  status: (typeof processingJobs.$inferSelect)['status']
+  attemptCount: number
+  error: string | null
+  claimedAt: Date | null
+  createdAt: Date
+}
+
+const ACTIONABLE_STATUSES = ['claimed', 'running', 'failed', 'cancelled'] as const
+
+/**
+ * What spec.md §2.1's "stuck jobs" list shows an admin.
+ *
+ * `pending` is left out on purpose: a pending job is healthy, just waiting
+ * its turn, and the queue-depth panel already says how many there are and how
+ * old the oldest one is. What is missing from that panel is anything an
+ * admin can act on - a job claimed or running long enough to be suspect, or
+ * one that already died and might be worth trying again after a fix ships.
+ */
+export async function listActionableJobs(db: Db, limit = 50): Promise<ActionableJob[]> {
+  return db
+    .select({
+      id: processingJobs.id,
+      worksheetId: processingJobs.worksheetId,
+      userId: processingJobs.userId,
+      userEmail: users.email,
+      stage: processingJobs.stage,
+      executor: processingJobs.executor,
+      status: processingJobs.status,
+      attemptCount: processingJobs.attemptCount,
+      error: processingJobs.error,
+      claimedAt: processingJobs.claimedAt,
+      createdAt: processingJobs.createdAt,
+    })
+    .from(processingJobs)
+    .innerJoin(users, eq(users.id, processingJobs.userId))
+    .where(inArray(processingJobs.status, ACTIONABLE_STATUSES))
+    .orderBy(desc(processingJobs.createdAt))
+    .limit(limit)
+}
+
+/**
+ * An operator giving up on one job, the same shape a student's own
+ * `go-manual` route gives up on a worksheet's worth of them
+ * (app/api/worksheets/[id]/go-manual/route.ts), reduced to a single row.
+ *
+ * Guarded to the states a job can still be running from, so a stale click -
+ * two admin tabs open on the same stuck job - cannot cancel one twice or
+ * cancel one a worker has since completed on its own.
+ */
+export async function cancelJob(
+  db: Db,
+  jobId: string,
+  message = 'Cancelled by an admin.',
+): Promise<AbandonedJob | null> {
+  const [cancelled] = await db
+    .update(processingJobs)
+    .set({
+      status: 'cancelled',
+      error: message,
+      claimedBy: null,
+      claimedAt: null,
+      completedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(processingJobs.id, jobId),
+        inArray(processingJobs.status, ['pending', 'claimed', 'running']),
+      ),
+    )
+    .returning({
+      id: processingJobs.id,
+      stage: processingJobs.stage,
+      userId: processingJobs.userId,
+      worksheetId: processingJobs.worksheetId,
+    })
+
+  return cancelled ?? null
+}
+
+/**
+ * Giving a dead job a fresh attempt budget rather than waiting for whatever
+ * enqueued it to happen again.
+ *
+ * Scoped to `failed` and `cancelled` only - both already terminal, so there
+ * is no worker mid-write for this to race. `claimed`/`running` are left out
+ * deliberately: nothing here can stop a worker actually holding the row, and
+ * resetting it out from under one would just be overwritten the moment that
+ * worker next calls `checkpointJob`, `completeJob`, or `failJob`.
+ *
+ * A requeued job is only worth having if the worksheet it belongs to is not
+ * still sitting on `failed`: nothing points the student back at a worksheet
+ * in that state, and the job completing behind it would tag questions nobody
+ * is watching for. So this also walks the worksheet back to `queued`, guarded
+ * to the one status this is allowed to move it out of - a worksheet already
+ * reviewed and marked up is not this job's to reopen.
+ */
+export async function requeueJob(db: Db, jobId: string): Promise<boolean> {
+  const [job] = await db
+    .update(processingJobs)
+    .set({
+      status: 'pending',
+      attemptCount: 0,
+      error: null,
+      claimedBy: null,
+      claimedAt: null,
+      completedAt: null,
+    })
+    .where(
+      and(eq(processingJobs.id, jobId), inArray(processingJobs.status, ['failed', 'cancelled'])),
+    )
+    .returning({ id: processingJobs.id, worksheetId: processingJobs.worksheetId })
+
+  if (!job) return false
+
+  await transitionWorksheet(db, job.worksheetId, ['failed'], { status: 'queued' })
+
+  return true
 }

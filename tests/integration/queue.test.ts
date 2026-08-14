@@ -2,21 +2,24 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import type { Db } from '@/lib/db/types'
-import { gpuWorkers, processingJobs } from '@/lib/db/schema'
+import { gpuWorkers, processingJobs, worksheets } from '@/lib/db/schema'
 import {
   CLAIM_TTL_MS,
   MAX_ATTEMPTS,
   MAX_IN_FLIGHT_EXTRACTS,
+  cancelJob,
   checkpointJob,
   claimJob,
   completeJob,
   enqueueJob,
   failJob,
   heartbeat,
+  listActionableJobs,
   markWorkerOffline,
   inFlightExtractCount,
   queueDepth,
   reapAbandonedJobs,
+  requeueJob,
   workerStatus,
 } from '@/lib/queue'
 
@@ -565,5 +568,223 @@ describe('reapAbandonedJobs', () => {
 
     expect(await reapAbandonedJobs(db as Db)).toHaveLength(0)
     expect(await claimJob(db as Db, 'operator_gpu')).not.toBeNull()
+  })
+})
+
+// Finding 118: spec.md §2.1's "stuck jobs" list, and the requeue/cancel
+// controls next to it. Nothing in app/ offered either before this.
+describe('listActionableJobs', () => {
+  it('lists a claimed, running, failed and cancelled job, oldest concerns included', async () => {
+    await drain()
+
+    for (const status of ['claimed', 'running', 'failed', 'cancelled'] as const) {
+      const jobId = await enqueueJob(db as Db, {
+        worksheetId,
+        userId,
+        stage: 'extract',
+        executor: 'operator_gpu',
+      })
+      await db.update(processingJobs).set({ status }).where(eq(processingJobs.id, jobId))
+    }
+
+    const listed = await listActionableJobs(db as Db)
+    expect(listed.map((job) => job.status).sort()).toEqual(
+      ['cancelled', 'claimed', 'failed', 'running'],
+    )
+  })
+
+  it('leaves out pending and completed jobs, which need no operator action', async () => {
+    await drain()
+
+    const pendingId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+    const completedId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+    await db
+      .update(processingJobs)
+      .set({ status: 'completed' })
+      .where(eq(processingJobs.id, completedId))
+
+    const listed = await listActionableJobs(db as Db)
+    expect(listed.map((job) => job.id)).not.toContain(pendingId)
+    expect(listed.map((job) => job.id)).not.toContain(completedId)
+  })
+
+  it('carries the owner email, for telling accounts apart in the list', async () => {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+    await db.update(processingJobs).set({ status: 'failed' }).where(eq(processingJobs.id, jobId))
+
+    const [listed] = await listActionableJobs(db as Db)
+    expect(listed.userEmail).toBeTruthy()
+  })
+})
+
+describe('cancelJob', () => {
+  it('cancels a claimed job and reports it for the refund path', async () => {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+    await db
+      .update(processingJobs)
+      .set({ status: 'claimed' })
+      .where(eq(processingJobs.id, jobId))
+
+    const cancelled = await cancelJob(db as Db, jobId)
+
+    expect(cancelled).toMatchObject({ id: jobId, worksheetId, userId, stage: 'extract' })
+
+    const [row] = await db
+      .select({ status: processingJobs.status, error: processingJobs.error })
+      .from(processingJobs)
+      .where(eq(processingJobs.id, jobId))
+    expect(row.status).toBe('cancelled')
+    expect(row.error).toBe('Cancelled by an admin.')
+  })
+
+  it('does nothing to a job already finished one way or the other', async () => {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+    await db
+      .update(processingJobs)
+      .set({ status: 'completed' })
+      .where(eq(processingJobs.id, jobId))
+
+    expect(await cancelJob(db as Db, jobId)).toBeNull()
+
+    const [row] = await db
+      .select({ status: processingJobs.status })
+      .from(processingJobs)
+      .where(eq(processingJobs.id, jobId))
+    expect(row.status).toBe('completed')
+  })
+
+  it('reports nothing for a job that does not exist', async () => {
+    expect(await cancelJob(db as Db, 'nope')).toBeNull()
+  })
+})
+
+describe('requeueJob', () => {
+  it('gives a failed job a clean pending row with a fresh attempt budget', async () => {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+    await db
+      .update(processingJobs)
+      .set({
+        status: 'failed',
+        attemptCount: MAX_ATTEMPTS,
+        error: 'boom',
+        claimedAt: new Date(),
+      })
+      .where(eq(processingJobs.id, jobId))
+
+    expect(await requeueJob(db as Db, jobId)).toBe(true)
+
+    const [row] = await db.select().from(processingJobs).where(eq(processingJobs.id, jobId))
+    expect(row.status).toBe('pending')
+    expect(row.attemptCount).toBe(0)
+    expect(row.error).toBeNull()
+    expect(row.claimedAt).toBeNull()
+  })
+
+  it('walks a failed worksheet back to queued, so the job has somewhere to land', async () => {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+    await db
+      .update(processingJobs)
+      .set({ status: 'failed' })
+      .where(eq(processingJobs.id, jobId))
+    await db.update(worksheets).set({ status: 'failed' }).where(eq(worksheets.id, worksheetId))
+
+    await requeueJob(db as Db, jobId)
+
+    const [row] = await db
+      .select({ status: worksheets.status })
+      .from(worksheets)
+      .where(eq(worksheets.id, worksheetId))
+    expect(row.status).toBe('queued')
+  })
+
+  // A worksheet already reviewed and marked up is not this job's to reopen -
+  // requeuing an old explain job, say, must not drag a finished paper back.
+  it('leaves a worksheet alone when it is not the one sitting on failed', async () => {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+    await db
+      .update(processingJobs)
+      .set({ status: 'failed' })
+      .where(eq(processingJobs.id, jobId))
+    await db.update(worksheets).set({ status: 'ready' }).where(eq(worksheets.id, worksheetId))
+
+    await requeueJob(db as Db, jobId)
+
+    const [row] = await db
+      .select({ status: worksheets.status })
+      .from(worksheets)
+      .where(eq(worksheets.id, worksheetId))
+    expect(row.status).toBe('ready')
+  })
+
+  it('refuses a job that is claimed or running, which a worker may still hold', async () => {
+    await drain()
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'operator_gpu',
+    })
+    await db
+      .update(processingJobs)
+      .set({ status: 'claimed' })
+      .where(eq(processingJobs.id, jobId))
+
+    expect(await requeueJob(db as Db, jobId)).toBe(false)
+
+    const [row] = await db
+      .select({ status: processingJobs.status })
+      .from(processingJobs)
+      .where(eq(processingJobs.id, jobId))
+    expect(row.status).toBe('claimed')
+  })
+
+  it('reports failure for a job that does not exist', async () => {
+    expect(await requeueJob(db as Db, 'nope')).toBe(false)
   })
 })

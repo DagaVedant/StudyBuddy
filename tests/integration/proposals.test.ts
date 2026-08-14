@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { shortlistByVector } from '@/lib/classify'
-import { acceptTopicProposal, slugify } from '@/lib/classify/proposals'
+import { acceptTopicProposal, mergeTopicProposal, slugify } from '@/lib/classify/proposals'
 import { questionTopics, topicProposals, topics } from '@/lib/db/schema'
 import { EMBEDDING_DIMENSIONS } from '@/lib/embeddings'
 import { demoteParentsWithChildren } from '@/lib/taxonomy/leaves'
@@ -297,6 +297,115 @@ describe('acceptTopicProposal', () => {
       ok: false,
       reason: 'not_found',
     })
+  })
+})
+
+/*
+ * Finding 118 / §7.2's other resolution: the tree already has a leaf for
+ * this, the classifier's shortlist just did not surface it. Unlike accept,
+ * merge must not grow the tree at all.
+ */
+describe('mergeTopicProposal', () => {
+  it('tags the source question against the chosen leaf, not a new topic', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const question = await makeQuestion(db, userId, worksheetId)
+
+    const target = await makeParent('high-school-math.geometry.circles')
+    const proposalId = await makeProposal({
+      proposedName: 'Circles',
+      sourceQuestionId: question.id,
+    })
+
+    const outcome = await mergeTopicProposal(client(), proposalId, target)
+
+    expect(outcome).toEqual({ ok: true, taggedSource: true })
+
+    const [tag] = await db
+      .select()
+      .from(questionTopics)
+      .where(eq(questionTopics.questionId, question.id))
+
+    expect(tag.topicId).toBe(target)
+    expect(tag.assignedBy).toBe('user')
+    expect(tag.isPrimary).toBe(true)
+  })
+
+  it('records the proposal as merged and points it at the existing topic', async () => {
+    const target = await makeParent('high-school-math.geometry.triangles')
+    const proposalId = await makeProposal({ proposedName: 'Triangles' })
+
+    await mergeTopicProposal(client(), proposalId, target)
+
+    const [after] = await db
+      .select()
+      .from(topicProposals)
+      .where(eq(topicProposals.id, proposalId))
+
+    expect(after.status).toBe('merged')
+    expect(after.mergedIntoTopicId).toBe(target)
+  })
+
+  it('does not create a topic, unlike accept', async () => {
+    const target = await makeParent('high-school-math.geometry.polygons')
+    const proposalId = await makeProposal({ proposedName: 'Polygons' })
+
+    const before = (await db.select().from(topics)).length
+    await mergeTopicProposal(client(), proposalId, target)
+    const after = (await db.select().from(topics)).length
+
+    expect(after).toBe(before)
+  })
+
+  it('refuses a target that is not a leaf', async () => {
+    const target = await makeParent('high-school-math.geometry.shelf', false)
+    const proposalId = await makeProposal({ proposedName: 'Shelf child' })
+
+    const outcome = await mergeTopicProposal(client(), proposalId, target)
+
+    expect(outcome).toEqual({ ok: false, reason: 'target_not_leaf' })
+    const [after] = await db
+      .select()
+      .from(topicProposals)
+      .where(eq(topicProposals.id, proposalId))
+    expect(after.status).toBe('pending')
+  })
+
+  it('refuses a target that does not exist', async () => {
+    const proposalId = await makeProposal({ proposedName: 'Nowhere' })
+
+    expect(await mergeTopicProposal(client(), proposalId, 'nope')).toEqual({
+      ok: false,
+      reason: 'target_not_found',
+    })
+  })
+
+  it('refuses a proposal that is not pending', async () => {
+    const target = await makeParent('high-school-math.geometry.quadrilaterals')
+    const proposalId = await makeProposal({ proposedName: 'Quads' })
+
+    expect((await mergeTopicProposal(client(), proposalId, target)).ok).toBe(true)
+
+    const second = await mergeTopicProposal(client(), proposalId, target)
+    expect(second).toEqual({ ok: false, reason: 'not_pending' })
+  })
+
+  it('reports a proposal that is not there', async () => {
+    const target = await makeParent('high-school-math.geometry.rhombi')
+
+    expect(await mergeTopicProposal(client(), 'nope', target)).toEqual({
+      ok: false,
+      reason: 'not_found',
+    })
+  })
+
+  it('merges a proposal that raised no source question, without tagging anything', async () => {
+    const target = await makeParent('high-school-math.geometry.trapezoids')
+    const proposalId = await makeProposal({ proposedName: 'Trapezoids', sourceQuestionId: null })
+
+    const outcome = await mergeTopicProposal(client(), proposalId, target)
+
+    expect(outcome).toEqual({ ok: true, taggedSource: false })
   })
 })
 

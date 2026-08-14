@@ -142,6 +142,68 @@ async function accept(
   })
 }
 
+export type MergeOutcome =
+  | { ok: true; taggedSource: boolean }
+  | { ok: false; reason: 'not_found' | 'not_pending' | 'target_not_found' | 'target_not_leaf' }
+
+/**
+ * §7.2's other resolution: the question was not describing a gap in the
+ * tree, it was describing a leaf that already exists under a name the
+ * classifier's shortlist did not surface. `acceptTopicProposal` only ever
+ * grows the tree; this tags the source question against a topic an admin
+ * picked instead, and leaves the tree exactly as it was.
+ *
+ * Restricted to leaves for the same reason classification only ever tags a
+ * leaf: an internal node is a shelf, not a place a question can sit.
+ *
+ * One write plus one status flip rather than four, so no transaction is
+ * needed the way `accept` needs one - there is no slug to mint and no
+ * parent whose `isLeaf` flag might flip.
+ */
+export async function mergeTopicProposal(
+  db: Db,
+  proposalId: string,
+  targetTopicId: string,
+): Promise<MergeOutcome> {
+  const [proposal] = await db
+    .select()
+    .from(topicProposals)
+    .where(eq(topicProposals.id, proposalId))
+    .limit(1)
+
+  if (!proposal) return { ok: false, reason: 'not_found' }
+  if (proposal.status !== 'pending') return { ok: false, reason: 'not_pending' }
+
+  const [target] = await db.select().from(topics).where(eq(topics.id, targetTopicId)).limit(1)
+
+  if (!target) return { ok: false, reason: 'target_not_found' }
+  if (!target.isLeaf) return { ok: false, reason: 'target_not_leaf' }
+
+  let taggedSource = false
+
+  if (proposal.sourceQuestionId) {
+    await db
+      .insert(questionTopics)
+      .values({
+        questionId: proposal.sourceQuestionId,
+        topicId: target.id,
+        confidence: 1,
+        assignedBy: 'user',
+        isPrimary: true,
+      })
+      .onConflictDoNothing()
+
+    taggedSource = true
+  }
+
+  await db
+    .update(topicProposals)
+    .set({ status: 'merged', mergedIntoTopicId: target.id })
+    .where(eq(topicProposals.id, proposal.id))
+
+  return { ok: true, taggedSource }
+}
+
 export function slugify(name: string): string {
   const slug = name
     .toLowerCase()
@@ -155,8 +217,14 @@ export function slugify(name: string): string {
   return slug || 'topic'
 }
 
-/** Appends a counter until the slug is free, since slugs are unique. */
-async function uniqueSlug(db: Db, wanted: string): Promise<string> {
+/**
+ * Appends a counter until the slug is free, since slugs are unique.
+ *
+ * Exported for `lib/taxonomy/edit.ts`, which mints a slug the same way for a
+ * topic an admin adds or moves directly rather than through a proposal - the
+ * collision handling does not care which caller is asking.
+ */
+export async function uniqueSlug(db: Db, wanted: string): Promise<string> {
   const candidates = [wanted, ...Array.from({ length: 20 }, (_, i) => `${wanted}-${i + 2}`)]
 
   const taken = new Set(

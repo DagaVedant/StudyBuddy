@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import AdminNav from '@/components/admin-nav'
 import { db } from '@/lib/db'
 import { questions, reports, users, worksheets } from '@/lib/db/schema'
 
@@ -58,7 +59,7 @@ export default async function AdminReportsPage() {
       <h1 className="text-balance text-2xl font-semibold tracking-tight">Reports</h1>
       <p className="hint mb-6 text-pretty">
         What students said was wrong, newest first. Marking one done hides it here
-        and keeps the row. <Link href="/admin/topics" className="underline underline-offset-2">Topic proposals</Link>.
+        and keeps the row. <AdminNav current="/admin/reports" />
       </p>
 
       {open.length === 0 ? (
