@@ -6,7 +6,7 @@ import type { TopicChoice } from '@/components/topic-picker'
 import type { BBox, TextLine } from '@/lib/db/schema'
 
 import PageCanvas from './page-canvas'
-import QuestionList from './question-list'
+import QuestionList, { type QuestionListHandle } from './question-list'
 import { questionLabel, type EditablePage, type EditableQuestion } from './types'
 import { UNDO_WINDOW_MS, useQuestionEditor } from './use-question-editor'
 
@@ -85,6 +85,7 @@ export default function ReviewClient({
   }, [pageIndex, pages, worksheetId])
 
   const cardRefs = useRef(new Map<string, HTMLLIElement>())
+  const questionListRef = useRef<QuestionListHandle>(null)
 
   const topicById = useMemo(
     () => new Map(topics.map((topic) => [topic.id, topic])),
@@ -117,7 +118,14 @@ export default function ReviewClient({
       setSelectedId(id)
       const index = pages.findIndex((p) => p.id === pageId)
       if (index >= 0) setPageIndex(index)
+
+      // Two mechanisms because the list may or may not be virtualized
+      // (question-list.tsx): a card that is currently rendered has a ref to
+      // scroll smoothly to directly; one that is not (windowed out, on a
+      // long enough worksheet) has no ref at all yet, and only the
+      // virtualizer's own index-based scroll can reach it.
       cardRefs.current.get(id)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      questionListRef.current?.scrollToId(id)
     },
     [pages],
   )
@@ -258,6 +266,7 @@ export default function ReviewClient({
         )}
 
         <QuestionList
+          ref={questionListRef}
           questions={questions}
           expandedId={expandedId}
           selectedId={selectedId}

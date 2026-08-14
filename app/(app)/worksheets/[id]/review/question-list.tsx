@@ -1,6 +1,20 @@
 'use client'
 
-import { memo } from 'react'
+import {
+  forwardRef,
+  memo,
+  useCallback,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
+import {
+  defaultRangeExtractor,
+  useWindowVirtualizer,
+  type Range,
+} from '@tanstack/react-virtual'
 
 import TopicPicker, { type TopicChoice } from '@/components/topic-picker'
 import { reflowText } from '@/lib/questions/reflow'
@@ -41,6 +55,17 @@ interface CardProps {
   onFocus: (id: string, pageId: string | null) => void
   onToggleExpanded: (id: string, pageId: string | null) => void
   registerRef: (id: string, node: HTMLLIElement | null) => void
+  /**
+   * Set only once the list is long enough to virtualize (see `QuestionList`
+   * below). `measureRef` reports the row's real, post-render height back to
+   * the virtualizer - collapsed and expanded rows differ by a lot, and an
+   * estimate would leave every row after one that guessed wrong overlapping
+   * or gapped. `style` and `dataIndex` are the virtualizer's own absolute
+   * positioning and the index its resize observer keys measurements by.
+   */
+  measureRef?: (node: HTMLLIElement | null) => void
+  style?: CSSProperties
+  dataIndex?: number
 }
 
 /**
@@ -63,12 +88,20 @@ const QuestionCard = memo(function QuestionCard({
   onFocus,
   onToggleExpanded,
   registerRef,
+  measureRef,
+  style,
+  dataIndex,
 }: CardProps) {
   const correct = question.choices.find((choice) => choice.isCorrect)
 
   return (
     <li
-      ref={(node) => registerRef(question.id, node)}
+      ref={(node) => {
+        registerRef(question.id, node)
+        measureRef?.(node)
+      }}
+      style={style}
+      data-index={dataIndex}
       className={`rounded-2xl border bg-surface shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] ${
         selected ? 'border-accent' : 'border-transparent'
       }`}
@@ -311,18 +344,29 @@ const QuestionCard = memo(function QuestionCard({
   )
 })
 
-export default function QuestionList({
-  questions,
-  expandedId,
-  selectedId,
-  topics,
-  topicById,
-  onUpdate,
-  onRemove,
-  onFocus,
-  onToggleExpanded,
-  registerRef,
-}: {
+/**
+ * Below this threshold, the plain list. A worksheet this size never pays for
+ * a virtualizer: the DOM cost of forty collapsed cards is not the problem
+ * finding 48 named, and every row staying permanently mounted is one fewer
+ * thing that can go wrong on the very screen where a lost edit costs the
+ * most.
+ */
+const VIRTUALIZE_THRESHOLD = 40
+
+/**
+ * Rough collapsed-card height, in pixels, before the virtualizer has
+ * measured a real one. Wrong by a little just means the scrollbar jumps
+ * slightly on first paint; every row is re-measured off its own rendered
+ * height (`measureRef`) the moment it mounts.
+ */
+const ESTIMATED_ROW_HEIGHT = 132
+
+export interface QuestionListHandle {
+  /** Brings a question into view even if it is not currently rendered. */
+  scrollToId: (id: string) => void
+}
+
+interface Props {
   questions: EditableQuestion[]
   expandedId: string | null
   selectedId: string | null
@@ -333,24 +377,128 @@ export default function QuestionList({
   onFocus: (id: string, pageId: string | null) => void
   onToggleExpanded: (id: string, pageId: string | null) => void
   registerRef: (id: string, node: HTMLLIElement | null) => void
-}) {
+}
+
+/**
+ * `useWindowVirtualizer` runs on every render regardless of `questions.length`,
+ * even for a five-question worksheet that will never read its output: Rules
+ * of Hooks rule out calling it only sometimes, and splitting the virtualized
+ * path into a child component instead used to mean two `useImperativeHandle`
+ * calls racing to write the same forwarded ref (child effects commit before
+ * parent effects, so the parent's would have won and silently discarded the
+ * virtualizer's real `scrollToId`). One component, one handle, and the
+ * unvirtualized branch returns before any of the virtualizer's output is
+ * used - the listener it attached costs a resize/scroll subscription, not a
+ * render.
+ *
+ * Windows the *rendered* set, not the *mounted* set of anything mid-edit:
+ * `rangeExtractor` always includes the expanded row even when scrolling has
+ * carried it out of the naturally-computed range, so the one row that can
+ * hold an unsaved keystroke never unmounts out from under the student typing
+ * into it. Everything else is free to come and go - a collapsed card has
+ * nothing in it a remount could lose.
+ */
+const QuestionList = forwardRef<QuestionListHandle, Props>(function QuestionList(
+  {
+    questions,
+    expandedId,
+    selectedId,
+    topics,
+    topicById,
+    onUpdate,
+    onRemove,
+    onFocus,
+    onToggleExpanded,
+    registerRef,
+  },
+  handleRef,
+) {
+  const virtualize = questions.length > VIRTUALIZE_THRESHOLD
+
+  const listRef = useRef<HTMLUListElement>(null)
+
+  // Measured after mount rather than assumed: this section sits below a
+  // heading, an optional error banner and an optional undo toast, none of a
+  // fixed height, so the offset from the top of the document is only known
+  // once the browser has actually laid the page out.
+  const [scrollMargin, setScrollMargin] = useState(0)
+  useLayoutEffect(() => {
+    if (virtualize) setScrollMargin(listRef.current?.offsetTop ?? 0)
+  }, [virtualize])
+
+  const expandedIndex = expandedId ? questions.findIndex((q) => q.id === expandedId) : -1
+
+  const rangeExtractor = useCallback(
+    (range: Range) => {
+      const base = defaultRangeExtractor(range)
+      if (expandedIndex >= 0 && !base.includes(expandedIndex)) {
+        return [...base, expandedIndex].sort((a, b) => a - b)
+      }
+      return base
+    },
+    [expandedIndex],
+  )
+
+  const virtualizer = useWindowVirtualizer({
+    count: questions.length,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 6,
+    gap: 12,
+    scrollMargin,
+    rangeExtractor,
+    enabled: virtualize,
+  })
+
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      scrollToId: (id: string) => {
+        if (!virtualize) return // every row is already mounted; nothing to do
+        const index = questions.findIndex((q) => q.id === id)
+        if (index >= 0) virtualizer.scrollToIndex(index, { align: 'center' })
+      },
+    }),
+    [virtualize, questions, virtualizer],
+  )
+
+  const card = (question: EditableQuestion, extra?: { style: CSSProperties; index: number }) => (
+    <QuestionCard
+      key={question.id}
+      question={question}
+      expanded={expandedId === question.id}
+      selected={selectedId === question.id}
+      topic={question.topicId ? (topicById.get(question.topicId) ?? null) : null}
+      topics={topics}
+      onUpdate={onUpdate}
+      onRemove={onRemove}
+      onFocus={onFocus}
+      onToggleExpanded={onToggleExpanded}
+      registerRef={registerRef}
+      style={extra?.style}
+      dataIndex={extra?.index}
+    />
+  )
+
+  if (!virtualize) {
+    return <ul className="space-y-3">{questions.map((question) => card(question))}</ul>
+  }
+
   return (
-    <ul className="space-y-3">
-      {questions.map((question) => (
-        <QuestionCard
-          key={question.id}
-          question={question}
-          expanded={expandedId === question.id}
-          selected={selectedId === question.id}
-          topic={question.topicId ? (topicById.get(question.topicId) ?? null) : null}
-          topics={topics}
-          onUpdate={onUpdate}
-          onRemove={onRemove}
-          onFocus={onFocus}
-          onToggleExpanded={onToggleExpanded}
-          registerRef={registerRef}
-        />
-      ))}
+    <ul ref={listRef} style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
+      {virtualizer.getVirtualItems().map((virtualRow) =>
+        card(questions[virtualRow.index], {
+          index: virtualRow.index,
+          style: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            transform: `translateY(${virtualRow.start - scrollMargin}px)`,
+          },
+        }),
+      )}
     </ul>
   )
-}
+})
+
+export default QuestionList

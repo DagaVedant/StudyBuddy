@@ -30,6 +30,7 @@
     "@anthropic-ai/sdk": "^0.115.0",
     "@auth/drizzle-adapter": "^1.11.3",
     "@huggingface/transformers": "^4.2.0",
+    "@tanstack/react-virtual": "^3.14.9",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.6.1",
     "bcryptjs": "^3.0.3",
