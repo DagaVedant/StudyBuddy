@@ -109,6 +109,7 @@ const attempts = await import('@/app/api/worksheets/[id]/attempts/route')
 const complete = await import('@/app/api/worksheets/[id]/complete/route')
 const confirm = await import('@/app/api/worksheets/[id]/confirm/route')
 const pages = await import('@/app/api/worksheets/[id]/pages/route')
+const pageLines = await import('@/app/api/worksheets/[id]/pages/[pageId]/lines/route')
 const questions = await import('@/app/api/worksheets/[id]/questions/route')
 const verifyAll = await import('@/app/api/worksheets/[id]/verify-all/route')
 
@@ -175,6 +176,12 @@ const ROUTES: [string, Handler, string, never][] = [
   ['GET /api/worksheets/[id]/questions', questions.GET as Handler, 'GET', WS],
   ['POST /api/worksheets/[id]/questions', questions.POST as Handler, 'POST', WS],
   ['POST /api/worksheets/[id]/verify-all', verifyAll.POST as Handler, 'POST', WS],
+  [
+    'GET /api/worksheets/[id]/pages/[pageId]/lines',
+    pageLines.GET as Handler,
+    'GET',
+    id({ id: 'ws-1', pageId: 'p-1' }),
+  ],
 ]
 
 const WORKER_ROUTES: [string, Handler, string, never][] = [
@@ -255,8 +262,8 @@ describe('a caller with no session', () => {
 
   it('is asked about by every route in the tree', () => {
     // The list above is hand-written, so this is what stops a route being added
-    // without one. 25 student handlers across 18 route files.
-    expect(ROUTES).toHaveLength(25)
+    // without one. 26 student handlers across 19 route files.
+    expect(ROUTES).toHaveLength(26)
   })
 })
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { TopicChoice } from '@/components/topic-picker'
-import type { BBox } from '@/lib/db/schema'
+import type { BBox, TextLine } from '@/lib/db/schema'
 
 import PageCanvas from './page-canvas'
 import QuestionList from './question-list'
@@ -47,6 +47,42 @@ export default function ReviewClient({
     initialQuestions[0]?.id ?? null,
   )
   const [pageIndex, setPageIndex] = useState(0)
+
+  // Only page one arrives with real lines (page.tsx). Every other page's
+  // come from here, the first time the reader actually turns to it, rather
+  // than all at once on a screen that might only ever be scrolled through
+  // one page at a time.
+  const [linesByPage, setLinesByPage] = useState<Map<string, TextLine[]>>(() => {
+    const seeded = new Map<string, TextLine[]>()
+    if (pages[0]) seeded.set(pages[0].id, pages[0].textLines)
+    return seeded
+  })
+  const requestedPages = useRef(new Set(linesByPage.keys()))
+
+  useEffect(() => {
+    const current = pages[pageIndex]
+    if (!current || requestedPages.current.has(current.id)) return
+    requestedPages.current.add(current.id)
+
+    let cancelled = false
+
+    fetch(`/api/worksheets/${worksheetId}/pages/${current.id}/lines`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(response)))
+      .then((body: { textLines: TextLine[] }) => {
+        if (cancelled) return
+        setLinesByPage((prev) => new Map(prev).set(current.id, body.textLines))
+      })
+      .catch(() => {
+        // Left off the requested set, so turning back to this page (which
+        // re-fires this effect) tries again rather than leaving the drag
+        // disabled here for the rest of the session over one bad request.
+        requestedPages.current.delete(current.id)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [pageIndex, pages, worksheetId])
 
   const cardRefs = useRef(new Map<string, HTMLLIElement>())
 
@@ -144,12 +180,16 @@ export default function ReviewClient({
     )
   }
 
+  const linesReady = linesByPage.has(page.id)
+  const pageWithLines = { ...page, textLines: linesByPage.get(page.id) ?? [] }
+
   const untagged = questions.filter((question) => !question.topicId).length
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
       <PageCanvas
-        page={page}
+        page={pageWithLines}
+        linesReady={linesReady}
         pageNumber={page.pageNumber}
         pageCount={pages.length}
         worksheetTitle={worksheetTitle}

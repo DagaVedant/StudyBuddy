@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import type { TopicChoice } from '@/components/topic-picker'
 import { db } from '@/lib/db'
 import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { roundLines } from '@/lib/questions/text-lines'
 import {
   answerChoices,
   questionTopics,
@@ -13,8 +14,6 @@ import {
   topics,
   worksheetPages,
   worksheets,
-  type BBox,
-  type TextLine,
 } from '@/lib/db/schema'
 import { pathBySlug } from '@/lib/taxonomy/trees'
 
@@ -33,29 +32,6 @@ async function leafTopics(): Promise<TopicChoice[]> {
   return rows
     .map((row) => ({ ...row, path: paths.get(row.slug) ?? row.name }))
     .sort((a, b) => a.path.localeCompare(b.path))
-}
-
-/**
- * A page's words, at the precision they are actually compared at.
- *
- * pdf.js hands back transformed floats, so a line's box serializes as
- * `[56.79999999999995, 712.3200000000002, …]`: four numbers of eighteen
- * characters, on up to 4000 lines a page, all of it crossing the wire in the
- * RSC payload. `textInside` only asks which side of a dragged box the centre of
- * a line falls on, in whole page pixels, and the drag it compares against comes
- * from a fingertip. Everything past the decimal point is payload and nothing
- * else.
- */
-function roundLines(lines: TextLine[] | null): TextLine[] {
-  return (lines ?? []).map((line) => {
-    const bbox: BBox = [
-      Math.round(line.bbox[0]),
-      Math.round(line.bbox[1]),
-      Math.round(line.bbox[2]),
-      Math.round(line.bbox[3]),
-    ]
-    return { text: line.text, bbox }
-  })
 }
 
 export default async function ReviewPage({
@@ -145,18 +121,23 @@ export default async function ReviewPage({
     .innerJoin(questions, eq(questionTopics.questionId, questions.id))
     .where(eq(questions.worksheetId, id))
 
-  // Every page's lines go down, not just the ones on the page showing. Paging
-  // is client state with no round trip behind it, and the drag that adds a
-  // missed question reads the lines under the box on whichever page that is, so
-  // cutting the other pages' lines would leave the drag silently reading
-  // nothing on page two onwards. `roundLines` is what pays for carrying them.
-  const pages: EditablePage[] = pageRows.map((page) => ({
+  // Only the page that opens first carries its lines down; the rest fetch
+  // theirs from /api/worksheets/[id]/pages/[pageId]/lines when the reader
+  // actually turns to them (ReviewClient). Paging used to be client state
+  // with no round trip behind it specifically so the drag that adds a missed
+  // question would always find lines under the box wherever the reader was,
+  // which is why every page's lines went down regardless of which one was
+  // showing - on a 75-page upload with up to 4000 lines a page, all of it,
+  // every time this screen rendered. The drag now waits on its own page's
+  // fetch (PageCanvas's `linesReady`) rather than assuming the lines already
+  // arrived, so it can afford to ask for them only when they are needed.
+  const pages: EditablePage[] = pageRows.map((page, index) => ({
     id: page.id,
     pageNumber: page.pageNumber,
     imageSrc: `/api/files/${page.imageKey}`,
     width: page.width ?? 1000,
     height: page.height ?? 1400,
-    textLines: roundLines(page.textLines),
+    textLines: index === 0 ? roundLines(page.textLines) : [],
   }))
 
   // Grouped once. Scanning both flat lists per question was two linear passes

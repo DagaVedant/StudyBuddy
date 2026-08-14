@@ -50,6 +50,7 @@ export function textInside(lines: TextLine[], box: BBox): string {
  */
 export default function PageCanvas({
   page,
+  linesReady,
   pageNumber,
   pageCount,
   worksheetTitle,
@@ -60,6 +61,15 @@ export default function PageCanvas({
   onSelect,
 }: {
   page: EditablePage
+  /**
+   * Whether `page.textLines` is this page's real lines rather than the empty
+   * array a page waiting on its own fetch starts with (ReviewClient, which
+   * only ships page one's lines up front). Gates the drag rather than
+   * letting it run against an empty array: reading nothing under a
+   * genuine box would look identical to a page with nothing printed on it,
+   * and the reader dragging it would have no way to tell the two apart.
+   */
+  linesReady: boolean
   pageNumber: number
   pageCount: number
   worksheetTitle: string
@@ -148,6 +158,11 @@ export default function PageCanvas({
           // Off a mouse this is a scroll or a pinch until the student has said
           // otherwise, and the browser is already treating it as one.
           if (event.pointerType !== 'mouse' && !drawing) return
+          // This page's lines have not arrived yet (page-canvas.tsx's own
+          // note on `linesReady`). No box at all, rather than one that reads
+          // as empty either because nothing is there or because the fetch
+          // has not landed - the reader has no way to tell those apart.
+          if (!linesReady) return
           event.currentTarget.setPointerCapture(event.pointerId)
           const point = toPageCoords(event)
           dragStart.current = point
@@ -219,8 +234,10 @@ export default function PageCanvas({
         )}
       </div>
 
-      <p className="hint any-pointer-coarse:hidden">
-        Missed one? Drag a box around it on the page.
+      <p className="hint any-pointer-coarse:hidden" role={linesReady ? undefined : 'status'}>
+        {linesReady
+          ? 'Missed one? Drag a box around it on the page.'
+          : 'Loading this page’s text…'}
       </p>
 
       {/* Only where there is a touch screen to gate. `any-pointer-coarse`
@@ -243,7 +260,8 @@ export default function PageCanvas({
         <button
           type="button"
           aria-pressed={drawing}
-          className="shrink-0 rounded-xl border border-border bg-surface px-3 py-1.5 text-sm shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          disabled={!linesReady}
+          className="shrink-0 rounded-xl border border-border bg-surface px-3 py-1.5 text-sm shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
           onClick={() => {
             setDrawing((on) => !on)
             endDrag()
@@ -252,9 +270,11 @@ export default function PageCanvas({
           {drawing ? 'Cancel' : 'Draw a Box'}
         </button>
         <span className="text-sm text-muted">
-          {drawing
-            ? 'Drag around the question you want to add.'
-            : 'Missed one? Draw a box around it.'}
+          {!linesReady
+            ? 'Loading this page’s text…'
+            : drawing
+              ? 'Drag around the question you want to add.'
+              : 'Missed one? Draw a box around it.'}
         </span>
       </div>
     </section>
