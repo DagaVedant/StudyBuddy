@@ -6,11 +6,11 @@ import { registerAndSignIn, visible } from './support/helpers'
  * The topic page, with and without a lesson on it.
  *
  * This page is the only place on the site that shows a reader prose a model
- * wrote, and the lesson section is wrapped in a truthiness check, so a topic
- * with no lesson renders a page that looks entirely finished and is missing
- * the whole feature. That failure is silent by construction, which is what
- * these tests are for: one proves the lesson reaches the reader, another pins
- * down what a topic without one is supposed to look like.
+ * wrote. A topic with no lesson yet shows a "Generate lesson overview"
+ * button instead of the lesson content, rather than the section vanishing
+ * outright, so there is always something inviting the student to ask for
+ * one. One test proves the lesson reaches the reader, the other pins down
+ * what a topic without one is supposed to look like.
  */
 
 const TAUGHT = 'sat-math.algebra.linear-equations-in-one-variable'
@@ -109,10 +109,42 @@ test('a topic nobody has written a lesson for still renders', async ({ page }) =
   ).toBeVisible()
   await expect(visible(page).getByRole('heading', { name: 'Accuracy' })).toBeVisible()
 
-  // The teaching section is absent rather than empty, and nothing claims a
-  // model wrote something when none did.
-  await expect(visible(page).getByRole('heading', { name: 'How this works' })).toHaveCount(0)
+  // The teaching section is present but empty of any lesson content: an
+  // invitation to generate one rather than a claim that a model wrote
+  // something when none did.
+  await expect(visible(page).getByRole('heading', { name: 'How this works' })).toBeVisible()
+  await expect(
+    visible(page).getByText('Nobody has written an explanation for this topic yet.'),
+  ).toBeVisible()
+  await expect(
+    visible(page).getByRole('button', { name: 'Generate lesson overview' }),
+  ).toBeVisible()
   await expect(visible(page).getByText(/not by a teacher/)).toHaveCount(0)
+})
+
+test('generating a lesson overview on demand writes and shows one', async ({ page }) => {
+  await registerAndSignIn(page)
+
+  // Same unseeded topic as above: nothing has written a lesson for it yet,
+  // so the only way a lesson appears is the button actually doing its job.
+  await page.goto(`/topics/${await topicId(page, UNTAUGHT)}`)
+
+  await visible(page)
+    .getByRole('button', { name: 'Generate lesson overview' })
+    .click()
+
+  // Mock AI answers fast, but this still crosses a real request and a real
+  // `router.refresh()`, so the disclaimer line is the thing to wait on: it
+  // only ever prints once a lesson row exists.
+  await expect(visible(page).getByText(/not by a teacher/)).toBeVisible()
+  await expect(
+    visible(page).getByRole('button', { name: 'Generate lesson overview' }),
+  ).toHaveCount(0)
+
+  // Reloading proves the lesson was actually persisted, not just held in
+  // client state from the POST response.
+  await page.reload()
+  await expect(visible(page).getByText(/not by a teacher/)).toBeVisible()
 })
 
 test('the accuracy panel and the revisit list stand alone', async ({ page }) => {

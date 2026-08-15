@@ -15,28 +15,15 @@ import {
   topics,
   worksheets,
 } from '@/lib/db/schema'
-import { reflowText } from '@/lib/questions/reflow'
 import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { pathBySlug } from '@/lib/taxonomy/trees'
 import { getLesson } from '@/lib/topics/lesson'
 import Prose from '@/components/prose'
+import RevisitQuestion from '@/components/revisit-question'
+import GenerateLessonButton from '@/components/generate-lesson-button'
 
 export const metadata = { title: 'Topic · StudyBuddy' }
 export const dynamic = 'force-dynamic'
-
-const WHEN = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
-
-const OUTCOME_STYLE: Record<string, string> = {
-  wrong: 'border-danger text-danger',
-  unsure: 'border-caution text-caution',
-  correct: 'border-success text-success',
-}
-
-const OUTCOME_LABEL: Record<string, string> = {
-  wrong: 'Missed',
-  unsure: 'Unsure',
-  correct: 'Got it',
-}
 
 export default async function TopicPage({
   params,
@@ -177,6 +164,20 @@ export default async function TopicPage({
         )}
       </section>
 
+      {!lesson && (
+        <section aria-labelledby="lesson-heading" className="card mt-6 p-4">
+          <h2 id="lesson-heading" className="text-sm font-medium">
+            How this works
+          </h2>
+          <p className="hint mt-1 text-pretty">
+            Nobody has written an explanation for this topic yet.
+          </p>
+          <div className="mt-3">
+            <GenerateLessonButton topicId={topicId} />
+          </div>
+        </section>
+      )}
+
       {lesson && (
         <section aria-labelledby="lesson-heading" className="card mt-6 p-4">
           <h2 id="lesson-heading" className="text-sm font-medium">
@@ -261,44 +262,16 @@ export default async function TopicPage({
               )
 
               return (
-                <li
+                <RevisitQuestion
                   key={`${row.questionId}-${index}`}
-                  className="card p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="min-w-0 flex-1 whitespace-pre-line text-sm">
-                      {reflowText(row.promptText)}
-                    </p>
-                    <span
-                      className={`shrink-0 rounded-full border px-2 py-0.5 text-xs ${
-                        OUTCOME_STYLE[row.outcome] ?? 'border-border text-muted'
-                      }`}
-                    >
-                      {OUTCOME_LABEL[row.outcome] ?? row.outcome}
-                    </span>
-                  </div>
-
-                  {(chosen || row.freeText) && (
-                    <p className="mt-2 text-xs text-muted">
-                      You put{' '}
-                      <span className="text-danger">
-                        {chosen ? `${chosen.label}. ${chosen.text}` : row.freeText}
-                      </span>
-                      {correct && (
-                        <>
-                          {' · answer '}
-                          <span className="text-success">
-                            {correct.label}. {correct.text}
-                          </span>
-                        </>
-                      )}
-                    </p>
-                  )}
-
-                  <p className="mt-1 text-xs text-muted">
-                    {row.worksheetTitle} · {WHEN.format(row.answeredAt)}
-                  </p>
-                </li>
+                  promptText={row.promptText}
+                  outcome={row.outcome}
+                  answeredAt={row.answeredAt}
+                  worksheetTitle={row.worksheetTitle}
+                  chosen={chosen}
+                  correct={correct}
+                  freeText={row.freeText}
+                />
               )
             })}
           </ul>
