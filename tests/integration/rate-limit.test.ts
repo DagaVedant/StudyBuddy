@@ -2,8 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { Db } from '@/lib/db/types'
 import {
+  EXPLAIN_LIMIT,
   SIGNIN_EMAIL_LIMIT,
   SIGNIN_IP_LIMIT,
+  SIGNUP_LIMIT,
+  UPLOAD_LIMIT,
   callerIp,
   consumeRateLimit,
   limitKey,
@@ -192,5 +195,65 @@ describe('the sign-in limits', () => {
 
   it('keeps the two rules in separate buckets', () => {
     expect(limitKey(SIGNIN_IP_LIMIT, 'x')).not.toBe(limitKey(SIGNIN_EMAIL_LIMIT, 'x'))
+  })
+})
+
+/**
+ * Finding 114's open half: SIGNUP_LIMIT failed open, so the Sybil defence
+ * switched itself off exactly when the database was unhappy.
+ *
+ * Finding 67 argued fail-open is the right side for a limiter, and it is, for
+ * rules guarding a student's own actions: a limiter that throws does not
+ * throttle a request, it removes the feature. It also wrote down the condition
+ * for revisiting that, and signup meets it. Every account is three worksheets
+ * of real extraction on the operator's GPU, spent before anything is verified.
+ */
+describe('which side a rule fails on', () => {
+  /** A db whose counter statement always throws. */
+  const broken = {
+    execute: async () => {
+      throw new Error('relation "rate_limits" does not exist')
+    },
+  } as unknown as Db
+
+  /** A db whose counter returns nothing, which is the other half of finding 114. */
+  const silent = { execute: async () => [] } as unknown as Db
+
+  it('refuses a signup it cannot count', async () => {
+    const decision = await consumeRateLimit(broken, SIGNUP_LIMIT, 'ip:203.0.113.4')
+
+    expect(decision.ok).toBe(false)
+    expect(decision.reason).toBe('unavailable')
+  })
+
+  it('refuses a signup when the counter comes back empty', async () => {
+    const decision = await consumeRateLimit(silent, SIGNUP_LIMIT, 'ip:203.0.113.4')
+
+    expect(decision.ok).toBe(false)
+    expect(decision.reason).toBe('unavailable')
+  })
+
+  /**
+   * A minute, not the window's hour. The window is how long an allowance lasts;
+   * this is a transient state somebody is already fixing, and telling an honest
+   * new student to come back in an hour for it would be its own dishonesty.
+   */
+  it('asks for a short wait rather than the whole window', async () => {
+    const decision = await consumeRateLimit(broken, SIGNUP_LIMIT, 'ip:203.0.113.4')
+
+    expect(decision.retryAfter).toBeLessThanOrEqual(60)
+  })
+
+  /**
+   * Everything else keeps failing open, and sign-in most of all: locking out
+   * every existing student is the exact outcome that argument exists to
+   * prevent.
+   */
+  it.each([
+    ['sign-in', SIGNIN_IP_LIMIT],
+    ['upload', UPLOAD_LIMIT],
+    ['explain', EXPLAIN_LIMIT],
+  ])('still lets %s through when the counter is broken', async (_name, rule) => {
+    expect((await consumeRateLimit(broken, rule, 'subject')).ok).toBe(true)
   })
 })

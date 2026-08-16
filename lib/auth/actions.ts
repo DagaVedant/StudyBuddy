@@ -57,8 +57,16 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   const attempt = await consumeRateLimit(db, SIGNUP_LIMIT, `ip:${ip}`)
 
   if (!attempt.ok) {
+    // Two different refusals wearing one sentence. `unavailable` means the
+    // counter could not be read, not that this person has been trying: signup
+    // is the one rule that fails closed, so a first-time student meets this
+    // having made no attempts at all, and blaming them for it would be a lie
+    // told to cover a database problem.
     return {
-      error: `Too many sign-up attempts from this connection. Try again in ${waitFor(attempt.retryAfter)}.`,
+      error:
+        attempt.reason === 'unavailable'
+          ? 'Sign-ups are briefly unavailable while we sort something out. Please try again in a minute.'
+          : `Too many sign-up attempts from this connection. Try again in ${waitFor(attempt.retryAfter)}.`,
     }
   }
 
@@ -107,14 +115,28 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     name: name ?? null,
     passwordHash,
     dob: age.dob,
-    // Set on creation because nothing sends mail any more, so there is no
-    // link that could ever set it later. Leaving it null would lock the
-    // account out of sign-in permanently.
-    //
-    // This means a password address is unproven: someone can register one
-    // they do not own. Google is the recommended way in precisely because it
-    // does prove the address, and it is the only path that can.
-    emailVerified: new Date(),
+    /*
+     * Left null, because it is not verified.
+     *
+     * This used to stamp `new Date()` on creation, justified by "leaving it
+     * null would lock the account out of sign-in permanently". That is not
+     * true and can be read in `auth.ts`: `authorize` checks the password hash
+     * and bcrypt, and never looks at this column. Nothing gated sign-in on it,
+     * so the stamp bought nothing and cost the column its meaning.
+     *
+     * What it cost is not abstract. `auth.ts` and `lib/auth/admin.ts` both
+     * record finding the same thing: admin used to require a verified email,
+     * which was true for every credentials account precisely because of this
+     * line, so the check collapsed into "is this address in the list". Two
+     * places had already routed around a column that lied rather than fixing
+     * the line that made it lie.
+     *
+     * Null now means what it says. Google sign-in sets it when Google reports
+     * the address verified (auth.ts:157-166), so non-null is a fact rather
+     * than a formality, and the trial being tied to an unproven address is at
+     * least legible to anything that ever wants to act on it.
+     */
+    emailVerified: null,
   })
 
   return { message: 'Your account is ready. Sign in below.' }

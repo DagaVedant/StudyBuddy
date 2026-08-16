@@ -203,10 +203,13 @@ it. Rather than ship a signup flow that only works for one inbox, the app does
 without.
 
 The consequence: **Google is the only way to prove an address**, so it is the
-recommended way in. A password account is created ready to use and is stamped
-`email_verified` at creation without any proof of ownership, which is worth
-knowing before you read that column and believe it. It also means there is no
-password reset; nothing can send one.
+recommended way in. A password account is created ready to use with
+`email_verified` left null, which is the truth: nothing proved the address. It
+used to be stamped at creation, justified by a claim that null would lock the
+account out of sign-in, which was not so; `authorize` checks the password hash
+and never reads that column. Non-null now means Google reported the address
+verified, so the column can be believed. It also means there is no password
+reset; nothing can send one.
 
 ---
 
@@ -283,15 +286,28 @@ question outright, and at most 30% of a worksheet's pages are re-read, so an
 extraction that is wrong throughout fails fast to the review screen instead of
 taking twice as long to arrive equally wrong.
 
-### Hiding your home IP (spec §3.3.1)
+### Locking the worker credential to an address (spec §3.3.1)
 
-Your worker's outbound requests reveal your home IP to Vercel and the blob
-host, not to users, but it is in their logs. If that matters, route the
-worker's egress through a cheap VPS acting as a Tailscale exit node, then set
-`WORKER_ALLOWED_IPS` to that VPS's address so a stolen token is useless from
-anywhere else.
+`WORKER_ALLOWED_IPS` is required. It is the second half of the worker gate:
+`WORKER_API_TOKEN` proves *what* is calling, and this proves *from where*, so a
+leaked token is useless from anywhere else.
 
-Skip this for now. It matters when you have real users, not before.
+Two honest options, and you have to pick one:
+
+- **`WORKER_ALLOWED_IPS="*"`** allows any address. The token is then the only
+  gate, which is where this started. Fine while the token has never left your
+  machine; it is a decision rather than a default now, which is the whole point.
+- **A comma-separated list** of the addresses the worker calls from. If your
+  home address is dynamic, route the worker's egress through a cheap VPS acting
+  as a Tailscale exit node and list the VPS.
+
+This used to say "skip this for now", with the variable shipping empty and empty
+meaning no restriction. So the ordinary outcome was a defence that was never on,
+and the audit was right to call that a defect rather than a setting.
+
+Egress itself is separate and covered by `deploy/worker/`, which containerises
+the worker and denies it everything but this app, Ollama and DNS. That is
+optional; this variable is not.
 
 ---
 

@@ -1,0 +1,20 @@
+# Runs the worker with its egress bounded. See README.md, including the note
+# that this has not been run on a real machine.
+services:
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/worker/Dockerfile
+    env_file: .env
+    # The one capability the entrypoint needs, to install its own egress rules.
+    # Everything else is dropped: the worker reads pages and posts JSON.
+    cap_drop: ["ALL"]
+    cap_add: ["NET_ADMIN"]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    # Ollama runs on the host, not in here: it wants the GPU, and putting a
+    # model server behind this container's egress rules would mean allowing the
+    # very outbound access the rules exist to remove.
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    restart: unless-stopped

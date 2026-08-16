@@ -24,7 +24,10 @@ const original = { ...process.env }
 
 beforeEach(() => {
   process.env.WORKER_API_TOKEN = TOKEN
-  delete process.env.WORKER_ALLOWED_IPS
+  // Explicitly open, because unset is now a refusal. These cases are about the
+  // token, and leaving the allowlist unconfigured would fail them for a reason
+  // they are not testing.
+  process.env.WORKER_ALLOWED_IPS = '*'
 })
 
 afterEach(() => {
@@ -186,9 +189,43 @@ describe('authenticateWorker', () => {
     })
   })
 
-  it('applies no address check when the list is empty', () => {
+  /**
+   * Finding 113. This used to read "applies no address check when the list is
+   * empty", and that was the defect: the allowlist degraded to no restriction
+   * exactly when nobody had configured it, which is the state every deployment
+   * starts in. `.env.example` shipped it empty and SETUP.md said to skip it, so
+   * the ordinary outcome was a defence that was never on and a leaked token
+   * that worked from anywhere.
+   */
+  it('refuses a valid token when the allowlist was never configured', () => {
     process.env.WORKER_ALLOWED_IPS = '   '
 
+    const result = authenticateWorker(request({ authorization: `Bearer ${TOKEN}` }))
+
+    expect(result.ok).toBe(false)
+    expect(result).toMatchObject({ status: 403 })
+  })
+
+  it('refuses when the variable is absent entirely', () => {
+    delete process.env.WORKER_ALLOWED_IPS
+
+    expect(authenticateWorker(request({ authorization: `Bearer ${TOKEN}` })).ok).toBe(false)
+  })
+
+  /**
+   * Switching the depth off is still allowed; it is now a thing somebody chose
+   * and can be read out of the environment, rather than the default nobody
+   * noticed.
+   */
+  it('allows any address when explicitly told to', () => {
+    process.env.WORKER_ALLOWED_IPS = '*'
+
     expect(authenticateWorker(request({ authorization: `Bearer ${TOKEN}` })).ok).toBe(true)
+  })
+
+  it('still checks the token when the allowlist is open', () => {
+    process.env.WORKER_ALLOWED_IPS = '*'
+
+    expect(authenticateWorker(request({ authorization: 'Bearer wrong' })).ok).toBe(false)
   })
 })
