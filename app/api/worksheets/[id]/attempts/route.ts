@@ -10,6 +10,7 @@ import {
   reviewCards,
   reviewLogs,
 } from '@/lib/db/schema'
+import { correctMarkupAttempt } from '@/lib/review/correct-mark'
 import { scheduleFromOutcome, type StoredCard } from '@/lib/review/fsrs'
 import { guardWorksheet } from '@/lib/upload/guard'
 
@@ -28,6 +29,50 @@ const markSchema = z.object({
     .min(1)
     .max(500),
 })
+
+const correctionSchema = z.object({
+  questionId: z.string().min(1),
+  outcome: z.enum(['correct', 'unsure', 'wrong']),
+  selectedChoiceId: z.string().min(1).nullish(),
+  freeTextAnswer: z.string().trim().max(2000).nullish(),
+})
+
+/**
+ * Change one question's recorded outcome, for the tap that went astray.
+ *
+ * The work is in `correctMarkupAttempt`, extracted so it could be tested: the
+ * interesting behaviour is what a correction does to the review card, and that
+ * is not reachable through a handler without standing up a session.
+ */
+export async function PATCH(request: Request, { params }: Params) {
+  const { id: worksheetId } = await params
+
+  const guard = await guardWorksheet(worksheetId)
+  if (!guard.ok) {
+    return NextResponse.json({ error: 'Not found' }, { status: guard.status })
+  }
+
+  const parsed = correctionSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
+
+  const result = await correctMarkupAttempt(db, guard.userId, worksheetId, parsed.data)
+
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        error:
+          result.reason === 'not-marked'
+            ? 'This question has not been marked yet'
+            : 'No matching question',
+      },
+      { status: 404 },
+    )
+  }
+
+  return NextResponse.json({ ok: true, outcome: result.outcome })
+}
 
 export async function POST(request: Request, { params }: Params) {
   const { id: worksheetId } = await params

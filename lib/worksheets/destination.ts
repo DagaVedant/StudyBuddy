@@ -42,10 +42,15 @@ export function destination(
     case 'failed':
       return { href: `/worksheets/${id}/status`, cta: 'See what happened' }
     default:
-      // Marking happens once per paper, so a marked worksheet stops offering
-      // it and points at what comes next instead.
+      // Both to the worksheet's own screen, which shows the marking flow or
+      // what was recorded depending on whether it has been marked. A marked
+      // worksheet used to send its card to `/review`, the global practice
+      // queue, which is a different set of questions from this paper and is
+      // already a top-level nav item. It also left the correction screen with
+      // no way in: marking is one tap per question by design, so a mis-tap is
+      // ordinary, and the place to fix it is the paper it happened on.
       return worksheet.markedCount > 0
-        ? { href: '/review', cta: 'Practice' }
+        ? { href: `/worksheets/${id}/markup`, cta: 'See your marks' }
         : { href: `/worksheets/${id}/markup`, cta: 'Mark answers' }
   }
 }

@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 import { CHOICE_ORDER } from '@/lib/questions/choice-order'
 import { answerChoices, attempts, questions, worksheets } from '@/lib/db/schema'
 
+import CorrectionsClient, { type MarkedQuestion } from './corrections-client'
 import MarkupClient, { type MarkableQuestion } from './markup-client'
 
 export const metadata = { title: 'Mark Your Answers · StudyBuddy' }
@@ -35,8 +36,12 @@ export default async function MarkupPage({
   // second attempt per question, which moves the review schedule on answers
   // the student never actually gave. Every link into this page is dropped once
   // the marks exist; this is the guard behind them.
-  const [marked] = await db
-    .select({ id: attempts.id })
+  const marks = await db
+    .select({
+      questionId: attempts.questionId,
+      outcome: attempts.outcome,
+      selectedChoiceId: attempts.selectedChoiceId,
+    })
     .from(attempts)
     .innerJoin(questions, eq(questions.id, attempts.questionId))
     .where(
@@ -46,19 +51,83 @@ export default async function MarkupPage({
         eq(attempts.source, 'markup'),
       ),
     )
-    .limit(1)
 
-  if (marked) {
+  /*
+   * Marked already, so this shows what was recorded and lets one row be
+   * changed. It used to be a dead end reading "that is all it needs".
+   *
+   * The guard above is still doing its job: what is refused is re-running the
+   * flow, not correcting a row. A student flying through forty questions at one
+   * tap each will occasionally tap the wrong one, and that tap fed the FSRS
+   * schedule, the topic accuracy, the weakness ranking and the Blooket export
+   * with no way back. A question mis-marked `correct` left the practice queue
+   * permanently, and the only recourse was deleting the worksheet and uploading
+   * it again, at the cost of a trial credit.
+   */
+  if (marks.length > 0) {
+    const markByQuestion = new Map(marks.map((mark) => [mark.questionId, mark]))
+
+    const markedRows = await db
+      .select({
+        id: questions.id,
+        ordinal: questions.ordinal,
+        promptText: questions.promptText,
+      })
+      .from(questions)
+      .where(eq(questions.worksheetId, id))
+      .orderBy(asc(questions.ordinal))
+
+    const markedChoices = await db
+      .select({
+        id: answerChoices.id,
+        questionId: answerChoices.questionId,
+        label: answerChoices.label,
+        text: answerChoices.text,
+      })
+      .from(answerChoices)
+      .innerJoin(questions, eq(answerChoices.questionId, questions.id))
+      .where(eq(questions.worksheetId, id))
+      .orderBy(...CHOICE_ORDER)
+
+    const corrections: MarkedQuestion[] = markedRows
+      .filter((question) => markByQuestion.has(question.id))
+      .map((question) => {
+        const mark = markByQuestion.get(question.id)!
+
+        return {
+          id: question.id,
+          ordinal: question.ordinal,
+          promptText: question.promptText,
+          outcome: mark.outcome as MarkedQuestion['outcome'],
+          selectedChoiceId: mark.selectedChoiceId,
+          choices: markedChoices
+            .filter((choice) => choice.questionId === question.id)
+            .map(({ id: choiceId, label, text }) => ({ id: choiceId, label, text })),
+        }
+      })
+
     return (
       <main className="mx-auto w-full max-w-2xl px-6 py-10">
+        <nav aria-label="Breadcrumb" className="mb-4 text-sm">
+          <Link
+            href="/dashboard"
+            className="text-muted underline underline-offset-2 hover:text-fg"
+          >
+            Dashboard
+          </Link>
+        </nav>
+
         <h1 className="text-balance text-2xl font-semibold tracking-tight">
-          Already Marked
+          What You Recorded
         </h1>
-        <p className="hint text-pretty">
-          You marked {worksheet.title} once, and that is all it needs. The ones
-          you missed are in your practice queue now.
+        <p className="hint mb-8 text-pretty">
+          {worksheet.title}. The ones you missed are in your practice queue. If a
+          tap went astray, change it here: each question saves on its own.
         </p>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+
+        <CorrectionsClient worksheetId={id} questions={corrections} />
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Link href="/review" className="btn btn-primary sm:w-auto sm:px-6">
             Practice
           </Link>

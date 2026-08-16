@@ -63,11 +63,22 @@ describe('destination', () => {
     expect(cta).toBe('Mark answers')
   })
 
-  it('moves on to practice once it has been marked, since marking happens once', () => {
+  /**
+   * Still the worksheet's own screen once marked, where it used to be the
+   * global practice queue. That queue is a different set of questions from this
+   * paper and already has a nav item; sending a card there also left the
+   * per-question correction with no route into it at all.
+   */
+  it('keeps a marked worksheet pointed at its own marks', () => {
     const { href, cta } = destination('w1', extracted('ready', 40))
 
-    expect(href).toBe('/review')
-    expect(cta).toBe('Practice')
+    expect(href).toBe('/worksheets/w1/markup')
+    expect(cta).toBe('See your marks')
+  })
+
+  it('says which of the two the markup screen will show', () => {
+    expect(destination('w1', extracted('ready', 0)).cta).toBe('Mark answers')
+    expect(destination('w1', extracted('ready', 40)).cta).toBe('See your marks')
   })
 
   it('treats a status it has never heard of as finished rather than as broken', () => {

@@ -159,3 +159,50 @@ test('an unknown topic falls back to the whole queue rather than an empty screen
   await expect(visible(page).getByRole('heading', { name: 'Review', exact: true })).toBeVisible()
   await expect(visible(page).getByText('Only questions filed under this topic')).toHaveCount(0)
 })
+
+/**
+ * §2.1, the highest-value finding in the product audit. Marking is one tap per
+ * question by design, so a mis-tap is ordinary, and there was no un-mark,
+ * re-mark, edit or reset anywhere in the app: this screen said "Already Marked"
+ * and offered two links away from itself. The only recourse was deleting the
+ * worksheet and uploading it again, at the cost of a trial credit.
+ */
+test('a mis-tapped mark can be corrected on the worksheet it happened on', async () => {
+  await page.goto(`/worksheets/${worksheetId}/markup`)
+
+  await expect(
+    visible(page).getByRole('heading', { name: 'What You Recorded' }),
+  ).toBeVisible()
+
+  // The outcome recorded earlier in this file, shown as the pressed one. The
+  // screen is useless if it does not first say what it currently thinks.
+  const missed = visible(page).getByRole('button', { name: 'Missed it' })
+  await expect(missed).toHaveAttribute('aria-pressed', 'true')
+
+  await visible(page).getByRole('button', { name: 'Got it' }).click()
+
+  await expect(visible(page).getByText('Saved.')).toBeVisible()
+  await expect(
+    visible(page).getByRole('button', { name: 'Got it' }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  await expect(missed).toHaveAttribute('aria-pressed', 'false')
+
+  // And it is the record that changed, not just the buttons.
+  await page.reload()
+  await expect(
+    visible(page).getByRole('button', { name: 'Got it' }),
+  ).toHaveAttribute('aria-pressed', 'true')
+})
+
+/**
+ * The route in. `destination()` used to send a marked worksheet's card to the
+ * global practice queue, which left this screen reachable only by typing the
+ * URL.
+ */
+test('a marked worksheet offers its marks from the library', async () => {
+  await page.goto('/worksheets')
+
+  await expect(
+    visible(page).getByRole('link', { name: 'See your marks' }).first(),
+  ).toBeVisible()
+})
