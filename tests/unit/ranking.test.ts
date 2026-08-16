@@ -9,6 +9,7 @@ import {
   wilsonLowerBound,
   type TopicStats,
 } from '@/lib/dashboard/ranking'
+import { buildTopicTree, pruneToAttempted } from '@/lib/dashboard/topic-tree'
 
 function stats(partial: Partial<TopicStats> & { topicId: string }): TopicStats {
   return {
@@ -134,5 +135,82 @@ describe('rollUp', () => {
     expect(geo.wrong).toBe(4)
     expect(geo.attempts).toBe(10)
     expect(rolled).toHaveLength(2)
+  })
+})
+
+describe('buildTopicTree', () => {
+  const TRIANGLES = 'high-school-math.geometry.triangles.triangle-angle-sum'
+
+  function subject(tree: ReturnType<typeof buildTopicTree>, slug: string) {
+    const walk = (nodes: ReturnType<typeof buildTopicTree>): unknown => {
+      for (const node of nodes) {
+        if (node.slug === slug) return node
+        const found = walk(node.children)
+        if (found) return found
+      }
+      return null
+    }
+    return walk(tree) as ReturnType<typeof buildTopicTree>[number] | null
+  }
+
+  /**
+   * spec.md:404's ask, and the reason the dashboard's old panel could only ever
+   * render one level: attempts attach to the leaf a question is filed under, so
+   * a parent's number has to be summed from its descendants or it is zero.
+   */
+  it('rolls a leaf’s attempts up through every ancestor', () => {
+    const tree = buildTopicTree([
+      stats({ topicId: 'x', topicPath: TRIANGLES, correct: 3, wrong: 1 }),
+    ])
+
+    for (const slug of [
+      'high-school-math',
+      'high-school-math.geometry',
+      'high-school-math.geometry.triangles',
+      TRIANGLES,
+    ]) {
+      expect(subject(tree, slug)).toMatchObject({ attempts: 4, correct: 3, wrong: 1 })
+    }
+  })
+
+  it('counts unsure as correct, since the answer was right', () => {
+    const tree = buildTopicTree([
+      stats({ topicId: 'x', topicPath: TRIANGLES, correct: 1, unsure: 1, wrong: 2 }),
+    ])
+
+    expect(subject(tree, TRIANGLES)?.accuracy).toBe(0.5)
+  })
+
+  /** Never green, never red: spec.md:404 asks for an explicit neutral state. */
+  it('leaves accuracy null and ranked false for a topic never attempted', () => {
+    const tree = buildTopicTree([])
+
+    expect(subject(tree, TRIANGLES)).toMatchObject({
+      attempts: 0,
+      accuracy: null,
+      ranked: false,
+    })
+  })
+
+  it('keeps every topic, so the index can show what has not been started', () => {
+    const tree = buildTopicTree([])
+
+    // The whole taxonomy, not just the parts with data.
+    expect(tree.length).toBeGreaterThan(0)
+    expect(subject(tree, TRIANGLES)).not.toBeNull()
+  })
+
+  it('prunes to the attempted branches for the dashboard panel', () => {
+    const tree = pruneToAttempted(
+      buildTopicTree([
+        stats({ topicId: 'x', topicPath: TRIANGLES, correct: 1, wrong: 1 }),
+      ]),
+    )
+
+    // One subject, one branch down to the one topic with anything in it.
+    expect(tree).toHaveLength(1)
+    expect(tree[0].slug).toBe('high-school-math')
+    expect(subject(tree, 'high-school-math.algebra-1')).toBeNull()
+    expect(subject(tree, TRIANGLES)).not.toBeNull()
   })
 })

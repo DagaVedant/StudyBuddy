@@ -8,6 +8,7 @@ import AiSetupPrompt from '@/components/ai-setup-prompt'
 import { AccuracyLabel, Meter } from '@/components/meter'
 import { countMissedQuestions } from '@/lib/blooket/missed'
 import { db } from '@/lib/db'
+import TopicTree from '@/components/topic-tree'
 import TrendArrow from '@/components/trend-arrow'
 import {
   getAccuracyTrend,
@@ -23,10 +24,11 @@ import {
   MIN_ATTEMPTS,
   rankFragile,
   rankWeaknesses,
-  rollUp,
   summarize,
 } from '@/lib/dashboard/ranking'
-import { nameBySlug, pathBySlug } from '@/lib/taxonomy/trees'
+import { buildTopicTree, pruneToAttempted } from '@/lib/dashboard/topic-tree'
+import { topics } from '@/lib/db/schema'
+import { pathBySlug } from '@/lib/taxonomy/trees'
 import { destination } from '@/lib/worksheets/destination'
 
 import AccuracyChart from './accuracy-chart'
@@ -90,6 +92,7 @@ export default async function DashboardPage() {
     missed,
     streak,
     aiStatus,
+    topicRows,
   ] = await Promise.all([
     getOverview(db, userId),
     getTopicStats(db, userId),
@@ -101,10 +104,10 @@ export default async function DashboardPage() {
     countMissedQuestions(db, userId),
     getStudyStreak(db, userId),
     getAiStatus(db, userId),
+    db.select({ id: topics.id, slug: topics.slug }).from(topics),
   ])
 
   const paths = pathBySlug()
-  const names = nameBySlug()
 
   const stats = rawStats.map((topic) => ({
     ...topic,
@@ -116,11 +119,10 @@ export default async function DashboardPage() {
     .filter((topic) => topic.unsureRate >= 0.25)
     .slice(0, 5)
 
-  const bySubject = rollUp(
-    stats,
-    (topic) => topic.subjectRoot,
-    (topic) => names.get(topic.subjectRoot) ?? topic.subjectRoot,
-  )
+  // Built from `rawStats`, not `stats`: the tree keys on the slug, and `stats`
+  // has already replaced `topicPath` with the display path for the ranked list.
+  const subjectTree = pruneToAttempted(buildTopicTree(rawStats))
+  const topicIdBySlug = new Map(topicRows.map((row) => [row.slug, row.id]))
 
   const thin = stats.map(summarize).filter((topic) => !topic.ranked).length
   const weekTotals = trend.map((p) => p.correct + p.unsure + p.wrong)
@@ -289,34 +291,37 @@ export default async function DashboardPage() {
             </Panel>
           </div>
 
+          {/*
+            spec.md:404 asks this panel for an expandable tree, `Math →
+            Geometry → Triangles → Angle Relationships`, with accuracy rolled up
+            from children at every level. It was one `rollUp` over
+            `subjectRoot`, so only the top level ever rendered and the three
+            levels between a subject and a topic were unreachable from here.
+
+            Pruned to what has been attempted, unlike /topics. This panel is
+            answering "how am I doing", and 341 topics a student has never seen
+            answers nothing; the index next door is where the untouched ones are
+            the point.
+          */}
           <Panel
             title="By subject"
-            hint="Rolled up from every question you have marked."
+            hint="Rolled up from every question you have marked. Open a row to go deeper."
           >
-            {bySubject.length === 0 ? (
+            {subjectTree.length === 0 ? (
               <Empty>No subjects yet.</Empty>
             ) : (
-              <ul className="space-y-3">
-                {bySubject.map((subject) => (
-                  <li key={subject.topicId}>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="truncate text-sm">{subject.topicName}</span>
-                      <span className="shrink-0 text-sm tabular-nums text-muted">
-                        {subject.ranked
-                          ? PERCENT.format(subject.accuracy)
-                          : 'Not enough data'}
-                      </span>
-                    </div>
-                    <div className="mt-1.5">
-                      <Meter
-                        accuracy={subject.accuracy}
-                        ranked={subject.ranked}
-                        label={subject.topicName}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <TopicTree nodes={subjectTree} idBySlug={topicIdBySlug} />
+                <p className="hint">
+                  <Link
+                    href="/topics"
+                    className="text-accent underline underline-offset-2"
+                  >
+                    Browse every topic
+                  </Link>
+                  , including the ones you have not started.
+                </p>
+              </>
             )}
           </Panel>
 

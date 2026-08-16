@@ -143,3 +143,42 @@ test('cancelling a rename leaves the title alone', async ({ page }) => {
   await expect(card(page, 'Keep This Name')).toBeVisible()
   await expect(card(page, 'Discarded')).toHaveCount(0)
 })
+
+/**
+ * §3.2. There are 341 topics and a student could reach one in exactly two ways:
+ * by being ranked weak at it on the dashboard, or by following a link from a
+ * question. No index, no browse, no search. That also left the lesson feature
+ * mostly unreachable, since it lives on a topic page.
+ */
+test('every topic can be browsed, including the ones never started', async ({ page }) => {
+  await registerAndSignIn(page)
+
+  // From the nav, which is the slot Profile used to hold. Unscoped, because
+  // `visible()` scopes to #main and the nav lives in the banner.
+  await page.goto('/dashboard')
+  await page.getByRole('link', { name: 'Topics', exact: true }).click()
+
+  await expect(visible(page).getByRole('heading', { name: 'Topics' })).toBeVisible()
+
+  // Subjects open on arrival, their children folded away.
+  const geometry = visible(page).getByText('Geometry', { exact: true }).first()
+  await expect(geometry).toBeVisible()
+
+  // A topic with nothing recorded reads as neutral rather than as zero percent,
+  // which would be a score the student never earned.
+  await expect(visible(page).getByText('Not started').first()).toBeVisible()
+})
+
+test('profile is reachable from settings rather than the nav', async ({ page }) => {
+  await registerAndSignIn(page)
+  await page.goto('/dashboard')
+
+  // The slot it used to occupy on a 375px strip. Unscoped for the same reason:
+  // this is asserting the absence of a nav item, and the nav is not in #main.
+  await expect(page.getByRole('link', { name: 'Profile', exact: true })).toHaveCount(0)
+
+  await page.goto('/settings')
+  await visible(page).getByRole('link', { name: 'Open your profile' }).click()
+
+  await expect(page).toHaveURL(/\/profile/)
+})

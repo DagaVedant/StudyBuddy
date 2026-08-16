@@ -3,11 +3,26 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
+/*
+ * Five slots became five again, with Topics in place of Profile.
+ *
+ * Profile and Settings were two top-level slots for one account area, and the
+ * less important of them was listed first: Profile holds a display name, a
+ * username and an avatar, while Settings holds the AI provider setup, the trial
+ * state and account deletion. On mobile these live in a horizontally scrolling
+ * strip, so each one costs real estate on the screen size spec.md:343 calls
+ * primary. Profile is now reached from Settings, which is where somebody
+ * looking for their account already is.
+ *
+ * The slot went to Topics rather than being left empty. 341 topics had no route
+ * in at all except being ranked weak at one, which meant the only way to browse
+ * the taxonomy was to fail at part of it.
+ */
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/worksheets', label: 'Worksheets' },
   { href: '/review', label: 'Review' },
-  { href: '/profile', label: 'Profile' },
+  { href: '/topics', label: 'Topics' },
   { href: '/settings', label: 'Settings' },
 ]
 
