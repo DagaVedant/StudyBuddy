@@ -17,9 +17,20 @@ import {
 } from '@/lib/db/schema'
 import { pathBySlug } from '@/lib/taxonomy/trees'
 
-import ReviewClient, { type EditablePage, type EditableQuestion } from './review-client'
+import EditClient, { type EditablePage, type EditableQuestion } from './edit-client'
 
-export const metadata = { title: 'Review Questions · StudyBuddy' }
+/*
+ * "Edit", not "Review". Three screens used to share two words: this one and
+ * /worksheets/[id]/verify were both about the extraction, and /review is the
+ * spaced-repetition queue the nav teaches. So the nav said Review, the
+ * worksheet card said "Check questions", and an upload landed on a URL ending
+ * /review that was not the Review in the nav.
+ *
+ * "Review" now means practice and nothing else. This screen edits what came off
+ * the page, and the one next door checks it, which is what each was already
+ * called in its own heading.
+ */
+export const metadata = { title: 'Edit Questions · StudyBuddy' }
 
 async function leafTopics(): Promise<TopicChoice[]> {
   const paths = pathBySlug()
@@ -34,7 +45,7 @@ async function leafTopics(): Promise<TopicChoice[]> {
     .sort((a, b) => a.path.localeCompare(b.path))
 }
 
-export default async function ReviewPage({
+export default async function EditPage({
   params,
 }: {
   params: Promise<{ id: string }>
@@ -123,7 +134,7 @@ export default async function ReviewPage({
 
   // Only the page that opens first carries its lines down; the rest fetch
   // theirs from /api/worksheets/[id]/pages/[pageId]/lines when the reader
-  // actually turns to them (ReviewClient). Paging used to be client state
+  // actually turns to them (EditClient). Paging used to be client state
   // with no round trip behind it specifically so the drag that adds a missed
   // question would always find lines under the box wherever the reader was,
   // which is why every page's lines went down regardless of which one was
@@ -184,7 +195,7 @@ export default async function ReviewPage({
       </nav>
 
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        {initialQuestions.length > 0 ? 'Check What We Found' : 'Add Your Questions'}
+        {initialQuestions.length > 0 ? 'Edit What We Found' : 'Add Your Questions'}
       </h1>
       <p className="hint mb-6 text-pretty">
         {initialQuestions.length > 0
@@ -208,7 +219,7 @@ export default async function ReviewPage({
         </p>
       )}
 
-      <ReviewClient
+      <EditClient
         worksheetId={id}
         worksheetTitle={worksheet.title}
         pages={pages}

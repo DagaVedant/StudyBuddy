@@ -44,7 +44,7 @@ test('a long question list virtualizes without losing an in-progress edit off-sc
     })
   }
 
-  await page.goto(`/worksheets/${worksheetId}/review`)
+  await page.goto(`/worksheets/${worksheetId}/edit`)
   await expect(
     visible(page).getByRole('heading', { name: `${QUESTION_COUNT} questions found` }),
   ).toBeVisible()

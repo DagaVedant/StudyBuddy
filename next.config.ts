@@ -97,6 +97,33 @@ const nextConfig: NextConfig = {
     viewTransition: true,
   },
 
+  /**
+   * The two extraction screens changed name, and old links have to keep working.
+   *
+   * `/worksheets/[id]/review` and `/worksheets/[id]/verify` became `/edit` and
+   * `/check`, so that "review" means the spaced-repetition queue and nothing
+   * else. Every link inside the app was updated, but a student's bookmark, a
+   * back button, or a tab left open since before the deploy still names the old
+   * path, and the alternative to a redirect is a 404 on their own worksheet.
+   *
+   * Permanent, because these are not coming back. Scoped under `/worksheets/`,
+   * so the top-level `/review` this rename exists to protect is untouched.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/worksheets/:id/review",
+        destination: "/worksheets/:id/edit",
+        permanent: true,
+      },
+      {
+        source: "/worksheets/:id/verify",
+        destination: "/worksheets/:id/check",
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {

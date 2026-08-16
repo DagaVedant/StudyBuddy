@@ -20,7 +20,7 @@ import { reflowText } from '@/lib/questions/reflow'
 const BULK_UNDO_WINDOW_MS = 12_000
 
 /** The scan a question was read off, and where on it the reader found it. */
-export interface VerifiableQuestion {
+export interface CheckableQuestion {
   id: string
   printedNumber: number | null
   ordinal: number
@@ -51,12 +51,12 @@ export interface VerifiableQuestion {
   evidence: QuestionEvidence | null
 }
 
-export function VerifyClient({
+export function CheckClient({
   worksheetId,
   questions,
 }: {
   worksheetId: string
-  questions: VerifiableQuestion[]
+  questions: CheckableQuestion[]
 }) {
   const [verified, setVerified] = useState<Set<string>>(
     () => new Set(questions.filter((q) => q.userVerified).map((q) => q.id)),
@@ -144,7 +144,7 @@ export function VerifyClient({
 
     try {
       const response = await fetchJson(
-        `/api/worksheets/${worksheetId}/verify-all`,
+        `/api/worksheets/${worksheetId}/check-all`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -180,7 +180,7 @@ export function VerifyClient({
     })
 
     try {
-      const response = await fetchJson(`/api/worksheets/${worksheetId}/verify-all`, {
+      const response = await fetchJson(`/api/worksheets/${worksheetId}/check-all`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids }),
@@ -270,7 +270,7 @@ export function VerifyClient({
         )}
 
         <Link
-          href={`/worksheets/${worksheetId}/review`}
+          href={`/worksheets/${worksheetId}/edit`}
           className="btn btn-primary mt-4 inline-flex"
         >
           Back to the worksheet
@@ -407,7 +407,7 @@ export function VerifyClient({
           Looks right
         </button>
         <Link
-          href={`/worksheets/${worksheetId}/review?focus=${question.id}`}
+          href={`/worksheets/${worksheetId}/edit?focus=${question.id}`}
           className="btn btn-secondary"
         >
           Something&rsquo;s wrong

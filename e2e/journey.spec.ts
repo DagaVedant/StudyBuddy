@@ -61,7 +61,7 @@ test.afterAll(async () => {
 test('a PDF is rasterized in the browser and its text layer extracted', async () => {
   await uploadWorksheet(page)
 
-  await expect(page).toHaveURL(/\/worksheets\/[^/]+\/review/)
+  await expect(page).toHaveURL(/\/worksheets\/[^/]+\/edit/)
   await expect(visible(page).getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
 
   const image = visible(page).getByRole('img', { name: /Page 1 of/ })

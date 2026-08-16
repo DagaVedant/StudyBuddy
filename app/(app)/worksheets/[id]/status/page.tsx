@@ -49,7 +49,7 @@ export default async function StatusPage({
   if (!worksheet || worksheet.userId !== session.user.id) notFound()
 
   // One answer per state, rather than this page's own. It used to send both
-  // `awaiting_review` and `ready` to `/worksheets/[id]/review`, while a card
+  // `awaiting_review` and `ready` to `/worksheets/[id]/edit`, while a card
   // for that same worksheet on the dashboard or in the library asked
   // `destination` and got `/verify` or `/markup`. So the screen a student saw
   // depended on whether they had arrived from their own upload or from a card,
@@ -115,7 +115,7 @@ export default async function StatusPage({
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
-              href={`/worksheets/${id}/review`}
+              href={`/worksheets/${id}/edit`}
               className="btn btn-primary sm:w-auto sm:px-6"
             >
               Add questions manually

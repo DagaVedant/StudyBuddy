@@ -39,7 +39,7 @@ export async function POST(_request: Request, { params }: Params) {
   // in the moment between the page loading and the click landing.
   const won = await claimWorksheetForManualFallback(db, worksheetId)
   if (!won) {
-    return NextResponse.json({ ok: true, next: `/worksheets/${worksheetId}/review` })
+    return NextResponse.json({ ok: true, next: `/worksheets/${worksheetId}/edit` })
   }
 
   // Cancelled, not deleted or left pending. A pending row is exactly what the
@@ -77,5 +77,5 @@ export async function POST(_request: Request, { params }: Params) {
     worksheetId,
   })
 
-  return NextResponse.json({ ok: true, next: `/worksheets/${worksheetId}/review` })
+  return NextResponse.json({ ok: true, next: `/worksheets/${worksheetId}/edit` })
 }

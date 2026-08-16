@@ -9,13 +9,13 @@ import { findLibraryDuplicates } from '@/lib/questions/library-duplicates'
 import { loadQuestionsWithChoices } from '@/lib/questions/load'
 import { modalChoiceCount, validateQuestion, worthRereading } from '@/lib/questions/validate'
 
-import { VerifyClient, type VerifiableQuestion } from './verify-client'
+import { CheckClient, type CheckableQuestion } from './check-client'
 
 export const metadata = { title: 'Check Your Questions · StudyBuddy' }
 
 type Params = { params: Promise<{ id: string }> }
 
-export default async function VerifyPage({ params }: Params) {
+export default async function CheckPage({ params }: Params) {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
@@ -57,7 +57,7 @@ export default async function VerifyPage({ params }: Params) {
   // below mean the same thing they do during extraction.
   const expectedChoiceCount = modalChoiceCount(shaped)
 
-  const items: VerifiableQuestion[] = shaped.map((row) => {
+  const items: CheckableQuestion[] = shaped.map((row) => {
     const flags = validateQuestion(row, { expectedChoiceCount })
     const duplicate = duplicateFor.get(row.id)
 
@@ -119,7 +119,7 @@ export default async function VerifyPage({ params }: Params) {
         </p>
       )}
 
-      <VerifyClient worksheetId={worksheet.id} questions={ordered} />
+      <CheckClient worksheetId={worksheet.id} questions={ordered} />
     </main>
   )
 }

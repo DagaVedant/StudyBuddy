@@ -52,7 +52,7 @@ test('an exhausted trial falls through to the manual editor, not a dead end', as
 
   await uploadWorksheet(page, 'After Trial')
 
-  await expect(page).toHaveURL(/\/worksheets\/[^/]+\/review/)
+  await expect(page).toHaveURL(/\/worksheets\/[^/]+\/edit/)
   await expect(visible(page).getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
 })
 

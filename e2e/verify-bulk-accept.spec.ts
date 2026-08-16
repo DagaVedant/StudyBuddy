@@ -51,7 +51,7 @@ test('accepting the remaining questions asks first, and can be undone', async ({
   await registerAndSignIn(page)
   const id = await seedWorksheet(page, 3)
 
-  await page.goto(`/worksheets/${id}/verify`)
+  await page.goto(`/worksheets/${id}/check`)
   await expect(visible(page).getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
 
   const acceptLink = visible(page).getByRole('button', {

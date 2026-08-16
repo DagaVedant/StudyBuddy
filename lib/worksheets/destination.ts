@@ -37,8 +37,8 @@ export function destination(
       // from any card on the dashboard or the library the moment the student
       // navigated away and came back.
       return worksheet.questionCount > 0
-        ? { href: `/worksheets/${id}/verify`, cta: 'Check questions' }
-        : { href: `/worksheets/${id}/review`, cta: 'Add questions' }
+        ? { href: `/worksheets/${id}/check`, cta: 'Check questions' }
+        : { href: `/worksheets/${id}/edit`, cta: 'Add questions' }
     case 'failed':
       return { href: `/worksheets/${id}/status`, cta: 'See what happened' }
     default:

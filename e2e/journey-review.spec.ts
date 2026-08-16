@@ -38,7 +38,7 @@ test('the verify flow shows a card and records a check', async () => {
     data: { userVerified: false },
   })
 
-  await page.goto(`/worksheets/${worksheetId}/verify`)
+  await page.goto(`/worksheets/${worksheetId}/check`)
 
   await expect(visible(page).getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
   await expect(visible(page).getByRole('progressbar', { name: 'Questions checked' })).toBeVisible()
@@ -53,7 +53,7 @@ test('the verify flow shows a card and records a check', async () => {
   // One question in this fixture, so accepting it finishes the worksheet.
   await expect(visible(page).getByText(/All \d+ questions? checked/)).toBeVisible()
 
-  await page.goto(`/worksheets/${worksheetId}/review`)
+  await page.goto(`/worksheets/${worksheetId}/edit`)
 })
 
 test('confirming moves the worksheet to markup', async () => {

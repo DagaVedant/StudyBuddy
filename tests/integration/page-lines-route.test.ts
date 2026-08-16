@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 /**
  * Finding 95. The route the review page fetches every page but the first
- * from (app/(app)/worksheets/[id]/review/page.tsx only ships page one's
+ * from (app/(app)/worksheets/[id]/edit/page.tsx only ships page one's
  * lines up front). Scoped the same way guard-worksheet.test.ts already
  * proved `guardWorksheet` is - by worksheet ownership - plus the one thing
  * that guard alone does not cover: a page id has to actually belong to the

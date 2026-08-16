@@ -182,3 +182,35 @@ test('profile is reachable from settings rather than the nav', async ({ page }) 
 
   await expect(page).toHaveURL(/\/profile/)
 })
+
+/**
+ * §2.4. Three screens shared two words: `/worksheets/[id]/review` and
+ * `/worksheets/[id]/verify` were both about the extraction, while `/review` is
+ * the practice queue the nav teaches. So the nav said Review, the worksheet card
+ * said "Check questions", and an upload landed on a URL ending /review that was
+ * not the Review in the nav.
+ *
+ * The old paths still have to work. A bookmark, a back button or a tab left open
+ * since before the deploy names one of them, and the alternative to a redirect
+ * is a 404 on the student's own worksheet.
+ */
+test('the old extraction URLs still reach their screens', async ({ page }) => {
+  await registerAndSignIn(page)
+  const id = await createWorksheet(page, 'Renamed Routes')
+
+  await page.goto(`/worksheets/${id}/review`)
+  await expect(page).toHaveURL(new RegExp(`/worksheets/${id}/edit`))
+
+  await page.goto(`/worksheets/${id}/verify`)
+  await expect(page).toHaveURL(new RegExp(`/worksheets/${id}/check`))
+})
+
+test('the practice queue keeps the word review to itself', async ({ page }) => {
+  await registerAndSignIn(page)
+
+  // The redirect is scoped under /worksheets/, so the top-level route this
+  // rename exists to protect is untouched.
+  await page.goto('/review')
+  await expect(page).toHaveURL(/\/review$/)
+  await expect(visible(page).getByRole('heading', { name: 'Review' })).toBeVisible()
+})

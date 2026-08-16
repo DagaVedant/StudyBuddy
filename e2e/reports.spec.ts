@@ -54,7 +54,7 @@ test.afterAll(async () => {
 })
 
 test('the split editor still opens and saves from the question list', async () => {
-  await page.goto(`/worksheets/${worksheetId}/review`)
+  await page.goto(`/worksheets/${worksheetId}/edit`)
   await expect(visible(page).getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
 
   // Nothing is extracted for this fixture: the trial is spent, so the resolved
@@ -109,7 +109,7 @@ test('a choice added in the editor is marked correct and saved', async () => {
 })
 
 test('an edit survives navigating away inside the autosave debounce', async () => {
-  await page.goto(`/worksheets/${worksheetId}/review`)
+  await page.goto(`/worksheets/${worksheetId}/edit`)
   await visible(page).getByRole('button', { name: 'Fix' }).first().click()
 
   const prompt = visible(page).getByLabel('Question text')
@@ -131,7 +131,7 @@ test('an edit survives navigating away inside the autosave debounce', async () =
 })
 
 test('a whole worksheet can be reported from the verify screen', async () => {
-  await page.goto(`/worksheets/${worksheetId}/verify`)
+  await page.goto(`/worksheets/${worksheetId}/check`)
   await expect(visible(page).getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
 
   const open = visible(page).getByRole('button', {
@@ -178,7 +178,7 @@ test('the report reaches the admin queue', async ({ browser }) => {
 })
 
 test('rating buttons say when each answer brings the card back', async () => {
-  await page.goto(`/worksheets/${worksheetId}/review`)
+  await page.goto(`/worksheets/${worksheetId}/edit`)
   await visible(page).getByRole('button', { name: /Looks right, mark \d+ question/ }).click()
   await page.waitForURL(/\/worksheets\/[^/]+\/markup/, { timeout: 30_000 })
 

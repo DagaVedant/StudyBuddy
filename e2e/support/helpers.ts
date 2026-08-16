@@ -117,7 +117,7 @@ export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Pr
   await visible(page).getByLabel('Worksheet name').fill(title)
   await visible(page).getByRole('button', { name: 'Start processing' }).click()
 
-  await page.waitForURL(/\/worksheets\/[^/]+\/(review|status)/, { timeout: 90_000 })
+  await page.waitForURL(/\/worksheets\/[^/]+\/(edit|status)/, { timeout: 90_000 })
 }
 
 export async function setTrialWorksheetsUsed(

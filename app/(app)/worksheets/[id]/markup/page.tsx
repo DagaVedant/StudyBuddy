@@ -177,7 +177,7 @@ export default async function MarkupPage({
         <p className="hint">
           This worksheet has no questions yet.{' '}
           <Link
-            href={`/worksheets/${id}/review`}
+            href={`/worksheets/${id}/edit`}
             className="text-accent underline underline-offset-2"
           >
             Add some first

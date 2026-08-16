@@ -36,7 +36,7 @@ describe('destination', () => {
 
   it('sends one awaiting review to the check screen, not the practice queue', () => {
     expect(destination('w1', extracted('awaiting_review')).href).toBe(
-      '/worksheets/w1/verify',
+      '/worksheets/w1/check',
     )
   })
 
@@ -52,7 +52,7 @@ describe('destination', () => {
       markedCount: 0,
     })
 
-    expect(href).toBe('/worksheets/w1/review')
+    expect(href).toBe('/worksheets/w1/edit')
     expect(cta).toBe('Add questions')
   })
 

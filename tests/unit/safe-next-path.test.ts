@@ -12,7 +12,7 @@ import { DEFAULT_AFTER_SIGNIN, safeNextPath } from '@/lib/auth/redirect'
 describe('safeNextPath', () => {
   it('keeps a path on this site, query and fragment included', () => {
     expect(safeNextPath('/dashboard')).toBe('/dashboard')
-    expect(safeNextPath('/worksheets/abc-123/review')).toBe('/worksheets/abc-123/review')
+    expect(safeNextPath('/worksheets/abc-123/edit')).toBe('/worksheets/abc-123/edit')
     expect(safeNextPath('/topics?tab=weak')).toBe('/topics?tab=weak')
     expect(safeNextPath('/review#card-3')).toBe('/review#card-3')
   })

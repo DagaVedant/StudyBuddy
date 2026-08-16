@@ -56,7 +56,7 @@ async function alreadyCompleted(worksheetId: string) {
     alreadyCompleted: true,
     next: queued
       ? `/worksheets/${worksheetId}/status`
-      : `/worksheets/${worksheetId}/review`,
+      : `/worksheets/${worksheetId}/edit`,
   })
 }
 
@@ -80,7 +80,7 @@ export async function POST(_request: Request, { params }: Params) {
       ok: true,
       tier,
       mode: 'manual',
-      next: `/worksheets/${worksheetId}/review`,
+      next: `/worksheets/${worksheetId}/edit`,
     })
   }
 
@@ -109,7 +109,7 @@ export async function POST(_request: Request, { params }: Params) {
         message:
           'Another worksheet of yours is still being read. This one was not counted ' +
           'against your trial: add its questions here, or come back once the first finishes.',
-        next: `/worksheets/${worksheetId}/review`,
+        next: `/worksheets/${worksheetId}/edit`,
       })
     }
 
@@ -137,7 +137,7 @@ export async function POST(_request: Request, { params }: Params) {
         tier: 'free',
         mode: 'manual',
         message: charge.reason,
-        next: `/worksheets/${worksheetId}/review`,
+        next: `/worksheets/${worksheetId}/edit`,
       })
     }
 

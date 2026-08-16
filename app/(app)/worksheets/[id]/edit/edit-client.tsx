@@ -33,7 +33,7 @@ interface Props {
  * be made to; `focusQuestion` was the second, and was still rebuilding itself
  * long after the split had supposedly paid for itself.
  */
-export default function ReviewClient({
+export default function EditClient({
   worksheetId,
   worksheetTitle,
   pages,
