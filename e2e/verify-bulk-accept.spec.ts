@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { registerAndSignIn, visible } from './support/helpers'
+import { createWorksheet, registerAndSignIn, visible } from './support/helpers'
 
 /**
  * Accepting every remaining question at once: the confirm step and the undo
@@ -17,14 +17,7 @@ import { registerAndSignIn, visible } from './support/helpers'
  */
 
 async function seedWorksheet(page: Page, count: number): Promise<string> {
-  const created = await page.request.post('/api/worksheets', {
-    data: {
-      title: 'Bulk Accept Fixture',
-      sourceType: 'pdf_digital',
-      pageCount: 1,
-    },
-  })
-  const { worksheetId: id } = (await created.json()) as { worksheetId: string }
+  const id = await createWorksheet(page, 'Bulk Accept Fixture')
 
   for (let i = 0; i < count; i += 1) {
     const made = await page.request.post(`/api/worksheets/${id}/questions`, {

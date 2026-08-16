@@ -120,6 +120,28 @@ export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Pr
   await page.waitForURL(/\/worksheets\/[^/]+\/(edit|status)/, { timeout: 90_000 })
 }
 
+/**
+ * An empty worksheet, created through the real route.
+ *
+ * Two specs had their own copy of this: the library spec's `createWorksheet`
+ * and the bulk-accept spec's `seedWorksheet`, both posting the identical body.
+ * Only one of them checked whether the request succeeded, which is the half
+ * worth keeping: without it a failed create surfaces later as a confusing
+ * assertion about a page that never had the worksheet on it.
+ */
+export async function createWorksheet(page: Page, title: string): Promise<string> {
+  const response = await page.request.post('/api/worksheets', {
+    data: { title, sourceType: 'pdf_digital', pageCount: 1 },
+  })
+
+  if (!response.ok()) {
+    throw new Error(`Could not create ${title}: ${await response.text()}`)
+  }
+
+  const { worksheetId } = (await response.json()) as { worksheetId: string }
+  return worksheetId
+}
+
 export async function setTrialWorksheetsUsed(
   page: Page,
   email: string,

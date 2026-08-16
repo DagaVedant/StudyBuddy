@@ -96,3 +96,17 @@ test('sign out and the delete-account link both reach the right place', async ({
     .click()
   await page.waitForURL('**/signin')
 })
+
+test('profile is reachable from settings rather than the nav', async ({ page }) => {
+  await registerAndSignIn(page)
+  await page.goto('/dashboard')
+
+  // The slot it used to occupy on a 375px strip. Unscoped for the same reason:
+  // this is asserting the absence of a nav item, and the nav is not in #main.
+  await expect(page.getByRole('link', { name: 'Profile', exact: true })).toHaveCount(0)
+
+  await page.goto('/settings')
+  await visible(page).getByRole('link', { name: 'Open your profile' }).click()
+
+  await expect(page).toHaveURL(/\/profile/)
+})

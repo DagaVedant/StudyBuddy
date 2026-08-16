@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { registerAndSignIn, visible } from './support/helpers'
 
 /**
- * The topic page, with and without a lesson on it.
+ * Topics: the index, and a topic page with and without a lesson on it.
  *
  * This page is the only place on the site that shows a reader prose a model
  * wrote. A topic with no lesson yet shows a "Generate lesson overview"
@@ -160,4 +160,29 @@ test('the accuracy panel and the revisit list stand alone', async ({ page }) => 
   await expect(
     visible(page).getByText(/You have not missed a question in this topic/),
   ).toBeVisible()
+})
+
+/**
+ * §3.2. There are 341 topics and a student could reach one in exactly two ways:
+ * by being ranked weak at it on the dashboard, or by following a link from a
+ * question. No index, no browse, no search. That also left the lesson feature
+ * mostly unreachable, since it lives on a topic page.
+ */
+test('every topic can be browsed, including the ones never started', async ({ page }) => {
+  await registerAndSignIn(page)
+
+  // From the nav, which is the slot Profile used to hold. Unscoped, because
+  // `visible()` scopes to #main and the nav lives in the banner.
+  await page.goto('/dashboard')
+  await page.getByRole('link', { name: 'Topics', exact: true }).click()
+
+  await expect(visible(page).getByRole('heading', { name: 'Topics' })).toBeVisible()
+
+  // Subjects open on arrival, their children folded away.
+  const geometry = visible(page).getByText('Geometry', { exact: true }).first()
+  await expect(geometry).toBeVisible()
+
+  // A topic with nothing recorded reads as neutral rather than as zero percent,
+  // which would be a score the student never earned.
+  await expect(visible(page).getByText('Not started').first()).toBeVisible()
 })
