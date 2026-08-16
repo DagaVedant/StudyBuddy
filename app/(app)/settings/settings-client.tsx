@@ -125,9 +125,19 @@ export default function SettingsClient({
         <h2 id="cloud-heading" className="text-sm font-medium">
           Your own API key
         </h2>
+        {/*
+          This used to end "we never see the key again after you save it",
+          which is not what happens: lib/ai/resolve.ts:62 calls `openApiKey`
+          to decrypt it server-side every time it resolves a provider, which
+          is every job. Only the browser never sees it again. That sentence is
+          the one a student reads while deciding whether to hand over a
+          credential, so it is the last place to be loose about it.
+        */}
         <p className="hint text-pretty">
-          Best extraction quality. You pay your provider directly; we never see
-          the key again after you save it.
+          Best extraction quality. You pay your provider directly. Your key is
+          encrypted before it is stored and is never shown to you or anyone
+          else again; the server decrypts it to call your provider each time it
+          processes one of your worksheets.
         </p>
 
         {cloud ? (

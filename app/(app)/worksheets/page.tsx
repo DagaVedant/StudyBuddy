@@ -134,11 +134,7 @@ export default async function WorksheetsPage() {
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((sheet) => {
-            const { href, cta } = destination(
-              sheet.id,
-              sheet.status,
-              sheet.markedCount > 0,
-            )
+            const { href, cta } = destination(sheet.id, sheet)
 
             return (
               <li
@@ -156,6 +152,17 @@ export default async function WorksheetsPage() {
                         src={`/api/files/${thumbnailFor.get(sheet.id)}`}
                         alt={`First page of ${sheet.title}`}
                         loading="lazy"
+                        /*
+                          The 4:3 of the box, not the page's own ratio. These
+                          exist so the browser can reserve the right space
+                          before the bytes arrive, and what it renders is
+                          `object-cover` inside `aspect-4/3` regardless of the
+                          shape of the paper, so the real page dimensions
+                          would describe something that never appears. The
+                          numbers are a ratio; the class sizes it.
+                        */
+                        width={400}
+                        height={300}
                         className="size-full object-cover object-top"
                       />
                     ) : (

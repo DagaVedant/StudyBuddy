@@ -156,7 +156,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
       return
     }
 
-    setNotice('Upload cancelled. Removing what had already gone up...')
+    setNotice('Upload cancelled. Removing what had already gone up…')
 
     // Deliberately not awaited and deliberately not `fetchJson`: the student
     // has already left this behind, and a failed cleanup must not put a sign-in

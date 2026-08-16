@@ -186,7 +186,14 @@ export default async function DashboardPage() {
         </div>
 
         <div className="card px-4 py-3.5">
-          <dt className="text-sm text-muted">AI setup</dt>
+          {/*
+            "AI status", not "AI setup", which is what spec.md:398 asks this
+            slot to carry and what the value under it actually is. The label
+            read as a link to a settings screen while the value said
+            "3 trial worksheets left", so the two halves of one card were
+            answering different questions.
+          */}
+          <dt className="text-sm text-muted">AI status</dt>
           <dd className="mt-1 text-lg font-semibold text-fg">
             <Link
               href={aiStatus.href}
@@ -490,9 +497,7 @@ export default async function DashboardPage() {
               {recent.map((sheet) => (
                 <li key={sheet.id} className="flex items-center gap-3 py-2">
                   <Link
-                    href={
-                      destination(sheet.id, sheet.status, sheet.markedCount > 0).href
-                    }
+                    href={destination(sheet.id, sheet).href}
                     className="min-w-0 flex-1 truncate text-sm text-accent underline underline-offset-2"
                   >
                     {sheet.title}

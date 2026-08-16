@@ -1,12 +1,13 @@
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
-import { processingJobs, questions, worksheets } from '@/lib/db/schema'
+import { attempts, processingJobs, questions, worksheets } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
 import { phaseFor } from '@/lib/worker/progress'
+import { destination } from '@/lib/worksheets/destination'
 
 import GoManualButton from './go-manual-button'
 
@@ -24,18 +25,44 @@ export default async function StatusPage({
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-  const [worksheet] = await db
-    .select()
-    .from(worksheets)
-    .where(eq(worksheets.id, id))
-    .limit(1)
+  // `found` is read below to report progress, and by `destination` to tell an
+  // extracted worksheet from one a student is typing in by hand. Alongside the
+  // worksheet rather than after it: the destination is needed before anything
+  // renders, so sequencing these would put a round trip in front of a redirect.
+  const [[worksheet], found, markup] = await Promise.all([
+    db.select().from(worksheets).where(eq(worksheets.id, id)).limit(1),
+    db
+      .select({ id: questions.id })
+      .from(questions)
+      .where(eq(questions.worksheetId, id)),
+    // What the two list screens compute as `markedCount`, asked as an
+    // existence check, since `destination` only compares it against zero.
+    db
+      .select({ id: attempts.id })
+      .from(attempts)
+      .innerJoin(questions, eq(attempts.questionId, questions.id))
+      .where(and(eq(questions.worksheetId, id), eq(attempts.source, 'markup')))
+      .limit(1),
+  ])
 
   if (!worksheet || worksheet.userId !== session.user.id) notFound()
 
-  if (worksheet.status === 'awaiting_review' || worksheet.status === 'ready') {
-    redirect(`/worksheets/${id}/review`)
-  }
-
+  // One answer per state, rather than this page's own. It used to send both
+  // `awaiting_review` and `ready` to `/worksheets/[id]/review`, while a card
+  // for that same worksheet on the dashboard or in the library asked
+  // `destination` and got `/verify` or `/markup`. So the screen a student saw
+  // depended on whether they had arrived from their own upload or from a card,
+  // which is the one thing `destination` exists to prevent.
+  //
+  // Compared rather than listed: the states that belong on this page resolve
+  // back to this same path, so this keeps agreeing with `destination` if it
+  // ever changes its mind about which those are.
+  const target = destination(id, {
+    status: worksheet.status,
+    questionCount: found.length,
+    markedCount: markup.length,
+  })
+  if (target.href !== `/worksheets/${id}/status`) redirect(target.href)
 
   const [job] = await db
     .select()
@@ -44,13 +71,9 @@ export default async function StatusPage({
     .orderBy(desc(processingJobs.createdAt))
     .limit(1)
 
-  const [worker, depth, found] = await Promise.all([
+  const [worker, depth] = await Promise.all([
     workerStatus(db),
     queueDepth(db, job?.executor ?? 'operator_gpu'),
-    db
-      .select({ id: questions.id })
-      .from(questions)
-      .where(eq(questions.worksheetId, id)),
   ])
 
   const failed = worksheet.status === 'failed' || job?.status === 'failed'
