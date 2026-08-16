@@ -27,6 +27,31 @@ import { formatInterval, previewIntervals, type ReviewRating } from '@/lib/revie
  * another from every review sitting, so joining would return the card once per
  * time it was answered.
  */
+/**
+ * Narrows the queue to one topic, or does not narrow it at all.
+ *
+ * spec.md:388 asks for the FSRS queue "plus free browsing by topic", and the
+ * browsing half did not exist: `/review` took no arguments, so the topic page's
+ * "Review these now" sat under a list of questions from one topic and opened
+ * the global queue, which is a different set and need not contain any of them.
+ *
+ * `exists` rather than a join, because `question_topics` carries a row per
+ * topic per question and a joined queue would deal the same card once for each
+ * topic it is filed under.
+ *
+ * Returns undefined for no topic, which `and()` drops, so the unfiltered queue
+ * is the same query it always was rather than one carrying a true predicate.
+ */
+function inTopic(topicId?: string | null) {
+  if (!topicId) return undefined
+
+  return sql`exists (
+    select 1 from ${questionTopics}
+    where ${questionTopics.questionId} = ${reviewCards.questionId}
+      and ${questionTopics.topicId} = ${topicId}
+  )`
+}
+
 export function inReviewQueue(userId: string, now: Date = new Date()) {
   return and(
     isNull(reviewCards.retiredAt),
@@ -118,11 +143,14 @@ export async function countReviewQueue(
   db: Db,
   userId: string,
   now: Date = new Date(),
+  topicId?: string | null,
 ): Promise<number> {
   const [row] = await db
     .select({ value: sql<number>`count(*)::int` })
     .from(reviewCards)
-    .where(and(eq(reviewCards.userId, userId), inReviewQueue(userId, now)))
+    .where(
+      and(eq(reviewCards.userId, userId), inReviewQueue(userId, now), inTopic(topicId)),
+    )
 
   return Number(row?.value ?? 0)
 }
@@ -152,6 +180,7 @@ export async function getDueCards(
   userId: string,
   limit = 20,
   now: Date = new Date(),
+  topicId?: string | null,
 ): Promise<ReviewItem[]> {
   const cards = await db
     .select({
@@ -181,7 +210,9 @@ export async function getDueCards(
     .from(reviewCards)
     .innerJoin(questions, eq(questions.id, reviewCards.questionId))
     .leftJoin(worksheetPages, eq(worksheetPages.id, questions.pageId))
-    .where(and(eq(reviewCards.userId, userId), inReviewQueue(userId, now)))
+    .where(
+      and(eq(reviewCards.userId, userId), inReviewQueue(userId, now), inTopic(topicId)),
+    )
     .orderBy(asc(reviewCards.dueAt))
     .limit(limit)
 

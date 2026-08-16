@@ -144,3 +144,18 @@ test('rating a card completes the session', async () => {
     visible(page).getByRole('heading', { name: 'Session complete' }),
   ).toBeVisible({ timeout: 30_000 })
 })
+
+/**
+ * spec.md:388's "free browsing by topic", which `/review` now accepts as
+ * `?topic=`. The topic page's "Review these now" passes a real id; this covers
+ * the other half, which is what a hand-edited or stale one does.
+ */
+test('an unknown topic falls back to the whole queue rather than an empty screen', async () => {
+  await page.goto('/review?topic=not-a-real-topic')
+
+  // The plain heading, not "Review: something". An id that matches no topic is
+  // not a filter, so claiming one in the title would be describing a narrowing
+  // that did not happen.
+  await expect(visible(page).getByRole('heading', { name: 'Review', exact: true })).toBeVisible()
+  await expect(visible(page).getByText('Only questions filed under this topic')).toHaveCount(0)
+})

@@ -65,7 +65,20 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-export default function ReviewSession({ items }: { items: ReviewItem[] }) {
+export default function ReviewSession({
+  items,
+  /**
+   * Set when the queue was narrowed to one topic, so the three empty states can
+   * say which of two very different things happened. "Everything you are
+   * tracking is scheduled for later" is a reasonable thing to read on the whole
+   * queue and a false one under a filter, where the rest of the queue may be
+   * full.
+   */
+  topicName,
+}: {
+  items: ReviewItem[]
+  topicName?: string | null
+}) {
   const router = useRouter()
 
   const [index, setIndex] = useState(0)
@@ -396,6 +409,30 @@ export default function ReviewSession({ items }: { items: ReviewItem[] }) {
 
     // Arrived with nothing due. This used to be a separate page, and moving it
     // here is what keeps the component mounted through a refresh.
+    //
+    // Under a topic filter the way out is the rest of the queue, not another
+    // upload: the student has questions waiting, just not in this topic, and
+    // sending them to the upload screen would be answering a question they did
+    // not ask.
+    if (topicName) {
+      return (
+        <div className="card p-6 text-center">
+          <h2 className="font-medium">Nothing due in {topicName}</h2>
+          <p className="hint mx-auto max-w-sm text-pretty">
+            Everything you are tracking under this topic is scheduled for later.
+          </p>
+          <div className="mt-4 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link href="/review" className="btn btn-primary sm:w-auto sm:px-6">
+              Review everything due
+            </Link>
+            <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
+              Back to dashboard
+            </Link>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="card p-6 text-center">
         <h2 className="font-medium">Nothing due</h2>

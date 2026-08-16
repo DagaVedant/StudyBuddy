@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { Db } from '@/lib/db/types'
-import { attempts, explanations, reviewCards } from '@/lib/db/schema'
+import { attempts, explanations, questionTopics, reviewCards } from '@/lib/db/schema'
 import { scheduleFromOutcome } from '@/lib/review/fsrs'
 import { countReviewQueue, getDueCards } from '@/lib/review/queue'
 import { countMissedQuestions, getMissedQuestions } from '@/lib/blooket/missed'
@@ -353,5 +353,104 @@ describe('the review queue', () => {
     )
     expect((await getMissedQuestions(db as Db, userId)).map((e) => e.id)).toContain(q.id)
     expect(await countMissedQuestions(db as Db, userId)).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * spec.md:388 asks for the FSRS queue "plus free browsing by topic", and only
+ * the queue existed: `/review` took no arguments, so the topic page's "Review
+ * these now" opened the global queue rather than the questions listed above it.
+ */
+describe('the queue narrowed to one topic', () => {
+  const SLOPE = 'high-school-math.algebra-1.linear-functions-and-graphing.slope'
+
+  async function twoTopicsOneEach() {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+    const overdue = new Date(Date.now() - 60_000)
+
+    const triangle = await makeQuestion(db, userId, worksheetId, {
+      ordinal: 1,
+      promptText: 'What is the value of angle C in this triangle?',
+      topicId: topicIds.get(TRIANGLES)!,
+    })
+    const slope = await makeQuestion(db, userId, worksheetId, {
+      ordinal: 2,
+      promptText: 'What is the slope of the line through these points?',
+      topicId: topicIds.get(SLOPE)!,
+    })
+
+    await makeCard(userId, triangle.id, overdue)
+    await makeCard(userId, slope.id, overdue)
+
+    return { userId, triangle, slope }
+  }
+
+  it('returns only that topic’s questions', async () => {
+    const { userId, triangle } = await twoTopicsOneEach()
+
+    const queue = await getDueCards(
+      db as Db,
+      userId,
+      20,
+      new Date(),
+      topicIds.get(TRIANGLES)!,
+    )
+
+    expect(queue).toHaveLength(1)
+    expect(queue[0].questionId).toBe(triangle.id)
+  })
+
+  it('counts the same set the queue draws from', async () => {
+    const { userId } = await twoTopicsOneEach()
+
+    // The two disagreeing is the bug finding 109 was about, on the unfiltered
+    // queue. A filter that reached one and not the other would reintroduce it.
+    expect(
+      await countReviewQueue(db as Db, userId, new Date(), topicIds.get(TRIANGLES)!),
+    ).toBe(1)
+    expect(await countReviewQueue(db as Db, userId)).toBe(2)
+  })
+
+  it('leaves the unfiltered queue alone', async () => {
+    const { userId } = await twoTopicsOneEach()
+
+    expect(await getDueCards(db as Db, userId)).toHaveLength(2)
+  })
+
+  it('comes back empty for a topic the student has nothing in', async () => {
+    const { userId } = await twoTopicsOneEach()
+    const elsewhere = topicIds.get('high-school-math.precalculus')!
+
+    // Empty rather than unfiltered. Falling back to everything would be worse
+    // than an empty screen: the student asked for one topic and would be given
+    // a queue that silently is not it.
+    expect(await getDueCards(db as Db, userId, 20, new Date(), elsewhere)).toHaveLength(0)
+  })
+
+  /**
+   * A question can be filed under more than one topic, and `question_topics`
+   * carries a row for each. A joined filter would deal the same card once per
+   * row; this is why the predicate is an `exists`.
+   */
+  it('deals a question filed under two topics once', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+
+    const question = await makeQuestion(db, userId, worksheetId, {
+      promptText: 'What is the value of x in this equation?',
+      topicId: topicIds.get(TRIANGLES)!,
+    })
+    await db.insert(questionTopics).values({
+      questionId: question.id,
+      topicId: topicIds.get(SLOPE)!,
+      assignedBy: 'user',
+      isPrimary: false,
+    })
+    await makeCard(userId, question.id, new Date(Date.now() - 60_000))
+
+    expect(
+      await getDueCards(db as Db, userId, 20, new Date(), topicIds.get(TRIANGLES)!),
+    ).toHaveLength(1)
   })
 })

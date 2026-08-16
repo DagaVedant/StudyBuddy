@@ -277,8 +277,19 @@ export default async function TopicPage({
           </ul>
         )}
 
+        {/*
+          `?topic=`, so "these" is these. This linked to the bare review queue,
+          which is a different set of questions from the ones listed directly
+          above it and need not contain a single one of them: the dashboard's
+          weakest-topics panel is the main way into this screen, so the app's
+          "what should I work on" flow ended at a button that did not do what it
+          said.
+        */}
         <div className="mt-4">
-          <Link href="/review" className="btn btn-primary sm:w-auto sm:px-6">
+          <Link
+            href={`/review?topic=${topicId}`}
+            className="btn btn-primary sm:w-auto sm:px-6"
+          >
             Review these now
           </Link>
         </div>
