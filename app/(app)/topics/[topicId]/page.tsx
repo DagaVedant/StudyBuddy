@@ -57,6 +57,10 @@ export default async function TopicPage({
     topicName: topic.name,
     topicPath: path,
     subjectRoot: topic.subjectRoot,
+    // The arrow belongs to the dashboard's ranked list, where it earns its
+    // place by letting a student compare rows. This screen is already showing
+    // the topic's whole history underneath.
+    trend: null,
     correct: Number(tally?.correct ?? 0),
     unsure: Number(tally?.unsure ?? 0),
     wrong: Number(tally?.wrong ?? 0),

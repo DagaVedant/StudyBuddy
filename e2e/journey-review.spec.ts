@@ -108,6 +108,18 @@ test('the dashboard reflects the attempt', async () => {
   await expect(visible(page).getByText('Questions tracked')).toBeVisible()
   await expect(visible(page).getByText('Recent worksheets')).toBeVisible()
   await expect(visible(page).getByText('Unit 4 Practice')).toBeVisible()
+
+  // spec.md:412's forecast panel, which the dashboard did not have. Its rows
+  // need classified questions and this fixture has none, so what is asserted is
+  // that the panel is there and says so rather than being absent or broken.
+  await expect(
+    visible(page).getByRole('heading', { name: 'Due for review' }),
+  ).toBeVisible()
+  await expect(visible(page).getByText('Nothing due in the next seven days')).toBeVisible()
+
+  // spec.md:414 asks the recent worksheets panel for a score and a date, and it
+  // carried neither. One question, marked wrong a moment ago.
+  await expect(visible(page).getByText('0%')).toBeVisible()
 })
 
 test('a missed question comes back for review', async () => {

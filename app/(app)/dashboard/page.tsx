@@ -8,11 +8,14 @@ import AiSetupPrompt from '@/components/ai-setup-prompt'
 import { AccuracyLabel, Meter } from '@/components/meter'
 import { countMissedQuestions } from '@/lib/blooket/missed'
 import { db } from '@/lib/db'
+import TrendArrow from '@/components/trend-arrow'
 import {
   getAccuracyTrend,
+  getAccuracyTrendBySubject,
   getDistractorPatterns,
   getOverview,
   getRecentWorksheets,
+  getReviewForecast,
   getStudyStreak,
   getTopicStats,
 } from '@/lib/dashboard/queries'
@@ -26,6 +29,8 @@ import {
 import { nameBySlug, pathBySlug } from '@/lib/taxonomy/trees'
 import { destination } from '@/lib/worksheets/destination'
 
+import AccuracyChart from './accuracy-chart'
+
 export const metadata = { title: 'Dashboard · StudyBuddy' }
 
 const PERCENT = new Intl.NumberFormat(undefined, {
@@ -34,21 +39,14 @@ const PERCENT = new Intl.NumberFormat(undefined, {
 })
 
 /**
- * A week-start as a short date.
- *
- * Formatted in UTC, not just parsed in it. `weekStart` is a bare `YYYY-MM-DD`
- * off `to_char(date_trunc('week', ...))`, and a bare date string is parsed as
- * midnight UTC either way; the shift comes from rendering that instant in the
- * reader's own zone, which anywhere west of Greenwich lands on the day before.
- * Both halves have to agree or every label on the axis is a day early.
+ * An upload date. Matches the worksheets page's own formatter, so the same
+ * paper is dated identically on both screens.
  */
-const WEEK_OF = new Intl.DateTimeFormat(undefined, {
+const WHEN = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
-  timeZone: 'UTC',
+  year: 'numeric',
 })
-
-const WEEK_LABEL = (weekStart: string) => WEEK_OF.format(new Date(weekStart))
 
 function Panel({
   title,
@@ -81,17 +79,29 @@ export default async function DashboardPage() {
 
   const userId = session.user.id
 
-  const [overview, rawStats, trend, recent, distractors, missed, streak, aiStatus] =
-    await Promise.all([
-      getOverview(db, userId),
-      getTopicStats(db, userId),
-      getAccuracyTrend(db, userId),
-      getRecentWorksheets(db, userId),
-      getDistractorPatterns(db, userId),
-      countMissedQuestions(db, userId),
-      getStudyStreak(db, userId),
-      getAiStatus(db, userId),
-    ])
+  const [
+    overview,
+    rawStats,
+    trend,
+    trendBySubject,
+    forecast,
+    recent,
+    distractors,
+    missed,
+    streak,
+    aiStatus,
+  ] = await Promise.all([
+    getOverview(db, userId),
+    getTopicStats(db, userId),
+    getAccuracyTrend(db, userId),
+    getAccuracyTrendBySubject(db, userId),
+    getReviewForecast(db, userId),
+    getRecentWorksheets(db, userId),
+    getDistractorPatterns(db, userId),
+    countMissedQuestions(db, userId),
+    getStudyStreak(db, userId),
+    getAiStatus(db, userId),
+  ])
 
   const paths = pathBySlug()
   const names = nameBySlug()
@@ -114,7 +124,6 @@ export default async function DashboardPage() {
 
   const thin = stats.map(summarize).filter((topic) => !topic.ranked).length
   const weekTotals = trend.map((p) => p.correct + p.unsure + p.wrong)
-  const maxWeek = Math.max(1, ...weekTotals)
   const hasData = overview.attemptsLogged > 0
 
   // Not `trend.length`. Every week in the window is a row now, including the
@@ -255,11 +264,14 @@ export default async function DashboardPage() {
                               {topic.topicName}
                             </span>
                           </ViewTransition>
-                          <AccuracyLabel
-                            accuracy={topic.accuracy}
-                            ranked
-                            attempts={topic.attempts}
-                          />
+                          <span className="flex shrink-0 items-baseline gap-1.5">
+                            <AccuracyLabel
+                              accuracy={topic.accuracy}
+                              ranked
+                              attempts={topic.attempts}
+                            />
+                            <TrendArrow trend={topic.trend} />
+                          </span>
                         </div>
                         <p className="truncate text-xs text-muted">{topic.topicPath}</p>
                         <div className="mt-2">
@@ -330,119 +342,52 @@ export default async function DashboardPage() {
             )}
           </Panel>
 
+          {/*
+            spec.md:412's review forecast, and the panel worth building of the
+            three that were missing. This screen's stated job (spec.md:392) is
+            to answer "What should I do right now?", and the two counts in the
+            top strip are totals with no topic in them: they say how much there
+            is and never what it is. Placed directly under the weakest topics
+            for that reason, where "what am I bad at" and "what is due" can be
+            read together.
+          */}
+          <Panel
+            title="Due for review"
+            hint="What the scheduler has lined up, by topic."
+          >
+            {forecast.length === 0 ? (
+              <Empty>Nothing due in the next seven days.</Empty>
+            ) : (
+              <ul className="space-y-2">
+                {forecast.map((row) => (
+                  <li key={row.topicId} className="flex items-baseline gap-3">
+                    <Link
+                      href={`/review?topic=${row.topicId}`}
+                      className="min-w-0 flex-1 truncate text-sm text-accent underline underline-offset-2"
+                    >
+                      {row.topicName}
+                    </Link>
+                    {/*
+                      Today's count is the actionable one, so it leads. The
+                      week's total only appears when it differs, because "3
+                      today · 3 this week" is two numbers saying one thing.
+                    */}
+                    <span className="shrink-0 text-sm tabular-nums text-muted">
+                      {row.dueToday > 0 ? `${row.dueToday} today` : 'later this week'}
+                      {row.dueThisWeek > row.dueToday && ` · ${row.dueThisWeek} this week`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+
           <div className="lg:col-span-2">
             <Panel title="Accuracy over time" hint="Attempts per week.">
               {!hasTrend ? (
                 <Empty>Not enough history yet.</Empty>
               ) : (
-                <>
-                  {/*
-                    `items-stretch`, not `items-end`. Each column is a flex
-                    child whose own children are sized in percentages, and a
-                    percentage height resolves against the parent's height: with
-                    `items-end` the column was sized by its content, its content
-                    was three divs asking for a percentage of it, and the whole
-                    thing collapsed to nothing. The chart has been drawing zero
-                    bars since it was written. `justify-end` on the column is
-                    what stacks them from the bottom, which is the part
-                    `items-end` looked like it was doing.
-                  */}
-                  {/*
-                    A `title` attribute is a mouse-only affordance: nothing
-                    else can trigger it, so a sighted keyboard user, or anyone
-                    on a touchscreen, had no way to read what one bar actually
-                    stood for. Each column is focusable now, and the same text
-                    the title used to hold is a real element that shows on
-                    focus or hover instead of on hover alone. Still
-                    `aria-hidden`, and still deliberately so: the table below
-                    is the one channel screen readers read this chart through,
-                    so this stays visual-only and does not also announce
-                    itself as a redundant second copy of the same numbers.
-                  */}
-                  <div className="flex h-28 items-stretch gap-1" aria-hidden="true">
-                    {trend.map((point) => {
-                      const total = point.correct + point.unsure + point.wrong
-                      const scale = (value: number) => (value / maxWeek) * 100
-                      return (
-                        <div
-                          key={point.weekStart}
-                          tabIndex={0}
-                          className="group relative flex min-w-0 flex-1 flex-col justify-end rounded-t-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                        >
-                          <span
-                            className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-fg px-2 py-1 text-xs text-bg group-hover:block group-focus-visible:block"
-                          >
-                            {point.correct} correct, {point.unsure} unsure, {point.wrong} missed
-                          </span>
-                          <div
-                            className="w-full rounded-t-sm bg-danger/70"
-                            style={{ height: `${scale(point.wrong)}%` }}
-                          />
-                          <div
-                            className="w-full bg-muted/50"
-                            style={{ height: `${scale(point.unsure)}%` }}
-                          />
-                          <div
-                            className="w-full bg-accent"
-                            style={{ height: `${scale(point.correct)}%` }}
-                          />
-                          <span className="sr-only">{total}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {/*
-                    Which weeks these bars are. Every week in the range is a bar
-                    now, including the ones with nothing in them, so the axis is
-                    a plain span from the first to the last and does not need a
-                    tick per bar to be read honestly.
-                  */}
-                  <p
-                    aria-hidden="true"
-                    className="mt-1.5 flex justify-between text-xs tabular-nums text-muted"
-                  >
-                    <span>{WEEK_LABEL(trend[0].weekStart)}</span>
-                    <span>{WEEK_LABEL(trend.at(-1)!.weekStart)}</span>
-                  </p>
-
-                  <table className="sr-only">
-                    <caption>Attempts by week</caption>
-                    <thead>
-                      <tr>
-                        <th scope="col">Week</th>
-                        <th scope="col">Correct</th>
-                        <th scope="col">Unsure</th>
-                        <th scope="col">Missed</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {trend.map((point) => (
-                        <tr key={point.weekStart}>
-                          <th scope="row">{point.weekStart}</th>
-                          <td>{point.correct}</td>
-                          <td>{point.unsure}</td>
-                          <td>{point.wrong}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  <p className="hint flex flex-wrap gap-x-4">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="size-2 rounded-full bg-accent" aria-hidden="true" />
-                      Correct
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="size-2 rounded-full bg-muted/50" aria-hidden="true" />
-                      Unsure
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="size-2 rounded-full bg-danger/70" aria-hidden="true" />
-                      Missed
-                    </span>
-                  </p>
-                </>
+                <AccuracyChart overall={trend} bySubject={trendBySubject} />
               )}
             </Panel>
           </div>
@@ -503,18 +448,49 @@ export default async function DashboardPage() {
           ) : (
             <ul className="divide-y divide-border">
               {recent.map((sheet) => (
-                <li key={sheet.id} className="flex items-center gap-3 py-2">
-                  <Link
-                    href={destination(sheet.id, sheet).href}
-                    className="min-w-0 flex-1 truncate text-sm text-accent underline underline-offset-2"
-                  >
-                    {sheet.title}
-                  </Link>
-                  <span className="shrink-0 text-xs tabular-nums text-muted">
-                    {sheet.questionCount}{' '}
+                <li key={sheet.id} className="py-2.5">
+                  <div className="flex items-baseline gap-3">
+                    <Link
+                      href={destination(sheet.id, sheet).href}
+                      className="min-w-0 flex-1 truncate text-sm text-accent underline underline-offset-2"
+                    >
+                      {sheet.title}
+                    </Link>
+                    {/*
+                      spec.md:414 asks this panel for a score, and it showed a
+                      miss count: the same information upside down, and only
+                      readable if you already knew the denominator. Shown only
+                      once the paper has been marked, since before that there is
+                      no score to report and "0%" would be a lie about a paper
+                      nobody has sat down with yet.
+                    */}
+                    {sheet.markedCount > 0 && (
+                      <span className="shrink-0 text-xs font-medium tabular-nums">
+                        {PERCENT.format(sheet.correctCount / sheet.markedCount)}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-0.5 text-xs tabular-nums text-muted">
+                    {WHEN.format(sheet.createdAt)} · {sheet.questionCount}{' '}
                     {sheet.questionCount === 1 ? 'question' : 'questions'}
                     {sheet.wrongCount > 0 && ` · ${sheet.wrongCount} missed`}
-                  </span>
+                  </p>
+
+                  {/*
+                    Three at most. This is a summary line under a title, not the
+                    subject drilldown, and a paper spanning nine topics would
+                    otherwise push every other row off the panel.
+                  */}
+                  {sheet.topics.length > 0 && (
+                    <p className="mt-1 truncate text-xs text-muted">
+                      {sheet.topics
+                        .slice(0, 3)
+                        .map((topic) => topic.topicName)
+                        .join(' · ')}
+                      {sheet.topics.length > 3 && ` +${sheet.topics.length - 3}`}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

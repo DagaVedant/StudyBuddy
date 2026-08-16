@@ -18,6 +18,7 @@ function stats(partial: Partial<TopicStats> & { topicId: string }): TopicStats {
     correct: 0,
     unsure: 0,
     wrong: 0,
+    trend: null,
     ...partial,
   }
 }

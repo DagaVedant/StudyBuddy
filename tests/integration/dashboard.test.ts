@@ -2,13 +2,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
   getAccuracyTrend,
+  getAccuracyTrendBySubject,
   getDistractorPatterns,
   getOverview,
   getRecentWorksheets,
+  getReviewForecast,
   getTopicStats,
 } from '@/lib/dashboard/queries'
 import type { Db } from '@/lib/db/types'
-import { reviewCards } from '@/lib/db/schema'
+import { attempts, reviewCards } from '@/lib/db/schema'
+import { scheduleFromOutcome } from '@/lib/review/fsrs'
 import { rankWeaknesses } from '@/lib/dashboard/ranking'
 
 import { createTestDb, type TestDb } from '../helpers/db'
@@ -328,5 +331,178 @@ describe('getDistractorPatterns', () => {
 
     expect(hit.choiceLabel).toBe('B')
     expect(Number(hit.timesChosen)).toBe(2)
+  })
+})
+
+/**
+ * The three panels spec.md §5.5 asks for that the dashboard did not have, and
+ * the arrow it asks panel 1 for and never computed.
+ */
+describe('the panels that were missing', () => {
+  describe('getReviewForecast', () => {
+    it('breaks what is due down by topic', async () => {
+      const userId = await makeUser(db)
+      const worksheetId = await makeWorksheet(db, userId)
+      const triangles = topicIds.get(TRIANGLES)!
+      const slope = topicIds.get(SLOPE)!
+
+      const overdue = new Date(Date.now() - 60_000)
+      let ordinal = 0
+      for (const topicId of [triangles, triangles, slope]) {
+        ordinal += 1
+        const question = await makeQuestion(db, userId, worksheetId, {
+          ordinal,
+          promptText: 'What is the value of x in this equation?',
+          topicId,
+        })
+        await makeAttempt(db, userId, question.id, 'wrong')
+        const { card } = scheduleFromOutcome(null, 'wrong')
+        await db
+          .insert(reviewCards)
+          .values({ userId, questionId: question.id, ...card, dueAt: overdue })
+      }
+
+      const forecast = await getReviewForecast(db as Db, userId)
+
+      // Most due first, which is the order a student would work in.
+      expect(forecast[0]).toMatchObject({ dueToday: 2 })
+      expect(forecast.map((row) => row.dueToday)).toEqual([2, 1])
+    })
+
+    /**
+     * A forecast is about the near future. A card scheduled for March is not a
+     * thing to plan today around, and listing its topic would fill the panel
+     * with rows reading zero.
+     */
+    it('leaves out what is not due within the week', async () => {
+      const userId = await makeUser(db)
+      const worksheetId = await makeWorksheet(db, userId)
+      const question = await makeQuestion(db, userId, worksheetId, {
+        promptText: 'What is the value of x in this equation?',
+        topicId: topicIds.get(TRIANGLES)!,
+      })
+      await makeAttempt(db, userId, question.id, 'wrong')
+
+      const { card } = scheduleFromOutcome(null, 'wrong')
+      const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      await db
+        .insert(reviewCards)
+        .values({ userId, questionId: question.id, ...card, dueAt: nextMonth })
+
+      expect(await getReviewForecast(db as Db, userId)).toEqual([])
+    })
+  })
+
+  describe('the trend arrow', () => {
+    async function topicWithHistory(outcomes: ('correct' | 'wrong')[]) {
+      const userId = await makeUser(db)
+      const worksheetId = await makeWorksheet(db, userId)
+
+      let ordinal = 0
+      for (const outcome of outcomes) {
+        ordinal += 1
+        const question = await makeQuestion(db, userId, worksheetId, {
+          ordinal,
+          promptText: 'What is the value of x in this equation?',
+          topicId: topicIds.get(TRIANGLES)!,
+        })
+        // Ordered, so the halves are the halves this is describing.
+        await db.insert(attempts).values({
+          userId,
+          questionId: question.id,
+          outcome,
+          source: 'markup',
+          createdAt: new Date(Date.now() - (outcomes.length - ordinal) * 60_000),
+        })
+      }
+
+      const stats = await getTopicStats(db as Db, userId)
+      return stats.find((row) => row.topicId === topicIds.get(TRIANGLES)!)!
+    }
+
+    it('points up when the later half went better', async () => {
+      expect(
+        (await topicWithHistory(['wrong', 'wrong', 'correct', 'correct'])).trend,
+      ).toBe('up')
+    })
+
+    it('points down when it went worse', async () => {
+      expect(
+        (await topicWithHistory(['correct', 'correct', 'wrong', 'wrong'])).trend,
+      ).toBe('down')
+    })
+
+    it('stays flat for a wobble rather than calling it a direction', async () => {
+      expect(
+        (await topicWithHistory(['correct', 'wrong', 'correct', 'wrong'])).trend,
+      ).toBe('flat')
+    })
+
+    /**
+     * Null, not 'flat'. Flat claims steadiness, and one attempt claims nothing.
+     */
+    it('says nothing at all with a single attempt', async () => {
+      expect((await topicWithHistory(['wrong'])).trend).toBeNull()
+    })
+  })
+
+  describe('getAccuracyTrendBySubject', () => {
+    it('reports one series per subject the student has attempted', async () => {
+      const userId = await makeUser(db)
+      const worksheetId = await makeWorksheet(db, userId)
+
+      let ordinal = 0
+      for (const topicId of [topicIds.get(TRIANGLES)!, topicIds.get(SLOPE)!]) {
+        ordinal += 1
+        const question = await makeQuestion(db, userId, worksheetId, {
+          ordinal,
+          promptText: 'What is the value of x in this equation?',
+          topicId,
+        })
+        await makeAttempt(db, userId, question.id, 'wrong')
+      }
+
+      const series = await getAccuracyTrendBySubject(db as Db, userId, 4)
+
+      // Both topics are under the same subject root, so one series, and every
+      // series carries every week so the toggle cannot reshape the x-axis.
+      expect(series).toHaveLength(1)
+      expect(series[0].points).toHaveLength(4)
+      expect(series[0].points.at(-1)?.wrong).toBe(2)
+    })
+
+    it('reports nothing for an account with no attempts', async () => {
+      const userId = await makeUser(db)
+
+      expect(await getAccuracyTrendBySubject(db as Db, userId, 4)).toEqual([])
+    })
+  })
+
+  describe('getRecentWorksheets', () => {
+    it('carries the score and the topics the paper covered', async () => {
+      const userId = await makeUser(db)
+      const worksheetId = await makeWorksheet(db, userId)
+
+      const right = await makeQuestion(db, userId, worksheetId, {
+        ordinal: 1,
+        promptText: 'What is the value of x in this equation?',
+        topicId: topicIds.get(TRIANGLES)!,
+      })
+      const missed = await makeQuestion(db, userId, worksheetId, {
+        ordinal: 2,
+        promptText: 'What is the slope of the line through these points?',
+        topicId: topicIds.get(SLOPE)!,
+      })
+
+      await makeAttempt(db, userId, right.id, 'correct')
+      await makeAttempt(db, userId, missed.id, 'wrong')
+
+      const [sheet] = await getRecentWorksheets(db as Db, userId)
+
+      expect(sheet).toMatchObject({ markedCount: 2, correctCount: 1, wrongCount: 1 })
+      expect(sheet.topics.map((topic) => topic.topicName).sort()).toEqual(
+        ['Slope', 'Triangle angle sum'].sort(),
+      )
+    })
   })
 })

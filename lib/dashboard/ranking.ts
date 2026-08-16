@@ -2,6 +2,13 @@ export const MIN_ATTEMPTS = 5
 
 const Z = 1.96
 
+/**
+ * Which way a topic's accuracy has moved, comparing the later half of its
+ * attempts against the earlier half. Null when there is not enough to say,
+ * which is different from 'flat': flat claims steadiness, null claims nothing.
+ */
+export type TopicTrend = 'up' | 'down' | 'flat' | null
+
 export interface TopicStats {
   topicId: string
   topicName: string
@@ -10,6 +17,7 @@ export interface TopicStats {
   correct: number
   unsure: number
   wrong: number
+  trend: TopicTrend
 }
 
 export interface RankedTopic extends TopicStats {
@@ -90,6 +98,12 @@ export function rollUp(
       correct: 0,
       unsure: 0,
       wrong: 0,
+      // A rolled-up row has no trend of its own. Trends are computed per topic
+      // from that topic's own attempts in time order, and there is no honest
+      // way to add two of them together: a subject whose two topics moved in
+      // opposite directions has not moved, and saying so would be a claim the
+      // numbers underneath do not support.
+      trend: null,
     }
 
     bucket.correct += entry.correct
