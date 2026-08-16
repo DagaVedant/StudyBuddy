@@ -26,9 +26,12 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      // Coalesces per worksheet, so a retry that pushes twice replaces the
+      // No `icon` or `badge`. Both take a PNG, this app ships an .ico and an
+      // SVG mark, and a notification pointing at a file that is not there is
+      // not a fallback: the platform draws its own generic icon either way, so
+      // naming a missing one only looks like it works.
+      //
+      // `tag` coalesces per worksheet, so a retry that pushes twice replaces the
       // first rather than stacking two identical rows in the shade.
       tag: href,
       data: { href },

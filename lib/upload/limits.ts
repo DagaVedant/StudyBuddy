@@ -31,14 +31,20 @@ export const MAX_SOURCE_PAGE_NUMBER = 2000
  */
 export const MAX_DECODED_PIXELS = MAX_PAGE_DIMENSION * MAX_PAGE_DIMENSION
 
-export const ACCEPTED_SOURCE_TYPES = [
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-] as const
+/*
+ * There is deliberately no accepted-mime-type list here.
+ *
+ * There was one, and nothing read it. What decides whether a page is accepted
+ * is `POST /api/worksheets/[id]/pages` handing the bytes to sharp: anything
+ * that will not decode is refused there. That is the stronger check, and the
+ * reason it replaced a type list is written up on the route: `file.type` is
+ * whatever the client claimed it was, so a list of allowed values was checking
+ * a string rather than an image.
+ *
+ * The file picker's `accept` attribute stays broader than any such list would
+ * be (`application/pdf,image/*`), because narrowing it only hides files a
+ * phone might legitimately produce, and the decode is what actually decides.
+ */
 
 export function pageCapFor(role: 'student' | 'admin'): number {
   return role === 'admin' ? Number.POSITIVE_INFINITY : MAX_PAGES_PER_UPLOAD
