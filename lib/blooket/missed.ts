@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 
 import { answerChoices, attempts, questions, worksheets } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
-import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { CHOICE_ORDER } from '@/lib/questions/sql'
 
 import type { ExportQuestion } from './csv'
 

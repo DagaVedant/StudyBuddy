@@ -1,4 +1,4 @@
-import { sortWithinPage, type PagePosition } from './page-order'
+import { sortWithinPage, type PagePosition } from './page-text'
 import { validateQuestion, type ValidatableQuestion } from './validate'
 
 /**

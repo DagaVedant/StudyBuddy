@@ -7,7 +7,7 @@ import { isAnswerPage } from '@/lib/questions/answer-key'
 import { foldLeadInChoices } from '@/lib/questions/lead-in'
 import { normalizeMath } from '@/lib/questions/math'
 import { seamAround } from '@/lib/questions/page-text'
-import { printedNumbersFor } from '@/lib/questions/printed-numbers'
+import { printedNumbersFor } from '@/lib/questions/numbering'
 import { reflowText } from '@/lib/questions/reflow'
 import {
   hashQuestion,

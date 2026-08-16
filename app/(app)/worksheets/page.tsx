@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { attempts, questions, worksheetPages, worksheets } from '@/lib/db/schema'
-import { IS_QUESTION } from '@/lib/questions/is-question'
+import { IS_QUESTION } from '@/lib/questions/sql'
 import { destination } from '@/lib/worksheets/destination'
 
 import DeleteWorksheetButton from './delete-worksheet-button'

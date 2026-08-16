@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, lte, sql } from 'drizzle-orm'
 
 import { unwrapDriverRows as rows } from '@/lib/db/rows'
-import { IS_QUESTION } from '@/lib/questions/is-question'
+import { IS_QUESTION } from '@/lib/questions/sql'
 import { inReviewQueue } from '@/lib/review/queue'
 import {
   attempts,

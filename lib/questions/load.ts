@@ -2,7 +2,7 @@ import { asc, eq, inArray } from 'drizzle-orm'
 
 import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
-import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { CHOICE_ORDER } from '@/lib/questions/sql'
 import type { BBox } from '@/lib/db/schema'
 
 export interface LoadedChoice {

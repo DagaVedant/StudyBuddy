@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
-import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { CHOICE_ORDER } from '@/lib/questions/sql'
 import {
   answerChoices,
   attempts,

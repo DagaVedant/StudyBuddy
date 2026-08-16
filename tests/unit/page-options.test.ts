@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { questionsOnPage } from '@/lib/questions/page-options'
+import { questionsOnPage } from '@/lib/questions/numbering'
 
 /** edison_topic_test2_20 page 1, verbatim, down to where the page break falls. */
 const PAGE_1 = `Edison Academy Magnet School

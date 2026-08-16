@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { QUESTION_WRITE_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
-import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { CHOICE_ORDER } from '@/lib/questions/sql'
 import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
 import { checkReferences, referenceError } from '@/lib/questions/references'
 import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'

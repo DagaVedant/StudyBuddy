@@ -3,7 +3,7 @@ import { and, asc, eq, notExists, sql } from 'drizzle-orm'
 import type { AIProvider } from '@/lib/ai/types'
 import { answerChoices, questionSolutions, questions } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
-import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { CHOICE_ORDER } from '@/lib/questions/sql'
 import { normalizeChoiceLabel } from '@/lib/questions/shape'
 
 /**

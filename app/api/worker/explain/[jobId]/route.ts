@@ -2,7 +2,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
-import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { CHOICE_ORDER } from '@/lib/questions/sql'
 import { answerChoices, attempts, processingJobs, questions } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
 

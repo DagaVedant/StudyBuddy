@@ -1,5 +1,5 @@
 import type { QuestionReview, ReviewCandidate } from '@/lib/ai/types'
-import { printedNumbersFor } from '@/lib/questions/printed-numbers'
+import { printedNumbersFor } from '@/lib/questions/numbering'
 import {
   modalChoiceCount,
   validateQuestion,

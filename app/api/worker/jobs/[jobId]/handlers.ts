@@ -12,7 +12,7 @@ import {
   worksheetPages,
 } from '@/lib/db/schema'
 import { checkpointJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
-import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { CHOICE_ORDER } from '@/lib/questions/sql'
 import { notifyWorksheet } from '@/lib/notifications/worksheet'
 import { transitionWorksheet } from '@/lib/upload/claim'
 import { applyPermanentFailure } from '@/lib/worker/fail'

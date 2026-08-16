@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { printedNumbersFor } from '@/lib/questions/printed-numbers'
+import { printedNumbersFor } from '@/lib/questions/numbering'
 
 // Page 2 of topic_test3_20, which prints 9 to 13. Re-read on its own, the
 // model returned these numbered from 1 and ingest stored that, landing them on

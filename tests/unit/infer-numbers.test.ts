@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { inferPrintedNumbers, type NumberedQuestion } from '@/lib/questions/infer-numbers'
+import { inferPrintedNumbers, type NumberedQuestion } from '@/lib/questions/numbering'
 
 let seq = 0
 function q(

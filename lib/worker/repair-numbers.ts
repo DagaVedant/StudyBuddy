@@ -2,7 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
 import { questions, worksheetPages, worksheets } from '@/lib/db/schema'
-import { inferPrintedNumbers } from '@/lib/questions/infer-numbers'
+import { inferPrintedNumbers } from '@/lib/questions/numbering'
 
 /**
  * Recovers printed numbers the model dropped or misread.

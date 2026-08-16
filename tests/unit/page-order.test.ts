@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { sortWithinPage } from '@/lib/questions/page-order'
+import { sortWithinPage } from '@/lib/questions/page-text'
 
 const q = (
   name: string,
