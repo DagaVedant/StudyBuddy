@@ -375,6 +375,36 @@ start it, or let the trial run out and it falls through to the manual editor.
 
 ---
 
+## Completion notifications
+
+A student is told when a worksheet finishes, in two halves.
+
+The **in-app bell** in the topbar needs no setup and always works. Every
+completion and every permanent failure writes a row, and the bell polls for them
+once a minute.
+
+**Web push** is the half that reaches a closed tab, and it needs a VAPID keypair:
+
+```bash
+npm run gen:vapid
+```
+
+Paste all four lines into `.env.local`. Three are server-side and one is
+`NEXT_PUBLIC_`, which is deliberate: subscribing happens in the browser and
+needs the public key there. Leave them empty and push is skipped cleanly, with
+the bell unaffected.
+
+Do not regenerate the keypair on a deployment with real subscribers. Every
+subscription already handed out was issued against the old public key, and
+rotating it silently breaks all of them with no error anywhere.
+
+Three things push cannot do, none of which affect the bell: it needs the student
+to grant permission, iOS only delivers it to a site installed to the home
+screen, and a revoked subscription is only discovered when a send comes back 404
+or 410 (at which point the row is deleted).
+
+---
+
 ## Known gaps
 
 - **Tier C (student's own Ollama) reads pages and nothing else.** Extraction is

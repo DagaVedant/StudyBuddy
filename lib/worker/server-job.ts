@@ -5,6 +5,7 @@ import { EmbeddingUnavailableError, classifyWorksheet } from '@/lib/classify'
 import type { Db } from '@/lib/db/types'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
+import { notifyWorksheet } from '@/lib/notifications/worksheet'
 import { transitionWorksheet } from '@/lib/upload/claim'
 import { runExtraction } from '@/lib/worker/ingest'
 import { runRepairPasses } from '@/lib/worker/pipeline'
@@ -225,11 +226,20 @@ async function runOneServerJob(
     // are still adding, merging and deleting rows. `runExtraction` used to do
     // this the moment the pages were read, which put markup one link away from
     // a job that had not finished repairing itself.
-    await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
-      status: 'awaiting_review',
-    })
+    const delivered = await transitionWorksheet(
+      db,
+      job.worksheetId,
+      ['queued', 'processing'],
+      { status: 'awaiting_review' },
+    )
 
     await completeJob(db, job.id)
+
+    // Tier B's own completion notification. Same guard as the worker route's:
+    // only the transition that actually delivered the worksheet announces it.
+    if (delivered) {
+      await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_ready')
+    }
 
     /*
      * Solving, behind the finished worksheet.

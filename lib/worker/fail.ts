@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 
 import { refundTrial } from '@/lib/ai/quota'
+import { notifyWorksheet } from '@/lib/notifications/worksheet'
 import { worksheets } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 import type { StoredJobStage } from '@/lib/queue'
@@ -88,9 +89,20 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
       // that already reached `awaiting_review` or `ready` while this failure
       // was being applied finished by some other route, and a stale failure
       // arriving after it must not drag a delivered worksheet back to failed.
-      await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
-        status: 'failed',
-      })
+      const failed = await transitionWorksheet(
+        db,
+        job.worksheetId,
+        ['queued', 'processing'],
+        { status: 'failed' },
+      )
+
+      // Only if this is the transition that actually failed it. The guard above
+      // exists because a stale failure can arrive after the worksheet finished,
+      // and telling a student their finished paper failed would be worse than
+      // the silence this replaces.
+      if (failed) {
+        await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_failed')
+      }
 
       return
     }

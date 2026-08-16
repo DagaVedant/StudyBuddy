@@ -820,7 +820,82 @@ export const rateLimits = pgTable('rate_limits', {
   windowStart: timestamp('window_start', { withTimezone: true }).defaultNow().notNull(),
 })
 
+/**
+ * What a notification is about, so a client can pick an icon or a filter
+ * without parsing the copy.
+ */
+export const notificationKind = pgEnum('notification_kind', [
+  'worksheet_ready',
+  'worksheet_failed',
+])
+
+/**
+ * spec.md:611's completion notifications, the in-app half.
+ *
+ * There was no notification system of any kind: no email, no push, no inbox.
+ * The queue, the heartbeat and the status UI were all built, and the piece that
+ * makes them useful was not, so "safe to close this page" was true and useless.
+ * On the trial tier, where extraction runs on a home GPU and can take a while,
+ * that is the difference between a background job and one you have to babysit.
+ *
+ * Rows rather than a transient toast, because the point is that the student is
+ * not looking when it happens. Read state is a timestamp rather than a boolean
+ * so "when did they see it" survives, which is the sort of thing the next
+ * question about this table will want.
+ */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: notificationKind('kind').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    /** Where the notification takes them, already resolved when it is written. */
+    href: text('href').notNull(),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    // The bell's only query: this user's newest first, unread counted.
+    index('notifications_user_created_idx').on(t.userId, t.createdAt),
+  ],
+)
+
+/**
+ * A browser's push endpoint, which is the only address we have for a closed tab.
+ *
+ * One row per subscription rather than per user: a student with a phone and a
+ * laptop has two, and both should ring. The endpoint is unique because that is
+ * what the browser guarantees, and re-subscribing on the same device hands back
+ * the same one rather than a second row.
+ *
+ * `p256dh` and `auth` are the browser's own public key and shared secret, used
+ * by RFC 8291 to encrypt the payload so the push service in the middle cannot
+ * read it. They are not our secrets and are useless without the browser that
+ * issued them, which is why they sit here in plain text where an API key would
+ * not.
+ */
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('push_subscriptions_user_idx').on(t.userId)],
+)
+
 export type User = typeof users.$inferSelect
+export type Notification = typeof notifications.$inferSelect
+export type PushSubscription = typeof pushSubscriptions.$inferSelect
 export type Worksheet = typeof worksheets.$inferSelect
 export type WorksheetPage = typeof worksheetPages.$inferSelect
 export type Question = typeof questions.$inferSelect

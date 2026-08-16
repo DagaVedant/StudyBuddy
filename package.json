@@ -21,6 +21,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "gen:secrets": "node scripts/gen-secrets.mjs",
+    "gen:vapid": "node scripts/gen-vapid.mjs",
     "benchmark:ollama": "tsx scripts/benchmark-ollama.ts",
     "worker": "tsx scripts/gpu-worker.ts",
     "check": "node scripts/check.mjs",
@@ -31,6 +32,7 @@
     "@auth/drizzle-adapter": "^1.11.3",
     "@huggingface/transformers": "^4.2.0",
     "@tanstack/react-virtual": "^3.14.9",
+    "@types/web-push": "^3.6.4",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.6.1",
     "bcryptjs": "^3.0.3",
@@ -44,6 +46,7 @@
     "sharp": "^0.35.3",
     "tesseract.js": "^7.0.0",
     "ts-fsrs": "^5.4.1",
+    "web-push": "^3.6.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {

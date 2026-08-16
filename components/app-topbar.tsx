@@ -4,6 +4,7 @@ import { auth, signOut } from '@/auth'
 
 import Mark from './mark'
 import NavLinks from './nav-links'
+import NotificationBell from './notification-bell'
 import ThemeToggle from './theme-toggle'
 
 export default async function AppTopbar() {
@@ -33,6 +34,7 @@ export default async function AppTopbar() {
         <NavLinks isAdmin={session.user.role === 'admin'} />
 
         <div className="flex shrink-0 items-center gap-2">
+          <NotificationBell />
           <ThemeToggle />
           <form
             action={async () => {

@@ -106,6 +106,8 @@ const workerJob = await import('@/app/api/worker/jobs/[jobId]/route')
 const workerPage = await import('@/app/api/worker/pages/[pageId]/route')
 const workerQuestions = await import('@/app/api/worker/questions/[worksheetId]/route')
 const workerSolutions = await import('@/app/api/worker/solutions/[worksheetId]/route')
+const notificationsRoute = await import('@/app/api/notifications/route')
+const subscribeRoute = await import('@/app/api/notifications/subscribe/route')
 const browserClaim = await import('@/app/api/browser-jobs/claim/route')
 const browserJob = await import('@/app/api/browser-jobs/[jobId]/route')
 const identity = await import('@/app/api/account/identity/route')
@@ -204,6 +206,20 @@ const ROUTES: [string, Handler, string, never][] = [
     question.DELETE as Handler,
     'DELETE',
     id({ questionId: 'q-1' }),
+  ],
+  ['GET /api/notifications', notificationsRoute.GET as Handler, 'GET', undefined as never],
+  ['POST /api/notifications', notificationsRoute.POST as Handler, 'POST', undefined as never],
+  [
+    'POST /api/notifications/subscribe',
+    subscribeRoute.POST as Handler,
+    'POST',
+    undefined as never,
+  ],
+  [
+    'DELETE /api/notifications/subscribe',
+    subscribeRoute.DELETE as Handler,
+    'DELETE',
+    undefined as never,
   ],
   ['POST /api/reports', reports.POST as Handler, 'POST', undefined as never],
   ['POST /api/review/rate', rate.POST as Handler, 'POST', undefined as never],

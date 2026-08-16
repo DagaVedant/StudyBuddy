@@ -13,6 +13,7 @@ import {
 } from '@/lib/db/schema'
 import { checkpointJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
 import { CHOICE_ORDER } from '@/lib/questions/choice-order'
+import { notifyWorksheet } from '@/lib/notifications/worksheet'
 import { transitionWorksheet } from '@/lib/upload/claim'
 import { applyPermanentFailure } from '@/lib/worker/fail'
 import { persistQuestions } from '@/lib/worker/ingest'
@@ -244,9 +245,25 @@ export async function handleComplete(
   job: Job,
 ): Promise<NextResponse> {
   await completeJob(db, jobId)
-  await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
-    status: 'awaiting_review',
-  })
+  const delivered = await transitionWorksheet(
+    db,
+    job.worksheetId,
+    ['queued', 'processing'],
+    { status: 'awaiting_review' },
+  )
+
+  /*
+   * spec.md:611's completion notification, on the transition that delivered it.
+   *
+   * Guarded on the transition rather than fired unconditionally, because this
+   * handler also runs for the `answer_key` stage, which completes against a
+   * worksheet already sitting at `awaiting_review`. Announcing that one would
+   * tell a student their worksheet was ready a second time, an hour after they
+   * checked it.
+   */
+  if (delivered) {
+    await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_ready')
+  }
 
   /*
    * The answers follow the paper rather than holding it up.

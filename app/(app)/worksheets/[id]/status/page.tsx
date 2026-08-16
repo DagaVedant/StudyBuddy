@@ -168,10 +168,17 @@ export default async function StatusPage({
                 opposite of the truth: that tier's worker is this tab, so
                 closing it stops the reading rather than leaving it running
                 somewhere. BrowserRunner says so in its own words instead.
+
+                "We will tell you" is a promise now rather than an implication.
+                Both halves of the old sentence were true and together they
+                implied something would reach the student, which nothing did:
+                there was no notification system in the codebase at all. There
+                is one, so this says what it does.
               */}
-              <p className="hint">
-                This page updates itself every minute. Safe to close: nothing is
-                lost.
+              <p className="hint text-pretty">
+                This page updates itself every minute. Safe to close: we will
+                tell you when it is done, and it will be waiting in the bell at
+                the top of the screen.
               </p>
             </>
           )}
