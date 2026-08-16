@@ -17,6 +17,7 @@ import {
   getOverview,
   getRecentWorksheets,
   getReviewForecast,
+  countUntaggedWorksheets,
   getStudyStreak,
   getTopicStats,
 } from '@/lib/dashboard/queries'
@@ -93,6 +94,7 @@ export default async function DashboardPage() {
     streak,
     aiStatus,
     topicRows,
+    untagged,
   ] = await Promise.all([
     getOverview(db, userId),
     getTopicStats(db, userId),
@@ -105,6 +107,7 @@ export default async function DashboardPage() {
     getStudyStreak(db, userId),
     getAiStatus(db, userId),
     db.select({ id: topics.id, slug: topics.slug }).from(topics),
+    countUntaggedWorksheets(db, userId),
   ])
 
   const paths = pathBySlug()
@@ -239,9 +242,41 @@ export default async function DashboardPage() {
               hint={`Ranked by how confident we can be that the misses are real, not by raw percentage. A topic needs ${MIN_ATTEMPTS} attempts before it appears here.`}
             >
               {weakest.length === 0 ? (
+                /*
+                 * "Not enough evidence yet" is the wrong explanation when the
+                 * reason is that nothing got tagged.
+                 *
+                 * Every panel on this screen is built from `question_topics`, so
+                 * a worksheet that finished untagged contributes to none of them.
+                 * The check screen says why at the time, and then the student
+                 * marks the paper and arrives here days later at an empty
+                 * dashboard with no memory of the warning, being told they have
+                 * not done enough work. They have; it just did not land anywhere
+                 * this screen can see.
+                 */
                 <Empty>
-                  No topic has enough evidence yet.
-                  {thin > 0 && ` ${thin} more still building up data.`}
+                  {untagged > 0 ? (
+                    <>
+                      {untagged === 1
+                        ? 'One of your worksheets '
+                        : `${untagged} of your worksheets `}
+                      finished without topics assigned, so nothing from{' '}
+                      {untagged === 1 ? 'it' : 'them'} can be ranked here. Open{' '}
+                      {untagged === 1 ? 'it' : 'one'} from{' '}
+                      <Link
+                        href="/worksheets"
+                        className="text-accent underline underline-offset-2"
+                      >
+                        your worksheets
+                      </Link>{' '}
+                      to see why.
+                    </>
+                  ) : (
+                    <>
+                      No topic has enough evidence yet.
+                      {thin > 0 && ` ${thin} more still building up data.`}
+                    </>
+                  )}
                 </Empty>
               ) : (
                 <ul className="divide-y divide-border">

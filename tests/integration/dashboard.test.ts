@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -8,10 +9,12 @@ import {
   getRecentWorksheets,
   getReviewForecast,
   getTopicStats,
+  countUntaggedWorksheets,
 } from '@/lib/dashboard/queries'
 import type { Db } from '@/lib/db/types'
-import { attempts, reviewCards } from '@/lib/db/schema'
+import { attempts, reviewCards, worksheets } from '@/lib/db/schema'
 import { scheduleFromOutcome } from '@/lib/review/fsrs'
+import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/untagged'
 import { rankWeaknesses } from '@/lib/dashboard/ranking'
 
 import { createTestDb, type TestDb } from '../helpers/db'
@@ -504,5 +507,65 @@ describe('the panels that were missing', () => {
         ['Slope', 'Triangle angle sum'].sort(),
       )
     })
+  })
+})
+
+/**
+ * Finding 8/106 asked for the job to "fail loudly rather than completing it
+ * untagged". The complaint was right and the remedy was not: failing sends the
+ * worksheet to `failed`, which makes the extracted questions unreachable and
+ * refunds a credit the student would rather have spent on a usable paper. The
+ * paper is fine; marking, review and the Blooket export all work with no topics
+ * on it. What was actually wrong is that it was silent.
+ */
+describe('countUntaggedWorksheets', () => {
+  it('counts the worksheets that finished with no topics', async () => {
+    const userId = await makeUser(db)
+    const untagged = await makeWorksheet(db, userId)
+    await makeWorksheet(db, userId)
+
+    expect(await countUntaggedWorksheets(db as Db, userId)).toBe(0)
+
+    await db
+      .update(worksheets)
+      .set({ classificationError: UNTAGGED_REASON.classifierDown })
+      .where(eq(worksheets.id, untagged))
+
+    expect(await countUntaggedWorksheets(db as Db, userId)).toBe(1)
+  })
+
+  it('counts only this student’s', async () => {
+    const mine = await makeUser(db)
+    const theirs = await makeUser(db)
+    const theirSheet = await makeWorksheet(db, theirs)
+
+    await db
+      .update(worksheets)
+      .set({ classificationError: UNTAGGED_REASON.classifierDown })
+      .where(eq(worksheets.id, theirSheet))
+
+    expect(await countUntaggedWorksheets(db as Db, mine)).toBe(0)
+  })
+
+  /**
+   * Tier C reads pages in the browser and classifies nothing, which was silent:
+   * the worksheet reached `awaiting_review` with no topics, an empty dashboard,
+   * and no explanation anywhere. Exactly the finding's complaint about Tier B,
+   * on a tier the finding never looked at.
+   */
+  it('reads the same column Tier C writes when it finishes', async () => {
+    const userId = await makeUser(db)
+    const worksheetId = await makeWorksheet(db, userId)
+
+    await recordUntagged(db as Db, worksheetId, UNTAGGED_REASON.tierCUnsupported)
+
+    expect(await countUntaggedWorksheets(db as Db, userId)).toBe(1)
+
+    const [row] = await db
+      .select({ reason: worksheets.classificationError })
+      .from(worksheets)
+      .where(eq(worksheets.id, worksheetId))
+
+    expect(row.reason).toMatch(/does not sort questions into topics yet/)
   })
 })

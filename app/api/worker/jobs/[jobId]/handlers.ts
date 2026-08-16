@@ -21,6 +21,7 @@ import { promoteDerivedAnswer } from '@/lib/worker/solutions'
 import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
 import { planPageReplacement } from '@/lib/worker/review'
 import { partitionByDeletability } from '@/lib/worker/safe-delete'
+import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/untagged'
 import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
 
 import type { bodySchema } from './schema'
@@ -262,6 +263,20 @@ export async function handleComplete(
    * checked it.
    */
   if (delivered) {
+    /*
+     * Tier C arrives here untagged, and nothing was going to say so.
+     *
+     * The operator's GPU classifies through its own route after extraction, and
+     * Tier B classifies inside its drain. The browser runner does neither: it
+     * reads pages and posts them, so a Tier C worksheet reached `awaiting_review`
+     * with no topics on it, an empty weakness dashboard, and no explanation
+     * anywhere. That is finding 8/106's exact complaint about Tier B, on a tier
+     * the finding never looked at.
+     */
+    if (job.executor === 'browser') {
+      await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.tierCUnsupported)
+    }
+
     await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_ready')
   }
 

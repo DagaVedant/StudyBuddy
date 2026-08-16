@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, lte, sql } from 'drizzle-orm'
 
 import { unwrapDriverRows as rows } from '@/lib/db/rows'
 import { IS_QUESTION } from '@/lib/questions/is-question'
@@ -181,6 +181,30 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
     dueNow: Number(dueNow?.value ?? 0),
     toPractise: Number(queued?.value ?? 0),
   }
+}
+
+/**
+ * How many of this student's worksheets finished with no topics on them.
+ *
+ * The weakness ranking, the forecast and the subject tree are all built from
+ * `question_topics`, so a worksheet that finished untagged contributes to none
+ * of them. The check screen says why at the time, and then the student marks the
+ * paper and arrives at a dashboard with nothing on it and no memory of the
+ * warning. "No topic has enough evidence yet" is the wrong explanation for that,
+ * and it is the one they were getting.
+ */
+export async function countUntaggedWorksheets(
+  db: Db,
+  userId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(worksheets)
+    .where(
+      and(eq(worksheets.userId, userId), isNotNull(worksheets.classificationError)),
+    )
+
+  return Number(row?.value ?? 0)
 }
 
 export interface ForecastRow {

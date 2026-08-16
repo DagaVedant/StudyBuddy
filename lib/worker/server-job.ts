@@ -9,6 +9,7 @@ import { notifyWorksheet } from '@/lib/notifications/worksheet'
 import { transitionWorksheet } from '@/lib/upload/claim'
 import { runExtraction } from '@/lib/worker/ingest'
 import { runRepairPasses } from '@/lib/worker/pipeline'
+import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/untagged'
 import { deriveSolutions } from '@/lib/worker/solutions'
 
 type Resolver = (db: Db, userId: string) => Promise<ResolvedProvider>
@@ -195,15 +196,13 @@ async function runOneServerJob(
       // on the one screen this worksheet is actually going to. A server log
       // saying so was the whole fix once, and it fixed the deployment side of
       // this without touching the side a student can see.
-      const summary =
+      await recordUntagged(
+        db,
+        job.worksheetId,
         error instanceof EmbeddingUnavailableError
-          ? 'The topic classifier was unavailable while this worksheet was processed, so no topics were assigned.'
-          : 'Topic classification failed while this worksheet was processed, so no topics were assigned.'
-
-      await db
-        .update(worksheets)
-        .set({ classificationError: summary })
-        .where(eq(worksheets.id, job.worksheetId))
+          ? UNTAGGED_REASON.classifierDown
+          : UNTAGGED_REASON.classifierFailed,
+      )
 
       if (error instanceof EmbeddingUnavailableError) {
         // Loud, and once per job rather than once per question. Every worksheet
