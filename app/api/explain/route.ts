@@ -160,6 +160,29 @@ export async function POST(request: Request) {
   // capability check: with mock AI switched on the resolver hands back a
   // MockProvider on this same path, and that one does run here, which is how
   // the end-to-end suite gets an explanation without a worker attached.
+  /*
+   * Tier C, which reads worksheets and does not write explanations yet.
+   *
+   * `executor === 'browser'` means the only thing that can run this student's
+   * model is their own tab, and the browser runner does extraction alone
+   * (app/(app)/worksheets/[id]/status/browser-runner.tsx). Falling through from
+   * here reaches the null provider and answers "No AI is set up for your
+   * account. Add an API key or connect Ollama in settings", to a student who
+   * has connected Ollama and can watch it read their pages. Saying what is
+   * actually true costs nothing and is the whole point of the tier reporting
+   * its own state honestly.
+   */
+  if (executor === 'browser') {
+    return NextResponse.json(
+      {
+        error:
+          'Ollama reads your worksheets, but it does not write explanations yet. ' +
+          'Add a cloud API key in settings if you want those.',
+      },
+      { status: 501 },
+    )
+  }
+
   if (executor === 'operator_gpu' && provider.executionSite === 'none') {
     const existing = await pendingExplainJob(db, userId, question.id)
 

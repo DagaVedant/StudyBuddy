@@ -61,15 +61,25 @@ The tier only changes how questions get off the page.
 | **0 (Trial)** | nothing | operator GPU, 3 worksheets lifetime | 20 |
 | **A (Free)** | nothing | manual editor + browser OCR | none |
 | **B (Cloud key)** | Anthropic/OpenAI key | server-side vision model | unlimited |
-| **C (Ollama)** *(planned)* | Ollama running | student's own GPU, in-browser | unlimited |
+| **C (Ollama)** | Ollama running | student's own GPU, in-browser | not yet |
 
-Tier C is **not built yet**. The settings screen takes an Ollama address and
-says so; `resolveProvider` never looks at an ollama credential, so an account
-with one saved still runs on whichever tier it qualified for otherwise.
+Tier C extracts. An account with an Ollama address saved resolves to
+`executor: 'browser'`, and the status page's `BrowserRunner` claims the job,
+reads each page against `localhost:11434`, and posts the questions back through
+`/api/browser-jobs/*`, which is the same queue and the same handlers the
+operator's GPU posts through.
 
-The design is settled even though the code is not: it runs in the browser
-because a server cannot reach a student's `localhost`, which also means the tab
-has to stay open. That is a permanent constraint of the approach, not a bug.
+It runs in the browser because a server cannot reach a student's `localhost`,
+which also means **the tab has to stay open**. That is a permanent constraint of
+the approach, not a bug. Reading is checkpointed per page, so closing the tab
+resumes from the last finished page rather than restarting. Ollama also needs
+`OLLAMA_ORIGINS` set to this app's URL before the browser is allowed to call it;
+settings carries the copy-paste command and a connection test.
+
+Not yet on Tier C: derived answer keys, explanations and lessons. Those need the
+tab held open for the better part of an hour on a long paper, which wants
+deciding on its own terms rather than inheriting extraction's; the routes say so
+rather than reporting no AI is configured.
 
 ---
 

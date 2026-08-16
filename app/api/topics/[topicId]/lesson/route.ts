@@ -78,6 +78,20 @@ export async function POST(_request: Request, { params }: Params) {
     )
   }
 
+  // Tier C, same boundary as explanations. The browser runner reads pages and
+  // nothing else yet, so this cannot be generated here or anywhere; the
+  // message above would be wrong for an account that has connected one.
+  if (executor === 'browser') {
+    return NextResponse.json(
+      {
+        error:
+          'Ollama reads your worksheets, but it does not write lessons yet. ' +
+          'Add a cloud API key in settings if you want those.',
+      },
+      { status: 501 },
+    )
+  }
+
   try {
     const generated = await generateLesson(db, provider, topicId)
 

@@ -9,6 +9,7 @@ import { queueDepth, workerStatus } from '@/lib/queue'
 import { phaseFor } from '@/lib/worker/progress'
 import { destination } from '@/lib/worksheets/destination'
 
+import BrowserRunner from './browser-runner'
 import GoManualButton from './go-manual-button'
 
 export const metadata = { title: 'Processing · StudyBuddy' }
@@ -91,10 +92,12 @@ export default async function StatusPage({
   const countIsTrustworthy = !expected || found.length < expected
   const stillReading = phase === 'reading' && countIsTrustworthy
 
-  // Tier B (`executor === 'server'`) needs no physical worker at all, so it is
-  // never "offline" in the sense this page means; only a Tier 0 job stuck
-  // behind an operator GPU that has not sent a heartbeat is.
-  const isOnline = job?.executor === 'server' || worker.online
+  // Tier B (`executor === 'server'`) needs no physical worker at all, and
+  // Tier C's worker is the tab this is rendering in, so neither is ever
+  // "offline" in the sense this page means; only a Tier 0 job stuck behind an
+  // operator GPU that has not sent a heartbeat is.
+  const runsHere = job?.executor === 'browser'
+  const isOnline = job?.executor === 'server' || runsHere || worker.online
 
   return (
     <main className="mx-auto w-full max-w-xl px-6 py-16">
@@ -138,21 +141,40 @@ export default async function StatusPage({
             />
           </div>
 
-          <p aria-live="polite" className="hint text-pretty">
-            {isOnline
-              ? stillReading
-                ? `Reading your worksheet. ${found.length} ${found.length === 1 ? 'question' : 'questions'} found so far.`
-                : phase === 'classifying'
-                  ? 'Sorting the questions into topics.'
-                  : 'Checking every question was picked up, and going back over anything that was missed.'
-              : 'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page; the worksheet will be waiting on your dashboard.'}
-            {depth.pending > 1 && ` ${depth.pending} worksheets ahead of yours.`}
-          </p>
+          {/*
+            Tier C reports its own progress, from the tab doing the work, so
+            the server-rendered line below would be a second and staler answer
+            to the same question. `BrowserRunner` is also the only thing that
+            knows which page is being read right now; this page would find out
+            a minute later, on the next revalidate.
+          */}
+          {runsHere ? (
+            <BrowserRunner worksheetId={id} />
+          ) : (
+            <>
+              <p aria-live="polite" className="hint text-pretty">
+                {isOnline
+                  ? stillReading
+                    ? `Reading your worksheet. ${found.length} ${found.length === 1 ? 'question' : 'questions'} found so far.`
+                    : phase === 'classifying'
+                      ? 'Sorting the questions into topics.'
+                      : 'Checking every question was picked up, and going back over anything that was missed.'
+                  : 'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page; the worksheet will be waiting on your dashboard.'}
+                {depth.pending > 1 && ` ${depth.pending} worksheets ahead of yours.`}
+              </p>
 
-          <p className="hint">
-            This page updates itself every minute. Safe to close: nothing is
-            lost.
-          </p>
+              {/*
+                Deliberately not shown for Tier C, where it would be the exact
+                opposite of the truth: that tier's worker is this tab, so
+                closing it stops the reading rather than leaving it running
+                somewhere. BrowserRunner says so in its own words instead.
+              */}
+              <p className="hint">
+                This page updates itself every minute. Safe to close: nothing is
+                lost.
+              </p>
+            </>
+          )}
 
           {/*
             spec.md:374's manual fallback used to exist only after a hard

@@ -377,9 +377,14 @@ start it, or let the trial run out and it falls through to the manual editor.
 
 ## Known gaps
 
-- **Tier C (student's own Ollama) is not wired.** Settings saves the config and
-  the provider exists, but the browser does not yet drive extraction through
-  it; those uploads land in the manual editor.
+- **Tier C (student's own Ollama) reads pages and nothing else.** Extraction is
+  wired end to end: settings saves the address and tests the connection,
+  `resolveProvider` returns `executor: 'browser'`, and the status page drives
+  the reading against `localhost:11434`. Derived answer keys, explanations and
+  lessons are not built for it, and the routes say so rather than claiming no AI
+  is configured. Two things to know before recommending it to anyone: the tab
+  has to stay open for the whole read, and Ollama refuses the browser outright
+  until `OLLAMA_ORIGINS` names this app's URL and Ollama has been restarted.
 - **Tier B uploads come back untagged.** Auto-classification needs an
   embedding, and the embedding model needs a native runtime that a serverless
   host does not have. The GPU worker does its own embedding, so trial uploads

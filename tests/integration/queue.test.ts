@@ -43,7 +43,7 @@ afterAll(async () => {
   await close()
 })
 
-async function drain(executor: 'server' | 'operator_gpu' = 'operator_gpu') {
+async function drain(executor: 'server' | 'operator_gpu' | 'browser' = 'operator_gpu') {
 
   while (await claimJob(db as Db, executor)) {
 
@@ -786,5 +786,65 @@ describe('requeueJob', () => {
 
   it('reports failure for a job that does not exist', async () => {
     expect(await requeueJob(db as Db, 'nope')).toBe(false)
+  })
+})
+
+/**
+ * The `userId` filter, which exists for exactly one caller.
+ *
+ * Tier C's worker is the student's own tab (app/api/browser-jobs/claim), so
+ * unlike the two server-side executors it is neither trusted nor shared. The
+ * claim response carries the worksheet's pages and their OCR text, so an
+ * unfiltered claim from a browser is one student handed another's paper.
+ */
+describe('claimJob scoped to one user', () => {
+  it('refuses a job belonging to somebody else', async () => {
+    await drain('browser')
+
+    const stranger = await makeUser(db)
+    const theirWorksheet = await makeWorksheet(db, stranger)
+    await enqueueJob(db as Db, {
+      worksheetId: theirWorksheet,
+      userId: stranger,
+      stage: 'extract',
+      executor: 'browser',
+    })
+
+    expect(await claimJob(db as Db, 'browser', null, new Date(), userId)).toBeNull()
+  })
+
+  it('hands over that user’s own job', async () => {
+    await drain('browser')
+
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'browser',
+    })
+
+    const claimed = await claimJob(db as Db, 'browser', null, new Date(), userId)
+
+    expect(claimed?.id).toBe(jobId)
+  })
+
+  /**
+   * The filter has to be opt-in, or adding it would have silently changed what
+   * the operator's GPU and the Tier B drain claim: both pass no user and mean
+   * "whatever is next", which is the whole point of a shared queue.
+   */
+  it('still takes anybody’s job when no user is named', async () => {
+    await drain('browser')
+
+    const stranger = await makeUser(db)
+    const theirWorksheet = await makeWorksheet(db, stranger)
+    const jobId = await enqueueJob(db as Db, {
+      worksheetId: theirWorksheet,
+      userId: stranger,
+      stage: 'extract',
+      executor: 'browser',
+    })
+
+    expect((await claimJob(db as Db, 'browser'))?.id).toBe(jobId)
   })
 })

@@ -70,7 +70,15 @@ test('settings offers both upgrade paths and states where trial work runs', asyn
   await expect(visible(page).getByRole('heading', { name: 'Your own API key' })).toBeVisible()
   await expect(visible(page).getByRole('heading', { name: 'Your own GPU (Ollama)' })).toBeVisible()
 
-  await expect(visible(page).getByText(/still being built/i)).toBeVisible()
+  // This used to assert Tier C was "still being built". It is built now, so
+  // what is asserted instead is the thing that did not change and never will:
+  // the reading happens in the tab, so the tab has to stay open. That is the
+  // one fact a student has to know before choosing this tier, and the screen
+  // saying so is the difference between an honest option and a trap.
+  await expect(visible(page).getByText(/tab has to stay open/i)).toBeVisible()
+  await expect(
+    visible(page).getByRole('button', { name: 'Test connection' }),
+  ).toBeVisible()
 })
 
 test('an Ollama address outside localhost is rejected', async ({ page }) => {

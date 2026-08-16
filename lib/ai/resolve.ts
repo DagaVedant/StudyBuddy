@@ -76,6 +76,39 @@ export async function resolveProvider(
     }
   }
 
+  /*
+   * Ollama, which this server can never call itself.
+   *
+   * `isAllowedOllamaUrl` only accepts a loopback address, so the base URL
+   * stored here names a machine reachable from the student's browser and
+   * nowhere else (spec.md:184). The provider handed back is therefore a null
+   * one: nothing on this side can run it, and saying so is the point. What
+   * carries the work is `executor: 'browser'`, which tells the caller to
+   * enqueue rather than execute, exactly as the trial tier does for the
+   * operator's GPU. The browser then claims that job for its own user and runs
+   * it against localhost.
+   *
+   * Ahead of the trial deliberately. A student who has installed Ollama and
+   * pointed us at it has done the thing the trial exists to talk them into, and
+   * silently spending a lifetime trial credit instead would be both wasteful
+   * and the same lie the dashboard used to tell: settings would say Ollama and
+   * the work would go somewhere else.
+   */
+  const ollama = credentials.find(
+    (row) => row.provider === 'ollama' && row.ollamaBaseUrl,
+  )
+
+  if (ollama) {
+    // Mock stands in for the student's machine the same way it stands in for a
+    // cloud provider above, so the e2e suite can drive this tier without an
+    // Ollama anywhere. Only under the mock flag does this run server-side.
+    if (mockEnabled()) {
+      return { provider: validated(new MockProvider()), tier: 'ollama', executor: 'server' }
+    }
+
+    return { provider: validated(new NullProvider()), tier: 'ollama', executor: 'browser' }
+  }
+
   if (user?.role === 'admin') {
     return {
       provider: validated(mockEnabled() ? new MockProvider() : new NullProvider()),
@@ -148,13 +181,14 @@ export interface AiStatus {
  * What the dashboard's top strip shows for "Trial pages remaining (Tier 0) or
  * AI status (other tiers)" (spec.md:398).
  *
- * Deliberately not built from {@link resolveProvider}'s `tier`, which answers
- * a different question: what will process the *next* upload on the server.
- * It has no `'ollama'` branch at all, because Ollama runs in the student's own
- * browser against their own machine and never reaches server-side resolution;
- * an account configured for it would misreport here as trial or free. This
- * asks what the account is actually set up with, straight from the
- * credentials table, which is the thing spec.md:398 is asking to be shown.
+ * Read from the credentials table rather than from {@link resolveProvider}'s
+ * `tier`, which answers a nearby but different question: what would run the
+ * *next* upload. The two agree now that resolution has an Ollama branch, and
+ * they did not before, which is what made this worth writing down: this label
+ * said "Ollama connected" while resolution could not see an Ollama row at all,
+ * so the dashboard reported a tier that no upload would ever use. Keeping it on
+ * the credentials table means it answers what the account is set up with, which
+ * is what spec.md:398 asks the strip to carry.
  */
 export async function getAiStatus(db: Db, userId: string): Promise<AiStatus> {
   const credentials = await getCredentialSummary(db, userId)

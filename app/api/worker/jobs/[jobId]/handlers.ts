@@ -260,12 +260,29 @@ export async function handleComplete(
    * Only off an extract job, or a solving job completing would queue another
    * one and the worker would solve the same paper until somebody noticed.
    */
-  if (job.stage === 'extract') {
+  /*
+   * Not for Tier C, whose runner reads pages and nothing else yet.
+   *
+   * The executor also has to be inherited rather than written literally. This
+   * said `'operator_gpu'`, which was true by context rather than by reasoning:
+   * the worker route was the only caller. Tier B's own completion path already
+   * enqueues its follow-up on `'server'` for this reason
+   * (lib/worker/server-job.ts:251), and now a browser reaches this handler too,
+   * where a literal would hand the operator's GPU the answer key for a paper it
+   * never read, on behalf of the one tier that is meant to cost us no compute.
+   *
+   * And a `'browser'` answer-key job would be worse than useless: nothing
+   * claims it, so it would sit pending until the reaper failed it, and the
+   * student would watch a finished worksheet grow an error. Solving a long
+   * paper is the better part of an hour with the tab held open, which wants
+   * deciding on its own terms rather than inheriting extraction's.
+   */
+  if (job.stage === 'extract' && job.executor !== 'browser') {
     await enqueueJob(db, {
       worksheetId: job.worksheetId,
       userId: job.userId,
       stage: 'answer_key',
-      executor: 'operator_gpu',
+      executor: job.executor,
       priority: 'low',
     })
   }

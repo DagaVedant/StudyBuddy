@@ -166,11 +166,26 @@ export interface ClaimedJob {
   checkpoint: Record<string, unknown> | null
 }
 
+/**
+ * Claim the next job for an executor, optionally only that user's own.
+ *
+ * `userId` exists for the `browser` executor, whose worker is the student's
+ * own tab. The two server-side executors are trusted processes claiming from
+ * one shared queue, so for them the right next job is whichever is next. A
+ * browser is neither trusted nor shared: without this filter, a tab polling
+ * for its owner's extraction would be handed whichever browser job happened
+ * to be at the head of the queue, and the claim response carries the
+ * worksheet's page images. That is one student's paper handed to another.
+ *
+ * Left optional rather than required so the two existing callers keep reading
+ * as what they are, a worker taking the next thing off the queue.
+ */
 export async function claimJob(
   db: Db,
   executor: JobExecutor,
   workerId: string | null = null,
   now: Date = new Date(),
+  userId: string | null = null,
 ): Promise<ClaimedJob | null> {
   const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS).toISOString()
   const claimedAt = now.toISOString()
@@ -181,6 +196,7 @@ export async function claimJob(
       from ${processingJobs}
       where ${processingJobs.executor} = ${executor}
         and ${processingJobs.attemptCount} < ${MAX_ATTEMPTS}
+        and (${userId}::text is null or ${processingJobs.userId} = ${userId})
         and (
           ${processingJobs.status} = 'pending'
           or (

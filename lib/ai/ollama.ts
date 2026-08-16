@@ -32,6 +32,32 @@ import {
 } from './types'
 
 /**
+ * Base64 for an image, in whichever runtime this provider is loaded in.
+ *
+ * This class runs in two places now. On the operator's GPU it is a Node
+ * script, where `Buffer` is the obvious tool and was what this used. In Tier C
+ * it is the student's own tab, where `Buffer` does not exist: the app router
+ * ships no polyfill for it, so the extraction call failed on a
+ * `ReferenceError` before it ever reached Ollama.
+ *
+ * Chunked rather than one spread into `String.fromCharCode`. A page image is
+ * on the order of a megabyte, and applying a function to a million arguments
+ * at once overflows the call stack in every engine; 32k at a time is well
+ * inside the limit and costs one pass over the array.
+ */
+function toBase64(bytes: Uint8Array): string {
+  if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')
+
+  const CHUNK = 0x8000
+  let binary = ''
+  for (let index = 0; index < bytes.length; index += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + CHUNK))
+  }
+
+  return btoa(binary)
+}
+
+/**
  * Timing and token counts Ollama reports alongside every reply.
  *
  * Durations are nanoseconds, which is what the API returns; dividing
@@ -326,7 +352,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       this.visionModel,
       EXTRACTION_SYSTEM,
       extractionUserText(page, page.expect ?? []),
-      [Buffer.from(page.image).toString('base64')],
+      [toBase64(page.image)],
       EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
 
@@ -365,7 +391,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       model,
       ANSWER_SYSTEM,
       answerUserText(input),
-      image ? [Buffer.from(image).toString('base64')] : undefined,
+      image ? [toBase64(image)] : undefined,
       ANSWER_JSON_SCHEMA as unknown as Record<string, unknown>,
       // A page image is worth several thousand tokens on its own.
       image ? this.contextTokens : ANSWER_CONTEXT_TOKENS,

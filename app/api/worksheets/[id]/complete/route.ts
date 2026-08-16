@@ -164,6 +164,36 @@ export async function POST(_request: Request, { params }: Params) {
     })
   }
 
+  /*
+   * Tier C. Queued like the trial, but for a worker that is the student's own
+   * browser rather than the operator's GPU.
+   *
+   * No charge: the whole point of this tier is that the hardware is theirs, so
+   * there is no cost of ours to meter. And no `after()` drain, because unlike
+   * Tier B there is nothing here that can run it: `localhost:11434` is
+   * reachable from the tab and from nowhere else (spec.md:184).
+   */
+  if (executor === 'browser') {
+    if (!(await claimForCompletion(worksheetId, 'queued', tier))) {
+      return alreadyCompleted(worksheetId)
+    }
+
+    await enqueueJob(db, {
+      worksheetId,
+      userId: guard.userId,
+      stage: 'extract',
+      executor: 'browser',
+      priority: guard.role === 'admin' ? 'low' : 'normal',
+    })
+
+    return NextResponse.json({
+      ok: true,
+      tier,
+      mode: 'browser',
+      next: `/worksheets/${worksheetId}/status`,
+    })
+  }
+
   if (!(await claimForCompletion(worksheetId, 'queued', tier))) {
     return alreadyCompleted(worksheetId)
   }

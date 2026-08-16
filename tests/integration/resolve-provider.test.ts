@@ -202,20 +202,6 @@ describe('resolveProvider', () => {
       expect((await resolveProvider(client(), userId)).tier).toBe('trial')
     })
 
-    it('ignores an ollama row, which is not a cloud key', async () => {
-      delete process.env.ENABLE_MOCK_AI
-      const userId = await makeUser(db)
-      await db.insert(userAiCredentials).values({
-        userId,
-        provider: 'ollama',
-        ollamaBaseUrl: 'http://localhost:11434',
-      })
-
-      // Ollama runs in the student's browser, not here. Reading it as a server
-      // credential would send a worksheet to a host this process cannot reach.
-      expect((await resolveProvider(client(), userId)).tier).toBe('trial')
-    })
-
     it('beats the admin branch, so an admin with a key uses it', async () => {
       delete process.env.ENABLE_MOCK_AI
       const userId = await makeUser(db)
@@ -236,4 +222,93 @@ describe('resolveProvider', () => {
       expect((await resolveProvider(client(), userId)).provider.name).toBe(provider)
     },
   )
+
+  /**
+   * Tier C, whose whole shape is that this process resolves it and cannot run
+   * it. `executor: 'browser'` is the entire payload: the provider handed back
+   * refuses everything, on purpose, because the only thing that can reach the
+   * student's `localhost:11434` is their own tab.
+   *
+   * Until this branch existed the row resolved as `trial` or `free` while the
+   * dashboard read the same table and said "Ollama connected", so the two
+   * screens disagreed about the account in front of them.
+   */
+  describe('with a saved ollama address', () => {
+    async function withOllama(userId: string) {
+      await db.insert(userAiCredentials).values({
+        userId,
+        provider: 'ollama',
+        ollamaBaseUrl: 'http://localhost:11434',
+      })
+    }
+
+    it('routes to the browser, which is the only thing that can reach it', async () => {
+      delete process.env.ENABLE_MOCK_AI
+      const userId = await makeUser(db)
+      await withOllama(userId)
+
+      expect(await resolveProvider(client(), userId)).toMatchObject({
+        tier: 'ollama',
+        executor: 'browser',
+      })
+    })
+
+    it('hands back a provider that refuses, since nothing here can run it', async () => {
+      delete process.env.ENABLE_MOCK_AI
+      const userId = await makeUser(db)
+      await withOllama(userId)
+
+      const resolved = await resolveProvider(client(), userId)
+
+      // Not an OllamaProvider. One built here would carry a base URL naming a
+      // machine this process cannot route to, and every call would hang until
+      // it timed out rather than failing for a reason anybody could read.
+      expect(resolved.provider.name).toBe('null')
+      expect(resolved.provider.executionSite).toBe('none')
+    })
+
+    it('beats the trial, so configuring it does not quietly spend a credit', async () => {
+      delete process.env.ENABLE_MOCK_AI
+      const userId = await makeUser(db)
+      await withOllama(userId)
+
+      // The student still has every trial worksheet. Spending one here would
+      // burn a lifetime allowance on hardware they already told us about.
+      expect((await resolveProvider(client(), userId)).tier).toBe('ollama')
+    })
+
+    it('loses to a cloud key, which needs no tab held open', async () => {
+      delete process.env.ENABLE_MOCK_AI
+      const userId = await makeUser(db)
+      await withOllama(userId)
+      await withCloudKey(userId)
+
+      expect((await resolveProvider(client(), userId)).tier).toBe('cloud')
+    })
+
+    it('ignores a row with no address on it', async () => {
+      delete process.env.ENABLE_MOCK_AI
+      const userId = await makeUser(db)
+      await db.insert(userAiCredentials).values({ userId, provider: 'ollama' })
+
+      expect((await resolveProvider(client(), userId)).tier).toBe('trial')
+    })
+
+    /**
+     * The e2e suite has no Ollama on the box and never will, so under the mock
+     * flag this tier runs server-side like the cloud one does. It stays named
+     * `ollama` because the tier is what the account is configured with, not
+     * where the mock happens to execute.
+     */
+    it('runs server-side under the mock flag, still called ollama', async () => {
+      process.env.ENABLE_MOCK_AI = 'true'
+      const userId = await makeUser(db)
+      await withOllama(userId)
+
+      expect(await resolveProvider(client(), userId)).toMatchObject({
+        tier: 'ollama',
+        executor: 'server',
+      })
+    })
+  })
 })

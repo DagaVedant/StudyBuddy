@@ -25,6 +25,58 @@ interface Props {
   appUrl: string
 }
 
+type ProbeResult =
+  | { ok: true; models: string[]; hasVisionModel: boolean }
+  | { ok: false; message: string }
+
+/** The model Tier C reads pages with, and what the save defaults to. */
+const OLLAMA_VISION_MODEL = 'qwen2.5vl:7b'
+
+/**
+ * spec.md:339's live connection test, which only this side can run.
+ *
+ * The server never dials a student's machine, by design and by the localhost
+ * allowlist, so "is Ollama reachable" is a question with a different answer on
+ * each side of the wire and only the browser's answer matters: the browser is
+ * what will be doing the reading.
+ *
+ * The failure message is deliberately one message covering three causes.
+ * A cross-origin refusal, a refused connection and a wrong port are all a bare
+ * `TypeError` here: the fetch spec gives page script no way to tell them
+ * apart, on purpose, because distinguishing them would let any page port-scan
+ * the machine it is running on. Guessing one of the three and naming it would
+ * be wrong two times in three, so this names the one fix that is invisible
+ * from a terminal, and leaves the two that are not.
+ */
+async function probeOllama(baseUrl: string, appUrl: string): Promise<ProbeResult> {
+  try {
+    const { OllamaProvider } = await import('@/lib/ai/ollama')
+    const models = await new OllamaProvider({
+      baseUrl,
+      visionModel: OLLAMA_VISION_MODEL,
+      textModel: OLLAMA_VISION_MODEL,
+    }).listModels()
+
+    return {
+      ok: true,
+      models,
+      // Tag-insensitive: `qwen2.5vl:7b` and a `qwen2.5vl:7b-q4_K_M` a student
+      // pulled by hand are the same model as far as this check cares.
+      hasVisionModel: models.some((name) => name.startsWith(OLLAMA_VISION_MODEL.split(':')[0])),
+    }
+  } catch (cause) {
+    const reason = (cause as Error).message
+
+    return {
+      ok: false,
+      message:
+        `Could not reach Ollama at ${baseUrl} (${reason}). Check it is running, ` +
+        `then check it is allowed to talk to this site: OLLAMA_ORIGINS must ` +
+        `include ${appUrl}, and Ollama has to be restarted after setting it.`,
+    }
+  }
+}
+
 export default function SettingsClient({
   credentials,
   trial,
@@ -44,6 +96,7 @@ export default function SettingsClient({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [probe, setProbe] = useState<ProbeResult | null>(null)
 
   const cloud = credentials.find((row) =>
     (CLOUD_PROVIDERS as readonly string[]).includes(row.provider),
@@ -237,16 +290,14 @@ export default function SettingsClient({
         className="card p-4"
       >
         <h2 id="ollama-heading" className="text-sm font-medium">
-          Your own GPU (Ollama){' '}
-          <span className="ml-1 rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted">
-            Not ready yet
-          </span>
+          Your own GPU (Ollama)
         </h2>
         <p className="hint text-pretty">
-          Free and private: pages would never leave your machine. Our server
-          cannot reach your computer, so this has to run in your browser, and
-          that part is still being built. You can save your settings now;
-          uploads keep using the options above until it ships.
+          Free and private: your pages never leave your machine. Our server
+          cannot reach your computer, so the reading runs in this browser
+          instead. That means the tab has to stay open while a worksheet is
+          being read, and it picks up from the last finished page if you close
+          it.
         </p>
 
         {ollama ? (
@@ -294,21 +345,62 @@ export default function SettingsClient({
               </pre>
             </details>
 
-            <button
-              type="button"
-              className="btn btn-primary sm:w-auto sm:px-6"
-              disabled={busy}
-              onClick={() =>
-                void save({
-                  provider: 'ollama',
-                  baseUrl: ollamaUrl,
-                  visionModel: 'qwen2.5vl:7b',
-                  textModel: 'qwen2.5vl:7b',
-                })
-              }
-            >
-              {busy ? 'Saving…' : 'Connect Ollama'}
-            </button>
+            {/*
+              The test is offered before the save rather than after it, and
+              does not gate it. A student whose Ollama is not running yet
+              should still be able to store the address; what they must not do
+              is leave this screen believing it works when it does not, which
+              is what saving alone used to imply.
+            */}
+            {probe && (
+              <p
+                role="status"
+                className={
+                  probe.ok
+                    ? 'rounded-xl border border-border bg-surface px-3 py-2 text-sm'
+                    : 'rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger'
+                }
+              >
+                {probe.ok
+                  ? probe.hasVisionModel
+                    ? `Connected. ${probe.models.length} model${probe.models.length === 1 ? '' : 's'} available.`
+                    : `Connected, but ${OLLAMA_VISION_MODEL} is not pulled. Run "ollama pull ${OLLAMA_VISION_MODEL}" first: it is the model that reads your pages.`
+                  : probe.message}
+              </p>
+            )}
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                className="btn btn-primary sm:w-auto sm:px-6"
+                disabled={busy}
+                onClick={() =>
+                  void save({
+                    provider: 'ollama',
+                    baseUrl: ollamaUrl,
+                    visionModel: OLLAMA_VISION_MODEL,
+                    textModel: OLLAMA_VISION_MODEL,
+                  })
+                }
+              >
+                {busy ? 'Saving…' : 'Connect Ollama'}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary sm:w-auto sm:px-6"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true)
+                  setProbe(null)
+                  void probeOllama(ollamaUrl, appUrl)
+                    .then(setProbe)
+                    .finally(() => setBusy(false))
+                }}
+              >
+                Test connection
+              </button>
+            </div>
           </div>
         )}
       </section>
