@@ -34,7 +34,7 @@ function serialize(lesson: StoredLesson) {
  * `getLesson` is checked before any provider work, so two clicks or two open
  * tabs do not pay for the model twice. `generateLesson` re-checks the same
  * thing internally (skippable with `force`, which this route never passes),
- * so the check here is not the only guard, just the cheaper, earlier one —
+ * so the check here is not the only guard, just the cheaper, earlier one:
  * belt and braces, not the belt.
  */
 export async function POST(_request: Request, { params }: Params) {
@@ -68,8 +68,8 @@ export async function POST(_request: Request, { params }: Params) {
   // directly; explanations handle that by queuing a job for the worker to
   // collect. Doing the same here would mean a new `job_stage`, which is a
   // real migration with real risk if anything is left half-wired (see the
-  // comment above `jobStage` in lib/db/schema.ts) — out of scope for this
-  // on-demand button. So instead of queuing, this just asks the student to
+  // comment above `jobStage` in lib/db/schema.ts), and out of scope for
+  // this on-demand button. So instead of queuing, this just asks the student to
   // connect their own provider.
   if (executor === 'operator_gpu' && provider.executionSite === 'none') {
     return NextResponse.json(
@@ -97,7 +97,7 @@ export async function POST(_request: Request, { params }: Params) {
 
     // `generateLesson` returns null when it lost a race against another
     // request that wrote the lesson between the `getLesson` check above and
-    // this call — not a failure, just somebody else's write landing first.
+    // this call. Not a failure, just somebody else's write landing first.
     // Reading it back returns the same lesson either way.
     const lesson = generated ?? (await getLesson(db, topicId))
     if (!lesson) {

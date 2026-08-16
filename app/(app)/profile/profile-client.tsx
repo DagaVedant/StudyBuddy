@@ -37,7 +37,7 @@ function Avatar({
 }) {
   if (image) {
     return (
-      // Authenticated? No — a Google avatar URL is public, unlike the page
+      // Authenticated? No: a Google avatar URL is public, unlike the page
       // scans elsewhere in the app that route through /api/files. next/image
       // would need the host allow-listed for a URL nobody controls but
       // Google, for one small circular avatar; not worth it here.

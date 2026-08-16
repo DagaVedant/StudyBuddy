@@ -8,7 +8,7 @@ export interface PageFindings {
    * nothing is invisible to it as long as some other page supplied the numbers
    * that page was carrying. That is exactly what happened to `test8_15`: its
    * solutions page produced rows numbered 8 to 15, the audit read 15 of 15 and
-   * reported 100 % recall, and pages 2 and 3 — which had come back empty — were
+   * reported 100 % recall, and pages 2 and 3, which had come back empty, were
    * never re-read. Half the paper was missing and the only check that could
    * have caught it passed.
    *

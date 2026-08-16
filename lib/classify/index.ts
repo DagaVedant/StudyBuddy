@@ -94,9 +94,9 @@ function subjectSubtree(subjectHint: string | null | undefined) {
  * and hands it here, and pgvector does the rest.
  *
  * Plain nearest neighbour, deliberately. The obvious repair for a shortlist
- * that fills all its places with one branch of the taxonomy — "in how many
+ * that fills all its places with one branch of the taxonomy ("in how many
  * ways can 6 people be seated around a circular table" returns geometry,
- * because "circular table" embeds towards circles — is to cap how many any one
+ * because "circular table" embeds towards circles) is to cap how many any one
  * branch may contribute. Measured, that is worse, not better: at three per
  * branch recall@15 falls from 72 % to 66 %, and at two to 59 %, because the
  * cap evicts the fourth and fifth candidates from the branch that was right
@@ -174,7 +174,7 @@ export class EmbeddingUnavailableError extends Error {
  * `questions.embedding` NULL. The cross-worksheet duplicate check
  * (lib/questions/library-duplicates.ts) reads that column to find a near
  * match on another worksheet, and a NULL row is invisible to it both as a
- * subject and as a candidate — so the check silently never ran for that
+ * subject and as a candidate, so the check silently never ran for that
  * whole tier, and a student was told "no near-duplicates found" when nothing
  * had actually looked. Optional rather than required because a handful of
  * scripts want the search without committing to a row (see
@@ -281,7 +281,7 @@ export async function applyClassification(
 
   // `confidence` is not gated on. It is a number a 7B model writes about its
   // own work, and across the 288 questions of the Edison run nothing came back
-  // below 0.75 — the floor of 0.45 this used to test never once fired, so the
+  // below 0.75. The floor of 0.45 this used to test never once fired, so the
   // abstain path it was guarding was unreachable, and every wrong tag in that
   // run arrived over the line. It is still stored, because it is worth being
   // able to look at; it is no longer treated as evidence.
@@ -320,7 +320,7 @@ export async function applyClassification(
 
   // Nothing is tagged from here down. The model either abstained or named a
   // slug that is not on the list, and what used to happen then was that the
-  // question was given the parent of `candidates[0]` — the nearest *embedding*
+  // question was given the parent of `candidates[0]`, the nearest *embedding*
   // match, which is to say the thing the model had just been shown and
   // declined. Nineteen questions were tagged that way in the last run, several
   // at confidence 1.00, and the system prompt tells the model in as many words

@@ -81,11 +81,11 @@ Both are `runRepairPasses(db, worksheetId, { only })`. `only` filters the
 canonical order; it cannot reorder it, which is the reason it is a filter and
 not a list.
 
-`VERIFYING_PASSES` — `join`, `carried`, `math`, `merge`. Run while pages are
+`VERIFYING_PASSES`: `join`, `carried`, `math`, `merge`. Run while pages are
 still arriving. Numbering is deliberately excluded: the coverage audit and the
 review pass both still add and replace rows after this point.
 
-`FINAL_PASSES` — all seven. Run once the last re-read is in.
+`FINAL_PASSES`: all seven. Run once the last re-read is in.
 
 Four callers, and they must stay in agreement:
 

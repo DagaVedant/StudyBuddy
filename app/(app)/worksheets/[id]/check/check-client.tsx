@@ -425,8 +425,8 @@ export function CheckClient({
         Three states in one slot: the offer, a confirm step, and the undo that
         follows accepting. Accepting every remaining question skips the one
         check this whole screen exists to do, and it used to fire straight
-        from a bare text link with no way back — the same shape finding 41
-        already fixed for a single question's delete, unaddressed here.
+        from a bare text link with no way back. That is the same shape finding
+        41 already fixed for a single question's delete, unaddressed here.
       */}
       {bulkUndo ? (
         <p role="status" className="flex flex-wrap items-center gap-x-2 text-sm">

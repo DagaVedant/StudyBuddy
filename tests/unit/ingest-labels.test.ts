@@ -113,7 +113,7 @@ describe('persistQuestions label handling', () => {
    * `topic_test13_20` stored an orphaned option block as its question 17 and
    * the real stem for 17 was never stored at all, so every count-based check
    * passed on a sheet with a garbage question in it. Ingest drops a row whose
-   * whole prompt is a run of options — but only after the merge, and only
+   * whole prompt is a run of options, but only after the merge, and only
    * after the merge has made sure the surviving stem is the real one, or the
    * drop would take a good question's options down with the bad row's text.
    */

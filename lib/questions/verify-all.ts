@@ -38,8 +38,8 @@ export async function verifyRemaining(
 /**
  * Undoes exactly what {@link verifyRemaining} just did.
  *
- * Verifying is not destructive the way deleting a question is — no row
- * disappears, only a boolean flips — so unlike question delete's undo, this
+ * Verifying is not destructive the way deleting a question is: no row
+ * disappears, only a boolean flips. So unlike question delete's undo, this
  * does not need to hold the write back for a window and splice locally. It
  * writes immediately, in one statement for the same reason the verify above
  * does: reverting 114 rows one PATCH at a time is the same pool-exhaustion

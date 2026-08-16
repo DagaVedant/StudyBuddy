@@ -32,7 +32,7 @@ import type { bodySchema } from './schema'
  *
  * Each function still owns everything about its own action end to end: what
  * it reads, what it writes, and why. Splitting the *file* is what this is
- * for, not splitting the *reasoning* — a discriminated union where every
+ * for, not splitting the *reasoning*: a discriminated union where every
  * branch is independently readable was already the shape M-3 named as fine;
  * only the length of the one file holding all seven was the complaint.
  */

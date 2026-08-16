@@ -36,8 +36,8 @@ async function seedWorksheet(page: Page, count: number): Promise<string> {
     })
     const { questionId } = (await made.json()) as { questionId: string }
 
-    // Manual creation marks a question verified — a student who boxed it
-    // themselves has already checked it — which is the wrong starting state
+    // Manual creation marks a question verified, since a student who boxed
+    // it themselves has already checked it. That is the wrong starting state
     // for a screen whose whole job is checking questions nobody has yet.
     await page.request.patch(`/api/questions/${questionId}`, {
       data: { userVerified: false },

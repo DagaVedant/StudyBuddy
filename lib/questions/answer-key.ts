@@ -140,7 +140,7 @@ function statesAnswers(text: string): boolean {
  * ones is the wrong trade, and it is the trade F1 was about.
  *
  * The second is positive evidence that this page states answers, so that a
- * page with no text layer at all — a photograph, a scan that failed OCR — is
+ * page with no text layer at all (a photograph, a scan that failed OCR) is
  * never mistaken for one. Deliberately weaker than {@link parseAnswerKey},
  * which needs three entries before it will believe a key: five of the twenty
  * phantom rows came off continuation pages carrying one or two worked

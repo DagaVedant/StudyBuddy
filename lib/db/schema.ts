@@ -298,7 +298,7 @@ export const worksheets = pgTable(
 
     /**
      * Set when classification ran and could not tag a single question on
-     * this worksheet, and null every other time — including the ordinary
+     * this worksheet, and null every other time, including the ordinary
      * case where classification ran fine and simply found nothing confident
      * enough to tag.
      *

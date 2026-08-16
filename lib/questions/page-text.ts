@@ -2,7 +2,7 @@
  * Reading the shape of a page from its text layer, with no model involved.
  *
  * "Where does the first question start on this page?" is asked by three
- * different passes for three different reasons — the carried-options recovery
+ * different passes for three different reasons: the carried-options recovery
  * wants the room above it, the answer-key detector wants to know whether a key
  * page has any real questions above the key, and the coverage audit wants to
  * know whether a page that produced nothing had anything on it to produce.

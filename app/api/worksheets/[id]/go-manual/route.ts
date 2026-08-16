@@ -34,7 +34,7 @@ export async function POST(_request: Request, { params }: Params) {
 
   // The atomic claim is the concurrency guard: only the caller that wins it
   // cancels the job and refunds the trial, so a double click cannot do either
-  // twice. A caller that loses is not an error — the worksheet already left
+  // twice. A caller that loses is not an error: the worksheet already left
   // the state this exists for, most likely because the worker claimed the job
   // in the moment between the page loading and the click landing.
   const won = await claimWorksheetForManualFallback(db, worksheetId)

@@ -67,7 +67,7 @@ export interface CarriedChoiceOptions {
  *
  * Where the run has to start depends on what the question kept. A stem that
  * kept nothing wants a full list beginning at A. A stem that kept `A` wants
- * exactly `B, C, D` — the original refused that, on the grounds that a run not
+ * exactly `B, C, D`. The original refused that, on the grounds that a run not
  * starting at A is "the tail of a list whose head is on some other page",
  * which is precisely the case this function exists for: the head is on the
  * previous page, attached to a stem holding one option. Thirteen questions in

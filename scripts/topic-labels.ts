@@ -13,9 +13,9 @@
  * run is full of.
  *
  * Every prompt here is verbatim from the Edison run. The set leans
- * deliberately towards the ones that came out wrong — there is no point
- * measuring recall on questions nothing ever got wrong — so the number it
- * produces is a floor, not an estimate of the whole corpus.
+ * deliberately towards the ones that came out wrong, because there is no
+ * point measuring recall on questions nothing ever got wrong. So the number
+ * it produces is a floor, not an estimate of the whole corpus.
  *
  * `accept` is a list because the right leaf is often genuinely arguable: a
  * word problem about two numbers whose product is 96 is a system of equations

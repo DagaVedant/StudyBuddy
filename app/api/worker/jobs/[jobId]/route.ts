@@ -59,7 +59,7 @@ export async function POST(request: Request, { params }: Params) {
 
   // One handler per action (./handlers.ts). The route's job is authenticating,
   // validating the body, loading the job row, and enforcing that it is still
-  // live — everything every action needs regardless of which one it is —
+  // live (everything every action needs regardless of which one it is),
   // and then handing off. What each action actually does lives beside its
   // own reasoning in the handler, not interleaved with the other six here.
   switch (body.action) {

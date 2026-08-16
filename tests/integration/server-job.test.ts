@@ -70,7 +70,7 @@ async function setup(hasImage = true) {
   // `makeWorksheet` defaults to `ready`, a convenience for tests that verify
   // or mark up a worksheet without caring how it got there. This module puts
   // worksheets through the same guarded transitions `/complete` does, which
-  // only move a worksheet out of `queued`/`processing` — so a job claimed
+  // only move a worksheet out of `queued`/`processing`, so a job claimed
   // against a worksheet still sitting at `ready` is a fixture bug, not a real
   // scenario, and would silently no-op the status writes under test here.
   await db.update(worksheets).set({ status: 'queued' }).where(eq(worksheets.id, worksheetId))

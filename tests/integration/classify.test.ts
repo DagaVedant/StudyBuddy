@@ -78,7 +78,7 @@ describe('applyClassification', () => {
    * many words: a wrong-but-plausible tag is worse than none, because it
    * corrupts the weakness report and nobody can see that it happened. The
    * pipeline used to answer an abstain by tagging the question with the parent
-   * of the nearest embedding match — the branch the model had just been shown
+   * of the nearest embedding match, which is the branch the model had been shown
    * and declined. Nineteen questions in the Edison run were tagged that way,
    * several at confidence 1.00.
    */
