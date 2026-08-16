@@ -88,6 +88,7 @@ vi.mock('@/lib/ai/resolve', () => ({
 }))
 
 const worksheets = await import('@/app/api/worksheets/route')
+const worksheet = await import('@/app/api/worksheets/[id]/route')
 const worksheetQuestions = await import('@/app/api/worksheets/[id]/questions/route')
 const attempts = await import('@/app/api/worksheets/[id]/attempts/route')
 const question = await import('@/app/api/questions/[questionId]/route')
@@ -133,6 +134,25 @@ describe('a malformed JSON body answers 400 rather than throwing', () => {
       badJson('/api/worksheets/ws-1/attempts'),
       worksheetParams,
     )
+
+    expect(response.status).toBe(400)
+    expect(state.writes).toEqual([])
+  })
+
+  // The two writes that correct rather than create, and so reach an UPDATE
+  // rather than an INSERT. A body that never parsed must not get that far.
+  it('PATCH /api/worksheets/[id]/attempts', async () => {
+    const response = await attempts.PATCH(
+      badJson('/api/worksheets/ws-1/attempts'),
+      worksheetParams,
+    )
+
+    expect(response.status).toBe(400)
+    expect(state.writes).toEqual([])
+  })
+
+  it('PATCH /api/worksheets/[id]', async () => {
+    const response = await worksheet.PATCH(badJson('/api/worksheets/ws-1'), worksheetParams)
 
     expect(response.status).toBe(400)
     expect(state.writes).toEqual([])

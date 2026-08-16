@@ -224,6 +224,7 @@ const ROUTES: [string, Handler, string, never][] = [
   ['POST /api/worksheets', worksheets.POST as Handler, 'POST', undefined as never],
   ['GET /api/worksheets', worksheets.GET as Handler, 'GET', undefined as never],
   ['DELETE /api/worksheets/[id]', worksheet.DELETE as Handler, 'DELETE', WS],
+  ['PATCH /api/worksheets/[id]', worksheet.PATCH as Handler, 'PATCH', WS],
   ['POST /api/worksheets/[id]/attempts', attempts.POST as Handler, 'POST', WS],
   ['PATCH /api/worksheets/[id]/attempts', attempts.PATCH as Handler, 'PATCH', WS],
   /*

@@ -1,4 +1,4 @@
-import { desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, lt, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -9,18 +9,32 @@ import { IS_QUESTION } from '@/lib/questions/is-question'
 import { destination } from '@/lib/worksheets/destination'
 
 import DeleteWorksheetButton from './delete-worksheet-button'
+import WorksheetTitle from './worksheet-title'
 
 export const metadata = { title: 'Worksheets · StudyBuddy' }
 export const dynamic = 'force-dynamic'
 
 /**
- * How many worksheet cards this page renders.
+ * How many worksheet cards one page of this renders.
  *
- * Matches the limit on `GET /api/worksheets`, which lists the same thing. The
- * page has no paging, so this is also the honest maximum rather than a
- * performance trick.
+ * A page size now rather than a ceiling. It used to be both: there was no
+ * paging and no search, so the fifty-first worksheet was simply gone from the
+ * interface. The row stayed, its questions still counted towards the dashboard,
+ * and the paper itself was unreachable. For something a student uses across a
+ * school year, fifty is a number they reach.
  */
 const WORKSHEETS_SHOWN = 50
+
+/**
+ * Escapes what LIKE treats as wildcards, so a search means what was typed.
+ *
+ * Without this a title search for "50%" matches every worksheet, and one for
+ * "unit_4" matches "unit 4" as well. `\` is escaped first or it would escape
+ * the escapes added after it.
+ */
+function likeLiteral(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`)
+}
 
 const WHEN = new Intl.DateTimeFormat(undefined, {
   month: 'short',
@@ -43,9 +57,39 @@ const STATUS_LABEL: Record<string, string> = {
   failed: 'Failed',
 }
 
-export default async function WorksheetsPage() {
+export default async function WorksheetsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[]; before?: string | string[] }>
+}) {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
+
+  const params = await searchParams
+  const first = (value: string | string[] | undefined) =>
+    Array.isArray(value) ? value[0] : value
+
+  const query = (first(params.q) ?? '').trim().slice(0, 100)
+
+  /*
+   * A cursor on `createdAt` rather than an offset.
+   *
+   * The list is ordered by it and uploads keep arriving, so an offset shifts
+   * under the reader: upload something while looking at page two and the last
+   * row of page one arrives again at the top of it. The cursor names a position
+   * in the ordering instead, which does not move.
+   *
+   * An unparseable value is ignored rather than refused. This is a query string
+   * somebody can edit or a link that has gone stale, and the newest page is a
+   * better answer to both than an error.
+   */
+  const beforeRaw = first(params.before)
+  const before = beforeRaw ? new Date(beforeRaw) : null
+  const cursor = before && !Number.isNaN(before.getTime()) ? before : null
+
+  const filters = [eq(worksheets.userId, session.user.id)]
+  if (query) filters.push(ilike(worksheets.title, `%${likeLiteral(query)}%`))
+  if (cursor) filters.push(lt(worksheets.createdAt, cursor))
 
   const rows = await db
     .select({
@@ -78,7 +122,7 @@ export default async function WorksheetsPage() {
     // that needs one row. It is its own query below.
     .leftJoin(questions, eq(questions.worksheetId, worksheets.id))
     .leftJoin(attempts, eq(attempts.questionId, questions.id))
-    .where(eq(worksheets.userId, session.user.id))
+    .where(and(...filters))
     .groupBy(
       worksheets.id,
       worksheets.title,
@@ -88,10 +132,15 @@ export default async function WorksheetsPage() {
       worksheets.createdAt,
     )
     .orderBy(desc(worksheets.createdAt))
-    // Bounded, like the API route that lists the same thing. This page renders
-    // a card per worksheet with no paging, so an account with a thousand
-    // worksheets was building a thousand cards nobody scrolls to.
-    .limit(WORKSHEETS_SHOWN)
+    // One more than the page holds, purely to find out whether there is a next
+    // page. Counting the whole table to answer that costs a second query over
+    // every row, to render one link.
+    .limit(WORKSHEETS_SHOWN + 1)
+
+  const hasOlder = rows.length > WORKSHEETS_SHOWN
+  if (hasOlder) rows.pop()
+
+  const olderThan = rows.at(-1)?.createdAt
 
   // One row per worksheet, for the thumbnails, over only the worksheets that
   // are actually on screen.
@@ -123,11 +172,57 @@ export default async function WorksheetsPage() {
           Upload a worksheet
         </Link>
       </div>
-      <p className="hint mb-6 text-pretty">
+      <p className="hint text-pretty">
         Every file you have uploaded, with the pages we read from it.
       </p>
 
-      {rows.length === 0 ? (
+      {/*
+        A plain GET form, which needs no JavaScript and leaves the search in the
+        URL where it can be bookmarked and shared. Submitting drops any cursor,
+        because a position in the old ordering means nothing in the new one.
+      */}
+      <form method="get" role="search" className="mb-6 mt-4 flex gap-2">
+        <label className="sr-only" htmlFor="worksheet-search">
+          Search your worksheets by title
+        </label>
+        <input
+          id="worksheet-search"
+          type="search"
+          name="q"
+          defaultValue={query}
+          placeholder="Search by title…"
+          autoComplete="off"
+          className="field sm:max-w-xs"
+        />
+        <button type="submit" className="btn btn-secondary sm:w-auto sm:px-4">
+          Search
+        </button>
+        {query && (
+          <Link href="/worksheets" className="btn btn-secondary sm:w-auto sm:px-4">
+            Clear
+          </Link>
+        )}
+      </form>
+
+      {rows.length === 0 && query ? (
+        <p className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted">
+          Nothing matches “{query}”.{' '}
+          <Link href="/worksheets" className="text-accent underline underline-offset-2">
+            Show all worksheets
+          </Link>
+          .
+        </p>
+      ) : rows.length === 0 && cursor ? (
+        // Reachable by following "Show older" as the last page empties, or from
+        // a stale link. Not "nothing uploaded yet", which would be false.
+        <p className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted">
+          Nothing older to show.{' '}
+          <Link href="/worksheets" className="text-accent underline underline-offset-2">
+            Back to the newest
+          </Link>
+          .
+        </p>
+      ) : rows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted">
           Nothing uploaded yet. Your worksheets will appear here once you add one.
         </p>
@@ -174,12 +269,11 @@ export default async function WorksheetsPage() {
                 </Link>
 
                 <div className="flex flex-1 flex-col p-3">
-                  <Link
+                  <WorksheetTitle
+                    worksheetId={sheet.id}
+                    title={sheet.title}
                     href={href}
-                    className="line-clamp-2 font-medium hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                  >
-                    {sheet.title}
-                  </Link>
+                  />
 
                   <p className="hint tabular-nums">
                     {WHEN.format(sheet.createdAt)} · {sheet.pageCount}{' '}
@@ -238,6 +332,42 @@ export default async function WorksheetsPage() {
             )
           })}
         </ul>
+      )}
+
+      {(hasOlder || cursor) && (
+        <nav
+          aria-label="More worksheets"
+          className="mt-6 flex flex-wrap items-center justify-between gap-3"
+        >
+          {/*
+            Back to the newest rather than a previous-page link. A cursor knows
+            where it is and not where it came from, and threading a stack of
+            them through the URL to offer one button is a poor trade against
+            the search box directly above.
+          */}
+          {cursor ? (
+            <Link
+              href={query ? `/worksheets?q=${encodeURIComponent(query)}` : '/worksheets'}
+              className="btn btn-secondary sm:w-auto sm:px-4"
+            >
+              Back to the newest
+            </Link>
+          ) : (
+            <span />
+          )}
+
+          {hasOlder && olderThan && (
+            <Link
+              href={`/worksheets?${new URLSearchParams({
+                ...(query ? { q: query } : {}),
+                before: olderThan.toISOString(),
+              })}`}
+              className="btn btn-secondary sm:w-auto sm:px-4"
+            >
+              Show older
+            </Link>
+          )}
+        </nav>
       )}
     </main>
   )
