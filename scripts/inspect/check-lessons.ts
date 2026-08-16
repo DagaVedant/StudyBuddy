@@ -2,8 +2,8 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local', quiet: true })
 
-import { trimLessonBody } from '../lib/topics/lesson-body'
-import { openDatabase } from './db'
+import { trimLessonBody } from '../../lib/topics/lesson-body'
+import { openDatabase } from '../db'
 
 /**
  * Looks for a lesson that says the same thing twice.

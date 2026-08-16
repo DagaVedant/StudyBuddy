@@ -22,7 +22,7 @@
     "test:e2e": "playwright test",
     "gen:secrets": "node scripts/gen-secrets.mjs",
     "gen:vapid": "node scripts/gen-vapid.mjs",
-    "benchmark:ollama": "tsx scripts/benchmark-ollama.ts",
+    "benchmark:ollama": "tsx scripts/benchmark/ollama.ts",
     "worker": "tsx scripts/gpu-worker.ts",
     "check": "node scripts/check.mjs",
     "check:serial": "tsc --noEmit && eslint && vitest run"

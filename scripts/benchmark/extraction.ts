@@ -6,10 +6,10 @@ import { join } from 'node:path'
 
 import sharp from 'sharp'
 
-import { OllamaProvider, type OllamaCallStats } from '../lib/ai/ollama'
-import { validated } from '../lib/ai/validated'
-import { rasterizePdfPages, type RasterizedPage } from './benchmark/rasterize-pdf'
-import { scoreRun, type ModelScore, type PageRun } from './benchmark/score'
+import { OllamaProvider, type OllamaCallStats } from '../../lib/ai/ollama'
+import { validated } from '../../lib/ai/validated'
+import { rasterizePdfPages, type RasterizedPage } from './rasterize-pdf'
+import { scoreRun, type ModelScore, type PageRun } from './score'
 
 const PDF = 'benchmark/input/sample-test-a-and-explanations-2024.pdf'
 const OUT = 'benchmark/results'

@@ -10,7 +10,7 @@ import { pathBySlug } from '@/lib/taxonomy/trees'
  * How many leaf topics the model gets to choose between.
  *
  * Set by measurement, not by taste. Against the hand-labelled set in
- * scripts/topic-labels.ts, run by scripts/shortlist-recall.ts, a shortlist
+ * scripts/benchmark/topic-labels.ts, run by scripts/benchmark/shortlist-recall.ts, a shortlist
  * of 15 puts a defensible topic in front of the model for 21 of 29 questions.
  * The other 8 were never winnable: the model cannot pick what it is not shown,
  * and every confidence threshold and prompt rewrite in the world operates on

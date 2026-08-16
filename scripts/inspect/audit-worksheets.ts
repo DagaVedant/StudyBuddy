@@ -4,11 +4,11 @@ config({ path: '.env.local', quiet: true })
 
 import { drizzle } from 'drizzle-orm/postgres-js'
 
-import { looksUnrendered } from '../lib/questions/math'
-import type { Db } from '../lib/db/types'
-import { runRepairPasses } from '../lib/worker/pipeline'
-import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
-import { connect } from './db'
+import { looksUnrendered } from '../../lib/questions/math'
+import type { Db } from '../../lib/db/types'
+import { runRepairPasses } from '../../lib/worker/pipeline'
+import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
+import { connect } from '../db'
 
 /**
  * Checks recently extracted worksheets for everything known to go wrong.
@@ -21,10 +21,10 @@ import { connect } from './db'
  * The audit reads and prints. Running it against production is the normal way
  * to use it, so nothing below gates that; only the repair path is guarded.
  *
- *   npx tsx scripts/audit-worksheets.ts                    # the three most recent
- *   AUDIT_LIMIT=10 npx tsx scripts/audit-worksheets.ts
- *   npx tsx scripts/audit-worksheets.ts <worksheet id>     # only that one
- *   AUDIT_FIX=true npx tsx scripts/audit-worksheets.ts <worksheet id>   # and repair it
+ *   npx tsx scripts/inspect/audit-worksheets.ts                    # the three most recent
+ *   AUDIT_LIMIT=10 npx tsx scripts/inspect/audit-worksheets.ts
+ *   npx tsx scripts/inspect/audit-worksheets.ts <worksheet id>     # only that one
+ *   AUDIT_FIX=true npx tsx scripts/inspect/audit-worksheets.ts <worksheet id>   # and repair it
  */
 const LIMIT = Number(process.env.AUDIT_LIMIT ?? 3)
 
@@ -86,7 +86,7 @@ async function main() {
 
   if (FIX && !target) {
     throw new Error(
-      'AUDIT_FIX=true repairs one named worksheet: npx tsx scripts/audit-worksheets.ts <worksheet id>. ' +
+      'AUDIT_FIX=true repairs one named worksheet: npx tsx scripts/inspect/audit-worksheets.ts <worksheet id>. ' +
         'Without an id there is nothing to aim at, and it used to mean the most recent worksheets on the account.',
     )
   }

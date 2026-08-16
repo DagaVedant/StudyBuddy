@@ -10,10 +10,10 @@
  * table" embeds towards circles.
  *
  * So this measures the half that is measurable, against
- * scripts/topic-labels.ts, before anyone touches the prompt.
+ * scripts/benchmark/topic-labels.ts, before anyone touches the prompt.
  *
- *   npx tsx scripts/shortlist-recall.ts
- *   npx tsx scripts/shortlist-recall.ts --limit 50
+ *   npx tsx scripts/benchmark/shortlist-recall.ts
+ *   npx tsx scripts/benchmark/shortlist-recall.ts --limit 50
  *
  * Needs the topics table seeded and embedded (`npm run db:seed`, `npm run
  * db:embed`) and the embedding model available locally.
@@ -25,10 +25,10 @@ config({ path: '.env.local' })
 import { drizzle } from 'drizzle-orm/postgres-js'
 
 import { TOPIC_LABELS } from './topic-labels'
-import { SHORTLIST_SIZE, shortlistByVector } from '../lib/classify'
-import type { Db } from '../lib/db/types'
-import { embed } from '../lib/embeddings'
-import { connect } from './db'
+import { SHORTLIST_SIZE, shortlistByVector } from '../../lib/classify'
+import type { Db } from '../../lib/db/types'
+import { embed } from '../../lib/embeddings'
+import { connect } from '../db'
 
 const AT = [1, 3, 5, 10, 15, 20, 25, 30, 40, 50]
 

@@ -342,7 +342,17 @@ migration and every query is exercised without Docker or a live database.
 ## Operator scripts
 
 Not in `package.json`: these are ad-hoc, run with `npx tsx` against whatever
-`DATABASE_URL` is in your `.env.local`. Several of them write.
+`DATABASE_URL` is in your `.env.local`.
+
+They are grouped by what they do to your data, so the path answers the only
+question that matters before running one:
+
+| Directory | |
+|---|---|
+| `scripts/inspect/` | Read-only. Safe against production, and where to look first |
+| `scripts/repair/` | **Every one writes**, behind the two guards below |
+| `scripts/benchmark/` | Measurement. Needs Ollama, touches no worksheet |
+| `scripts/` | The ones `package.json` runs, plus `db.ts` and `_confirm.ts` |
 
 **The two guards on every writer.** A writing script refuses outright unless
 `DATABASE_URL` points at this machine, and says so, naming the host:
@@ -364,24 +374,24 @@ do, and the audit is where you look before deciding to repair anything.
 
 | Script | What it does |
 |---|---|
-| `ground-truth.ts` | **Start here when you doubt the data.** Reads each paper's own answer key out of the source PDFs in `~/Downloads` and diffs it against what is stored: missing questions, numbers the paper does not have, and every answer. The only check that compares against the paper rather than against the pipeline's own opinion, and what caught a repair that fixed the numbering and left the answers keyed to the old numbers. |
-| `audit-worksheets.ts [<id>]` | Checks worksheets for every failure mode known to have shipped: gaps, duplicates, ordinals out of paper order, unrendered maths. Read-only, and `AUDIT_LIMIT` sets how many recent sheets it reads. `AUDIT_FIX=true` also repairs and then requires an id. |
-| `diagnose-worksheet.ts` | The last 8 worksheets with their page, text and question counts. First stop when an upload looks wrong. |
-| `repair-missing-options.ts [prefix] [--apply]` | **Writes with `--apply`.** Puts back answer options deleted from stored questions, reading them off the page text already stored. Dry run by default. Refuses any question whose stored prompt does not match what the page prints under that number. |
-| `purge-answer-page-rows.ts [prefix] [--apply]` | **Writes with `--apply`.** Removes questions read off an answer key or solutions page, whose printed numbers made the coverage audit report a sheet complete while it was missing half its questions. Backs up every deleted row to JSON first, and refuses any row a student has touched. |
-| `repair-choice-labels.ts [--write]` | **Writes with `--write`.** Reduces an option label that arrived with its option stuck to it, `A. 60` back to `A`. Report-only by default, and skips any row where the text being dropped is not already held beside it. |
-| `backfill-answer-keys.ts [prefix]` | **Writes.** Applies each paper's own answer key to worksheets extracted before that pass existed. No dry form. |
-| `reextract-worksheet.ts <id> [--yes]` | **Writes.** Deletes the extracted questions and reads the pages again. Exact id only: it used to match on title across every account and take the newest, and `questions` cascades to attempts, review cards and explanations. |
-| `reclassify-worksheet.ts <id> [--yes]` | **Writes.** Drops the topic tags and re-runs classification only. Exact id only, same reason. |
-| `requeue-worksheet.ts [<id>\|--all] [--yes]` | **Writes.** Re-enqueues processing. Defaults to `--all`, which sweeps every account, so that form asks first. |
-| `reset-trial.ts <email> [--yes]` | **Writes.** Puts an account's trial counters back to zero. |
-| `tally-questions.ts <title-prefix>` | Question counts per worksheet matching the prefix. |
-| `peek-page.ts <title-prefix> [page…]` | Dumps a page's stored OCR text, what the model actually saw. |
-| `topic-gaps.ts` | How many questions are tagged, and which topics the classifier is reaching for. |
-| `check-account.ts` | Every user's role, verification state and trial usage, plus the configured `ADMIN_EMAILS`. |
-| `check-worksheet-attempts.ts <title>` | The attempts recorded against one worksheet. |
-| `try-prompt.ts <title-prefix> [page…]` | Runs a page through Ollama directly, for prompt work. No database write. |
-| `benchmark-extraction.ts` | Scores a model against the marked-up benchmark corpus. |
+| `inspect/ground-truth.ts` | **Start here when you doubt the data.** Reads each paper's own answer key out of the source PDFs in `~/Downloads` and diffs it against what is stored: missing questions, numbers the paper does not have, and every answer. The only check that compares against the paper rather than against the pipeline's own opinion, and what caught a repair that fixed the numbering and left the answers keyed to the old numbers. |
+| `inspect/audit-worksheets.ts [<id>]` | Checks worksheets for every failure mode known to have shipped: gaps, duplicates, ordinals out of paper order, unrendered maths. Read-only, and `AUDIT_LIMIT` sets how many recent sheets it reads. `AUDIT_FIX=true` also repairs and then requires an id. |
+| `inspect/diagnose-worksheet.ts` | The last 8 worksheets with their page, text and question counts. First stop when an upload looks wrong. |
+| `repair/repair-missing-options.ts [prefix] [--apply]` | **Writes with `--apply`.** Puts back answer options deleted from stored questions, reading them off the page text already stored. Dry run by default. Refuses any question whose stored prompt does not match what the page prints under that number. |
+| `repair/purge-answer-page-rows.ts [prefix] [--apply]` | **Writes with `--apply`.** Removes questions read off an answer key or solutions page, whose printed numbers made the coverage audit report a sheet complete while it was missing half its questions. Backs up every deleted row to JSON first, and refuses any row a student has touched. |
+| `repair/repair-choice-labels.ts [--write]` | **Writes with `--write`.** Reduces an option label that arrived with its option stuck to it, `A. 60` back to `A`. Report-only by default, and skips any row where the text being dropped is not already held beside it. |
+| `repair/backfill-answer-keys.ts [prefix]` | **Writes.** Applies each paper's own answer key to worksheets extracted before that pass existed. No dry form. |
+| `repair/reextract-worksheet.ts <id> [--yes]` | **Writes.** Deletes the extracted questions and reads the pages again. Exact id only: it used to match on title across every account and take the newest, and `questions` cascades to attempts, review cards and explanations. |
+| `repair/reclassify-worksheet.ts <id> [--yes]` | **Writes.** Drops the topic tags and re-runs classification only. Exact id only, same reason. |
+| `repair/requeue-worksheet.ts [<id>\|--all] [--yes]` | **Writes.** Re-enqueues processing. Defaults to `--all`, which sweeps every account, so that form asks first. |
+| `repair/reset-trial.ts <email> [--yes]` | **Writes.** Puts an account's trial counters back to zero. |
+| `inspect/tally-questions.ts <title-prefix>` | Question counts per worksheet matching the prefix. |
+| `inspect/peek-page.ts <title-prefix> [page…]` | Dumps a page's stored OCR text, what the model actually saw. |
+| `inspect/topic-gaps.ts` | How many questions are tagged, and which topics the classifier is reaching for. |
+| `inspect/check-account.ts` | Every user's role, verification state and trial usage, plus the configured `ADMIN_EMAILS`. |
+| `inspect/check-worksheet-attempts.ts <title>` | The attempts recorded against one worksheet. |
+| `benchmark/try-prompt.ts <title-prefix> [page…]` | Runs a page through Ollama directly, for prompt work. No database write. |
+| `benchmark/extraction.ts` | Scores a model against the marked-up benchmark corpus. |
 
 ---
 
@@ -445,6 +455,8 @@ lib/dashboard/          Wilson-bounded weakness ranking
 lib/notifications/      the bell, and web push on top of it
 lib/taxonomy/           the canonical topic tree
 scripts/gpu-worker.ts   the pull-worker that runs on the 5080
+scripts/inspect/        read-only checks; safe against production
+scripts/repair/         everything that writes, behind scripts/_confirm.ts
 deploy/worker/          container and egress rules for that worker (unrun)
 docs/pipeline.md        the repair passes, and why they run in that order
 ```

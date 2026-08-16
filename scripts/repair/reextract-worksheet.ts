@@ -2,8 +2,8 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
-import { openDatabase } from './db'
+import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
+import { openDatabase } from '../db'
 
 /**
  * Throws away a worksheet's questions and queues a fresh extract.

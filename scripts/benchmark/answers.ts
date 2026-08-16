@@ -5,8 +5,8 @@ config({ path: '.env.local', quiet: true })
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
-import { ANSWER_JSON_SCHEMA, ANSWER_SYSTEM, answerUserText } from '../lib/ai/prompts'
-import { connect, requireDatabaseUrl } from './db'
+import { ANSWER_JSON_SCHEMA, ANSWER_SYSTEM, answerUserText } from '../../lib/ai/prompts'
+import { connect, requireDatabaseUrl } from '../db'
 
 /**
  * Which local model should derive an answer key.

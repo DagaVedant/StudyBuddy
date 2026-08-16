@@ -29,9 +29,9 @@ config({ path: '.env.local' })
 import { writeFile } from 'node:fs/promises'
 
 
-import { isAnswerPage } from '../lib/questions/answer-key'
-import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
-import { connect } from './db'
+import { isAnswerPage } from '../../lib/questions/answer-key'
+import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
+import { connect } from '../db'
 
 interface Candidate {
   worksheetId: string

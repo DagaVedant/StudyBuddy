@@ -3,8 +3,8 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 
-import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
-import { openDatabase } from './db'
+import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
+import { openDatabase } from '../db'
 
 async function main() {
   // `--yes` belongs to confirmDestructive, so it is skipped when looking for

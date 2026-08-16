@@ -1,5 +1,5 @@
 import { config } from 'dotenv'
-import { openDatabase } from './db'
+import { openDatabase } from '../db'
 
 config({ path: '.env.local' })
 

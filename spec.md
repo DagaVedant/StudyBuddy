@@ -700,6 +700,6 @@ The template is fixed; its contents are not. The page's text layer is interpolat
 11. Explanations
 12. Polish, retention jobs, privacy disclosures
 
-**Benchmark gate (step 7): PASSED on 2026-07-31.** `scripts/benchmark-ollama.ts` ran Qwen2.5-VL 7B against a synthetic worksheet page on the RTX 5080: 5/5 questions extracted in 6.0s, 4/4 topics classified correctly, misconception-aware explanation generated. Tier 0 is viable; proceed with the queue.
+**Benchmark gate (step 7): PASSED on 2026-07-31.** `scripts/benchmark/ollama.ts` ran Qwen2.5-VL 7B against a synthetic worksheet page on the RTX 5080: 5/5 questions extracted in 6.0s, 4/4 topics classified correctly, misconception-aware explanation generated. Tier 0 is viable; proceed with the queue.
 
 Caveat: the benchmark page is clean, machine-rendered text. **Re-run against a real scan and a real phone photo before launch**, since that is where a 7B model actually struggles, and the result there is what decides whether the trial helps or hurts.

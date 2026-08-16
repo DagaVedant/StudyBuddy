@@ -5,11 +5,11 @@ config({ path: '.env.local' })
 import { asc, like } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 
-import { worksheets } from '../lib/db/schema'
-import type { Db } from '../lib/db/types'
-import { applyAnswerKey } from '../lib/worker/answer-key'
-import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
-import { connect } from './db'
+import { worksheets } from '../../lib/db/schema'
+import type { Db } from '../../lib/db/types'
+import { applyAnswerKey } from '../../lib/worker/answer-key'
+import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
+import { connect } from '../db'
 
 /**
  * Applies the paper's own answer key to worksheets extracted before the pass

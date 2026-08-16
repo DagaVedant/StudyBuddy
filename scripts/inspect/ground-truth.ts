@@ -1,7 +1,7 @@
 /**
  * Checks what was stored against the papers themselves.
  *
- * `scripts/audit-worksheets.ts` compares the database with itself, which is why
+ * `scripts/inspect/audit-worksheets.ts` compares the database with itself, which is why
  * it reported `test8_15` at 100 % recall while the sheet was missing eight of
  * its fifteen questions: the numbers it was counting had come from the
  * solutions page. That whole class of failure was found once, by reading the
@@ -12,9 +12,9 @@
  * paper. The pipeline's opinion of its own output is not evidence, however
  * confident the numbers look.
  *
- *   npx tsx scripts/ground-truth.ts                    # PDFs from ~/Downloads
- *   npx tsx scripts/ground-truth.ts ~/papers           # from somewhere else
- *   npx tsx scripts/ground-truth.ts ~/papers --verbose # list every difference
+ *   npx tsx scripts/inspect/ground-truth.ts                    # PDFs from ~/Downloads
+ *   npx tsx scripts/inspect/ground-truth.ts ~/papers           # from somewhere else
+ *   npx tsx scripts/inspect/ground-truth.ts ~/papers --verbose # list every difference
  *
  * Ground truth is the paper's own answer key, not a heuristic: it states which
  * questions exist and what each answer is, in the document being checked, and
@@ -36,12 +36,12 @@ import { pathToFileURL } from 'node:url'
 import { eq, inArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 
-import { answerChoices, questions, worksheetPages, worksheets } from '../lib/db/schema'
-import type { Db } from '../lib/db/types'
-import { isAnswerPage, mergeAnswerKeys, parseAnswerKey } from '../lib/questions/answer-key'
-import { questionNumbersOn } from '../lib/questions/page-text'
-import { normalizeChoiceLabel } from '../lib/questions/shape'
-import { connect } from './db'
+import { answerChoices, questions, worksheetPages, worksheets } from '../../lib/db/schema'
+import type { Db } from '../../lib/db/types'
+import { isAnswerPage, mergeAnswerKeys, parseAnswerKey } from '../../lib/questions/answer-key'
+import { questionNumbersOn } from '../../lib/questions/page-text'
+import { normalizeChoiceLabel } from '../../lib/questions/shape'
+import { connect } from '../db'
 
 /**
  * PDFs whose filename is not the worksheet title they were stored under.

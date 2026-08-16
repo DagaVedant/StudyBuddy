@@ -2,7 +2,7 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import { openDatabase } from './db'
+import { openDatabase } from '../db'
 
 async function main() {
   const target = process.argv[2]

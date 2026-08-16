@@ -2,7 +2,7 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local' })
 
-import { openDatabase } from './db'
+import { openDatabase } from '../db'
 
 async function main() {
   const [prefix, ...pages] = process.argv.slice(2)

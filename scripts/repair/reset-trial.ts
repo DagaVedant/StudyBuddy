@@ -3,15 +3,15 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 
-import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
-import { openDatabase } from './db'
+import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
+import { openDatabase } from '../db'
 
 async function main() {
   // The first argument that is not a flag, so `reset-trial --yes bob@x` does
   // not take "--yes" for the address and report "no account: --yes", which
   // reads exactly like the account not existing.
   const email = process.argv.slice(2).find((arg) => !arg.startsWith('--'))
-  if (!email) throw new Error('Usage: npx tsx scripts/reset-trial.ts <email> [--yes]')
+  if (!email) throw new Error('Usage: npx tsx scripts/repair/reset-trial.ts <email> [--yes]')
 
   requireLocalDb()
 

@@ -5,10 +5,10 @@ config({ path: '.env.local' })
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 
-import { answerChoices, questions, worksheets } from '../lib/db/schema'
-import { normalizeChoiceLabel } from '../lib/questions/shape'
-import { requireLocalDb } from './_confirm'
-import { connect } from './db'
+import { answerChoices, questions, worksheets } from '../../lib/db/schema'
+import { normalizeChoiceLabel } from '../../lib/questions/shape'
+import { requireLocalDb } from '../_confirm'
+import { connect } from '../db'
 
 /**
  * Rewrites option labels that arrived with the option stuck to them.

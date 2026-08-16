@@ -3,8 +3,8 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 
-import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
-import { openDatabase } from './db'
+import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
+import { openDatabase } from '../db'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

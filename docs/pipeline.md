@@ -93,7 +93,7 @@ Four callers, and they must stay in agreement:
 |---|---|---|
 | `app/api/worker/jobs/[jobId]` | verifying, then final | the GPU worker's job, per phase |
 | `lib/worker/server-job.ts` | final | a cloud key, extraction on the server |
-| `scripts/audit-worksheets.ts` | final | operator, repairing stored papers |
+| `scripts/inspect/audit-worksheets.ts` | final | operator, repairing stored papers |
 | `scripts/repair-missing-options.ts` | selected | operator, one targeted repair |
 
 ---

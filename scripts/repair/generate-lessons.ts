@@ -4,12 +4,12 @@ config({ path: '.env.local', quiet: true })
 
 import { drizzle } from 'drizzle-orm/postgres-js'
 
-import { OllamaProvider } from '../lib/ai/ollama'
-import { validated } from '../lib/ai/validated'
-import type { Db } from '../lib/db/types'
-import * as schema from '../lib/db/schema'
-import { generateLesson, topicsNeedingLessons } from '../lib/topics/lesson'
-import { connect, requireDatabaseUrl } from './db'
+import { OllamaProvider } from '../../lib/ai/ollama'
+import { validated } from '../../lib/ai/validated'
+import type { Db } from '../../lib/db/types'
+import * as schema from '../../lib/db/schema'
+import { generateLesson, topicsNeedingLessons } from '../../lib/topics/lesson'
+import { connect, requireDatabaseUrl } from '../db'
 
 /**
  * Writes the topic lessons the dashboard links to.

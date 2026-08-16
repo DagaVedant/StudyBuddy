@@ -30,14 +30,14 @@ config({ path: '.env.local' })
 import { and, asc, eq, isNotNull, like, notInArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 
-import { answerChoices, questions, worksheetPages, worksheets } from '../lib/db/schema'
-import type { Db } from '../lib/db/types'
-import { promptSimilarity } from '../lib/questions/duplicates-plan'
-import { questionsOnPage } from '../lib/questions/page-options'
-import { hashQuestion, normalizeChoiceLabel } from '../lib/questions/shape'
-import { runRepairPasses } from '../lib/worker/pipeline'
-import { confirmDestructive, databaseHost, requireLocalDb } from './_confirm'
-import { connect } from './db'
+import { answerChoices, questions, worksheetPages, worksheets } from '../../lib/db/schema'
+import type { Db } from '../../lib/db/types'
+import { promptSimilarity } from '../../lib/questions/duplicates-plan'
+import { questionsOnPage } from '../../lib/questions/page-options'
+import { hashQuestion, normalizeChoiceLabel } from '../../lib/questions/shape'
+import { runRepairPasses } from '../../lib/worker/pipeline'
+import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
+import { connect } from '../db'
 
 /**
  * How alike the stored prompt and the printed one must be.
