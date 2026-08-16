@@ -175,6 +175,29 @@ export interface AiStatus {
   /** "3 trial worksheets left", "Anthropic connected", "No AI configured". */
   label: string
   href: string
+  /**
+   * Trial worksheets left, or null for an account not on the trial.
+   *
+   * Null rather than zero when a provider is configured, because the two mean
+   * opposite things to the one caller that reads this: zero is a student about
+   * to hit a wall, and null is a student who cannot. spec.md:339 asks for the
+   * setup prompt at exactly one remaining, and it computes the number here
+   * anyway to write the label.
+   */
+  trialWorksheetsRemaining: number | null
+}
+
+/**
+ * Whether to put spec.md:339's "Choose how StudyBuddy thinks" prompt on screen.
+ *
+ * One worksheet left, and no provider configured. The spec asks for this moment
+ * specifically, and the reason it is a moment rather than a banner is that it
+ * is the last point where a student can act before the wall: at zero they have
+ * already met it, on the completion route, as a message explaining they have
+ * been dropped to the manual editor.
+ */
+export function shouldOfferAiSetup(status: AiStatus): boolean {
+  return status.trialWorksheetsRemaining === 1
 }
 
 /**
@@ -200,6 +223,7 @@ export async function getAiStatus(db: Db, userId: string): Promise<AiStatus> {
     return {
       label: `${PROVIDER_LABEL[configured.provider as CloudProvider | 'ollama']} connected`,
       href: '/settings',
+      trialWorksheetsRemaining: null,
     }
   }
 
@@ -215,10 +239,11 @@ export async function getAiStatus(db: Db, userId: string): Promise<AiStatus> {
     return {
       label: `${remaining} trial worksheet${remaining === 1 ? '' : 's'} left`,
       href: '/settings',
+      trialWorksheetsRemaining: remaining,
     }
   }
 
-  return { label: 'No AI configured', href: '/settings' }
+  return { label: 'No AI configured', href: '/settings', trialWorksheetsRemaining: 0 }
 }
 
 export async function getCredentialSummary(db: Db, userId: string) {

@@ -51,8 +51,8 @@ On login, if the verified email matches the list, `users.role` is set to `admin`
 
 | Capability | Detail |
 |---|---|
-| **Unlimited upload length** | The 40-page per-upload cap does not apply. |
-| **No trial quota** | Trial page/explanation limits bypassed entirely. |
+| **Unlimited upload length** | The 75-page per-upload cap does not apply. |
+| **No trial quota** | Trial worksheet/explanation limits bypassed entirely. |
 | **Topic proposal queue** | Review, merge, promote, or reject proposed topics (§7.2). |
 | **Canonical tree editing** | Add/rename/reparent topics. |
 | **Worker + queue console** | GPU heartbeat, queue depth, stuck jobs, requeue/cancel. |
@@ -595,7 +595,7 @@ The template is fixed; its contents are not. The page's text layer is interpolat
 | Student data sitting on a home machine | Page images fetched to a temp dir, deleted on job completion or failure; full-disk encryption assumed; no logs containing page content |
 
 **Cost to operator**
-- **No metered AI spend.** The only AI cost is electricity on the 5080, bounded by a hard 10-page lifetime trial per account, so spend cannot scale unexpectedly with signups, only queue latency can.
+- **No metered AI spend.** The only AI cost is electricity on the 5080, bounded by a hard 3-worksheet lifetime trial per account, so spend cannot scale unexpectedly with signups, only queue latency can.
 - Bounded storage via the delete-PDF policy and a per-upload page cap.
 - Embeddings cost nothing on any tier (§7.3).
 
@@ -609,7 +609,7 @@ The template is fixed; its contents are not. The page's text layer is interpolat
 - Upload → rasterize → OCR/vision extract → **extraction review** → commit
 - **All four tiers**, including **Ollama in v1** (it's the free AI path, so it can't be deferred)
 - **Operator GPU pull-worker** + durable queue + heartbeat/status UI + completion notifications
-- 10-page / 20-explanation lifetime trial quota, enforced server-side
+- 3-worksheet / 20-explanation lifetime trial quota, enforced server-side
 - Manual question editor for Tier A
 - Browser/server/GPU embeddings via MiniLM (§7.3)
 - Answer-key precedence chain with `ai_derived` badging

@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import { ViewTransition } from 'react'
 
 import { auth } from '@/auth'
-import { getAiStatus } from '@/lib/ai/resolve'
+import { getAiStatus, shouldOfferAiSetup } from '@/lib/ai/resolve'
+import AiSetupPrompt from '@/components/ai-setup-prompt'
 import { AccuracyLabel, Meter } from '@/components/meter'
 import { countMissedQuestions } from '@/lib/blooket/missed'
 import { db } from '@/lib/db'
@@ -204,6 +205,13 @@ export default async function DashboardPage() {
           </dd>
         </div>
       </dl>
+
+      {/*
+        Above the panels rather than among them. The panels answer "what should
+        I work on"; this answers "why will the next upload behave differently",
+        which is only useful before they upload it.
+      */}
+      {shouldOfferAiSetup(aiStatus) && <AiSetupPrompt />}
 
       {!hasData && (
         <p className="mt-6 rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted">

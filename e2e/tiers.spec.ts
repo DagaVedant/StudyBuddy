@@ -134,3 +134,41 @@ test('an account can be deleted, and only by typing its own address', async ({
   await page.goto('/dashboard')
   await expect(page).toHaveURL(/\/signin/)
 })
+
+/**
+ * spec.md:339's first moment. The second, settings, always existed; this one
+ * did not, so the trial ended as a surprise on the completion route with the
+ * worksheet already uploaded.
+ */
+test('one worksheet left offers the setup choice where it can still be acted on', async ({
+  page,
+}) => {
+  const email = await registerAndSignIn(page)
+  await setTrialWorksheetsUsed(page, email, TRIAL_WORKSHEET_LIMIT - 1)
+
+  await page.goto('/dashboard')
+  await expect(
+    visible(page).getByRole('heading', { name: 'One trial worksheet left' }),
+  ).toBeVisible()
+
+  // And on upload, which is the screen where the choice actually costs
+  // something: the tier is decided the moment the form is submitted.
+  await page.goto('/upload')
+  await expect(
+    visible(page).getByRole('heading', { name: 'One trial worksheet left' }),
+  ).toBeVisible()
+  await expect(
+    visible(page).getByRole('link', { name: 'Choose how StudyBuddy thinks' }),
+  ).toBeVisible()
+})
+
+test('a fresh account is not nagged about a trial it has barely started', async ({
+  page,
+}) => {
+  await registerAndSignIn(page)
+
+  await page.goto('/dashboard')
+  await expect(
+    visible(page).getByRole('heading', { name: 'One trial worksheet left' }),
+  ).toHaveCount(0)
+})

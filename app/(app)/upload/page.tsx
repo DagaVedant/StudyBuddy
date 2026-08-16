@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import AiSetupPrompt from '@/components/ai-setup-prompt'
+import { getAiStatus, shouldOfferAiSetup } from '@/lib/ai/resolve'
+import { db } from '@/lib/db'
 import { flattenTaxonomy } from '@/lib/taxonomy/trees'
 
 import UploadClient, { type SubjectGroup } from './upload-client'
@@ -26,7 +29,12 @@ function subjectGroups(): SubjectGroup[] {
 
 export default async function UploadPage() {
   const session = await auth()
-  if (!session?.user) redirect('/signin')
+  if (!session?.user?.id) redirect('/signin')
+
+  // The second of spec.md:339's two screens, and the more useful of them: this
+  // is the one a student is standing on when the choice actually costs them
+  // something, with the file already picked.
+  const aiStatus = await getAiStatus(db, session.user.id)
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
@@ -46,6 +54,13 @@ export default async function UploadPage() {
         Upload one you have already finished. You will mark which questions you
         got wrong in the next step.
       </p>
+
+      {/*
+        Before the form, not after it. Which tier reads this worksheet is
+        decided the moment it is submitted, so a prompt underneath the submit
+        button would be advice arriving after the decision it is about.
+      */}
+      {shouldOfferAiSetup(aiStatus) && <AiSetupPrompt />}
 
       <UploadClient
         subjects={subjectGroups()}
