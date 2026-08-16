@@ -1,8 +1,8 @@
 /**
  * Whether `prebuild`'s call to `migrate()` should actually touch the database.
  *
- * SETUP.md provisions exactly one `DATABASE_URL`, entered once in Vercel's env
- * panel with no separate preview database (SETUP.md:133-145), so a preview
+ * The README provisions exactly one `DATABASE_URL`, entered once in Vercel's
+ * env panel with no separate preview database, so a preview
  * build and the production build reach the identical live schema. The first
  * version of this guard keyed on `VERCEL_ENV === 'production'` alone, which
  * protected the one deploy a human actually watches and left every other
@@ -17,7 +17,7 @@
  * writing to the shared production schema is the same category of mistake.
  * So this keys on being a Vercel build at all, not on which one, matching
  * `VERCEL_ENV`'s own three values (`production`, `preview`, `development`
- * for `vercel dev`). A genuinely local build - where SETUP.md already tells a
+ * for `vercel dev`). A genuinely local build, where the README already tells a
  * new user to run `npm run db:migrate` by hand - carries no `VERCEL_ENV` and
  * keeps migrating from `prebuild`, which is the convenience this exists for.
  */
@@ -46,7 +46,7 @@ export function shouldSkipBuildMigration(
  * `.env.local` is set up, or the e2e suite, which points `DATABASE_URL` at a
  * PGlite socket and sets `SKIP_MIGRATIONS` instead of relying on this path.
  * On Vercel there is no such build: every environment is supposed to carry
- * `DATABASE_URL` (SETUP.md step 6), so a Vercel build missing it is a
+ * `DATABASE_URL` (README, "Deploy to Vercel"), so a Vercel build missing it is a
  * misconfigured environment - naming, most likely, an env var scoped to
  * Production only in Vercel's panel and left off Preview - not a build with
  * nowhere to migrate to. That should fail loudly rather than deploy code

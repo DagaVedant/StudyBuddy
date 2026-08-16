@@ -299,8 +299,8 @@ describe('planNumberDuplicateMerges', () => {
    * options are "4", "6", "9", "12". Every one is below the floor, so the check
    * can never fire, and requiring it would mean never folding a re-read.
    *
-   * Kept as a test rather than a comment because the next person to read
-   * FIXES.md will have the same idea.
+   * Kept as a test rather than a comment because the next person to look at
+   * the merge pass will have the same idea.
    */
   it('folds the re-read that a containment check would have missed', () => {
     const reread = [

@@ -34,7 +34,7 @@ export function authenticateWorker(request: Request): WorkerAuth {
    * This used to read `if (allowed.length > 0)`, so an empty variable meant no
    * restriction: the allowlist degraded to nothing exactly when nobody had
    * configured it, which is the state every deployment starts in. `.env.example`
-   * shipped it empty and SETUP.md said to skip it, so the ordinary outcome was
+   * shipped it empty and the setup docs said to skip it, so the ordinary outcome was
    * a defence that was never on, and a leaked WORKER_API_TOKEN worked from
    * anywhere on the internet (finding 113).
    *

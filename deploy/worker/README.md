@@ -1,6 +1,6 @@
 # Containerising the GPU worker (spec §3.3.1)
 
-Optional. `WORKER_ALLOWED_IPS` is not; see SETUP.md.
+Optional. `WORKER_ALLOWED_IPS` is not; see the root README.
 
 ## What this is for
 

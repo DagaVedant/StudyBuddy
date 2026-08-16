@@ -64,8 +64,17 @@ next-env.d.ts
 # env and is personal to whoever cloned this.
 /.claude/settings.local.json
 
-# local audit write-ups: kept on disk, deliberately not published
+# local audit write-ups: kept on disk, deliberately not published. Emptied once
+# every finding in them was closed; the reasoning worth keeping went into code
+# comments and commit messages instead, which is where it survives a delete.
 /fixes/
+
+# Agent instructions, kept on disk and out of the repo. AGENTS.md is the real
+# file and CLAUDE.md is one line pointing at it. They describe how to work in
+# this codebase rather than how it works, so they are personal to whoever is
+# working in it: README.md and spec.md are the published answer to that.
+/AGENTS.md
+/CLAUDE.md
 
 # throwaway one-off scripts. Written to answer a single question against the
 # live database and abandoned; three of them were sitting untracked at once,

@@ -19,7 +19,8 @@ import type { Db } from '@/lib/db/types'
  * student can delete it, and a silently deleted attempt is gone.
  *
  * Both tables are read by `question_id`, which wants an index on each to stay
- * cheap (FIXES.md B-8).
+ * cheap; `attempts_question_idx` and the review-card index in schema.ts are
+ * there for this.
  */
 export interface Partitioned<T> {
   /** Nothing points at these; a pass may delete them. */

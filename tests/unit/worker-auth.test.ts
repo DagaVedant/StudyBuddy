@@ -193,7 +193,8 @@ describe('authenticateWorker', () => {
    * Finding 113. This used to read "applies no address check when the list is
    * empty", and that was the defect: the allowlist degraded to no restriction
    * exactly when nobody had configured it, which is the state every deployment
-   * starts in. `.env.example` shipped it empty and SETUP.md said to skip it, so
+   * starts in. `.env.example` shipped it empty and the setup docs said to skip
+   * it, so
    * the ordinary outcome was a defence that was never on and a leaked token
    * that worked from anywhere.
    */

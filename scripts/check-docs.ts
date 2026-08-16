@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 
 /**
- * Catches the table count drifting out from under README.md and SETUP.md.
+ * Catches the table count drifting out from under README.md.
  *
  * It has drifted twice: 19 tables became 21 with a fix that only ever
  * corrected the two numbers on the page, so nothing stopped a third table
@@ -15,13 +15,15 @@ import { readFileSync } from 'node:fs'
  * by hand after a migration, or add it to CI if drift here matters enough to
  * block a merge.
  *
+ * It read SETUP.md too, until that was folded into README.md.
+ *
  *   npx tsx scripts/check-docs.ts
  */
 
 const schema = readFileSync('lib/db/schema.ts', 'utf8')
 const tableCount = (schema.match(/=\s*pgTable\(/g) ?? []).length
 
-const files = ['README.md', 'SETUP.md']
+const files = ['README.md']
 let bad = false
 
 for (const file of files) {

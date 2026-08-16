@@ -117,8 +117,8 @@ export async function handlePageReview(
         )
     : []
 
-  // The same guard the repair passes run behind (FIXES.md B-2), which this
-  // path never had. Replacing a doubted row means deleting it, and
+  // The same guard the repair passes run behind, which this path never had.
+  // Replacing a doubted row means deleting it, and
   // `questions` cascades to `attempts` and `review_cards`, so on a worksheet
   // the student had already marked up the audit re-read could take their
   // answer and its place in the revision schedule with it. Nothing would show
