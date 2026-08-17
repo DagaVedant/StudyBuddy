@@ -149,6 +149,10 @@ deployment cannot send email, rather than promising a link that will never
 arrive. Google sign-in still works, and so does every account that has a
 password already.
 
+Any account can be sent one, including an account that has only ever signed in
+with Google: the link reaches whoever holds the inbox, and that person can
+already sign in with Google, so it adds a password rather than a way in.
+
 A link is a 32-byte token, stored only as a SHA-256 hash, good for one hour and
 one use. Spending one deletes every other outstanding link for that account, and
 sets `email_verified`, since reading the mail proves the address. Requests are

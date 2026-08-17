@@ -139,7 +139,7 @@ export async function signInWithCredentials(
 }
 
 const SENT =
-  'If that address has an account with a password, a link to set a new one is on its way. It works once, and for an hour.'
+  'If that address has an account, a link to set a password is on its way. It works once, and for an hour.'
 
 const NO_MAIL =
   'This deployment cannot send email, so there is no password reset. Sign in with Google, or ask whoever runs it.'
@@ -177,22 +177,25 @@ export async function requestPasswordReset(
   const byEmail = await consumeRateLimit(db, RESET_REQUEST_EMAIL_LIMIT, `email:${email}`)
   if (!byEmail.ok) return { message: SENT }
 
+  // An account that only ever signed in with Google has no password, and is
+  // exactly the account that benefits from being sent one: the link reaches
+  // whoever holds the inbox, who could already sign in with Google anyway.
   const [user] = await db
-    .select({ id: users.id, passwordHash: users.passwordHash })
+    .select({ id: users.id })
     .from(users)
     .where(eq(users.email, email))
     .limit(1)
 
-  if (!user?.passwordHash) return { message: SENT }
+  if (!user) return { message: SENT }
 
   const token = await issueResetToken(db, user.id)
 
   try {
     await sendMail({
       to: email,
-      subject: 'Set a new StudyBuddy password',
+      subject: 'Set your StudyBuddy password',
       text:
-        `Open this link to set a new password:\n\n${resetLink(token)}\n\n` +
+        `Open this link to set a password:\n\n${resetLink(token)}\n\n` +
         `It works once, and stops working in an hour. ` +
         `If you did not ask for it, nothing has changed and you can ignore this.`,
     })

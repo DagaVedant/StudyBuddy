@@ -17,7 +17,8 @@ export default function ForgotPasswordPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Forgot your password</h1>
       <p className="hint text-pretty">
         Give us the address you signed up with and we will email you a link to set a
-        new one.
+        new one. This also works if you have only ever signed in with Google and
+        want a password as well.
       </p>
 
       {state.error && (
