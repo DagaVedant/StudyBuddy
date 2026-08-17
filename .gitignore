@@ -58,7 +58,8 @@ next-env.d.ts
 # Agent instructions, kept on disk and out of the repo. AGENTS.md is the real
 # file and CLAUDE.md is one line pointing at it. They describe how to work in
 # this codebase rather than how it works, so they are personal to whoever is
-# working in it: README.md and spec.md are the published answer to that.
+# working in it: README.md is the published answer to that, and the only one,
+# since spec.md was deleted once the product it specified existed.
 /AGENTS.md
 /CLAUDE.md
 

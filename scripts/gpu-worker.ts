@@ -465,8 +465,8 @@ async function classifyBatch(
         proposalEmbedding: await embed(proposedName),
       })
     } catch (error) {
-      // The question id, not the question. spec.md:593 keeps student worksheet
-      // text out of operator logs, and this line was putting the first 40
+      // The question id, not the question. Student worksheet text stays out of
+      // operator logs, and this line was putting the first 40
       // characters of it on the console of a machine the student has never
       // heard of. The id is enough to find the row when one of these needs
       // chasing, and it is already all over the rest of this file.

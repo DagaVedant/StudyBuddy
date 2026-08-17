@@ -386,7 +386,7 @@ describe('completeJob', () => {
 })
 
 /**
- * spec.md:583 caps a student at one extraction waiting on the GPU, and nothing
+ * A student is capped at one extraction waiting on the GPU, and nothing
  * enforced it: the enqueue endpoint took as many worksheets as a script could
  * post, and one account could hold the whole queue against everybody else.
  */
@@ -565,7 +565,7 @@ describe('reapAbandonedJobs', () => {
   })
 })
 
-// Finding 118: spec.md §2.1's "stuck jobs" list, and the requeue/cancel
+// Finding 118: the admin console's "stuck jobs" list, and the requeue/cancel
 // controls next to it. Nothing in app/ offered either before this.
 describe('listActionableJobs', () => {
   it('lists a claimed, running, failed and cancelled job, oldest concerns included', async () => {

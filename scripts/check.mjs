@@ -8,6 +8,7 @@ const TASKS = [
     args: ['--cache', '--cache-location', '.eslintcache', '--max-warnings', '0'],
   },
   { name: 'vitest', script: 'node_modules/vitest/vitest.mjs', args: ['run'] },
+  { name: 'docs', script: 'scripts/check-docs.mjs', args: [] },
 ]
 
 const started = Date.now()

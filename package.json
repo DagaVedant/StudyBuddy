@@ -26,7 +26,7 @@
     "benchmark:ollama": "tsx scripts/benchmark/ollama.ts",
     "worker": "tsx scripts/gpu-worker.ts",
     "check": "node scripts/check.mjs",
-    "check:serial": "tsc --noEmit && eslint && vitest run"
+    "check:serial": "tsc --noEmit && eslint && vitest run && node scripts/check-docs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

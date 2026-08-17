@@ -235,9 +235,9 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           reader deciding whether to upload their homework was being told the
           opposite of what happens to it.
 
-          spec.md §9 lists a Tier 0 privacy disclosure at the point of upload as
-          v1 scope, and this was the one place it was missing. The wording is
-          the settings screen's, deliberately, so the two agree.
+          A Tier 0 privacy disclosure belongs at the point of upload, and this
+          was the one place it was missing. The wording is the settings
+          screen's, deliberately, so the two agree.
         */}
         <p className="hint mx-auto max-w-sm text-pretty">
           PDFs, scans, or photos of the pages. The PDF is rendered here and is
