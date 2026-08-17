@@ -12,16 +12,6 @@ const schema = z.object({
   password: z.string().min(8),
 })
 
-/**
- * E2E-only: an admin account with its Google link already in place.
- *
- * Admin requires a linked Google account, and signup refuses an admin address
- * outright, so there is no longer any way for a test to reach the console
- * through the UI. Nothing here is a shortcut around the rule being tested: the
- * account gets the Google row that proves the address, which is exactly what
- * the rule asks for. The password is only so the test can sign in without
- * standing up an OAuth round trip.
- */
 export async function POST(request: Request) {
   if (!testEndpointsEnabled()) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -49,8 +39,6 @@ export async function POST(request: Request) {
           email,
           passwordHash: await bcrypt.hash(password, 10),
           emailVerified: new Date(),
-          // Set, because a signed-in account with no date of birth is sent to
-          // onboarding rather than the dashboard.
           dob: new Date('2000-01-15'),
         })
         .returning({ id: users.id })

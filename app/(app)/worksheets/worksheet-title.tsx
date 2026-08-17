@@ -6,20 +6,6 @@ import { useId, useState } from 'react'
 
 import { fetchJson } from '@/lib/client/fetch-json'
 
-/**
- * The worksheet's title, and a way to change it.
- *
- * It was set once at upload, defaulting to the filename with its extension
- * stripped, so a student who uploaded `scan_002.pdf` had a worksheet called
- * `scan_002` for as long as they kept it. That title is the only handle on the
- * paper in three separate lists and now in a search box too, which makes a
- * name from a scanner the thing they have to recognise it by.
- *
- * Reads from local state after a save rather than waiting for the server. The
- * route streams behind a loading state, so `router.refresh()` is not
- * instantaneous, and rendering the old title next to "Saved" for as long as it
- * takes reads as a rename that did not work.
- */
 export default function WorksheetTitle({
   worksheetId,
   title,
@@ -63,8 +49,6 @@ export default function WorksheetTitle({
 
       setCurrent(result.title ?? next)
       setEditing(false)
-      // Reconciles the rest of the page, which shows this title in the
-      // thumbnail's alt text and the delete confirmation.
       router.refresh()
     } catch (cause) {
       setError((cause as Error).message)
@@ -117,8 +101,6 @@ export default function WorksheetTitle({
         disabled={saving}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
-          // Escape leaves without saving, which is what every other inline edit
-          // on the web does and what a student will try first.
           if (event.key === 'Escape') {
             setEditing(false)
             setDraft(current)

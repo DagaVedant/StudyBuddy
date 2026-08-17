@@ -62,25 +62,12 @@ async function makeProposal(over: {
   return row.id
 }
 
-/** A unit vector pointing along one axis, so two of them are easy to tell apart. */
 function axis(index: number): number[] {
   const vector = new Array(EMBEDDING_DIMENSIONS).fill(0)
   vector[index] = 1
   return vector
 }
 
-/**
- * `topics.slug` is unique, and picking a free one is a read followed by a
- * write. Two admins working the queue at once, or one double-clicking Accept,
- * could both read the same slug as free; the one that inserted second used to
- * get the constraint violation thrown at it as a 500, with its proposal left
- * pending and nothing saying the name was the problem.
- *
- * Both halves are inside one transaction now, so losing the race is a clean
- * violation, and the answer to a violation is to look again. PGlite runs one
- * statement at a time, so these inject the collision rather than racing for
- * one: what is under test is the response to a violation, not the window.
- */
 describe('losing the race for a slug', () => {
   it('retries when someone takes the slug mid-transaction', async () => {
     const parentId = await makeParent('high-school-math.vectors')

@@ -1,9 +1,3 @@
-/**
- * `lib/questions/page-text.ts`: where the first question starts on a page, and
- * the tail and head handed to the prompt so a question cut by a page break can
- * be read whole.
- */
-
 import { describe, expect, it } from 'vitest'
 import { headOf, seamAround, sortWithinPage, tailOf } from '@/lib/questions/page-text'
 import { EXTRACTION_SYSTEM, extractionUserText } from '@/lib/ai/prompts'
@@ -19,8 +13,8 @@ const q = (
 const order = (page: ReturnType<typeof q>[]) => sortWithinPage(page).map((row) => row.name)
 
 describe('sortWithinPage', () => {
-  // AMC8 2024 page 1. The bboxes overlap and put question 4 below question 5,
-  // which the numbers printed on the paper settle.
+  
+  
   it('trusts the number printed on the paper over the geometry', () => {
     expect(
       order([
@@ -31,8 +25,8 @@ describe('sortWithinPage', () => {
     ).toEqual(['one', 'four', 'five'])
   })
 
-  // AMC8 2024 page 3. The orphaned options have no number, so the numbers
-  // cannot order the page and the layout has to.
+  
+  
   it('falls back to the layout when a question has no number', () => {
     expect(
       order([
@@ -71,17 +65,6 @@ describe('sortWithinPage', () => {
 })
 
 describe('the seam between two pages', () => {
-/**
- * The seam: the neighbouring page text an extraction carries so a question that
- * ran over the fold can be read whole.
- *
- * The risk being managed is not that the model misses the join. It is that the
- * model reads the context as more page and returns the same question twice,
- * once from each side of the fold, which is worse than the split it fixes: a
- * duplicate reaches the student's paper, while a split is something the join
- * pass downstream already recovers.
- */
-
 const page = {
   image: new Uint8Array([1]),
   mediaType: 'image/webp',
@@ -97,11 +80,7 @@ describe('tailOf and headOf', () => {
     expect(headOf('one\ntwo')).toBe('one\ntwo')
   })
 
-  /**
-   * Trimmed to a line boundary at both ends. Half a word at the seam is a word
-   * the model has to guess at, and guessing is the failure this exists to
-   * remove.
-   */
+  
   it('cut on a line boundary rather than mid-word', () => {
     const lines = Array.from({ length: 400 }, (_, i) => `line ${i} of the page`).join('\n')
 
@@ -149,11 +128,6 @@ describe('seamAround', () => {
     })
   })
 
-  /**
-   * Indexed against the full page list, not a filtered loop. Answer-key pages
-   * are skipped before extraction, and the page a question continued onto is
-   * the one next to it in the document rather than the next one being read.
-   */
   it('is indexed against the document, not the subset being read', () => {
     const all = [{ ocrText: 'p1' }, { ocrText: 'key' }, { ocrText: 'p3' }]
 
@@ -181,7 +155,6 @@ describe('the extraction prompt', () => {
     expect(text).toContain('<next_page_head>')
     expect(text).toContain('(A) 1000 (B) 2000')
 
-    // Order matters for the reader: this page first, then its neighbours.
     expect(text.indexOf('</page_text>')).toBeLessThan(text.indexOf('<previous_page_tail>'))
     expect(text.indexOf('<previous_page_tail>')).toBeLessThan(text.indexOf('<next_page_head>'))
   })
@@ -192,11 +165,6 @@ describe('the extraction prompt', () => {
     expect(text.match(/Context only, not content/g)).toHaveLength(2)
   })
 
-  /**
-   * The instruction that stops a duplicate. Without it the model has every
-   * reason to return the question it can see the end of at the top of the next
-   * page, and the one it can see the start of at the bottom of the previous.
-   */
   it('tells the model never to return a question from the neighbouring text', () => {
     expect(EXTRACTION_SYSTEM).toMatch(/never return a question that appears only in the neighbouring text/i)
     expect(EXTRACTION_SYSTEM).toMatch(/belongs to that page\. Return nothing for it/i)

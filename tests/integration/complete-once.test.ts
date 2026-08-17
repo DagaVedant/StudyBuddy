@@ -22,14 +22,6 @@ afterAll(async () => {
 
 const client = () => asDb(db)
 
-/**
- * A worksheet as it exists the moment the last page has been uploaded.
- *
- * `processing`, not `uploading`: the page upload route moves it there as soon
- * as the first page lands, so this is what `/complete` actually sees. Claiming
- * only `uploading` looked right, passed its unit test, and could never win in
- * the real app.
- */
 async function uploadedWorksheet(
   userId: string,
   status: 'uploading' | 'processing' = 'processing',
@@ -49,9 +41,6 @@ async function uploadedWorksheet(
 }
 
 describe('claimWorksheetForCompletion', () => {
-  // What the route does past this point spends a trial worksheet and queues a
-  // job. A double-click, or the client retrying on a flaky connection, used to
-  // do both twice.
   it('lets the first caller through and refuses the second', async () => {
     const userId = await makeUser(db)
     const worksheetId = await uploadedWorksheet(userId)
@@ -95,8 +84,6 @@ describe('claimWorksheetForCompletion', () => {
     expect(row.tierUsed).toBe('trial')
   })
 
-  // The double-click proper: both requests in flight before either has
-  // written. A read-then-write guard passes both; one statement cannot.
   it('lets exactly one of two simultaneous callers through', async () => {
     const userId = await makeUser(db)
     const worksheetId = await uploadedWorksheet(userId)
@@ -109,7 +96,6 @@ describe('claimWorksheetForCompletion', () => {
     expect(results.filter(Boolean)).toHaveLength(1)
   })
 
-  // The state a worksheet is created in, before any page has landed.
   it('also claims one still marked uploading', async () => {
     const userId = await makeUser(db)
     const worksheetId = await uploadedWorksheet(userId, 'uploading')
@@ -119,8 +105,6 @@ describe('claimWorksheetForCompletion', () => {
     )
   })
 
-  // A worksheet that already finished, was reviewed and marked ready must not
-  // be dragged back into the queue by a stale tab.
   it('refuses a worksheet that is already finished', async () => {
     const userId = await makeUser(db)
     const [row] = await db

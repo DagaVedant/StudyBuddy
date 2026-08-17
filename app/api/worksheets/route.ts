@@ -24,9 +24,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Keyed by account rather than by IP: uploading needs a session, and a
-  // shared school connection should not have one student's stack of homework
-  // lock out everyone else on it.
   const allowance = await consumeRateLimit(
     db,
     UPLOAD_LIMIT,
@@ -58,11 +55,6 @@ export async function POST(request: Request) {
     )
   }
 
-  // Asked at upload time rather than read off the session. The session used to
-  // carry a `users.ai_tier` column nothing ever wrote, so every worksheet was
-  // stamped `trial` even when it ran on the student's own cloud key. This is
-  // the same function that decides which provider actually runs the job, so
-  // the record and the run cannot disagree.
   const { tier } = await resolveProvider(db, session.user.id)
 
   const [worksheet] = await db
@@ -79,11 +71,6 @@ export async function POST(request: Request) {
     })
     .returning({ id: worksheets.id })
 
-  // After the response, so it never slows an upload down. Cancel deletes what
-  // it started; this is for the tab that was closed and the laptop that slept,
-  // which leave a row in `uploading` with page images under it that nothing
-  // will ever read. Scoped to this student, because there is no scheduler here
-  // and their next upload is the cheapest moment to clear their own leftovers.
   after(async () => {
     try {
       const swept = await sweepAbandonedUploads(db, session.user.id)
@@ -91,7 +78,6 @@ export async function POST(request: Request) {
         console.log(`[upload] swept ${swept} abandoned upload(s) for ${session.user.id}`)
       }
     } catch (error) {
-      // Never the caller's problem: their worksheet was created either way.
       console.error('[upload] sweep failed:', (error as Error).message)
     }
   })

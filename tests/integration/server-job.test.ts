@@ -16,11 +16,6 @@ import { makeUser, makeWorksheet } from '../helpers/factories'
 let db: TestDb
 let close: () => Promise<void>
 
-/*
- * These tests write through the real storage driver, which with no blob token
- * configured means real PNGs under .uploads/. Without this, every run left its
- * pages behind: 1,088 files had accumulated before anyone looked.
- */
 const written: string[] = []
 
 beforeAll(async () => {

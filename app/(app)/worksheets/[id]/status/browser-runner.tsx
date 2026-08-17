@@ -35,13 +35,6 @@ type Phase =
   | { kind: 'done' }
   | { kind: 'error'; message: string }
 
-/**
- * Ollama only speaks PNG and JPEG, and pages are stored as WebP.
- *
- * The operator's worker re-encodes with sharp. A tab has a canvas instead,
- * which is the same conversion without a 10 MB native dependency, and it is
- * already decoding the image to display progress anyway.
- */
 async function toPngBytes(blob: Blob): Promise<{ image: Uint8Array; mediaType: string }> {
   if (blob.type === 'image/png' || blob.type === 'image/jpeg') {
     return { image: new Uint8Array(await blob.arrayBuffer()), mediaType: blob.type }
@@ -64,32 +57,14 @@ async function toPngBytes(blob: Blob): Promise<{ image: Uint8Array; mediaType: s
 
     return { image: new Uint8Array(await png.arrayBuffer()), mediaType: 'image/png' }
   } finally {
-    // Frees the decoded frame rather than waiting for GC. A 75 page paper is
-    // 75 of these, and each one is width times height times four bytes.
     bitmap.close()
   }
 }
 
-/**
- * Tier C's worker, which is this tab.
- *
- * The server cannot reach a student's `localhost:11434`, so for this tier the
- * browser does what the operator's GPU does for Tier 0: claim a job, read the
- * pages one at a time, post each page's questions back, then complete. It
- * posts to `/api/browser-jobs/*`, which is the same queue and the same
- * handlers as the operator's endpoints behind a session instead of a token.
- *
- * Per page rather than per job, because the tab can be closed at any moment
- * and spec.md:189 asks that closing it resume rather than restart. Each
- * `page_result` is a checkpoint on the server, and the claim hands back the
- * pages already done, so a reopened tab picks up where this one stopped.
- */
 export default function BrowserRunner({ worksheetId }: { worksheetId: string }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const router = useRouter()
 
-  // Strict Mode mounts effects twice in development, and claiming twice would
-  // spend two of the job's three attempts before a single page was read.
   const started = useRef(false)
   const cancelled = useRef(false)
 

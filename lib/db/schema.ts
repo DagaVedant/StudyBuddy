@@ -67,11 +67,6 @@ export const questionType = pgEnum('question_type', [
   'grid_in',
 ])
 
-// `pdf_key` and `ai_derived` are not yet produced. The answer-key pass writes
-// `user_key` for a key found on the paper, and nothing solves a question that
-// has no key at all, which is what `ai_derived` is for (spec §6.4). Kept for
-// the same reason as `job_stage` below: removing an enum value is a migration,
-// not an edit. The review screen already badges `ai_derived` when it appears.
 export const answerSource = pgEnum('answer_source', [
   'user_key',
   'pdf_key',
@@ -107,28 +102,6 @@ export const jobStatus = pgEnum('job_status', [
 
 export const jobPriority = pgEnum('job_priority', ['high', 'normal', 'low'])
 
-// `classify` is a dead label: classification runs from its own route once the
-// questions exist, so it is not a stage. It stays in the column because
-// dropping a value from a Postgres enum means rebuilding the type and every
-// column using it, which is a real migration against live data to buy back one
-// label. Nothing can write it: `JobStage` in lib/queue is narrowed to what
-// actually runs, so the compiler rejects an enqueue of it.
-//
-// `answer_key` was dead alongside it for a long time, and this comment said so.
-// It is a live stage now, on both executors. The paper's own printed key is
-// still applied as a repair pass at the end of extraction, because it matches
-// on the printed number and cannot run until the numbering has settled; what
-// the stage does is work out the answers to questions no key ever covered.
-//
-// The reason it is a stage rather than another pass is that it is the slow one,
-// the better part of an hour on a long paper, and holding the worksheet back
-// for that long to fill in answers the student may never open is the wrong
-// trade. Extraction finishes, the paper becomes readable, the answers arrive
-// behind it.
-//
-// The original warning here is still the useful one, so it is kept: a declared
-// stage nothing implements is how `answer_key` went unnoticed long enough for
-// 288 questions to be stored with no answer recorded on any of them.
 export const jobStage = pgEnum('job_stage', [
   'extract',
   'answer_key',
@@ -138,11 +111,6 @@ export const jobStage = pgEnum('job_stage', [
 
 export const workerStatus = pgEnum('worker_status', ['online', 'offline', 'draining'])
 
-/**
- * What a student is complaining about. `worksheet` covers the reading as a
- * whole (questions missed, pages skipped, numbering wrong); `explanation`
- * covers one generated answer.
- */
 export const reportKind = pgEnum('report_kind', ['worksheet', 'explanation'])
 
 export const cardState = pgEnum('card_state', ['new', 'learning', 'review', 'relearning'])
@@ -159,18 +127,6 @@ export const users = pgTable('users', {
   name: text('name'),
   email: text('email').unique().notNull(),
 
-  /**
-   * A handle, not a login. Nothing authenticates against this: sign-in is
-   * still by email or Google, so a taken username never has to mean a taken
-   * account the way a taken email does.
-   *
-   * Stored lowercase, the same normalization `email` already gets at signup
-   * (`.trim().toLowerCase()`), so the plain `unique()` below is a
-   * case-insensitive constraint without needing a citext column or a
-   * lower-cased expression index. `validateUsername` in
-   * `lib/auth/username.ts` is the one place that decides what a username may
-   * contain; nothing here re-derives that rule.
-   */
   username: text('username').unique(),
 
   emailVerified: timestamp('email_verified', { withTimezone: true }),
@@ -182,11 +138,6 @@ export const users = pgTable('users', {
 
   role: userRole('role').default('student').notNull(),
 
-  // No `ai_tier` here. Which tier an account runs on is decided by
-  // `resolveProvider`, from the credentials it actually holds and what the
-  // trial has left, and is recorded per worksheet in `worksheets.tier_used`.
-  // A column alongside it was a second answer to the same question that
-  // nothing ever wrote, so it said `trial` for everyone forever.
   trialWorksheetsUsed: integer('trial_worksheets_used').default(0).notNull(),
   trialExplanationsUsed: integer('trial_explanations_used').default(0).notNull(),
 
@@ -212,9 +163,6 @@ export const accounts = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.provider, t.providerAccountId] }),
-    // Postgres indexes the target of a reference and not the source, so
-    // without this, deleting a user scans this table, and so does the admin
-    // check, which asks whether this account has a Google row.
     index('accounts_user_idx').on(t.userId),
   ],
 )
@@ -261,16 +209,6 @@ export const userAiCredentials = pgTable(
     modelName: text('model_name'),
     visionModelName: text('vision_model_name'),
 
-    /*
-     * When the key was last shown to work, and therefore null on every row.
-     *
-     * Saving a credential used to stamp this, which made "verified" mean
-     * "somebody typed something". Nothing calls the provider: a key with a
-     * typo in it is stored as verified and first fails on an upload, inside
-     * `after()`, as a failed job. Left null until something actually checks,
-     * so the column says what it means and a verification step added later has
-     * somewhere honest to write.
-     */
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -296,20 +234,6 @@ export const worksheets = pgTable(
 
     tierUsed: aiTier('tier_used'),
 
-    /**
-     * Set when classification ran and could not tag a single question on
-     * this worksheet, and null every other time, including the ordinary
-     * case where classification ran fine and simply found nothing confident
-     * enough to tag.
-     *
-     * The worksheet still reaches `awaiting_review` when this happens: the
-     * questions are extracted, the repair passes have run, and marking work
-     * without a topic is still marking work. What used to be missing was any
-     * way for the *student* to find out topics never got a chance to be
-     * assigned, as opposed to having been assigned and come back empty. A
-     * server log said so; nothing on the screen the worksheet actually
-     * reaches did.
-     */
     classificationError: text('classification_error'),
 
     createdAt: createdAt(),
@@ -492,30 +416,12 @@ export const attempts = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    /*
-     * One markup attempt per question per student, enforced rather than
-     * checked.
-     *
-     * Marking a worksheet twice wrote a second attempt for every question and
-     * pushed every review card forward on answers nobody gave, which corrupts
-     * the denominator the whole weakness report is built on. The route did look
-     * first, but a read followed by an insert is not a guarantee: two posts
-     * from a tab left open since before that check existed both see nothing and
-     * both write.
-     *
-     * Partial, on `markup` only. A review attempt is supposed to repeat, once
-     * per sitting, forever: a plain unique on (user, question, source) would
-     * make the second review of any question fail.
-     */
     uniqueIndex('attempts_markup_once')
       .on(t.userId, t.questionId)
       .where(sql`${t.source} = 'markup'`),
 
     index('attempts_user_question_idx').on(t.userId, t.questionId),
     index('attempts_user_created_idx').on(t.userId, t.createdAt),
-    // On its own, not just behind user_id. The repair passes ask whether any
-    // attempt points at a question before deleting it, and the composite above
-    // cannot answer that without scanning.
     index('attempts_question_idx').on(t.questionId),
     index('attempts_choice_idx').on(t.selectedChoiceId),
   ],
@@ -543,26 +449,6 @@ export const explanations = pgTable(
   ],
 )
 
-/**
- * The worked solution to one question, and the answer it arrived at.
- *
- * Distinct from `explanations`, which is written for a student who already
- * knows they got a question wrong and wants to know why. This runs over every
- * question on a paper whether anybody has answered it or not, so a student can
- * check their own work, and it is what gives the Blooket export an answer
- * column to fill.
- *
- * `derivedAnswer` is deliberately not written back onto `questions.correct_answer`
- * by this table's existence alone. A key read off the paper or typed by the
- * student always wins; the pipeline only promotes a derived answer where there
- * was none, and stamps `answer_source = 'ai_derived'` when it does, so the
- * review screen can badge it and a reader can tell the difference between what
- * the paper said and what a model worked out.
- *
- * `confidence` is stored because it is the only thing standing between a
- * student and a confidently wrong key. Below the threshold the pipeline leaves
- * the question unanswered rather than guessing on their behalf.
- */
 export const questionSolutions = pgTable(
   'question_solutions',
   {
@@ -574,7 +460,6 @@ export const questionSolutions = pgTable(
 
     derivedAnswer: text('derived_answer'),
     workingMd: text('working_md').notNull(),
-    /** Why each wrong option is tempting: [{ label, why }]. */
     traps: jsonb('traps').$type<{ label: string | null; why: string }[]>(),
     confidence: real('confidence'),
 
@@ -585,19 +470,6 @@ export const questionSolutions = pgTable(
   (t) => [index('question_solutions_question_idx').on(t.questionId)],
 )
 
-/**
- * A taught explanation of one topic, shared by everybody who reaches it.
- *
- * Keyed on the topic rather than on the student, because none of it is
- * personal: the walkthrough, the worked examples and the common errors are the
- * same for anyone who is weak at inscribed angles. What is personal is the list
- * of questions they got wrong, and that is assembled from their own attempts at
- * read time rather than written into the lesson.
- *
- * That split is what makes this affordable. A lesson costs one generation per
- * topic for the whole install rather than one per student, and there are 276
- * leaves in the taxonomy against an unbounded number of students.
- */
 export const topicLessons = pgTable(
   'topic_lessons',
   {
@@ -607,13 +479,10 @@ export const topicLessons = pgTable(
       .references(() => topics.id, { onDelete: 'cascade' })
       .unique(),
 
-    /** The walkthrough: what the idea is and how to use it. */
     bodyMd: text('body_md').notNull(),
-    /** Two worked examples: [{ question, working, answer }]. */
     examples: jsonb('examples').$type<
       { question: string; working: string; answer: string }[]
     >(),
-    /** What people get wrong here: [{ mistake, why, fix }]. */
     commonErrors: jsonb('common_errors').$type<
       { mistake: string; why: string; fix: string }[]
     >(),
@@ -625,18 +494,6 @@ export const topicLessons = pgTable(
   (t) => [index('topic_lessons_topic_idx').on(t.topicId)],
 )
 
-/**
- * What a student told us was wrong, in their own words.
- *
- * Kept as rows rather than a log file because the useful question is "which
- * worksheet keeps getting reported", and that is a group-by, not a grep. The
- * target columns are deliberately nullable and independent: a worksheet report
- * ("this is missing half the questions") names no question, and an explanation
- * report names all three.
- *
- * Nothing here is deleted when it is dealt with. `resolvedAt` is set instead,
- * so a worksheet reported twice for the same reason still shows both.
- */
 export const reports = pgTable(
   'reports',
   {
@@ -663,7 +520,6 @@ export const reports = pgTable(
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   },
   (t) => [
-    // The admin page reads newest first and filters to the unresolved ones.
     index('reports_created_idx').on(t.createdAt),
     index('reports_worksheet_idx').on(t.worksheetId),
     index('reports_user_idx').on(t.userId),
@@ -695,14 +551,6 @@ export const reviewCards = pgTable(
     state: cardState('state').default('new').notNull(),
     lastReview: timestamp('last_review', { withTimezone: true }),
 
-    /**
-     * When the student said they had this one, and stopped being asked.
-     *
-     * The card stays: the question is still one they got wrong, so it still
-     * counts on the worksheet card, on the topic page and in the Blooket
-     * export. This only takes it out of the queue. Answering it wrong again
-     * anywhere clears this and puts it back.
-     */
     retiredAt: timestamp('retired_at', { withTimezone: true }),
 
     createdAt: createdAt(),
@@ -711,9 +559,6 @@ export const reviewCards = pgTable(
     unique('review_cards_user_question').on(t.userId, t.questionId),
 
     index('review_cards_user_due_idx').on(t.userId, t.dueAt),
-    // The unique above leads with user_id, so it cannot answer "does any card
-    // point at this question", which is what the repair passes ask before
-    // deleting one and what a cascade has to find.
     index('review_cards_question_idx').on(t.questionId),
   ],
 )
@@ -762,7 +607,6 @@ export const processingJobs = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
   },
   (t) => [
-
     index('processing_jobs_claim_idx').on(t.status, t.executor, t.priority, t.createdAt),
     index('processing_jobs_worksheet_idx').on(t.worksheetId),
     index('processing_jobs_user_idx').on(t.userId),
@@ -804,45 +648,17 @@ export const usageEvents = pgTable(
   ],
 )
 
-/**
- * Fixed-window counters for abuse control.
- *
- * In Postgres rather than memory because the app runs on serverless functions:
- * each invocation may be a fresh process, so an in-process counter would reset
- * constantly and limit nothing. One row per subject per action, reused across
- * windows rather than accumulating history; this table answers "how many so
- * far", and nothing needs it to remember yesterday.
- */
 export const rateLimits = pgTable('rate_limits', {
-  /** Action and subject, e.g. `signup:ip:203.0.113.4`. */
   key: text('key').primaryKey(),
   count: integer('count').default(0).notNull(),
   windowStart: timestamp('window_start', { withTimezone: true }).defaultNow().notNull(),
 })
 
-/**
- * What a notification is about, so a client can pick an icon or a filter
- * without parsing the copy.
- */
 export const notificationKind = pgEnum('notification_kind', [
   'worksheet_ready',
   'worksheet_failed',
 ])
 
-/**
- * spec.md:611's completion notifications, the in-app half.
- *
- * There was no notification system of any kind: no email, no push, no inbox.
- * The queue, the heartbeat and the status UI were all built, and the piece that
- * makes them useful was not, so "safe to close this page" was true and useless.
- * On the trial tier, where extraction runs on a home GPU and can take a while,
- * that is the difference between a background job and one you have to babysit.
- *
- * Rows rather than a transient toast, because the point is that the student is
- * not looking when it happens. Read state is a timestamp rather than a boolean
- * so "when did they see it" survives, which is the sort of thing the next
- * question about this table will want.
- */
 export const notifications = pgTable(
   'notifications',
   {
@@ -853,31 +669,15 @@ export const notifications = pgTable(
     kind: notificationKind('kind').notNull(),
     title: text('title').notNull(),
     body: text('body').notNull(),
-    /** Where the notification takes them, already resolved when it is written. */
     href: text('href').notNull(),
     readAt: timestamp('read_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [
-    // The bell's only query: this user's newest first, unread counted.
     index('notifications_user_created_idx').on(t.userId, t.createdAt),
   ],
 )
 
-/**
- * A browser's push endpoint, which is the only address we have for a closed tab.
- *
- * One row per subscription rather than per user: a student with a phone and a
- * laptop has two, and both should ring. The endpoint is unique because that is
- * what the browser guarantees, and re-subscribing on the same device hands back
- * the same one rather than a second row.
- *
- * `p256dh` and `auth` are the browser's own public key and shared secret, used
- * by RFC 8291 to encrypt the payload so the push service in the middle cannot
- * read it. They are not our secrets and are useless without the browser that
- * issued them, which is why they sit here in plain text where an API key would
- * not.
- */
 export const pushSubscriptions = pgTable(
   'push_subscriptions',
   {

@@ -1,8 +1,3 @@
-/**
- * `lib/questions/duplicates-plan.ts`. Two ways a worksheet ends up holding the
- * same question twice, and what the merge is allowed to do about each.
- */
-
 import { describe, expect, it } from 'vitest'
 import { duplicatePrintedNumbers, planDuplicateMerges, planNumberDuplicateMerges, promptSimilarity, type DuplicateCandidate } from '@/lib/questions/duplicates-plan'
 import { questionInputSchema } from '@/lib/questions/shape'
@@ -10,10 +5,6 @@ import { questionInputSchema } from '@/lib/questions/shape'
 describe('by content', () => {
 describe('questionInputSchema through partial()', () => {
   it('leaves choices absent when a patch does not mention them', () => {
-    // The PATCH route reads a present `choices` as "replace them with this".
-    // A `.default([])` here survived `.partial()`, so a body that never
-    // mentioned choices arrived as `[]` and deleted every answer on the
-    // question. The verify screen sends exactly this body.
     const parsed = questionInputSchema.partial().parse({ userVerified: true })
     expect(parsed.choices).toBeUndefined()
   })
@@ -28,8 +19,6 @@ describe('questionInputSchema through partial()', () => {
 
 const COMBINE = 'What is the best way to combine these sentences to clarify the relationship between ideas?'
 
-// The three source sentences, and the four options built out of them. Taken
-// from the page that exposed this: one question came back as two rows.
 const SENTENCES = [
   { label: '1', text: 'The International Space Station has been inhabited by crew members since 2000.' },
   { label: '2', text: 'Tourists will soon be allowed to pay for visits to the space station.' },
@@ -55,8 +44,6 @@ describe('planDuplicateMerges', () => {
     expect(plans[0].dropId).toBe('phantom')
   })
 
-  // The phantom takes the lower number and shunts the real question into the
-  // next one along. Handing the low number back is what repairs the numbering.
   it('gives the surviving row the lower of the two numbers', () => {
     const plans = planDuplicateMerges([
       { id: 'phantom', printedNumber: 1, promptText: COMBINE, choices: SENTENCES },
@@ -75,11 +62,7 @@ describe('planDuplicateMerges', () => {
     expect(plans[0].keepId).toBe('real')
   })
 
-  // Everything below is a case where merging would destroy a real question.
-
   it('leaves two real questions that happen to share a stem', () => {
-    // This stem repeats all over an SHSAT English section, with different
-    // sentences each time. Both sides are proper lettered answer lists.
     const other = [
       { label: 'A', text: 'Marie Curie was born in Warsaw in 1867 and later moved to Paris to study physics.' },
       { label: 'B', text: 'Marie Curie, born in Warsaw in 1867, later moved to Paris, where she studied physics.' },
@@ -96,8 +79,6 @@ describe('planDuplicateMerges', () => {
   })
 
   it('leaves a question whose answers are legitimately sentence numbers', () => {
-    // "Which sentence contains an error?" genuinely takes numbered answers.
-    // Numeric labels alone must never be enough to delete a row.
     const plans = planDuplicateMerges([
       {
         id: 'errors',
@@ -211,10 +192,6 @@ describe('planNumberDuplicateMerges', () => {
     expect(plans[0].printedNumber).toBe(5)
   })
 
-  // The Edison failure. A page whose printed numbers the extractor could not
-  // read comes back numbered from 1 by position, colliding with the page
-  // before it. Deleting on the number alone destroyed six real questions on one
-  // sheet and every count-based check still reported success.
   it('leaves two different questions that were handed the same number', () => {
     const plans = planNumberDuplicateMerges(
       [
@@ -285,23 +262,6 @@ describe('planNumberDuplicateMerges', () => {
     expect(plans).toEqual([])
   })
 
-  /**
-   * Why this guard is prompt similarity and not choice containment.
-   *
-   * The fix list asked for containment here, the same check `planDuplicateMerges`
-   * uses, on the reasoning that it is what separates a phantom question from a
-   * real one. Measured against the cases above it is the wrong instrument, and
-   * not marginally: it folds nothing at all on a maths paper.
-   *
-   * `choicesAreContainedIn` requires a match of at least twelve characters,
-   * because a shorter needle matches almost anything. That floor is right where
-   * it is used: there the phantom's options are whole source sentences. Here the
-   * options are "4", "6", "9", "12". Every one is below the floor, so the check
-   * can never fire, and requiring it would mean never folding a re-read.
-   *
-   * Kept as a test rather than a comment because the next person to look at
-   * the merge pass will have the same idea.
-   */
   it('folds the re-read that a containment check would have missed', () => {
     const reread = [
       {
@@ -318,17 +278,13 @@ describe('planNumberDuplicateMerges', () => {
       },
     ]
 
-    // What the shipping rule sees: near-identical prompts.
     expect(promptSimilarity(reread[0].promptText, reread[1].promptText)).toBeGreaterThan(0.8)
 
-    // What a containment rule would have seen: nothing long enough to compare.
     expect(FOUR.every((choice) => choice.text.length < 12)).toBe(true)
 
     expect(planNumberDuplicateMerges(reread, 4)).toHaveLength(1)
   })
 
-  // The other half of the same argument. Similarity is what spares the Edison
-  // collision, and it spares it by a wide margin rather than by a hair.
   it('separates the collision from the re-read by a wide margin', () => {
     const reread = promptSimilarity(
       'A ball is dropped from the top of a tower, and its height above the ground after t seconds is given by the expression shown.',
@@ -375,21 +331,6 @@ describe('duplicatePrintedNumbers', () => {
 })
 
 describe('by printed number', () => {
-/**
- * The only repair pass that deletes rows, and it had no tests.
- *
- * What it is for: a question read twice, transcribed slightly differently, so
- * the prompt hash does not match and the prompt-based rule cannot see it. What
- * it must never do is fold two genuinely different questions that happen to
- * share a printed number, because a page whose numbers the extractor failed to
- * read comes back numbered 1..n by position and collides with the real 1..n of
- * the page before it. That happened: six collisions on one Edison sheet, six
- * real questions gone, and every count-based check reporting success afterwards
- * because the totals still added up.
- *
- * So most of what follows is about what it declines to do.
- */
-
 const FOUR = 4
 
 function question(
@@ -431,11 +372,6 @@ describe('planNumberDuplicateMerges', () => {
     ).toEqual([])
   })
 
-  /**
-   * The case that cost six questions. Two different questions numbered the
-   * same is a numbering fault, and numbering faults are repaired by
-   * renumbering. Deleting one of them destroys a question nobody can get back.
-   */
   it('refuses to fold two different questions that share a number', () => {
     expect(
       planNumberDuplicateMerges(
@@ -460,11 +396,6 @@ describe('planNumberDuplicateMerges', () => {
     ).toEqual([])
   })
 
-  /**
-   * Pairs only. Three rows on one number is not a re-read, it is a page whose
-   * numbering went wrong, and picking two of the three to merge would be a
-   * guess about which two.
-   */
   it('leaves a number held by three rows alone', () => {
     const same = 'What is the area of a triangle with base 6 and height 4?'
 
@@ -502,11 +433,6 @@ describe('planNumberDuplicateMerges', () => {
       expect(plans[0]).toMatchObject({ keepId: 'whole', dropId: 'damaged' })
     })
 
-    /**
-     * A bare underscore is where a fraction bar was. The later copy being the
-     * better one is why the survivor is chosen by damage rather than by
-     * arrival order.
-     */
     it('keeps the later copy when the earlier one lost a fraction bar', () => {
       const plans = planNumberDuplicateMerges(
         [
@@ -525,8 +451,6 @@ describe('planNumberDuplicateMerges', () => {
         FOUR,
       )
 
-      // The truncated one is also too different to match, so this asserts the
-      // pair is left alone rather than half-folded, which is the safe answer.
       expect(plans).toEqual([])
     })
 
@@ -579,16 +503,6 @@ describe('planNumberDuplicateMerges', () => {
     for (const plan of plans) expect(plan.keepId).not.toBe(plan.dropId)
   })
 
-  /**
-   * A stem cut short by a page break, which similarity cannot see.
-   *
-   * promptSimilarity is a Jaccard ratio, so it is punished by the length gap
-   * rather than by disagreement. The real case: 2020 AMC 8 question 22 came
-   * back twice, one copy stopping at "the rule shown below." with no options
-   * and the other carrying the whole stem and its five. Eighteen words, every
-   * one present in the longer copy, and a similarity of 0.44 against a
-   * threshold of 0.8.
-   */
   describe('a stem the other copy finishes', () => {
     const short = 'When a positive integer N is fed into a machine, the output is a number calculated according to the rule shown below.'
     const long = `${short} if N is even N if N is odd 3 N + 1 For example, starting with an input of N = 7, the machine will output 22.`
@@ -617,12 +531,6 @@ describe('planNumberDuplicateMerges', () => {
       expect(plans[0]).toMatchObject({ keepId: 'whole', dropId: 'cut' })
     })
 
-    /**
-     * The condition that makes this safe to delete on. Two different questions
-     * that collided on a misread number do not stand in this relationship: the
-     * shorter would have to be a strict subset of the longer and be the only
-     * one missing its answers.
-     */
     it('refuses when the shorter copy has options of its own', () => {
       expect(
         planNumberDuplicateMerges(

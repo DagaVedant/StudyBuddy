@@ -13,14 +13,6 @@ export interface NewNotification {
   href: string
 }
 
-/**
- * Whether push is configured at all.
- *
- * VAPID keys identify this server to the browser's push service. Without them
- * the in-app half still works and the push half is skipped, which is the right
- * shape for a local checkout and for the e2e suite: neither has keys, and
- * neither should have a notification path that throws.
- */
 export function pushConfigured(): boolean {
   return Boolean(
     process.env.VAPID_PUBLIC_KEY &&
@@ -29,16 +21,6 @@ export function pushConfigured(): boolean {
   )
 }
 
-/**
- * Record a notification and try to push it.
- *
- * The row is written first and unconditionally. Push is best-effort on top: a
- * student who never granted permission, or whose subscription has expired,
- * still finds this waiting next time they open the app, which is the half that
- * cannot fail. Nothing here throws, because every caller is a job completing
- * and a worksheet that finished must not be reported as failed because a push
- * service was unreachable.
- */
 export async function notify(db: Db, input: NewNotification): Promise<void> {
   const [row] = await db
     .insert(notifications)
@@ -53,15 +35,6 @@ export async function notify(db: Db, input: NewNotification): Promise<void> {
   })
 }
 
-/**
- * Deliver to every browser this student has subscribed, and prune the dead.
- *
- * A 404 or 410 from a push service is that service telling us the subscription
- * is gone for good: the browser was uninstalled, the permission revoked, the
- * profile wiped. Keeping the row means retrying it forever on every completion,
- * so those are deleted. Any other failure is left alone, because a push service
- * having a bad afternoon is not a reason to lose the address.
- */
 async function pushToUser(db: Db, input: NewNotification): Promise<void> {
   if (!pushConfigured()) return
 
@@ -72,9 +45,6 @@ async function pushToUser(db: Db, input: NewNotification): Promise<void> {
 
   if (subscriptions.length === 0) return
 
-  // Imported here rather than at module scope. `web-push` reaches for Node
-  // crypto and http, and this module is imported by code that also runs in
-  // route handlers on the edge of what Next will bundle for the client.
   const webpush = (await import('web-push')).default
 
   webpush.setVapidDetails(
@@ -118,7 +88,6 @@ async function pushToUser(db: Db, input: NewNotification): Promise<void> {
   )
 }
 
-/** The bell's contents: newest first, with the unread count beside them. */
 export async function listNotifications(db: Db, userId: string, limit = 20) {
   const [rows, [unread]] = await Promise.all([
     db
@@ -136,13 +105,6 @@ export async function listNotifications(db: Db, userId: string, limit = 20) {
   return { rows, unread: Number(unread?.value ?? 0) }
 }
 
-/**
- * Mark everything this student has as read.
- *
- * All of them rather than one at a time: the bell shows the list, so opening it
- * is the student seeing them. Scoped by user in the statement, and `isNull`
- * keeps the first timestamp rather than moving it every time the bell opens.
- */
 export async function markAllRead(db: Db, userId: string, now = new Date()): Promise<void> {
   await db
     .update(notifications)

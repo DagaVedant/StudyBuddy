@@ -67,9 +67,6 @@ describe('saveIdentity', () => {
     expect(await usernameOf(second)).toBeNull()
   })
 
-  // The read-then-write race: both requests pass the application-level check
-  // before either writes, so the unique constraint is what actually decides,
-  // and it has to be turned into the same 409 rather than a raw 500.
   it('turns a database-level unique conflict into the same 409', async () => {
     const first = await makeUser(db)
     const second = await makeUser(db)
@@ -84,7 +81,6 @@ describe('saveIdentity', () => {
       .from(users)
       .where(eq(users.username, 'racer'))
 
-    // Whichever one won, only one row ends up holding it.
     expect(results).toHaveLength(1)
   })
 

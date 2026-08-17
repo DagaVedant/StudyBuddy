@@ -159,10 +159,6 @@ export async function rasterizePdf(
 
   const pages: RasterPage[] = []
 
-  // How many pages this document contributes to the range: the running count
-  // through its last page, less the count through the page before its first.
-  // `offset` is what earlier files in the same upload already consumed, so the
-  // range is stated in whole-upload page numbers, not per-file ones.
   const plannedTotal =
     countInRange(offset + pdf.numPages, range) - countInRange(offset, range)
 
@@ -170,7 +166,6 @@ export async function rasterizePdf(
 
   try {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-
       if (!pageInRange(offset + pageNumber, range)) continue
 
       throwIfCancelled(signal)
@@ -189,9 +184,6 @@ export async function rasterizePdf(
       canvas.width = Math.floor(viewport.width)
       canvas.height = Math.floor(viewport.height)
 
-      // A single page of a dense PDF can take seconds to paint. Cancelling
-      // tears the render down mid-page rather than letting it finish into a
-      // canvas nobody is going to look at.
       const renderTask = page.render({ canvas, viewport, intent: 'print' })
       const cancelRender = () => renderTask.cancel()
       signal?.addEventListener('abort', cancelRender, { once: true })
@@ -199,9 +191,6 @@ export async function rasterizePdf(
       try {
         await renderTask.promise
       } catch (cause) {
-        // pdf.js reports its own RenderingCancelledException here; if the
-        // signal is what tripped it, report it as a cancel rather than as a
-        // rendering failure.
         throwIfCancelled(signal)
         throw cause
       } finally {
@@ -221,7 +210,6 @@ export async function rasterizePdf(
       const embeddedText = embeddedLines.map((line) => line.text).join('\n')
 
       pages.push({
-
         pageNumber: offset + pageNumber,
         blob,
         width: canvas.width,

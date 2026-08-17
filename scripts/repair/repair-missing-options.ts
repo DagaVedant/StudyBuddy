@@ -1,28 +1,3 @@
-/**
- * Gives back the answer options that were deleted from stored questions.
- *
- * Forty-nine questions across the Edison run hold no options at all, and every
- * one of them is a question a student marked as verified. That is the whole
- * correlation: 49 verified rows, 49 with no options, and 232 unverified rows
- * with theirs intact. The cause was `questionInputSchema.choices` carrying a
- * `.default([])` that `.partial()` does not suppress, so the verify screen's
- * `{ userVerified: true }` parsed as "replace the choices with none". That bug
- * is fixed. The rows it emptied are not.
- *
- *   npx tsx scripts/repair-missing-options.ts               # dry run, every sheet
- *   npx tsx scripts/repair-missing-options.ts edison_       # dry run, one prefix
- *   npx tsx scripts/repair-missing-options.ts edison_ --apply
- *
- * Reads the options off the page text that is already stored, so no model runs,
- * nothing is re-extracted, and no row is deleted: the verified flags, the topic
- * tags and the answers backfilled from the paper's key all survive, which
- * re-extracting would have thrown away along with the damage.
- *
- * Refuses to attach options to a question whose stored prompt does not match
- * what the page prints under that number. Handing a question someone else's
- * answers is worse than leaving it visibly empty, and it is the failure this
- * whole exercise has been about.
- */
 import { config } from 'dotenv'
 
 config({ path: '.env.local' })
@@ -39,15 +14,6 @@ import { runRepairPasses } from '../../lib/worker/pipeline'
 import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
 import { connect } from '../db'
 
-/**
- * How alike the stored prompt and the printed one must be.
- *
- * The same measure and the same threshold the duplicate merge uses, for the
- * same reason: two consecutive questions on one maths paper already score
- * about 0.42 against each other, so anything permissive here attaches the
- * wrong options. A stored prompt and the page it was read from differ by
- * reflowed whitespace and the odd repaired symbol, and score well above this.
- */
 const SAME_QUESTION = 0.8
 
 interface Fix {
@@ -56,7 +22,6 @@ interface Fix {
   questionId: string
   pageNumber: number
   printedNumber: number | null
-  /** The number the page prints it under, which is not always the stored one. */
   matchedNumber: number
   promptText: string
   options: { label: string; text: string }[]

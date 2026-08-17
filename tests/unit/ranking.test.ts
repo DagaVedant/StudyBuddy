@@ -153,11 +153,7 @@ describe('buildTopicTree', () => {
     return walk(tree) as ReturnType<typeof buildTopicTree>[number] | null
   }
 
-  /**
-   * spec.md:404's ask, and the reason the dashboard's old panel could only ever
-   * render one level: attempts attach to the leaf a question is filed under, so
-   * a parent's number has to be summed from its descendants or it is zero.
-   */
+  
   it('rolls a leaf’s attempts up through every ancestor', () => {
     const tree = buildTopicTree([
       stats({ topicId: 'x', topicPath: TRIANGLES, correct: 3, wrong: 1 }),
@@ -181,7 +177,7 @@ describe('buildTopicTree', () => {
     expect(subject(tree, TRIANGLES)?.accuracy).toBe(0.5)
   })
 
-  /** Never green, never red: spec.md:404 asks for an explicit neutral state. */
+  
   it('leaves accuracy null and ranked false for a topic never attempted', () => {
     const tree = buildTopicTree([])
 
@@ -195,7 +191,7 @@ describe('buildTopicTree', () => {
   it('keeps every topic, so the index can show what has not been started', () => {
     const tree = buildTopicTree([])
 
-    // The whole taxonomy, not just the parts with data.
+    
     expect(tree.length).toBeGreaterThan(0)
     expect(subject(tree, TRIANGLES)).not.toBeNull()
   })
@@ -207,7 +203,7 @@ describe('buildTopicTree', () => {
       ]),
     )
 
-    // One subject, one branch down to the one topic with anything in it.
+    
     expect(tree).toHaveLength(1)
     expect(tree[0].slug).toBe('high-school-math')
     expect(subject(tree, 'high-school-math.algebra-1')).toBeNull()

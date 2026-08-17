@@ -13,12 +13,6 @@ import { drainServerQueue } from '@/lib/worker/server-job'
 import { createTestDb, type TestDb } from '../helpers/db'
 import { makeUser, makeWorksheet } from '../helpers/factories'
 
-/*
- * Isolated in its own file so this module's mock of `@/lib/classify` cannot
- * reach server-job.test.ts's own tests, which rely on the real
- * `classifyWorksheet`. `vi.mock` is per file, not global, so the two do not
- * interfere with each other.
- */
 vi.mock('@/lib/classify', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/classify')>()
   return {
@@ -54,9 +48,6 @@ const asServer: (db: Db, userId: string) => Promise<ResolvedProvider> = async ()
 async function setup() {
   const userId = await makeUser(db)
   const worksheetId = await makeWorksheet(db, userId)
-  // See server-job.test.ts's setup(): the guarded status transitions this
-  // module now goes through only fire out of `queued`/`processing`, not the
-  // `ready` default `makeWorksheet` gives fixtures that don't care.
   await db.update(worksheets).set({ status: 'queued' }).where(eq(worksheets.id, worksheetId))
 
   const key = `test-pages/${worksheetId}.png`

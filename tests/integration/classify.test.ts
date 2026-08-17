@@ -73,15 +73,6 @@ describe('applyClassification', () => {
     expect((await tagsOf(q.id))[0].topicId).toBe(topic.id)
   })
 
-  /**
-   * The abstain path is what the classify prompt asks the model to use, in as
-   * many words: a wrong-but-plausible tag is worse than none, because it
-   * corrupts the weakness report and nobody can see that it happened. The
-   * pipeline used to answer an abstain by tagging the question with the parent
-   * of the nearest embedding match, which is the branch the model had been shown
-   * and declined. Nineteen questions in the Edison run were tagged that way,
-   * several at confidence 1.00.
-   */
   it('leaves the question untagged when the model abstains', async () => {
     const q = await question()
 
@@ -116,8 +107,6 @@ describe('applyClassification', () => {
 
     expect(proposal.proposedName).toBe('Circular permutations')
     expect(proposal.status).toBe('pending')
-    // Somewhere to hang it, which is the only thing the nearest ancestor is
-    // still used for.
     expect(proposal.suggestedParentId).not.toBeNull()
   })
 
@@ -135,11 +124,6 @@ describe('applyClassification', () => {
     expect(await tagsOf(q.id)).toEqual([])
   })
 
-  /**
-   * `CONFIDENCE_FLOOR` was 0.45 and nothing in 288 questions came back below
-   * 0.75, so the threshold never once fired. A number a 7B model writes about
-   * its own work is not evidence; it is stored and not acted on.
-   */
   it('tags on a low confidence, because the number is not calibrated', async () => {
     const q = await question()
 
@@ -169,19 +153,10 @@ describe('applyClassification', () => {
   })
 })
 
-/**
- * The one control a student has over how their questions get sorted.
- *
- * The upload form offers a subject root and every one of its children, and the
- * filter kept only the first dotted segment, so every child collapsed back to
- * its root: choosing Algebra 1 searched the whole of High School Math.
- */
 describe('the subject hint', () => {
   const ALGEBRA = 'high-school-math.algebra-1.foundations.order-of-operations'
   const GEOMETRY = 'high-school-math.geometry.foundations.points-lines-and-planes'
 
-  // The same vector on both, so nothing but the filter can separate them, and
-  // every other seeded topic has a null embedding so none of them qualify.
   beforeAll(async () => {
     const vector = new Array(EMBEDDING_DIMENSIONS).fill(0)
     vector[3] = 1
@@ -222,12 +197,6 @@ describe('the subject hint', () => {
     expect(slugs).toContain(GEOMETRY)
   })
 
-  /**
-   * `subjectHint` is a free string on the worksheet route, so this is reachable
-   * without going near the form. Filtering on it would leave no candidates,
-   * which is indistinguishable from a question nothing matched, and the whole
-   * paper would come back untagged with nothing anywhere saying why.
-   */
   it('ignores a hint that names no topic rather than matching nothing', async () => {
     const slugs = await shortlist('high-school-mat')
 
@@ -302,12 +271,6 @@ describe('pendingQuestions', () => {
     expect(pending.map((row) => row.id)).toEqual([ids[0], ids[2], ids[3]])
   })
 
-  /**
-   * The resume case, and the one that lost questions outright. The cap used to
-   * apply before the tagged ones were removed, so a paper whose first page was
-   * already classified handed back an empty list, which reads as "nothing left
-   * to do" while the rest of the paper had never been looked at.
-   */
   it('spends the page on work, not on questions already done', async () => {
     const { worksheetId, ids } = await paper(5)
     for (const id of ids.slice(0, 3)) await tag(id)

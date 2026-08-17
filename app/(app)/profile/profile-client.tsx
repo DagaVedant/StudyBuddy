@@ -17,7 +17,6 @@ interface Props {
   streak: number
 }
 
-/** First letters of up to two words, or the first two characters of one. */
 function initialsOf(source: string): string {
   const words = source.trim().split(/\s+/).filter(Boolean)
   if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
@@ -37,10 +36,6 @@ function Avatar({
 }) {
   if (image) {
     return (
-      // Authenticated? No: a Google avatar URL is public, unlike the page
-      // scans elsewhere in the app that route through /api/files. next/image
-      // would need the host allow-listed for a URL nobody controls but
-      // Google, for one small circular avatar; not worth it here.
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={image}
@@ -121,20 +116,6 @@ export default function ProfileClient({
         </h2>
 
         <div className="mt-4 flex items-center gap-4">
-          {/*
-            The typed values, not the static props this page mounted with, so
-            the header agrees with a save the instant it succeeds rather than
-            after a round trip back to the server.
-
-            This used to read the props directly and call `router.refresh()`
-            after a save to keep them current. Every route in this app streams
-            behind its own `loading.tsx`, so a refresh can surface the Suspense
-            fallback and remount this component; `useState`'s initial value is
-            only read once, on mount, so a remount landing while the student
-            was already typing their next edit silently threw it away and put
-            the last saved value back in the box. Reading the form's own state
-            here needs no round trip and cannot be raced by one.
-          */}
           <Avatar name={nameValue} username={usernameValue} email={email} image={image} />
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">

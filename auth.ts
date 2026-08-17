@@ -17,25 +17,6 @@ interface UserClaims {
   hasDob: boolean
 }
 
-/**
- * Reads the account's current claims, re-deriving admin status from
- * ADMIN_EMAILS on every login so that removing an email demotes the account
- * (spec §2.1).
- *
- * Admin additionally requires a linked Google account, which is the only path
- * that proves the address belongs to whoever is signing in. This used to ask
- * for a verified email, with a comment saying an unverified account at an admin
- * address must not inherit it. That was the right instinct and it did nothing:
- * password signup stamps `emailVerified` at creation, by its own admission
- * without proof of ownership, so the test was true for every credentials
- * account and the check collapsed to "is this address in the list".
- *
- * The attack it left open was not escalating an account but getting there
- * first. `.env.example` ships example admin addresses, so the pattern is
- * public; whoever registered one owned the console, and the real holder could
- * not take it back, because signup refuses an existing address and Google
- * sign-in will not link to it.
- */
 async function syncUserClaims(userId: string): Promise<UserClaims> {
   const [row] = await db
     .select({
@@ -72,8 +53,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verificationTokensTable: verificationTokens,
   }),
 
-  // The Credentials provider cannot use database sessions, so the whole app
-  // runs on JWT sessions. The adapter still handles OAuth account linking.
   session: { strategy: 'jwt' },
 
   trustHost: true,
@@ -93,26 +72,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      /**
-       * The one place a password is checked, and so the only place worth
-       * throttling.
-       *
-       * The limit used to live in the `signIn` server action, which covers the
-       * form and nothing else. Auth.js mounts its own handlers unmodified at
-       * `/api/auth/[...nextauth]`, so `POST /api/auth/callback/credentials`
-       * arrives here directly and used to run a cost-12 bcrypt compare per
-       * request, unthrottled, against any address someone cares to name. The
-       * CSRF token that route wants is handed out by `GET /api/auth/csrf`, so
-       * it was never a barrier.
-       *
-       * Moved rather than copied. Both doors funnel through this function, and
-       * a second check in the action would charge a legitimate form sign-in
-       * twice, halving the limit for the people it is not aimed at.
-       *
-       * A throttled attempt returns null, exactly like a wrong password. The
-       * caller cannot tell the two apart, so this stays enumeration-safe: it
-       * says nothing about whether the address exists.
-       */
       async authorize(credentials, request) {
         const email = String(credentials?.email ?? '')
           .trim()
@@ -121,9 +80,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!email || !password) return null
 
-        // Before the lookup and the compare, because the bcrypt cost is the
-        // thing being protected and charging for it afterwards protects
-        // nothing.
         const headers = request instanceof Request ? request.headers : new Headers()
         if (await signInThrottled(db, headers, email)) return null
 
@@ -133,7 +89,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .where(eq(users.email, email))
           .limit(1)
 
-        // Account exists but was created via OAuth, so no password to check.
         if (!user?.passwordHash) return null
 
         const valid = await bcrypt.compare(password, user.passwordHash)
@@ -151,8 +106,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Google has already verified the address; mirror that so the account
-      // isn't stuck behind our own verification gate.
       if (account?.provider === 'google' && user.id) {
         const verified = (profile as { email_verified?: boolean } | undefined)
           ?.email_verified
@@ -169,8 +122,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, trigger }) {
       if (user?.id) token.id = user.id
 
-      // Refresh on login and on an explicit session update; otherwise trust the
-      // token so we aren't hitting the DB on every request.
       const shouldRefresh = Boolean(user) || trigger === 'update' || !token.role
 
       if (token.id && shouldRefresh) {

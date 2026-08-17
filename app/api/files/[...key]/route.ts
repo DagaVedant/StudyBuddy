@@ -32,9 +32,6 @@ export async function GET(
     return new NextResponse('Not found', { status: 404 })
   }
 
-  // Streamed rather than buffered: this route only passes the bytes along, and
-  // holding a 4 MB scan resident to do that cost about twice that per request
-  // in flight, since the Uint8Array copy is a second allocation.
   const object = await storage.getStream(segments.join('/'))
   if (!object) {
     return new NextResponse('Not found', { status: 404 })
@@ -47,7 +44,6 @@ export async function GET(
     'X-Content-Type-Options': 'nosniff',
   })
 
-  // Only when the driver knows it. A wrong Content-Length truncates the image.
   if (object.size !== null) headers.set('Content-Length', String(object.size))
 
   return new NextResponse(object.stream, { headers })

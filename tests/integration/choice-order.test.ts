@@ -30,16 +30,6 @@ const FOUR = [
   { label: 'D', text: '4', isCorrect: true },
 ]
 
-/**
- * There is no position column: the label is the position. Eight places loaded a
- * question's options and one of them said so, which is how the markup screen
- * came to offer "B 2, C 3, D 4, A 1" for a question whose paper prints A first.
- *
- * Postgres will not reproduce that on demand, so these seed the rows in a
- * deliberately wrong physical order and then ask each reader for them. Without
- * an `order by`, a small table is returned in insertion order, so a reader that
- * has forgotten one fails here.
- */
 async function questionWithScrambledChoices(userId: string, worksheetId: string) {
   const { id, choiceIds } = await makeQuestion(db, userId, worksheetId, {
     ordinal: 1,
@@ -47,8 +37,6 @@ async function questionWithScrambledChoices(userId: string, worksheetId: string)
     choices: FOUR,
   })
 
-  // Rewrite the rows in the order B, C, D, A, which is what the screenshot
-  // showed and what an unordered read hands back.
   await db.delete(answerChoices).where(sql`${answerChoices.questionId} = ${id}`)
   for (const label of ['B', 'C', 'D', 'A']) {
     const choice = FOUR.find((option) => option.label === label)!
@@ -83,8 +71,6 @@ describe('a question whose options are stored out of order', () => {
     const [exported] = await getMissedQuestions(asDb(db), userId)
 
     expect(exported.choices.map((choice) => choice.label)).toEqual(['A', 'B', 'C', 'D'])
-    // D is the correct one, and it has to still be the fourth thing written or
-    // the answer number points at somebody else's option.
     expect(exported.choices.findIndex((choice) => choice.isCorrect)).toBe(3)
   })
 

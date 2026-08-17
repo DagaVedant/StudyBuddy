@@ -7,36 +7,8 @@ import { transitionWorksheet } from '@/lib/upload/claim'
 
 export type JobExecutor = 'server' | 'browser' | 'operator_gpu'
 
-/**
- * The stages a job can be enqueued as.
- *
- * Deliberately narrower than the `job_stage` column, which also carries
- * `answer_key` and `classify`. Neither has ever run. The answer key is applied
- * as a repair pass at the end of the extract job, because it matches on the
- * printed number and cannot run until the numbering has settled, and
- * classification runs from its own route once the questions exist. Both are in
- * the right place; what was wrong was the type saying they were stages, which
- * is how `answer_key` sat there declared and unimplemented long enough for 288
- * questions to be stored with no answer on any of them.
- *
- * The column keeps its four labels: removing one from a Postgres enum means
- * rebuilding the type and every column that uses it, which is a real migration
- * against live data to buy back two labels nothing can now write. Narrowing
- * here costs nothing and makes the compiler say so.
- */
-/*
- * `answer_key` was a dead label for a long time: the paper's own key is applied
- * as a repair pass at the end of extraction, not as a stage, and nothing solved
- * a question that had no key at all. Now something does, and it is a stage
- * rather than another pass because it is the slow one. A 114-question paper is
- * the better part of an hour on the operator's GPU, and holding the worksheet
- * out of the student's hands for that long to fill in answers they may never
- * look at is the wrong trade. Extraction finishes, the paper becomes readable,
- * and the answers arrive behind it.
- */
 export type JobStage = 'extract' | 'explain' | 'answer_key'
 
-/** Every label the column can hold, including the two nothing enqueues. */
 export type StoredJobStage = JobStage | 'classify'
 
 export type JobPriority = 'high' | 'normal' | 'low'
@@ -53,36 +25,13 @@ export interface EnqueueArgs {
   stage: JobStage
   executor: JobExecutor
   priority?: JobPriority
-  /**
-   * Work the stage needs that the worksheet id does not carry.
-   *
-   * Extraction needs nothing here, since the worksheet is the whole job. An
-   * explanation is about one question, and this is where it says which.
-   */
   checkpoint?: Record<string, unknown>
 }
 
-/**
- * Extraction jobs one student may have waiting on the GPU at once (spec.md:583).
- *
- * One, because that is also how many the GPU can do at once: the worker claims
- * a single job and works it to the end. A student with five queued is not
- * getting five worksheets faster, they are holding the queue against everybody
- * else, and the enqueue endpoint had nothing at all stopping them from doing it
- * on purpose.
- *
- * Counted for extract only. Explanations go through the same executor but are
- * already bounded twice over: `pendingExplainJob` folds a second click on the
- * same question into the first, and EXPLAIN_LIMIT caps the rate. Folding them
- * into this number would mean a student who uploaded a worksheet could not ask
- * about a question from last week until it finished, which is a worse product
- * for no extra safety.
- */
 export const MAX_IN_FLIGHT_EXTRACTS = 1
 
 const IN_FLIGHT = ['pending', 'claimed', 'running'] as const
 
-/** How many extraction jobs this student already has waiting on the GPU. */
 export async function inFlightExtractCount(db: Db, userId: string): Promise<number> {
   const [row] = await db
     .select({ count: count() })
@@ -116,12 +65,6 @@ export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {
   return row.id
 }
 
-/**
- * An explain job already waiting for this question, if there is one.
- *
- * Clicking twice while the worker is busy should join the queue once rather
- * than book the GPU twice for the same answer.
- */
 export async function pendingExplainJob(
   db: Db,
   userId: string,
@@ -134,15 +77,6 @@ export async function pendingExplainJob(
       and(
         eq(processingJobs.userId, userId),
         eq(processingJobs.stage, 'explain'),
-        // All three in-flight states, and `claimed` is the one that matters.
-        // This used to read ('pending', 'running'), and an explain job never
-        // reaches `running`: only `checkpointJob` sets that, and the explain
-        // path posts `explanation` then `complete` without ever checkpointing.
-        // So for the whole generation window, which is tens of seconds on a
-        // cold model, the job was `claimed` and this returned null. Two things
-        // fell out of that: the explain screen polled, got told no job existed,
-        // and gave up; and a second ask in the same window enqueued a duplicate
-        // job, so the worker wrote the explanation twice.
         inArray(processingJobs.status, IN_FLIGHT),
         sql`${processingJobs.checkpoint} ->> 'questionId' = ${questionId}`,
       ),
@@ -156,30 +90,11 @@ export interface ClaimedJob {
   id: string
   worksheetId: string
   userId: string
-  /**
-   * Read back as the column's own type rather than the enqueueable one: a row
-   * written before the narrowing above can still be holding either of the two
-   * labels nothing enqueues any more.
-   */
   stage: StoredJobStage
   attemptCount: number
   checkpoint: Record<string, unknown> | null
 }
 
-/**
- * Claim the next job for an executor, optionally only that user's own.
- *
- * `userId` exists for the `browser` executor, whose worker is the student's
- * own tab. The two server-side executors are trusted processes claiming from
- * one shared queue, so for them the right next job is whichever is next. A
- * browser is neither trusted nor shared: without this filter, a tab polling
- * for its owner's extraction would be handed whichever browser job happened
- * to be at the head of the queue, and the claim response carries the
- * worksheet's page images. That is one student's paper handed to another.
- *
- * Left optional rather than required so the two existing callers keep reading
- * as what they are, a worker taking the next thing off the queue.
- */
 export async function claimJob(
   db: Db,
   executor: JobExecutor,
@@ -282,10 +197,6 @@ export async function failJob(
     .where(eq(processingJobs.id, jobId))
     .limit(1)
 
-  // `force` is for a failure retrying can never fix, e.g. Tier B discovering
-  // the student's API key is gone. Spreading that over the normal 3-attempt
-  // retry schedule just delays the student seeing it and wastes claims on a
-  // job that was never going to succeed.
   const permanent = force || (row?.attemptCount ?? MAX_ATTEMPTS) >= MAX_ATTEMPTS
 
   await db
@@ -304,36 +215,11 @@ export async function failJob(
 
 export interface AbandonedJob {
   id: string
-  /**
-   * The column's own type, because the only consumer decides what a failure
-   * costs from this and a `string` let it decide wrong. See
-   * `applyPermanentFailure`, where a stage nobody had classified used to
-   * inherit the branch that refunds a credit and fails the worksheet.
-   */
   stage: StoredJobStage
   userId: string
   worksheetId: string
 }
 
-/**
- * Fails jobs no worker can ever pick up again.
- *
- * `attempt_count` increments on the claim, not on the failure, and `claimJob`
- * refuses anything at `MAX_ATTEMPTS`. So a worker that dies on its third claim,
- * before it can report anything, leaves the row `claimed` forever: past the
- * retry ceiling, so unclaimable, and nothing but a worker ever marks a job
- * failed. The student's worksheet sits at "Queued" for good and the trial
- * credit it charged is never given back.
- *
- * Claimed past the TTL, so a worker that is merely slow is not swept out from
- * under itself: this only touches jobs whose claim has already expired and
- * which `claimJob` has therefore already stopped considering.
- *
- * Returns what it failed rather than doing the refund itself, because refunding
- * is `applyPermanentFailure`'s job and that lives with the worker code. Same
- * path a reported failure takes, so a job that dies silently and one that dies
- * loudly leave the account in the same state.
- */
 export async function reapAbandonedJobs(
   db: Db,
   now: Date = new Date(),
@@ -422,37 +308,15 @@ export async function heartbeat(
 }
 
 export interface WorkerStatus {
-  /** True when at least one worker is up. */
   online: boolean
-  /** How many are, so a fleet of two can say so. */
   onlineCount: number
   name: string | null
   modelName: string | null
   lastHeartbeatAt: Date | null
 }
 
-/**
- * How many worker rows are considered. The fleet is the operator's own
- * machines, so this is a guard against a runaway table rather than a page size.
- */
 const WORKERS_CONSIDERED = 50
 
-/**
- * Whether anything is out there to take a job.
- *
- * This used to read the single most recently heard-from row and report its
- * state as the fleet's. One worker going offline while another kept running
- * took the whole queue down on every screen that asks: the status page told a
- * student their worksheet was waiting on an offline worker, settings said the
- * operator's GPU was unavailable, and a job was being processed the entire
- * time. The reverse hid a real outage just as well, since a stale row that
- * happened to heartbeat last could report online for a fleet where nothing was
- * listening.
- *
- * The identity fields describe a live worker where there is one, so a screen
- * showing "online (name)" names something that is actually running, and fall
- * back to the most recent row otherwise so "last seen" still has a time in it.
- */
 export async function workerStatus(
   db: Db,
   now: Date = new Date(),
@@ -470,8 +334,6 @@ export async function workerStatus(
       now.getTime() - row.lastHeartbeatAt.getTime() < HEARTBEAT_TTL_MS,
   )
 
-  // Ordered by heartbeat already, so the first live row is the one heard from
-  // most recently.
   const representative = live[0] ?? rows[0] ?? null
 
   return {
@@ -497,9 +359,6 @@ export interface ActionableJob {
   userEmail: string | null
   stage: StoredJobStage
   executor: JobExecutor
-  // The column's own type rather than the four this deliberately queries for:
-  // `inArray` narrows the WHERE clause, not what drizzle infers a jobStatus
-  // column returns.
   status: (typeof processingJobs.$inferSelect)['status']
   attemptCount: number
   error: string | null
@@ -509,15 +368,6 @@ export interface ActionableJob {
 
 const ACTIONABLE_STATUSES = ['claimed', 'running', 'failed', 'cancelled'] as const
 
-/**
- * What spec.md §2.1's "stuck jobs" list shows an admin.
- *
- * `pending` is left out on purpose: a pending job is healthy, just waiting
- * its turn, and the queue-depth panel already says how many there are and how
- * old the oldest one is. What is missing from that panel is anything an
- * admin can act on - a job claimed or running long enough to be suspect, or
- * one that already died and might be worth trying again after a fix ships.
- */
 export async function listActionableJobs(db: Db, limit = 50): Promise<ActionableJob[]> {
   return db
     .select({
@@ -540,15 +390,6 @@ export async function listActionableJobs(db: Db, limit = 50): Promise<Actionable
     .limit(limit)
 }
 
-/**
- * An operator giving up on one job, the same shape a student's own
- * `go-manual` route gives up on a worksheet's worth of them
- * (app/api/worksheets/[id]/go-manual/route.ts), reduced to a single row.
- *
- * Guarded to the states a job can still be running from, so a stale click -
- * two admin tabs open on the same stuck job - cannot cancel one twice or
- * cancel one a worker has since completed on its own.
- */
 export async function cancelJob(
   db: Db,
   jobId: string,
@@ -579,23 +420,6 @@ export async function cancelJob(
   return cancelled ?? null
 }
 
-/**
- * Giving a dead job a fresh attempt budget rather than waiting for whatever
- * enqueued it to happen again.
- *
- * Scoped to `failed` and `cancelled` only - both already terminal, so there
- * is no worker mid-write for this to race. `claimed`/`running` are left out
- * deliberately: nothing here can stop a worker actually holding the row, and
- * resetting it out from under one would just be overwritten the moment that
- * worker next calls `checkpointJob`, `completeJob`, or `failJob`.
- *
- * A requeued job is only worth having if the worksheet it belongs to is not
- * still sitting on `failed`: nothing points the student back at a worksheet
- * in that state, and the job completing behind it would tag questions nobody
- * is watching for. So this also walks the worksheet back to `queued`, guarded
- * to the one status this is allowed to move it out of - a worksheet already
- * reviewed and marked up is not this job's to reopen.
- */
 export async function requeueJob(db: Db, jobId: string): Promise<boolean> {
   const [job] = await db
     .update(processingJobs)

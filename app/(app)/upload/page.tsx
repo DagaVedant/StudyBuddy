@@ -31,9 +31,6 @@ export default async function UploadPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-  // The second of spec.md:339's two screens, and the more useful of them: this
-  // is the one a student is standing on when the choice actually costs them
-  // something, with the file already picked.
   const aiStatus = await getAiStatus(db, session.user.id)
 
   return (
@@ -55,11 +52,6 @@ export default async function UploadPage() {
         got wrong in the next step.
       </p>
 
-      {/*
-        Before the form, not after it. Which tier reads this worksheet is
-        decided the moment it is submitted, so a prompt underneath the submit
-        button would be advice arriving after the decision it is about.
-      */}
       {shouldOfferAiSetup(aiStatus) && <AiSetupPrompt />}
 
       <UploadClient

@@ -1,10 +1,3 @@
-/**
- * One card, which is all this screen ever shows at once.
- *
- * The review queue is the page most likely to be opened on a phone on a bad
- * connection, and it is a single question at a time, so the skeleton can be an
- * honest outline of the real thing rather than a guess.
- */
 export default function Loading() {
   return (
     <main

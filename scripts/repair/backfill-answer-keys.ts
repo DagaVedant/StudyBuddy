@@ -11,25 +11,6 @@ import { applyAnswerKey } from '../../lib/worker/answer-key'
 import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
 import { connect } from '../db'
 
-/**
- * Applies the paper's own answer key to worksheets extracted before the pass
- * existed.
- *
- * The Edison run stored 288 questions across fourteen sheets without a single
- * correct answer between them, because the stage meant to read the key was
- * declared and never implemented. The keys were on the pages the whole time, so
- * nothing needs re-extracting, only re-reading.
- *
- *   npx tsx scripts/backfill-answer-keys.ts             # every worksheet
- *   npx tsx scripts/backfill-answer-keys.ts edison_     # titles with this prefix
- *
- * Safe to run twice: it reads the same key off the same text and writes the
- * same answer. A key the student entered themselves is left alone.
- *
- * It writes on every run: there is no dry form. With no prefix that is every
- * worksheet on every account, so it is guarded like the destructive scripts
- * even though nothing here deletes.
- */
 async function main() {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set.')

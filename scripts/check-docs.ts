@@ -1,25 +1,5 @@
 import { readFileSync } from 'node:fs'
 
-/**
- * Catches the table count drifting out from under README.md.
- *
- * It has drifted twice: 19 tables became 21 with a fix that only ever
- * corrected the two numbers on the page, so nothing stopped a third table
- * count from going stale the next time a migration added one. `question_solutions`
- * and `topic_lessons` did exactly that.
- *
- * Counts `pgTable(` calls in the schema rather than trusting either doc, and
- * fails if either file states a different number. Not part of `npm run check`:
- * a docs mismatch is not a code defect the same way a type error is, and
- * fixing it usually means writing a sentence, not running a formatter. Run it
- * by hand after a migration, or add it to CI if drift here matters enough to
- * block a merge.
- *
- * It read SETUP.md too, until that was folded into README.md.
- *
- *   npx tsx scripts/check-docs.ts
- */
-
 const schema = readFileSync('lib/db/schema.ts', 'utf8')
 const tableCount = (schema.match(/=\s*pgTable\(/g) ?? []).length
 

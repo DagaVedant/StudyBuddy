@@ -18,7 +18,6 @@ afterAll(async () => {
   await close()
 })
 
-/** Midnight UTC, `daysAgo` days before a fixed reference instant. */
 const NOW = new Date('2026-08-13T15:00:00Z')
 function daysAgo(n: number): Date {
   const d = new Date(NOW)
@@ -27,7 +26,6 @@ function daysAgo(n: number): Date {
   return d
 }
 
-/** One attempt on a fresh question, so the markup-once constraint never bites. */
 async function attemptOn(userId: string, worksheetId: string, when: Date): Promise<void> {
   const question = await makeQuestion(db, userId, worksheetId)
   await makeAttempt(db, userId, question.id, 'correct', { createdAt: when })
@@ -52,18 +50,11 @@ describe('getStudyStreak', () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
 
-    // Today, yesterday, the day before, then a gap, then an older run that
-    // must not be counted.
     for (const n of [0, 1, 2, 5, 6]) await attemptOn(userId, worksheetId, daysAgo(n))
 
     expect(await getStudyStreak(db, userId, NOW)).toBe(3)
   })
 
-  /*
-   * A streak is not broken by not having practised yet today. Duolingo and
-   * every other streak feature works this way: the day only counts against
-   * you once it has fully passed with nothing logged.
-   */
   it('still counts yesterday when nothing is logged today', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
@@ -77,7 +68,6 @@ describe('getStudyStreak', () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
 
-    // Two days ago, but not yesterday and not today.
     await attemptOn(userId, worksheetId, daysAgo(2))
 
     expect(await getStudyStreak(db, userId, NOW)).toBe(0)

@@ -3,8 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { reflowText } from '@/lib/questions/reflow'
 
 describe('reflowText', () => {
-  // The dice question shipped broken after `rolled`, because that is where the
-  // printed column ran out.
   it('joins a stem the printed column wrapped', () => {
     expect(
       reflowText(

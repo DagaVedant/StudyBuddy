@@ -6,23 +6,12 @@ import { topics } from '@/lib/db/schema'
 import { slugify, uniqueSlug } from '@/lib/classify/proposals'
 import { embed } from '@/lib/embeddings'
 
-/** How many times to lose a race for a slug before giving up on it. */
 const SLUG_ATTEMPTS = 3
 
 export type CreateTopicOutcome =
   | { ok: true; topicId: string; slug: string }
   | { ok: false; reason: 'parent_not_found' }
 
-/**
- * spec.md §2.1's "Add" - a topic an admin places directly, for the cases a
- * proposal never covers: seeding a subject nobody has asked a question about
- * yet, or splitting a leaf that turned out to need two.
- *
- * Embedded the same way `proposeTopic` embeds a proposal - straight off the
- * name, nothing fancier - because that is what makes a topic shortlistable at
- * all. A topic added without one would sit in the tree and never be offered
- * to the classifier, which is a topic in name only.
- */
 export async function createTopic(
   db: Db,
   parentId: string,
@@ -55,8 +44,6 @@ export async function createTopic(
           })
           .returning({ id: topics.id })
 
-        // The parent has a child now, so it is no longer somewhere a question
-        // can land directly. Same rule accepting a proposal already follows.
         if (parent.isLeaf) {
           await tx.update(topics).set({ isLeaf: false }).where(eq(topics.id, parent.id))
         }
@@ -71,16 +58,6 @@ export async function createTopic(
 
 export type RenameTopicOutcome = { ok: true } | { ok: false; reason: 'not_found' }
 
-/**
- * Changes only what is shown, never `slug`.
- *
- * `slug` doubles as the tree's path (lib/classify/index.ts:86 narrows a
- * shortlist with a `LIKE slug.%` on it, and `nearestAncestor` walks it by
- * trimming segments), so keeping it stable after a rename is not a
- * shortcut - it is what makes the rename safe to do without touching every
- * descendant's slug too. A topic's display name and its path are allowed to
- * disagree; nothing downstream of `slug` reads `name`.
- */
 export async function renameTopic(
   db: Db,
   topicId: string,
@@ -105,22 +82,6 @@ export type ReparentTopicOutcome =
       reason: 'not_found' | 'not_leaf' | 'target_not_found' | 'target_is_self' | 'same_parent'
     }
 
-/**
- * spec.md §2.1's "reparent", restricted to leaves.
- *
- * An internal node's slug is a prefix every descendant's slug is built from,
- * so moving one would mean rewriting every descendant's slug to match - a
- * real migration, not a metadata edit, and one wrong write away from
- * breaking the `LIKE`-based subject narrowing every classification call
- * makes. A leaf has no descendants, so moving it is one row: a fresh slug
- * under the new parent, nothing beneath it to follow.
- *
- * Every topic an admin can create (`createTopic`) or a proposal can add
- * (`acceptTopicProposal`) is created as a leaf, and only a leaf is ever
- * misfiled in the first place - an internal node's position was a
- * deliberate choice when the seed built it, not something to second-guess
- * here.
- */
 export async function reparentTopic(
   db: Db,
   topicId: string,
@@ -160,8 +121,6 @@ export async function reparentTopic(
       await tx.update(topics).set({ isLeaf: false }).where(eq(topics.id, newParent.id))
     }
 
-    // The mirror image of gaining a child: the old parent may have just lost
-    // its last one, and a parent with no children left is a leaf again.
     if (oldParentId) {
       const remainingSiblings = await tx
         .select({ id: topics.id })

@@ -20,19 +20,6 @@ interface Props {
   topics: TopicChoice[]
 }
 
-/**
- * The markup screen: a page on the left, the questions read off it on the
- * right.
- *
- * This file used to be all of it, at 676 lines and nine jobs. What is left
- * here is the part that genuinely joins the two halves: which page is showing,
- * which card is selected, and which one is open for editing. The writes live
- * in {@link useQuestionEditor}, the drag in {@link PageCanvas}, and the cards
- * in {@link QuestionList}, whose memo holds only while every handler below
- * keeps its identity between keystrokes. `update` was the first one that had to
- * be made to; `focusQuestion` was the second, and was still rebuilding itself
- * long after the split had supposedly paid for itself.
- */
 export default function EditClient({
   worksheetId,
   worksheetTitle,
@@ -48,10 +35,6 @@ export default function EditClient({
   )
   const [pageIndex, setPageIndex] = useState(0)
 
-  // Only page one arrives with real lines (page.tsx). Every other page's
-  // come from here, the first time the reader actually turns to it, rather
-  // than all at once on a screen that might only ever be scrolled through
-  // one page at a time.
   const [linesByPage, setLinesByPage] = useState<Map<string, TextLine[]>>(() => {
     const seeded = new Map<string, TextLine[]>()
     if (pages[0]) seeded.set(pages[0].id, pages[0].textLines)
@@ -73,9 +56,6 @@ export default function EditClient({
         setLinesByPage((prev) => new Map(prev).set(current.id, body.textLines))
       })
       .catch(() => {
-        // Left off the requested set, so turning back to this page (which
-        // re-fires this effect) tries again rather than leaving the drag
-        // disabled here for the rest of the session over one bad request.
         requestedPages.current.delete(current.id)
       })
 
@@ -94,9 +74,6 @@ export default function EditClient({
 
   const { questions, update, removeQuestion, createQuestion } = editor
 
-  // Mirrored into a ref so `remove` can read the list without taking it as a
-  // dependency. `remove` is one of the nine props each card is handed, and a
-  // new identity on every keystroke is all it takes to defeat the memo.
   const questionsRef = useRef(questions)
   useEffect(() => {
     questionsRef.current = questions

@@ -2,17 +2,6 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { registerAndSignIn, visible } from './support/helpers'
 
-/**
- * Topics: the index, and a topic page with and without a lesson on it.
- *
- * This page is the only place on the site that shows a reader prose a model
- * wrote. A topic with no lesson yet shows a "Generate lesson overview"
- * button instead of the lesson content, rather than the section vanishing
- * outright, so there is always something inviting the student to ask for
- * one. One test proves the lesson reaches the reader, the other pins down
- * what a topic without one is supposed to look like.
- */
-
 const TAUGHT = 'sat-math.algebra.linear-equations-in-one-variable'
 const TAUGHT_NAME = 'Linear equations in one variable'
 
@@ -48,7 +37,6 @@ const LESSON = {
   model: 'a-test-model',
 }
 
-/** The topic id for a slug, giving it a lesson on the way when one is passed. */
 async function topicId(
   page: Page,
   slug: string,
@@ -72,8 +60,6 @@ test('a topic with a lesson teaches the topic', async ({ page }) => {
     visible(page).getByRole('heading', { name: TAUGHT_NAME, level: 1 }),
   ).toBeVisible()
 
-  // The walkthrough, including a heading that exists only inside the markdown
-  // body, which is what says `Prose` rendered it rather than printing it.
   await expect(visible(page).getByText(/two expressions are equal/)).toBeVisible()
   await expect(visible(page).getByRole('heading', { name: 'The method' })).toBeVisible()
 
@@ -89,9 +75,6 @@ test('a topic with a lesson teaches the topic', async ({ page }) => {
   await expect(visible(page).getByText('Adding to one side only.')).toBeVisible()
   await expect(visible(page).getByText(/Write the same operation/)).toBeVisible()
 
-  // The disclaimer is load-bearing rather than decoration. The lesson above it
-  // is machine-written and the questions below it are the student's own work,
-  // and this line is the only thing on the page that tells them apart.
   await expect(
     visible(page).getByText(/Written by a-test-model, not by a teacher/),
   ).toBeVisible()
@@ -100,8 +83,6 @@ test('a topic with a lesson teaches the topic', async ({ page }) => {
 test('a topic nobody has written a lesson for still renders', async ({ page }) => {
   await registerAndSignIn(page)
 
-  // Resolved without seeding, so this really is a topic with no lesson: the
-  // state every topic in the tree starts in and most will stay in.
   await page.goto(`/topics/${await topicId(page, UNTAUGHT)}`)
 
   await expect(
@@ -109,9 +90,6 @@ test('a topic nobody has written a lesson for still renders', async ({ page }) =
   ).toBeVisible()
   await expect(visible(page).getByRole('heading', { name: 'Accuracy' })).toBeVisible()
 
-  // The teaching section is present but empty of any lesson content: an
-  // invitation to generate one rather than a claim that a model wrote
-  // something when none did.
   await expect(visible(page).getByRole('heading', { name: 'How this works' })).toBeVisible()
   await expect(
     visible(page).getByText('Nobody has written an explanation for this topic yet.'),
@@ -125,8 +103,6 @@ test('a topic nobody has written a lesson for still renders', async ({ page }) =
 test('generating a lesson overview on demand writes and shows one', async ({ page }) => {
   await registerAndSignIn(page)
 
-  // Same unseeded topic as above: nothing has written a lesson for it yet,
-  // so the only way a lesson appears is the button actually doing its job.
   await page.goto(`/topics/${await topicId(page, UNTAUGHT)}`)
 
   await visible(page)
@@ -154,25 +130,15 @@ test('the accuracy panel and the revisit list stand alone', async ({ page }) => 
 
   await expect(visible(page).getByRole('heading', { name: 'Accuracy' })).toBeVisible()
 
-  // A fresh account has answered nothing, so the page has to say so rather
-  // than showing an empty meter above an empty list.
   await expect(visible(page).getByText(/Not enough answers here yet/)).toBeVisible()
   await expect(
     visible(page).getByText(/You have not missed a question in this topic/),
   ).toBeVisible()
 })
 
-/**
- * §3.2. There are 341 topics and a student could reach one in exactly two ways:
- * by being ranked weak at it on the dashboard, or by following a link from a
- * question. No index, no browse, no search. That also left the lesson feature
- * mostly unreachable, since it lives on a topic page.
- */
 test('every topic can be browsed, including the ones never started', async ({ page }) => {
   await registerAndSignIn(page)
 
-  // From the nav, which is the slot Profile used to hold. Unscoped, because
-  // `visible()` scopes to #main and the nav lives in the banner.
   await page.goto('/dashboard')
   await page.getByRole('link', { name: 'Topics', exact: true }).click()
 
@@ -182,7 +148,5 @@ test('every topic can be browsed, including the ones never started', async ({ pa
   const geometry = visible(page).getByText('Geometry', { exact: true }).first()
   await expect(geometry).toBeVisible()
 
-  // A topic with nothing recorded reads as neutral rather than as zero percent,
-  // which would be a score the student never earned.
   await expect(visible(page).getByText('Not started').first()).toBeVisible()
 })

@@ -23,16 +23,6 @@ afterAll(async () => {
 
 const client = () => db as unknown as Db
 
-/*
- * Read from the credentials table rather than from `resolveProvider`'s `tier`,
- * which answers the nearby question "what runs the next upload". The two agree
- * now that resolution has an Ollama branch; they did not when this was written,
- * and the disagreement is what these tests were guarding: this label said
- * "Ollama connected" while resolution could not see an Ollama row, so the
- * dashboard named a tier no upload would ever use. Staying on the credentials
- * table keeps it answering what the account is set up with, which is what
- * spec.md:398 asks the strip to carry.
- */
 describe('getAiStatus', () => {
   it('reports trial worksheets remaining for a fresh account', async () => {
     const userId = await makeUser(db)
@@ -56,9 +46,6 @@ describe('getAiStatus', () => {
     expect((await getAiStatus(client(), userId)).label).toBe('Anthropic connected')
   })
 
-  // The account this exists to get right. Nothing in `resolveProvider` ever
-  // labels an account this way, so a naive reuse of its tier would have shown
-  // "3 trial worksheets left" to a student who had already moved to Ollama.
   it('reports Ollama as connected', async () => {
     const userId = await makeUser(db)
     await db.insert(userAiCredentials).values({
@@ -85,12 +72,6 @@ describe('getAiStatus', () => {
   })
 })
 
-/**
- * spec.md:339 asks for the AI setup choice at two moments, and only the second
- * one, settings, existed. Which meant a student met the end of their trial on
- * the completion route, as a message explaining they had already been dropped
- * to the manual editor.
- */
 describe('shouldOfferAiSetup', () => {
   async function statusAfterUsing(worksheets: number) {
     const userId = await makeUser(db)
@@ -111,11 +92,6 @@ describe('shouldOfferAiSetup', () => {
     expect(shouldOfferAiSetup(await statusAfterUsing(1))).toBe(false)
   })
 
-  /**
-   * Zero is not "running low", it is over, and the two want different words.
-   * A card headed "One trial worksheet left" on an account with none is worse
-   * than no card: it reads as an offer that has already expired.
-   */
   it('stays quiet once the trial is spent', async () => {
     expect(shouldOfferAiSetup(await statusAfterUsing(3))).toBe(false)
   })
@@ -129,9 +105,6 @@ describe('shouldOfferAiSetup', () => {
       ollamaBaseUrl: 'http://127.0.0.1:11434',
     })
 
-    // The count is still 1 in the users row. What makes this quiet is that a
-    // configured account reports null rather than a number, so "one left"
-    // cannot be read off an account the trial no longer applies to.
     const status = await getAiStatus(client(), userId)
 
     expect(status.trialWorksheetsRemaining).toBeNull()

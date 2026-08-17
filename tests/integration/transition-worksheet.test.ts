@@ -39,13 +39,6 @@ const statusOf = async (worksheetId: string) => {
   return row.status
 }
 
-/*
- * Finding 93. Every scattered `worksheets.status` write used to be a bare
- * `UPDATE ... WHERE id = ?`, which moves the row wherever the caller says
- * regardless of what it currently holds. This is the one place that check
- * now lives, so it gets its own test rather than only being exercised
- * indirectly through the callers that adopted it.
- */
 describe('transitionWorksheet', () => {
   it('moves the row when the current status is in the allowed set', async () => {
     const worksheetId = await worksheetAt('queued')
@@ -68,7 +61,6 @@ describe('transitionWorksheet', () => {
       }),
     ).toBe(false)
 
-    // Untouched, not overwritten with the same value.
     expect(await statusOf(worksheetId)).toBe('ready')
   })
 
@@ -89,8 +81,6 @@ describe('transitionWorksheet', () => {
     expect(row.tierUsed).toBe('free')
   })
 
-  // The check and the write are one statement so two callers racing to make
-  // the same transition cannot both succeed.
   it('lets exactly one of two simultaneous callers through', async () => {
     const worksheetId = await worksheetAt('queued')
 

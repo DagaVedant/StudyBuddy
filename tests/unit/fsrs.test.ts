@@ -37,21 +37,10 @@ describe('scheduleFromOutcome', () => {
     expect(card.lastReview).toEqual(NOW)
   })
 
-  // A new card rated Again has `lapses === 0`: a lapse is a card falling out of
-  // review, and a card that was never in review cannot. "Only when wrong" is
-  // covered by 'increments lapses only once a card has graduated to review',
-  // which drives a card into review first and is the test this one looked like.
   it('records no lapse for an answer that was right', () => {
     expect(seed('correct').lapses).toBe(0)
   })
 
-  /**
-   * The log is the before, the card is the after. `card.state` on its own is
-   * only ever "is it defined", which every implementation passes. What is worth
-   * pinning is that the two describe opposite sides of the same review: a first
-   * answer is logged against the card as it was, which is `new`, and leaves the
-   * card somewhere else.
-   */
   it('logs the state the card was in, not the one it moved to', () => {
     const { card, log } = scheduleFromOutcome(null, 'wrong', NOW)
 

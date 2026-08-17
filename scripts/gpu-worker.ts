@@ -21,28 +21,7 @@ const API = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace
 const TOKEN = process.env.WORKER_API_TOKEN ?? ''
 const WORKER_NAME = process.env.WORKER_NAME ?? 'local-gpu'
 const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b'
-/**
- * Second-opinion model for the review pass. Reads text, never images.
- *
- * Defaults to the vision model so the worker runs with nothing extra pulled.
- * Measured on a real extraction, gpt-oss:20b was the better reviewer: it
- * matched the default on damaged questions and raised no false alarms, where
- * the 7b called two sound questions broken: both of them stems finished by
- * their own options, the same shape that fooled the text checks before they
- * were narrowed. A reviewer that cries wolf costs re-reads, so it is worth
- * setting this.
- */
 const REVIEW_MODEL = process.env.OLLAMA_REVIEW_MODEL ?? VISION_MODEL
-
-/**
- * The model that works a question out, which is not the one that reads a page.
- *
- * The vision model was chosen by measuring how well it transcribes; solving is
- * a different skill and gets its own contest, in
- * scripts/benchmark-answers.ts, scored against the papers' own answer keys.
- * Defaults to the vision model so an operator who sets nothing still gets
- * working answers, badly, rather than none.
- */
 const ANSWER_MODEL = process.env.OLLAMA_ANSWER_MODEL ?? VISION_MODEL
 const OLLAMA_URL = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
 
@@ -59,7 +38,6 @@ interface WorkerPage {
   height: number | null
 }
 
-/** Named so `processJob`'s split-out pieces can say what they take. */
 interface ClaimedJob {
   id: string
   worksheetId: string
@@ -85,18 +63,10 @@ const ollama = new OllamaProvider({
   timeoutMs: 15 * 60_000,
 })
 
-// Wrapped, like every other consumer: the provider returns the model's own
-// JSON and `validated` is what turns it into something safe to post upstream.
-// `ollama` stays in scope only for listModels, which is Ollama's own call and
-// not part of the provider contract.
 const provider = validated(ollama)
 
 let shuttingDown = false
 
-// What the dashboard's "jobs in flight" column reports. The loop below takes
-// one job at a time, so this is 0 or 1 today, but it is counted rather than
-// assumed: the server has no way to know, and hardcoding it there is what made
-// the column always read 0.
 let jobsInFlight = 0
 
 function log(message: string): void {

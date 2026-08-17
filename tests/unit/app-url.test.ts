@@ -10,9 +10,6 @@ afterEach(() => {
 })
 
 describe('appBaseUrl', () => {
-  // The deployed value is typed into a hosting dashboard, where both forms
-  // look right, and the trailing one produced `https://host//verify?token=…`
-  // in real verification emails.
   it('drops a trailing slash so a path can be appended safely', () => {
     process.env.NEXT_PUBLIC_APP_URL = 'https://trystudybuddy.vercel.app/'
     expect(`${appBaseUrl()}/verify`).toBe('https://trystudybuddy.vercel.app/verify')

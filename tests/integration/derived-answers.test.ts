@@ -10,15 +10,6 @@ import { deriveSolutions } from '@/lib/worker/solutions'
 import { asDb, createTestDb, type TestDb } from '../helpers/db'
 import { makeAttempt, makeQuestion, makeUser, makeWorksheet } from '../helpers/factories'
 
-/**
- * Deriving an answer where the paper had none, and what that unlocks.
- *
- * The rule this is mostly about is the one the owner chose: a key printed on
- * the paper or typed by the student always wins. A derived answer only ever
- * fills a gap, and a pass that overwrote a real key would quietly re-mark work
- * the student had already done.
- */
-
 let db: TestDb
 let close: () => Promise<void>
 
@@ -34,13 +25,9 @@ afterAll(async () => {
 
 const client = () => asDb(db)
 
-/** A provider that answers however the test says, and nothing else. */
 function solver(answer: Partial<Solution>): AIProvider {
   return {
     name: 'ollama',
-    // Deliberately different from `answeringModel`. A solution is the
-    // answering model's work, and these were the same string for long enough
-    // that nothing noticed the stored column was reading the other one.
     model: 'test-text-model',
     answeringModel: 'test-model',
     supportsVision: false,
@@ -118,7 +105,6 @@ describe('deriveSolutions', () => {
     expect(solution.model).toBe('test-model')
   })
 
-  /** The owner's rule: what the paper printed beats what a model worked out. */
   it('never overwrites a key that came off the paper', async () => {
     const { worksheetId, questionId } = await paper({
       answerSource: 'pdf_key',
@@ -131,8 +117,6 @@ describe('deriveSolutions', () => {
     expect(row.correctAnswer).toBe('A')
     expect(row.answerSource).toBe('pdf_key')
     expect(progress.promoted).toBe(0)
-    // The working is still written, because a student checking their own paper
-    // wants the steps whether or not the answer was already known.
     expect(progress.solved).toBe(1)
   })
 
@@ -170,11 +154,6 @@ describe('deriveSolutions', () => {
     expect((await answerOf(questionId)).correctAnswer).toBeNull()
   })
 
-  /**
-   * Resumable by construction. The loop reads what has no solution row rather
-   * than counting through a list, so a job that dies at 80 of 114 picks up at
-   * 80 and not at 1.
-   */
   it('skips questions that already have a solution', async () => {
     const { worksheetId } = await paper()
 
@@ -185,11 +164,6 @@ describe('deriveSolutions', () => {
   })
 })
 
-/**
- * The reason the answer key matters beyond the review screen: Blooket cannot
- * host a question whose correct answer nobody knows, so a paper with no key
- * exported as nothing.
- */
 describe('what a derived answer unlocks', () => {
   it('carries a derived answer into the Blooket export', async () => {
     const { userId, worksheetId, questionId } = await paper()

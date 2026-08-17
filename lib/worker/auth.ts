@@ -28,21 +28,6 @@ export function authenticateWorker(request: Request): WorkerAuth {
 
   const configured = (process.env.WORKER_ALLOWED_IPS ?? '').trim()
 
-  /*
-   * Unset is refused, not waved through.
-   *
-   * This used to read `if (allowed.length > 0)`, so an empty variable meant no
-   * restriction: the allowlist degraded to nothing exactly when nobody had
-   * configured it, which is the state every deployment starts in. `.env.example`
-   * shipped it empty and the setup docs said to skip it, so the ordinary outcome was
-   * a defence that was never on, and a leaked WORKER_API_TOKEN worked from
-   * anywhere on the internet (finding 113).
-   *
-   * The token is still the real gate and this is defence in depth. What changed
-   * is that switching the depth off is now a thing somebody chose and can be
-   * read in the environment, rather than the default nobody noticed. `*` is
-   * that choice, spelled out.
-   */
   if (!configured) {
     return {
       ok: false,
@@ -58,8 +43,6 @@ export function authenticateWorker(request: Request): WorkerAuth {
       .map((ip) => ip.trim())
       .filter(Boolean)
 
-    // Null, not a placeholder: a caller we cannot identify must not match an
-    // allowlist entry.
     const ip = clientIp(request.headers)
     if (!ip || !allowed.includes(ip)) {
       return { ok: false, status: 403, message: 'Worker credential not valid from here.' }

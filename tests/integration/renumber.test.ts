@@ -57,8 +57,6 @@ const read = async (worksheetId: string) =>
     .orderBy(asc(questions.ordinal))
 
 describe('renumberQuestions', () => {
-  // The exact shape parallel page reads produced: page 4 finished before page
-  // 3 and took the lower numbers.
   it('puts questions back in page order', async () => {
     const id = await seed([
       { page: 4, printed: 2, ordinal: 1 },
@@ -75,7 +73,6 @@ describe('renumberQuestions', () => {
     ])
   })
 
-  // Two pages saved at once both read the same max ordinal and both took it.
   it('breaks a tie where two rows share an ordinal', async () => {
     const id = await seed([
       { page: 8, printed: 5, ordinal: 7 },
@@ -110,7 +107,6 @@ describe('renumberQuestions', () => {
 
     await renumberQuestions(client(), id)
 
-    // The printed one leads its page; the unnumbered pair hold their read order.
     expect(await read(id)).toEqual([
       { ordinal: 1, printed: 1 },
       { ordinal: 2, printed: null },

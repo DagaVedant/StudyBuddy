@@ -125,17 +125,12 @@ describe('callerIp', () => {
     expect(callerIp(new Headers({ 'x-real-ip': '198.51.100.7' }))).toBe('198.51.100.7')
   })
 
-  // One shared bucket is noisy for whoever lands there; no bucket at all would
-  // mean stripping a header turns the limiter off.
   it('buckets together rather than opting out when there is no header', () => {
     expect(callerIp(new Headers())).toBe('unknown')
   })
 })
 
 describe('when the counter itself fails', () => {
-  // This is not hypothetical. The table was missing from the deployed database
-  // once, and because the check runs before anything else the endpoint does,
-  // every upload returned a 500 without reaching a line of upload code.
   const broken = {
     execute: () => Promise.reject(new Error('relation "rate_limits" does not exist')),
   } as unknown as Db
@@ -154,18 +149,11 @@ describe('when the counter itself fails', () => {
   })
 })
 
-/**
- * Authentication was the one action with no rule at all, so password guessing
- * was unthrottled against an app whose bcrypt cost is 12 in pure JS. Each of
- * the two keys closes a hole the other leaves open.
- */
 describe('the sign-in limits', () => {
   it('throttles one address being guessed at from many machines', async () => {
     const email = 'email:victim@example.com'
 
     for (let n = 0; n < SIGNIN_EMAIL_LIMIT.limit; n += 1) {
-      // A different IP every time, which is what a botnet looks like and what
-      // an IP-only rule would miss entirely.
       const perIp = await consumeRateLimit(client(), SIGNIN_IP_LIMIT, `ip:10.0.0.${n}`)
       expect(perIp.ok, `ip attempt ${n}`).toBe(true)
 
@@ -187,8 +175,6 @@ describe('the sign-in limits', () => {
     expect((await consumeRateLimit(client(), SIGNIN_IP_LIMIT, ip)).ok).toBe(false)
   })
 
-  // The per-email allowance is the looser of the two on purpose: it is the one
-  // an attacker can aim at somebody else's account to lock them out.
   it('is harder to lock a stranger out than to be stopped guessing', () => {
     expect(SIGNIN_EMAIL_LIMIT.limit).toBeGreaterThan(SIGNIN_IP_LIMIT.limit)
   })
@@ -198,25 +184,13 @@ describe('the sign-in limits', () => {
   })
 })
 
-/**
- * Finding 114's open half: SIGNUP_LIMIT failed open, so the Sybil defence
- * switched itself off exactly when the database was unhappy.
- *
- * Finding 67 argued fail-open is the right side for a limiter, and it is, for
- * rules guarding a student's own actions: a limiter that throws does not
- * throttle a request, it removes the feature. It also wrote down the condition
- * for revisiting that, and signup meets it. Every account is three worksheets
- * of real extraction on the operator's GPU, spent before anything is verified.
- */
 describe('which side a rule fails on', () => {
-  /** A db whose counter statement always throws. */
   const broken = {
     execute: async () => {
       throw new Error('relation "rate_limits" does not exist')
     },
   } as unknown as Db
 
-  /** A db whose counter returns nothing, which is the other half of finding 114. */
   const silent = { execute: async () => [] } as unknown as Db
 
   it('refuses a signup it cannot count', async () => {
@@ -233,22 +207,12 @@ describe('which side a rule fails on', () => {
     expect(decision.reason).toBe('unavailable')
   })
 
-  /**
-   * A minute, not the window's hour. The window is how long an allowance lasts;
-   * this is a transient state somebody is already fixing, and telling an honest
-   * new student to come back in an hour for it would be its own dishonesty.
-   */
   it('asks for a short wait rather than the whole window', async () => {
     const decision = await consumeRateLimit(broken, SIGNUP_LIMIT, 'ip:203.0.113.4')
 
     expect(decision.retryAfter).toBeLessThanOrEqual(60)
   })
 
-  /**
-   * Everything else keeps failing open, and sign-in most of all: locking out
-   * every existing student is the exact outcome that argument exists to
-   * prevent.
-   */
   it.each([
     ['sign-in', SIGNIN_IP_LIMIT],
     ['upload', UPLOAD_LIMIT],

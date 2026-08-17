@@ -106,14 +106,6 @@ describe('describePageRange', () => {
   })
 })
 
-/**
- * These inputs were `type="number"`, which is a control that treats the scroll
- * wheel as a way to change its value: scrolling the upload page with the cursor
- * over one of them silently rewrote which pages get read, or the count the
- * coverage audit is measured against. They are text inputs with a numeric
- * keypad now, which means the validation the browser was doing has to be done
- * here instead rather than simply lost.
- */
 describe('parseQuestionCount', () => {
   it('treats an empty box as no answer, which is what it is', () => {
     expect(parseQuestionCount('')).toEqual({ ok: true, count: null })
@@ -125,11 +117,6 @@ describe('parseQuestionCount', () => {
     expect(parseQuestionCount('  20 ')).toEqual({ ok: true, count: 20 })
   })
 
-  /**
-   * The case that made this necessary. `Number('2O')` is `NaN`, and
-   * `JSON.stringify` writes `NaN` as `null`, so a typo used to reach the server
-   * as "no count given" and the student was never told.
-   */
   it('refuses a typo rather than sending it as nothing', () => {
     for (const raw of ['2O', 'twenty', '12a', '--3']) {
       expect(parseQuestionCount(raw).ok, raw).toBe(false)

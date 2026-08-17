@@ -102,8 +102,6 @@ describe('recordReport', () => {
       .from(reports)
       .where(eq(reports.questionId, question.id))
     expect(report.explanationId).toBe(explanationId)
-    // Carried across so the admin page can group a question's report under the
-    // worksheet it came from without a second join.
     expect(report.worksheetId).toBe(worksheetId)
   })
 

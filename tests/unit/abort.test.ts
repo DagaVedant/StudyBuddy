@@ -40,14 +40,10 @@ describe('untilCancelled', () => {
     ).rejects.toBeInstanceOf(CancelledError)
   })
 
-  // The point of the whole exercise: a step that will not finish on its own
-  // must not hold the cancel up.
   it('rejects on abort without waiting for the work to settle', async () => {
     const controller = new AbortController()
     let settled = false
 
-    // Stands in for a page render or an OCR pass: in flight, and not about to
-    // finish on its own.
     const neverSettles = new Promise<string>(() => {}).then((value) => {
       settled = true
       return value

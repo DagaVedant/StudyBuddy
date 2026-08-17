@@ -16,7 +16,6 @@ export default async function AdminTopicsPage() {
   if (!session?.user?.id) redirect('/signin')
   if (session.user.role !== 'admin') notFound()
 
-
   const proposals = await db
     .select({
       id: topicProposals.id,
@@ -37,9 +36,6 @@ export default async function AdminTopicsPage() {
     workerStatus(db),
     queueDepth(db, 'operator_gpu'),
     queueDepth(db, 'server'),
-    // For the merge picker below: an existing leaf is the only thing a
-    // proposal can ever merge into, matching what `mergeTopicProposal`
-    // itself refuses anything else for.
     db
       .select({ slug: topics.slug, name: topics.name })
       .from(topics)

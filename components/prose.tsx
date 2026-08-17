@@ -1,22 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
 
-/**
- * The small slice of markdown a generated lesson is allowed to use.
- *
- * Not a markdown library, and deliberately not. Everything rendered here was
- * written by a model, so the only safe renderer is one that cannot produce
- * markup it was not asked for: this walks the text and returns React elements,
- * so there is no HTML parsing anywhere and nothing to escape. `##` headings,
- * `-` and `1.` lists, `**bold**`, and blank-line paragraphs are what
- * LESSON_SYSTEM asks for, and anything else falls through as plain text rather
- * than being interpreted.
- *
- * The rest of the app renders model prose with `whitespace-pre-line`, which is
- * right for a two-sentence explanation and wrong for a lesson with sections and
- * numbered steps: the reader would see the `##`.
- */
-
-/** `**bold**` inside a line. Everything else stays literal. */
 function inline(text: string, keyPrefix: string): ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
     const key = `${keyPrefix}-${index}`
@@ -36,7 +19,6 @@ type Block =
   | { kind: 'paragraph'; text: string }
   | { kind: 'list'; ordered: boolean; items: string[] }
 
-/** Groups lines into blocks. A blank line ends whatever was open. */
 export function blocksOf(markdown: string): Block[] {
   const blocks: Block[] = []
   let paragraph: string[] = []
@@ -61,12 +43,6 @@ export function blocksOf(markdown: string): Block[] {
       continue
     }
 
-    // `#` counts, even though the prompt forbids it and the page owns the only
-    // h1 on it. This matched `#{2,3}`, so a model that opened with a title
-    // anyway did not produce a stray heading, which would have been harmless.
-    // It produced a paragraph beginning with a literal hash, printed to the
-    // reader. Rendering it as a heading is both what was meant and the less
-    // embarrassing failure.
     const heading = /^(#{1,3})\s+(.*)$/.exec(line)
     if (heading) {
       flush()
@@ -85,8 +61,6 @@ export function blocksOf(markdown: string): Block[] {
       const ordered = Boolean(numbered)
       const item = (bullet ?? numbered)![1]
 
-      // A list of a different kind starts a new list rather than continuing
-      // this one, so steps and bullets do not merge into one run.
       if (list && list.ordered !== ordered) flush()
 
       if (paragraph.length > 0) {

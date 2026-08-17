@@ -2,10 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import { parseCarriedChoices } from '@/lib/questions/carried-choices-plan'
 
-/**
- * The head of AMC8 2024 page 4, verbatim. Question 14's stem is at the foot of
- * page 3; these are its options, printed above question 15.
- */
 const PAGE_4 = `AoPS Community 2024 AMC 8 -
 (A) 28 (B) 29 (C) 30 (D) 31 (E) 32
 15 Let the letters F , L , Y , B , U , G represent different digits. Suppose F LY F LY is the largest num-
@@ -14,7 +10,6 @@ ber that satisfies the equation
 What is the value of F LY + BU G ?
 (A) 1089 (B) 1098 (C) 1107 (D) 1116 (E) 1125`
 
-/** Page 5, where a figure's labels sit between the header and the options. */
 const PAGE_5 = `AoPS Community 2024 AMC 8 -
 B
 O
@@ -22,7 +17,6 @@ C
 (A) 108 (B) 120 (C) 135 (D) 144 (E) 150
 19 Jordan owns 15 pairs of sneakers. Three fifths of the pairs are red and the rest are white.`
 
-/** Page 6, which opens with a question of its own and carries nothing. */
 const PAGE_6 = `AoPS Community 2024 AMC 8 -
 21 A group of frogs (called an army) is living in a tree. A frog turns green when in the shade and
 yellow when in the sun. What is the difference between the number of green and yellow frogs?
@@ -45,7 +39,6 @@ describe('parseCarriedChoices', () => {
   })
 
   it('takes only the first block, not the one under question 15', () => {
-    // The second block on page 4 belongs to question 15 and must stay there.
     expect(labels(PAGE_4)).not.toContain('A1089')
   })
 
@@ -54,8 +47,6 @@ describe('parseCarriedChoices', () => {
 
     expect(labels(page, 4)).toEqual(['Aseven', 'Beight', 'Cnine', 'Dten'])
   })
-
-  // Everything below would hand a question the wrong answers.
 
   it('refuses a run that does not start at A', () => {
     const page = `AoPS Community\n(C) 30 (D) 31 (E) 32\n15 Let the letters represent different digits.`
@@ -86,9 +77,6 @@ describe('parseCarriedChoices', () => {
     expect(labels('   \n  ')).toBeNull()
   })
 
-  // The distances printed along the diagram at the foot of AMC8 page 3. A
-  // looser reading of "a line that starts with a number" would treat one of
-  // these as the first question and hide the carried block behind it.
   it('is not fooled by figures made of numbers', () => {
     const page = `AoPS Community 2024 AMC 8 -\n5 2 6 5\n8 14 10\n(A) 28 (B) 29 (C) 30 (D) 31 (E) 32\n15 Let the letters represent different digits here.`
 
@@ -96,7 +84,6 @@ describe('parseCarriedChoices', () => {
   })
 
   it('ignores letters that are not options', () => {
-    // The SHSAT answer-sheet instructions, which print bare letter runs.
     const page = `SAMPLE ANSWER MARKS\nA B C D RIGHT\nA B C D WRONG\n1. What is the capital of France?`
 
     expect(labels(page, 4)).toBeNull()
@@ -117,19 +104,10 @@ describe('parseCarriedChoices', () => {
   })
 })
 
-/**
- * The commoner shape on the Edison papers: the break falls inside the option
- * list rather than before it, so the stem keeps A (or A and B) and the rest
- * are printed at the top of the next page. Thirteen questions in that run are
- * this shape and every one of them was refused, because the run does not start
- * at A. The head of the list is on the previous page, attached to the stem.
- */
 describe('parseCarriedChoices, where the break fell inside the list', () => {
   const tail = (page: string, held: string[], expectedCount: number | null = 4) =>
     parseCarriedChoices(page, { expectedCount, held })?.map((c) => `${c.label}${c.text}`) ?? null
 
-  // topic_test7_25 page 2, verbatim. Question 7 is at the foot of page 1 and
-  // kept only its A.
   const PAGE_2 = `B. 314
 C. 25
 D. 79
@@ -153,16 +131,11 @@ B. 115`
     expect(tail(page, ['A', 'B'])).toEqual(['C17', 'D34'])
   })
 
-  // Everything below would hand a question the wrong answers.
-
   it('refuses a run that does not begin where the question left off', () => {
-    // The question kept A; a run starting at C means B is lost, and nothing
-    // here says what B was.
     expect(tail(`C. 25\nD. 79\n8. Two parallel lines are cut by a transversal here.`, ['A'])).toBeNull()
   })
 
   it('refuses a run that does not finish the question off', () => {
-    // Two options for a question that is three short.
     expect(tail(`B. 314\nC. 25\n8. Two parallel lines are cut by a transversal here.`, ['A'])).toBeNull()
   })
 
@@ -171,14 +144,10 @@ B. 115`
   })
 
   it('refuses a question whose kept options have a hole in them', () => {
-    // It holds A and C, so the missing one is B, and a run starting at C is
-    // not it.
     expect(tail(PAGE_2, ['A', 'C'])).toBeNull()
   })
 
   it('refuses a tail that is not the first thing on the page', () => {
-    // A complete list belonging to something else. Reading the B, C, D out of
-    // it would hand the previous question three answers to another question.
     const page = `A. 12\nB. 314\nC. 25\nD. 79\n8. Two parallel lines are cut by a transversal here.`
 
     expect(tail(page, ['A'])).toBeNull()

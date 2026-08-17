@@ -27,10 +27,6 @@ export async function ocrPage(image: Blob, signal?: AbortSignal): Promise<OcrRes
 
   const worker = await untilCancelled(getWorker(), signal)
 
-  // Tesseract offers no way to interrupt a page mid-recognition, so cancelling
-  // stops us waiting and then terminates the worker outright; otherwise the
-  // wasted recognition keeps a core busy long after the user gave up. The next
-  // upload lazily creates a fresh worker.
   let data
   try {
     ;({ data } = await untilCancelled(
@@ -38,11 +34,6 @@ export async function ocrPage(image: Blob, signal?: AbortSignal): Promise<OcrRes
       signal,
     ))
   } catch (cause) {
-    // Caught, not `void`ed. This runs while another error is already on its
-    // way up, and `void` on a promise that rejects is an unhandled rejection
-    // in a browser tab: it takes down the upload the cancellation was meant to
-    // end cleanly. Failing to terminate a worker nobody is waiting for is not
-    // worth reporting, so the rejection is swallowed deliberately.
     if (signal?.aborted) terminateOcr().catch(() => {})
     throw cause
   }

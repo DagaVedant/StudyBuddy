@@ -13,8 +13,6 @@ describe('readingProgress', () => {
     expect(readingProgress(1, 100)).toBeCloseTo(0.008)
   })
 
-  // The whole point: finishing the pages is not finishing the job, so the bar
-  // must not be full while the audit and classification still have to run.
   it('stops short of full when the last page is read', () => {
     expect(readingProgress(75, 75)).toBe(READING_SHARE)
     expect(readingProgress(75, 75)).toBeLessThan(1)
@@ -43,8 +41,6 @@ describe('phaseFor', () => {
   })
 
   it('leaves no gap between the phases', () => {
-    // Anything on the bar has to land in some phase, or the status page would
-    // have nothing to say about it.
     for (let p = 0; p <= 1.0001; p += 0.01) {
       expect(['reading', 'verifying', 'classifying']).toContain(phaseFor(p))
     }

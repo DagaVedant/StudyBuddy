@@ -1,27 +1,3 @@
-/**
- * Removes questions that were read off an answer key or solutions page.
- *
- * Extraction now refuses to store these ({@link isAnswerPage}, in
- * lib/questions/answer-key.ts), but sheets processed before that still hold
- * them: sixteen rows across the Edison run, with prompts like `Answer: D` and
- * the printed numbers of the questions they were the answers to. Those numbers
- * are the damage. The coverage audit counted them as the questions they
- * answered and reported `test8_15` at 100 % recall while the sheet was missing
- * eight of its fifteen.
- *
- *   npx tsx scripts/purge-answer-page-rows.ts                    # dry run, all sheets
- *   npx tsx scripts/purge-answer-page-rows.ts edison_topic_test4 # dry run, one prefix
- *   npx tsx scripts/purge-answer-page-rows.ts edison --apply --out C:\backup.json
- *
- * Dry run by default. Everything it deletes is written to the backup file
- * first, options and topics included, because `questions` cascades to five
- * tables and a delete here is not recoverable from the row alone.
- *
- * Refuses any row a student has touched. An answer-key row should never have an
- * attempt or a review card against it, and if one does then either the
- * detection is wrong or somebody has been practising against it; both are
- * reasons to stop rather than to delete.
- */
 import { config } from 'dotenv'
 
 config({ path: '.env.local' })
@@ -64,10 +40,6 @@ async function main() {
   const apply = flag('apply')
   const out = option('out') ?? `answer-page-rows-backup.json`
 
-  // The dry run is read-only and useful against production, so only the writing
-  // form is gated. With no prefix the query is `title like '%'`, which is every
-  // worksheet on every account, and `--apply` is one word away from the dry run
-  // the operator has just read and agreed with.
   if (apply) requireLocalDb()
 
   const sql = connect(url)

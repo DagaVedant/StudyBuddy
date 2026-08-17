@@ -46,23 +46,12 @@ export default async function ProfilePage() {
         username={account.username}
         email={account.email}
         image={account.image}
-        // Formatted here rather than on the client: a Date crossing the
-        // server boundary is fine, but there is nothing the client needs to
-        // recompute this for, and doing it here is one less thing that could
-        // render differently between the server pass and the browser's own
-        // locale guess.
         memberSince={MEMBER_SINCE.format(account.createdAt)}
         worksheetsUploaded={overview.worksheetsUploaded}
         accuracy={accuracy}
         streak={streak}
       />
 
-      {/*
-        Rendered here rather than inside the client component, the same
-        reason app-topbar.tsx keeps its own copy: an inline server action has
-        to be defined in server code, and passing one down as a prop just to
-        avoid two small forms is not a saving.
-      */}
       <div className="mx-auto w-full max-w-2xl px-4 pb-8 sm:px-6">
         <section aria-labelledby="account-heading" className="card p-4">
           <h2 id="account-heading" className="text-sm font-medium">
@@ -81,8 +70,6 @@ export default async function ProfilePage() {
               </button>
             </form>
 
-            {/* Not duplicated here: Settings already has the one irreversible
-                control in the product, typed-address confirmation and all. */}
             <Link href="/settings" className="hint underline underline-offset-2">
               Delete account
             </Link>

@@ -21,7 +21,6 @@ function mc(labels: string[], correct: string): ExportQuestion['choices'] {
   }))
 }
 
-/** The lines Blooket actually reads: it drops the first two by position. */
 function dataLines(csv: string): string[] {
   return csv.trimEnd().split('\r\n').slice(2)
 }
@@ -35,10 +34,6 @@ function fields(line: string): string[] {
 
 describe('toBlooketCsv', () => {
   it('writes every line ten fields wide, including the two Blooket discards', () => {
-    // The parser runs with relax_column_count off and silently retries with a
-    // semicolon delimiter when the comma parse throws. A ragged file therefore
-    // imports zero questions and reports nothing, which is the single worst
-    // failure this format has.
     const { csv } = toBlooketCsv([
       question({ id: 'a', choices: mc(['A', 'B', 'C', 'D'], 'C') }),
       question({ id: 'b', promptText: 'Name the capital.', correctAnswer: 'Paris' }),
@@ -68,9 +63,6 @@ describe('toBlooketCsv', () => {
   })
 
   it('renumbers the answers after trimming a five-option question to four', () => {
-    // Blooket has nowhere to put a fifth option. Dropping from the end would
-    // have dropped this question's answer, and a silently wrong key is worse
-    // than a missing question.
     const choices = mc(['A', 'B', 'C', 'D', 'E'], 'E')
     const { csv } = toBlooketCsv([question({ choices })])
     const row = fields(dataLines(csv)[0])
@@ -103,8 +95,6 @@ describe('toBlooketCsv', () => {
   })
 
   it('rebuilds the two options of a true or false question', () => {
-    // Typed answers are matched exactly, so asking this one by typing would
-    // score "T" and "true" as wrong.
     const { csv } = toBlooketCsv([
       question({
         questionType: 'true_false',
@@ -199,9 +189,6 @@ describe('exportFilename', () => {
   })
 
   it('strips the characters that would break the Content-Disposition header', () => {
-    // The name goes inside a quoted `filename="..."`. A title carrying a quote
-    // would close that quoting early and truncate the header, so titles are
-    // reduced to a safe alphabet rather than escaped.
     const name = exportFilename('2026-08-10', 'Unit 3 "Review", part 2\\')
 
     expect(name).toBe('studybuddy-missed-unit-3-review-part-2-2026-08-10.csv')
@@ -209,8 +196,6 @@ describe('exportFilename', () => {
   })
 
   it('falls back to the plain name when a title reduces to nothing', () => {
-    // Any ASCII at all survives and is used, digits included, so this needs a
-    // title with none: `数学 第3回` slugs to `3`, which is poor but harmless.
     expect(exportFilename('2026-08-10', '数学')).toBe('studybuddy-missed-2026-08-10.csv')
   })
 

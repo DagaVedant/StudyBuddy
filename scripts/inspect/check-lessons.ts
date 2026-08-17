@@ -5,29 +5,6 @@ config({ path: '.env.local', quiet: true })
 import { trimLessonBody } from '../../lib/topics/lesson-body'
 import { openDatabase } from '../db'
 
-/**
- * Looks for a lesson that says the same thing twice.
- *
- * The page renders body_md, then the worked examples under their own heading,
- * then the common errors under theirs. A body that carries its own list of
- * examples or pitfalls is shown to the reader alongside the real ones, and the
- * prompt cannot be trusted to have been obeyed: the first attempt used a `##`
- * heading, and once that was forbidden by name the next used a bold line and
- * the same four mistakes.
- *
- * So this matches on the shape rather than on any one label. Run it after
- * generating lessons, and after any change to LESSON_SYSTEM.
- *
- * `--fix` repairs what it finds by running the same trim the generator now
- * applies on the way in, which costs no GPU and keeps the prose that was
- * already written. Only lessons generated before that trim existed need it;
- * regenerating them would spend a minute each to rewrite text that is fine
- * apart from a section the page renders itself.
- *
- *   npx tsx scripts/check-lessons.ts [--fix]
- */
-
-/** A heading or a bold line that introduces a collected list. */
 const COLLECTED = [
   { label: 'examples', pattern: /(^|\n)\s*(#{1,4}\s*|\*\*)\s*(worked\s+)?examples?\b/i },
   {
@@ -66,8 +43,6 @@ async function main(): Promise<void> {
       const trimmed = trimLessonBody(row.body_md)
       const left = COLLECTED.filter((c) => c.pattern.test(trimmed)).map((c) => c.label)
 
-      // Trimming to nothing means the body was only its duplicated sections,
-      // so there is no walkthrough to keep and this one needs regenerating.
       if (trimmed.length > 0 && left.length === 0) {
         await sql`update topic_lessons set body_md = ${trimmed} where topic_id = ${row.topic_id}`
         note = ` (repaired, ${row.body_md.length} -> ${trimmed.length} chars, dropped ${hits.join(', ')})`
@@ -76,9 +51,6 @@ async function main(): Promise<void> {
       }
     }
 
-    // The prompt asks for exactly two examples and three to five errors. Fewer
-    // is not a duplication problem but it is still a lesson worth rewriting,
-    // and it is checked whether or not this run repaired the body.
     const thin: string[] = []
     if ((row.examples?.length ?? 0) < 2) thin.push(`${row.examples?.length ?? 0} examples`)
     if ((row.common_errors?.length ?? 0) < 3) thin.push(`${row.common_errors?.length ?? 0} errors`)

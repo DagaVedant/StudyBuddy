@@ -8,13 +8,6 @@ import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ worksheetId: string }> }
 
-/**
- * The worksheet's questions as extracted, for the review pass.
- *
- * The coverage endpoint reports printed numbers only, which is all the audit
- * needs to find a gap. Judging whether a question came out *whole* needs its
- * text and options, so this returns them.
- */
 export async function GET(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {

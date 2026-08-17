@@ -4,20 +4,6 @@ import { useId, useRef, useState } from 'react'
 
 import { fetchJson } from '@/lib/client/fetch-json'
 
-/**
- * The only irreversible control in the product.
- *
- * There was no way to delete an account at all, which for something holding a
- * student's answer history is not a missing nicety. What it takes is everything
- * the account has: worksheets, page images, every answer, and a spaced
- * repetition schedule that may be months of work.
- *
- * So the shape is deliberate. It sits behind a details element rather than in
- * the flow of the page, the dialog names what goes, and the address on the
- * account has to be typed rather than a box ticked. None of that is friction
- * for its own sake: two taps in the wrong place is a plausible way to lose a
- * term's work, and this is the one action nothing can undo.
- */
 export default function DeleteAccount({ email }: { email: string }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const confirmId = useId()
@@ -44,9 +30,6 @@ export default function DeleteAccount({ email }: { email: string }) {
         throw new Error(body?.error ?? 'Could not delete the account')
       }
 
-      // A hard navigation, not `router.push`. The session cookie is gone and
-      // every cached server component in the client router belongs to an
-      // account that no longer exists.
       window.location.href = '/'
     } catch (cause) {
       setDeleting(false)

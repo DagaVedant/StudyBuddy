@@ -10,16 +10,6 @@ const bodySchema = z.object({
   username: z.string().trim().max(80).nullable(),
 })
 
-/**
- * Saves the display name and username from the profile page.
- *
- * Neither authenticates anything, so unlike email there is no verification
- * step and no account-recovery consequence to a typo: this is closer to the
- * `name` field OAuth already writes than to anything security-sensitive.
- *
- * The checking itself lives in `saveIdentity` (lib/auth/identity.ts), which
- * this only calls: that split is what lets it be tested without a session.
- */
 export async function PATCH(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {

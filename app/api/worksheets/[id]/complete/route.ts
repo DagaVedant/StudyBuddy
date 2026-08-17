@@ -15,18 +15,6 @@ import { claimWorksheetForCompletion, transitionWorksheet } from '@/lib/upload/c
 import { guardWorksheet } from '@/lib/upload/guard'
 import { drainServerQueue } from '@/lib/worker/server-job'
 
-/**
- * Ceiling for this invocation, and therefore for the `after()` callback below.
- *
- * Next's own docs are explicit that `after` is bounded by `maxDuration` rather
- * than running free once the response is sent, so a Tier B extraction started
- * there gets whatever is left of this budget. The default is far shorter than
- * a worksheet takes, which is what made a long extraction die partway and
- * retry from its checkpoint.
- *
- * 300 is the ceiling on Vercel's Pro plan; a job that needs longer than five
- * minutes is one the checkpoint is there to resume.
- */
 export const maxDuration = 300
 
 type Params = { params: Promise<{ id: string }> }
@@ -37,7 +25,6 @@ const claimForCompletion = (
   tierUsed: 'trial' | 'free' | 'cloud' | 'ollama',
 ) => claimWorksheetForCompletion(db, worksheetId, status, tierUsed)
 
-/** Where a worksheet that was already completed should send the student. */
 async function alreadyCompleted(worksheetId: string) {
   const [current] = await db
     .select({ status: worksheets.status, tierUsed: worksheets.tierUsed })
@@ -51,8 +38,6 @@ async function alreadyCompleted(worksheetId: string) {
     ok: true,
     tier: current?.tierUsed ?? null,
     mode: queued ? 'queued' : 'manual',
-    // Said plainly rather than silently, so a caller that retried can tell the
-    // difference between its work being done and being done twice.
     alreadyCompleted: true,
     next: queued
       ? `/worksheets/${worksheetId}/status`
@@ -67,7 +52,6 @@ export async function POST(_request: Request, { params }: Params) {
   if (!guard.ok) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
   }
-
 
   const { tier, executor } = await resolveProvider(db, guard.userId)
 
@@ -85,15 +69,6 @@ export async function POST(_request: Request, { params }: Params) {
   }
 
   if (executor === 'operator_gpu') {
-    // Before the claim and before the charge, so a refusal costs the student
-    // neither a trial credit nor their worksheet's status. spec.md:583 caps
-    // this at one, and nothing enforced it: the enqueue endpoint would take as
-    // many worksheets as a script could post, and one account could hold the
-    // whole queue against everyone else.
-    //
-    // Falls through to the manual editor rather than erroring, which is what
-    // the exhausted-trial branch below already does. The student gets a working
-    // screen and a reason, instead of a worksheet stuck mid-upload.
     if (
       guard.role !== 'admin' &&
       (await inFlightExtractCount(db, guard.userId)) >= MAX_IN_FLIGHT_EXTRACTS
@@ -113,8 +88,6 @@ export async function POST(_request: Request, { params }: Params) {
       })
     }
 
-    // Claimed before the trial is charged, so a losing request cannot spend
-    // one. If the charge then fails, the status is put back below.
     if (!(await claimForCompletion(worksheetId, 'queued', 'trial'))) {
       return alreadyCompleted(worksheetId)
     }
@@ -125,8 +98,6 @@ export async function POST(_request: Request, { params }: Params) {
         : await consumeTrial(db, guard.userId, 'worksheets', 1)
 
     if (!charge.ok) {
-      // Only the claim above could have put it in `queued`, so that is the
-      // one state this fallback is allowed to move it out of.
       await transitionWorksheet(db, worksheetId, ['queued'], {
         status: 'awaiting_review',
         tierUsed: 'free',
@@ -164,15 +135,6 @@ export async function POST(_request: Request, { params }: Params) {
     })
   }
 
-  /*
-   * Tier C. Queued like the trial, but for a worker that is the student's own
-   * browser rather than the operator's GPU.
-   *
-   * No charge: the whole point of this tier is that the hardware is theirs, so
-   * there is no cost of ours to meter. And no `after()` drain, because unlike
-   * Tier B there is nothing here that can run it: `localhost:11434` is
-   * reachable from the tab and from nowhere else (spec.md:184).
-   */
   if (executor === 'browser') {
     if (!(await claimForCompletion(worksheetId, 'queued', tier))) {
       return alreadyCompleted(worksheetId)
@@ -206,12 +168,6 @@ export async function POST(_request: Request, { params }: Params) {
     priority: guard.role === 'admin' ? 'low' : 'normal',
   })
 
-  // Runs once this response has gone out. There is no separate worker process
-  // for Tier B to poll from. The extraction runs against the student's own
-  // key, reachable directly from here, so this request is what starts it.
-  // `.catch` is not optional here. `after` takes the promise and nothing else
-  // awaits it, so a rejection out of the drain was an unhandled rejection in
-  // the serverless runtime: the log said nothing and the queue stopped.
   after(() =>
     drainServerQueue(db).catch((error: unknown) => {
       console.error('[server-job] drain failed:', (error as Error).message)

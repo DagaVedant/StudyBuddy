@@ -1,8 +1,3 @@
-/**
- * `lib/taxonomy/trees.ts`. The shape of the canonical tree, and the counts the
- * landing page quotes off it, which have to stay true as topics are added.
- */
-
 import { describe, expect, it } from 'vitest'
 import { TAXONOMY, flattenTaxonomy, nameBySlug, pathBySlug, type TopicNode } from '@/lib/taxonomy/trees'
 import { SUBJECTS } from '@/components/dashboard-preview'
@@ -106,11 +101,6 @@ describe('flattenTaxonomy', () => {
   })
 })
 
-/**
- * Walking the tree is pure and the tree is a literal in the file, so it was
- * being rebuilt per request on four page routes, three of which then built a
- * `Map` over the result and threw that away too.
- */
 describe('the flattened tree is built once', () => {
   it('hands back the same array every time', () => {
     expect(flattenTaxonomy()).toBe(flattenTaxonomy())
@@ -140,12 +130,6 @@ describe('the flattened tree is built once', () => {
   })
 })
 
-/**
- * Segments are joined with dots into a path. An empty one leaves a trailing
- * dot, and every consumer then reads one level too many: `nearestAncestor`
- * splits on the dot and gets a blank last segment, and the shortlist's subtree
- * filter matches on a prefix ending in a separator.
- */
 describe('a name that slugifies to nothing', () => {
   it('still contributes a segment', () => {
     const flat = flattenTaxonomy([{ name: 'Maths', children: [{ name: '???' }] }])
@@ -165,16 +149,6 @@ describe('a name that slugifies to nothing', () => {
 })
 
 describe('the numbers the landing page quotes', () => {
-/**
- * The marketing page names four topics and says they are real taxonomy names.
- *
- * Three of them were not. `Ratio & proportion`, `Linear equations` and
- * `Reading inference` appear nowhere in the tree, so the one claim the page
- * made about its own honesty was the claim that was false, and a reader who
- * went looking for one of them found nothing.
- *
- * A comment cannot hold that. This can.
- */
 describe('the topics named on the marketing page', () => {
   const leaves = [...flattenTaxonomy()].filter((node) => node.isLeaf)
   const names = new Set(leaves.map((node) => node.name))
@@ -183,19 +157,13 @@ describe('the topics named on the marketing page', () => {
     expect(names.has(name)).toBe(true)
   })
 
-  // The counter animates up to a total the pills are supposed to explain, so a
-  // pill edited without the total is a page that visibly does not add up.
+  
+  
   it('adds up to the total the counter lands on', () => {
     expect(TOPICS.reduce((sum, topic) => sum + topic.count, 0)).toBe(24)
   })
 })
 
-/**
- * The dashboard mock beside it makes a narrower claim: its By-subject panel is
- * a picture of what `rollUp` produces, and `rollUp` groups by `subjectRoot`.
- * There are four of those. The mock showed "Algebra 1", which is real but three
- * levels down the tree, so it advertised a row the product cannot draw.
- */
 describe('the subjects in the dashboard mock', () => {
   const roots = new Set(
     [...flattenTaxonomy()].filter((node) => node.depth === 0).map((node) => node.name),

@@ -96,9 +96,6 @@ async function main() {
     executionSite: 'operator_gpu',
   })
 
-  // listModels is Ollama's own, not part of the provider contract, so it is
-  // asked of the raw client; everything the benchmark measures goes through
-  // the wrapper, the same as production.
   const provider = validated(raw)
 
   console.log(`Ollama: ${baseUrl}`)

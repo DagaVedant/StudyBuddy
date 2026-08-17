@@ -2,18 +2,6 @@ import Mark from './mark'
 
 import styles from './hero.module.css'
 
-/**
- * The four topics the demo extracts. Kept honest on purpose: these are real
- * taxonomy names, each one is the topic of the matching question in
- * QUESTIONS below, and they add up to the 24 the counter lands on.
- *
- * "Kept honest on purpose" was not true when it was written: three of the four
- * were invented, and only `Vocabulary in context` existed in the tree. Somebody
- * arriving from this page and searching for `Reading inference` would have
- * found nothing. `tests/unit/hero-topics.test.ts` now asserts every one of
- * these against `flattenTaxonomy()`, so the comment is checked rather than
- * merely claimed.
- */
 export const TOPICS = [
   { name: 'Ratios and rates', count: 6 },
   { name: 'Multi-step equations', count: 5 },
@@ -23,28 +11,15 @@ export const TOPICS = [
 
 const TOTAL = TOPICS.reduce((sum, topic) => sum + topic.count, 0)
 
-/**
- * Decay, reset, decay again, each reset buying longer than the last. Shared
- * by the drawn line and the highlight that runs along it, so the two can
- * never drift apart.
- */
 const CURVE =
   'M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76'
 
-/** The three review peaks, as percentages of the curve's 160x90 box. */
 const REVIEWS = [
   { left: '21.25%', top: '40%' },
   { left: '38.75%', top: '46.7%' },
   { left: '61.25%', top: '55.6%' },
 ] as const
 
-/**
- * The worksheet being read. These are verbatim stems from the 2024 SHSAT
- * sample form in `benchmark/input`: one per topic above, in the same order,
- * so the boxes that snap on and the pills that fly in describe each other.
- * Placeholder bars would have shown the mechanism; the real sentences show
- * the product.
- */
 const QUESTIONS = [
   'A child grows 1 1/4 inches in 1/3 of a year. What would be his yearly growth rate in inches per year?',
   'If (3/5 − 1/2)x = 1/4 + 2/3, what is the value of x?',
@@ -74,9 +49,6 @@ export default function Hero({ children }: { children: React.ReactNode }) {
             <span className="sr-only">
               {TOTAL} questions found in one worksheet
             </span>
-            {/* Not "scheduled". Extraction schedules nothing: a review card
-                is created when the student marks the sheet, and only for the
-                ones they got wrong. */}
             <p className="hint mt-1">pulled out, tagged and ready to mark</p>
 
             <ul className={styles.topics}>
@@ -101,13 +73,6 @@ export default function Hero({ children }: { children: React.ReactNode }) {
 
         {children}
 
-        {/*
-          This read "then each one comes back on the day you are about to lose
-          it", which promised two things the product does not do. Nothing comes
-          back: there is no mail, no push, no notification channel of any kind,
-          and the student is the one who opens the app. And not each one: a
-          question answered correctly never becomes a card at all.
-        */}
         <p className={`${styles.caption} text-sm text-pretty text-muted`}>
           Then the ones you missed are waiting in review, spaced to the day you
           are about to forget them. That is the curve behind this page.
@@ -122,11 +87,6 @@ export default function Hero({ children }: { children: React.ReactNode }) {
   )
 }
 
-/**
- * Ebbinghaus, roughly: memory decays, a review resets it, and each reset
- * buys longer than the last. Schematic rather than plotted; it is stretched
- * to the viewport width, so it carries the shape and not the numbers.
- */
 function Curve() {
   return (
     <div className={styles.plot} aria-hidden="true">
@@ -135,8 +95,6 @@ function Curve() {
           className={styles.area}
           d="M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76 L154,90 L6,90 Z"
         />
-        {/* The box is stretched to the viewport, so the stroke has to opt out
-            of that scaling or it renders ~9x too heavy on a wide screen. */}
         <path
           className={styles.curve}
           vectorEffect="non-scaling-stroke"
@@ -144,12 +102,9 @@ function Curve() {
         />
       </svg>
 
-      {/* Draws the line on, then runs a band of light back along it. */}
       <div className={styles.wipe} />
       <div className={styles.sweep} />
 
-      {/* Review points as elements rather than SVG circles: a circle in a
-          stretched viewBox is an ellipse. */}
       {REVIEWS.map((review) => (
         <span
           key={review.left}

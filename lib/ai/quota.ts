@@ -128,10 +128,6 @@ export async function refundTrial(
     .set({ [fieldFor(kind)]: sql`greatest(${column} - ${amount}, 0)` })
     .where(eq(users.id, userId))
 
-  // Only the events this refund actually pays back: the matching kind, and no
-  // more of them than the refunded amount covers. Marking every unrefunded row
-  // for the account let a failed worksheet clear the user's explanation events
-  // too, so a later refund found nothing left to mark.
   const pending = await db
     .select({ id: usageEvents.id, quantity: usageEvents.quantity })
     .from(usageEvents)

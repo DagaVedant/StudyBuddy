@@ -1,14 +1,7 @@
-/**
- * `lib/questions/numbering.ts`, in the order its three functions run: read what
- * a page prints, turn that into the numbers the page carries, then fill in the
- * questions no page numbered.
- */
-
 import { describe, expect, it } from 'vitest'
 import { inferPrintedNumbers, printedNumbersFor, questionsOnPage, type NumberedQuestion } from '@/lib/questions/numbering'
 
 describe('questionsOnPage', () => {
-/** edison_topic_test2_20 page 1, verbatim, down to where the page break falls. */
 const PAGE_1 = `Edison Academy Magnet School
 Section 2: Percents Practice
 AMC 8 / MATHCOUNTS Style - No Calculator Permitted - 40 Minutes
@@ -50,21 +43,10 @@ describe('questionsOnPage', () => {
     expect(shown(PAGE_1, 2)).toEqual(['A. $54', 'B. $60', 'C. $52', 'D. $72'])
   })
 
-  /**
-   * The page break falls inside question 7's option list. A short run is what
-   * the carried-options recovery needs: a stem holding A, B and C is how it
-   * knows to go and look for D at the top of the next page.
-   */
   it('returns the short run a page break left behind', () => {
     expect(shown(PAGE_1, 7)).toEqual(['A. $45.00', 'B. $3.60', 'C. $49.50'])
   })
 
-  /**
-   * The question-start pattern in page-text.ts demands prose after the number,
-   * so it misses both of these. That matters twice over: the question is
-   * skipped, and because nothing marks where it begins, the option list above
-   * it swallows the whole stem.
-   */
   it('finds a question that opens with a numeral', () => {
     const page = `10. A shirt costs $40 after a 20% discount. What was the original price?
 A. $50
@@ -101,8 +83,6 @@ C. The total is unchanged`
       'A. The total increases, because both factors grow\nat the same rate',
     )
   })
-
-  // Everything below would hand a question the wrong answers.
 
   it('takes nothing from a block whose options do not start at A', () => {
     const page = `9. What is the remainder?
@@ -154,9 +134,6 @@ C. 84`
 })
 
 describe('printedNumbersFor', () => {
-// Page 2 of topic_test3_20, which prints 9 to 13. Re-read on its own, the
-// model returned these numbered from 1 and ingest stored that, landing them on
-// top of page 1's real 1-7.
 const PAGE = `B. 20
 C. 15
 D. 24
@@ -235,7 +212,6 @@ function q(
 }
 
 describe('inferPrintedNumbers', () => {
-  // Form B, page 5. Question 4 was extracted and arrived with no number.
   it('fills a blank sitting in a gap of one', () => {
     const fixes = inferPrintedNumbers(
       [q(4, 3), q(5, null, 'blank'), q(8, 5)],
@@ -245,8 +221,6 @@ describe('inferPrintedNumbers', () => {
     expect(fixes).toEqual([{ id: 'blank', from: null, to: 4, reason: 'filled-blank' }])
   })
 
-  // Form A, page 58. Question 113 came back labelled 1, which already existed
-  // earlier, and 114 came back blank.
   it('corrects a stray number and fills the blank beside it', () => {
     const fixes = inferPrintedNumbers(
       [q(3, 1), q(57, 112), q(58, 1, 'stray'), q(58, null, 'blank')],
@@ -271,7 +245,6 @@ describe('inferPrintedNumbers', () => {
     ])
   })
 
-  // The whole point. A plausible lie is worse than a visible blank.
   it('refuses when more numbers are free than there are questions', () => {
     expect(
       inferPrintedNumbers([q(1, 10), q(2, null, 'a'), q(5, 20)], 20),
@@ -309,16 +282,12 @@ describe('inferPrintedNumbers', () => {
     expect(inferPrintedNumbers([], 10)).toEqual([])
   })
 
-  // Without a stated total it can still close interior gaps, but it must not
-  // invent questions past the highest number it actually saw.
   it('works without an expected total', () => {
     const fixes = inferPrintedNumbers([q(1, 1), q(2, null, 'a'), q(3, 3)], null)
     expect(fixes).toEqual([{ id: 'a', from: null, to: 2, reason: 'filled-blank' }])
   })
 
   it('does not renumber a duplicate that is in the right place', () => {
-    // Two rows genuinely claiming 5 with nothing missing around them: this is
-    // a duplicate to merge, not a numbering fault to repair.
     expect(inferPrintedNumbers([q(1, 4), q(2, 5), q(2, 5), q(3, 6)], 6)).toEqual([])
   })
 })

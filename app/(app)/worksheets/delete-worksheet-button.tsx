@@ -50,14 +50,6 @@ export default function DeleteWorksheetButton({ worksheetId, title }: Props) {
         }}
       >
         <div className="text-center">
-          {/*
-            An inline SVG rather than 🗑️, which was the only emoji in the
-            product. An emoji is painted by the platform: it is a different
-            drawing on Windows, macOS and Android, it ignores the theme, and at
-            text-3xl it was the loudest thing in a dialog whose job is to make
-            someone stop and read. This inherits currentColor and sits in the
-            danger tint the two themes already define.
-          */}
           <span
             aria-hidden="true"
             className="mx-auto flex size-11 items-center justify-center rounded-full bg-danger/10 text-danger"

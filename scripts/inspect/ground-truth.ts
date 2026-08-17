@@ -1,28 +1,3 @@
-/**
- * Checks what was stored against the papers themselves.
- *
- * `scripts/inspect/audit-worksheets.ts` compares the database with itself, which is why
- * it reported `test8_15` at 100 % recall while the sheet was missing eight of
- * its fifteen questions: the numbers it was counting had come from the
- * solutions page. That whole class of failure was found once, by reading the
- * source PDFs and diffing them by hand. This is that comparison, checked in, so
- * it runs after every batch instead of being done once and trusted.
- *
- * The rule it encodes: a claim that a run was correct has to come from the
- * paper. The pipeline's opinion of its own output is not evidence, however
- * confident the numbers look.
- *
- *   npx tsx scripts/inspect/ground-truth.ts                    # PDFs from ~/Downloads
- *   npx tsx scripts/inspect/ground-truth.ts ~/papers           # from somewhere else
- *   npx tsx scripts/inspect/ground-truth.ts ~/papers --verbose # list every difference
- *
- * Ground truth is the paper's own answer key, not a heuristic: it states which
- * questions exist and what each answer is, in the document being checked, and
- * it is machine-readable. A paper without one cannot be checked this way and is
- * reported as such rather than passed.
- *
- * Exits non-zero when anything differs, so it can gate a run.
- */
 import { config } from 'dotenv'
 
 config({ path: '.env.local' })
@@ -43,26 +18,13 @@ import { questionNumbersOn } from '../../lib/questions/page-text'
 import { normalizeChoiceLabel } from '../../lib/questions/shape'
 import { connect } from '../db'
 
-/**
- * PDFs whose filename is not the worksheet title they were stored under.
- *
- * Empty, and worth keeping empty. It existed for one entry:
- * `edison_topic_test1_20.pdf` had gone in as `edison_section1_practice`, so
- * nothing in the database recorded that they were the same paper. The
- * worksheet has since been renamed to match its source, which is the repair
- * this map was standing in for.
- *
- * Kept rather than deleted because the situation recurs: a paper uploaded under
- * a name the operator chose is not a data error, and one line here is cheaper
- * than teaching this harness to guess.
- */
 const ALIASES: Record<string, string> = {}
 
 const STANDARD_FONTS = pathToFileURL(
   join(
     dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json')),
     'standard_fonts',
-    // pdf.js joins the filename onto this, so it has to end in a separator.
+    
     '/',
   ),
 ).href
@@ -75,7 +37,7 @@ interface PaperPage {
 interface Paper {
   name: string
   pages: PaperPage[]
-  /** Printed number to the letter the paper says is correct. */
+  
   key: Map<number, string>
 }
 
@@ -85,9 +47,6 @@ async function readPaper(path: string): Promise<Paper> {
   const data = new Uint8Array(await readFile(path))
   const doc = await pdfjs.getDocument({
     data,
-    // Only the text layer is wanted, and pdf.js warns once per page per font
-    // when it cannot find the standard font data it would need to *draw* one.
-    // Pointing it at the copy in node_modules keeps that off the report.
     standardFontDataUrl: STANDARD_FONTS,
     verbosity: 0,
   }).promise
@@ -98,9 +57,9 @@ async function readPaper(path: string): Promise<Paper> {
     const page = await doc.getPage(pageNumber)
     const content = await page.getTextContent()
 
-    // Newlines kept, unlike the benchmark rasteriser, which flattens to one
-    // line: the key grid and the question-start patterns are both anchored to
-    // a whole line and neither can be read off a single long string.
+    
+    
+    
     let text = ''
     let lastY: number | null = null
 
@@ -231,7 +190,7 @@ interface Diff {
   noOptions: number[]
   shortOptions: number[]
   onAnswerPages: number
-  /** Page the paper prints each missing question on, where it can be worked out. */
+  
   blame: Map<number, number>
 }
 
@@ -262,10 +221,10 @@ function compare(paper: Paper, stored: Stored): Diff {
   const noOptions: number[] = []
   const shortOptions: number[] = []
 
-  // How many options this paper gives a question, taken from the key rather
-  // than from what was stored: the highest letter the paper ever answers with.
-  // A lower bound, since a paper can go a whole sheet without the answer being
-  // E, and a lower bound only ever under-reports.
+  
+  
+  
+  
   const optionCount = Math.max(
     ...[...paper.key.values()].map((label) => label.charCodeAt(0) - 'A'.charCodeAt(0) + 1),
   )
@@ -282,9 +241,9 @@ function compare(paper: Paper, stored: Stored): Diff {
       wrongAnswer.push({ number, paper: want, stored: row.correctAnswer })
     }
 
-    // The paper answers this with a letter, so the question had options. A
-    // stored row that cannot offer the letter the key names is unusable
-    // however right the rest of it is.
+    
+    
+    
     if (!labels.includes(want)) noOptions.push(number)
     else if (labels.length < optionCount) shortOptions.push(number)
   }

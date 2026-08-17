@@ -7,36 +7,6 @@ import { renumberQuestions } from '@/lib/worker/renumber'
 import { repairUnrenderedMath } from '@/lib/worker/repair-math'
 import { repairPrintedNumbers } from '@/lib/worker/repair-numbers'
 
-/**
- * The repair passes, in the one order they are allowed to run in.
- *
- * This existed four times (twice in the worker job route, once in the Tier B
- * server job, once in the audit script) in four different orders, and no two
- * of them agreed on which passes ran at all. Tier B was missing the split join
- * and the carried-options recovery entirely, so a question cut in half by a
- * page break stayed cut in half for anyone using their own cloud key. That is
- * not a subtle consequence of the duplication; it is the duplication.
- *
- * The order below is not arbitrary and is the reason this is one function
- * rather than a list callers assemble:
- *
- *   join      first, so a question the page break cut in two is whole before
- *             anything else counts it, numbers it, or offers it options.
- *   carried   after the join, so a question made whole from two rows is not
- *             handed the same options a second time off the page text.
- *   math      before the hash-sensitive passes: it rewrites mangled LaTeX and
- *             rehashes, so two copies of one question that differ only in
- *             whether `\frac` survived the JSON parser end up with the same
- *             content hash and the merge can actually see them as duplicates.
- *   numbers   before the renumber, because a recovered printed number changes
- *             where its question belongs in the order.
- *   merge     after the number repair, so the surviving row can inherit the
- *             number the phantom was occupying.
- *   renumber  after everything that adds, drops or moves rows.
- *   answers   last, and only here: it matches the paper's key on the printed
- *             number, so it has to run once every pass that can change a
- *             printed number has finished.
- */
 const ORDER = [
   'join',
   'carried',
@@ -57,11 +27,7 @@ export interface RepairCounts {
   merged: number
   renumbered: number
   answered: number
-  /**
-   * Printed numbers two questions both claim after every repair has run. Not a
-   * count of work done: it is what the renumber pass could not reconcile, and
-   * the tell that a solutions page was read as a second copy of the paper.
-   */
+  
   duplicateNumbers: number[]
 }
 
@@ -77,22 +43,12 @@ const NONE: RepairCounts = {
 }
 
 export interface RepairOptions {
-  /**
-   * Which passes to run. Filters the canonical order; it does not reorder it,
-   * which is the whole point. Defaults to all six.
-   */
+  
   only?: readonly RepairPass[]
-  /** Prefix for the per-pass log lines. Pass null to stay quiet. */
+  
   log?: string | null
 }
 
-/**
- * Runs the repair passes over one worksheet and reports what each one changed.
- *
- * Every pass is idempotent: running the set twice is how the job already
- * works, because a split only becomes visible once both halves are stored and
- * the review pass keeps adding rows after the first run.
- */
 export async function runRepairPasses(
   db: Db,
   worksheetId: string,
@@ -100,7 +56,7 @@ export async function runRepairPasses(
 ): Promise<RepairCounts> {
   const wanted = new Set<RepairPass>(options.only ?? ORDER)
   const log = options.log === undefined ? '' : options.log
-  // Fresh array rather than the one on NONE, which every caller would share.
+  
   const counts: RepairCounts = { ...NONE, duplicateNumbers: [] }
 
   const note = (message: string) => {
@@ -163,16 +119,6 @@ export async function runRepairPasses(
   return counts
 }
 
-/**
- * The passes worth running before the audit reads the numbering.
- *
- * Numbering is deliberately left out: the audit and the review pass both still
- * add and replace rows after this point, and anything they write takes the next
- * free ordinal, which is what put a re-read question at 135 on a 114 question
- * paper. Renumbering happens once, at the end, in {@link FINAL_PASSES}, and the
- * answer key with it, since it can only match once the numbers have settled.
- */
 export const VERIFYING_PASSES = ['join', 'carried', 'math', 'merge'] as const
 
-/** Everything, run once the last re-read is in. */
 export const FINAL_PASSES = ORDER

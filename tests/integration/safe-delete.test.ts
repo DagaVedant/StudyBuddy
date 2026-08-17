@@ -25,7 +25,6 @@ afterAll(async () => {
 
 const client = () => asDb(db)
 
-/** The pair the merge exists to fold: one printed number, two rows. */
 async function seedDuplicatePair(userId: string, worksheetId: string) {
   const prompt = 'A rectangular garden measures 12 m by 8 m. What is its area?'
 
@@ -49,16 +48,11 @@ async function seedDuplicatePair(userId: string, worksheetId: string) {
 }
 
 describe('the repair passes and a student’s work', () => {
-  // The assumption the passes used to carry: nothing downstream points at
-  // these rows, because the student has not reached markup. True of a first
-  // run, false of every re-run, and `questions` cascades to attempts and
-  // review cards, so the deletion took both with it and said nothing.
   it('does not merge away a question the student has answered', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
     const [first, second] = await seedDuplicatePair(userId, worksheetId)
 
-    // Against both, so whichever the planner picks to drop is protected.
     for (const questionId of [first, second]) {
       await db.insert(attempts).values({
         userId,
@@ -98,8 +92,6 @@ describe('the repair passes and a student’s work', () => {
     expect(left).toHaveLength(1)
   })
 
-  // A review card is the other thing that cascades, and it is the one the
-  // student cannot rebuild: it carries the whole revision schedule.
   it('does not merge away a question that carries a review card', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
@@ -145,15 +137,6 @@ describe('the repair passes and a student’s work', () => {
   })
 })
 
-/**
- * The fourth way a question gets deleted, which had no guard at all.
- *
- * The three passes above go through `deletableQuestionIds`. The audit re-read
- * does not: it posts `page_review`, and the job route deleted every doubted row
- * outright. So a worksheet the student had already marked up could lose an
- * answered question, its attempt and its review card, and the job would report
- * the row as replaced exactly as it does on a clean run.
- */
 describe('partitionByDeletability', () => {
   it('holds back the rows somebody has answered and passes the rest', async () => {
     const userId = await makeUser(db)
@@ -174,8 +157,6 @@ describe('partitionByDeletability', () => {
 
     const { removable, held } = await partitionByDeletability(client(), rows)
 
-    // The whole row comes back, not just the id: the re-read needs the printed
-    // number to pair the row with its replacement.
     expect(held).toEqual([{ id: answered, printedNumber: 1 }])
     expect(removable).toEqual([{ id: untouched, printedNumber: 2 }])
   })
@@ -215,16 +196,6 @@ describe('partitionByDeletability', () => {
   })
 })
 
-/**
- * The composition, which is where the fix actually lives.
- *
- * Holding the row back is only half of it. `planPageReplacement` pairs each
- * doubted row with the freshly read question that carries the same printed
- * number, so a held row whose replacement still went through would leave the
- * page holding both the student's answered question and its replacement: two
- * rows where the paper printed one. Filtering before the plan is built is what
- * drops the replacement with it.
- */
 describe('the audit re-read on a worksheet that has been marked up', () => {
   const pageText = '1. What is the area?  A. 96  B. 20\n2. And the perimeter?  A. 40  B. 96'
 
@@ -275,25 +246,11 @@ describe('the audit re-read on a worksheet that has been marked up', () => {
   })
 })
 
-/**
- * Both merge rules run off one snapshot and the plans are applied one by one,
- * so two plans could name the same printed number and the second would
- * overwrite the first, leaving two rows both claiming it. That is the exact
- * state the audit then tries to repair by deleting one of them.
- *
- * The collision is hard to construct deliberately, which is why it survived so
- * long: the number-duplicate rule refuses any group that is not exactly a pair,
- * so the obvious four-row seed folds nothing at all. What is testable, and what
- * actually matters, is the invariant on the way out. No number may be held
- * twice once the pass has run.
- */
 describe('printed numbers after a merge', () => {
   it('never leaves a number held by two rows', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
 
-    // A foldable pair on number 1, and a real neighbour on 2 for the survivor
-    // to collide with if the number were handed out carelessly.
     await seedDuplicatePair(userId, worksheetId)
 
     await db.insert(questions).values({

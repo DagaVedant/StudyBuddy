@@ -3,27 +3,11 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-/**
- * Every route, asked the one question that matters most: what does it do for a
- * caller who has not authenticated?
- *
- * There are twenty-nine of them and there was no test that held any of them to
- * refusing. That is the wrong shape for a surface where one missed gate is
- * somebody else's worksheets, so this covers all of them at once and, more
- * usefully, fails when a new one is added without a gate.
- *
- * Two claims per handler. It must not answer 2xx, and it must not write. The
- * second is the one that catches the interesting mistake: a route that reads
- * the body, does the work, and only then decides the caller was not allowed.
- */
-
 const state = vi.hoisted(() => ({
-  /** Anything that would have written. Must stay empty for every case here. */
   writes: [] as string[],
 }))
 
 vi.mock('@/auth', () => ({
-  // No session. The whole point.
   auth: async () => null,
   signOut: async () => {},
 }))
@@ -123,27 +107,14 @@ const pageLines = await import('@/app/api/worksheets/[id]/pages/[pageId]/lines/r
 const questions = await import('@/app/api/worksheets/[id]/questions/route')
 const verifyAll = await import('@/app/api/worksheets/[id]/check-all/route')
 
-/**
- * Route files that answer to neither a session nor a worker token, with the
- * reason each one is exempt. Anything not here has to appear in a list below.
- */
 const UNGATED_BY_DESIGN = new Set([
-  // Auth.js's own handler. It is the thing that issues sessions, so requiring
-  // one would leave nobody able to sign in.
   '/api/auth/[...nextauth]',
-  // Vercel's scheduler, authenticated by `authenticateCron` against CRON_SECRET
-  // rather than by a user. Covered by its own reasoning in lib/cron-auth.ts.
   '/api/cron/drain-server-queue',
-  // The e2e harness's own doors, which return 404 unless
-  // ENABLE_TEST_ENDPOINTS is set. lib/test-endpoints.ts is where that is
-  // argued; a session gate here would defeat the point, since the suite uses
-  // them to set up accounts.
   '/api/test/admin-account',
   '/api/test/topic-lesson',
   '/api/test/trial-worksheets-used',
 ])
 
-/** Every `route.ts` under app/api, as the path it serves. */
 function routePathsOnDisk(dir = 'app/api', prefix = '/api'): string[] {
   const found: string[] = []
 
@@ -174,7 +145,6 @@ const id = (value: Record<string, string>) =>
 
 const WS = id({ id: 'ws-1', worksheetId: 'ws-1' })
 
-/** name, handler, verb, context */
 const ROUTES: [string, Handler, string, never][] = [
   ['DELETE /api/account', account.DELETE as Handler, 'DELETE', undefined as never],
   [
@@ -243,13 +213,6 @@ const ROUTES: [string, Handler, string, never][] = [
   ['PATCH /api/worksheets/[id]', worksheet.PATCH as Handler, 'PATCH', WS],
   ['POST /api/worksheets/[id]/attempts', attempts.POST as Handler, 'POST', WS],
   ['PATCH /api/worksheets/[id]/attempts', attempts.PATCH as Handler, 'PATCH', WS],
-  /*
-   * Tier C's two, which are the operator worker's endpoints behind a session
-   * instead of `WORKER_API_TOKEN`. They belong in this list and not in
-   * WORKER_ROUTES below for exactly that reason: a missing gate here is not a
-   * worker misconfiguration, it is one student's worksheet pages handed to
-   * anybody who asks.
-   */
   ['POST /api/browser-jobs/claim', browserClaim.POST as Handler, 'POST', undefined as never],
   [
     'POST /api/browser-jobs/[jobId]',
@@ -348,26 +311,7 @@ describe('a caller with no session', () => {
     expect(state.writes).toEqual([])
   })
 
-  /*
-   * The lists above are hand-written, and this is what stops a route file being
-   * added without reaching one of them.
-   *
-   * It used to be `expect(ROUTES).toHaveLength(26)`, which does not do that. A
-   * hardcoded count only fails for somebody who edits the list, and the mistake
-   * worth catching is the opposite one: adding a route file and never thinking
-   * about this test at all. It caught nothing when
-   * `/api/browser-jobs/*` shipped, and it had never noticed that
-   * `/api/account/identity`, `/api/topics/[topicId]/lesson` and
-   * `/api/worksheets/[id]/go-manual` were missing either. All four were in fact
-   * gated; the point is that the suite could not have told anyone otherwise.
-   *
-   * Reading the tree is what makes it a guard rather than a tally.
-   */
   it('is asked about by every route in the tree', () => {
-    // Names above are written for a human reading a failure, so they say
-    // `/api/questions/[id]` where the directory is `[questionId]`. Which
-    // parameter a segment is called is not what this is checking, so both
-    // sides lose the names and keep the shape.
     const shape = (path: string) => path.replace(/\[[^\]]+\]/g, '[]')
 
     const covered = new Set(
@@ -413,11 +357,6 @@ describe('a caller with no worker credential', () => {
     },
   )
 
-  /**
-   * A worker route reached on a deployment with no token configured must refuse
-   * rather than wave everything through, which is what an `if (expected &&
-   * ...)` shaped check would do.
-   */
   it.each(WORKER_ROUTES)(
     '%s refuses when no token is configured at all',
     async (_name, handler, verb, context) => {
@@ -477,12 +416,6 @@ describe('a caller with no cron credential', () => {
   )
 })
 
-/**
- * These two create an admin account and rewrite trial usage. They exist for the
- * e2e suite and are gated on an opt-in flag, not on NODE_ENV, because that
- * suite runs a production build. 404 rather than 403, so a deployment does not
- * advertise that they are there.
- */
 describe('the test-only endpoints', () => {
   it.each(TEST_ROUTES)('%s is not there unless opted in', async (_name, handler, verb) => {
     delete process.env.ENABLE_TEST_ENDPOINTS

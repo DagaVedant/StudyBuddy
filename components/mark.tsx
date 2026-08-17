@@ -1,7 +1,3 @@
-/**
- * The StudyBuddy mark: four quarters, two filled, the split between what
- * you have got right and what you have not.
- */
 export default function Mark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true" className={className}>

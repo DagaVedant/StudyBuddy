@@ -7,9 +7,6 @@ import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
 import { openDatabase } from '../db'
 
 async function main() {
-  // The first argument that is not a flag, so `reset-trial --yes bob@x` does
-  // not take "--yes" for the address and report "no account: --yes", which
-  // reads exactly like the account not existing.
   const email = process.argv.slice(2).find((arg) => !arg.startsWith('--'))
   if (!email) throw new Error('Usage: npx tsx scripts/repair/reset-trial.ts <email> [--yes]')
 
@@ -17,9 +14,6 @@ async function main() {
 
   const sql = openDatabase()
 
-  // Read the counters first so the prompt can show what is being thrown away.
-  // An email is one account rather than a wildcard, but it is still somebody
-  // else's quota, and a typo lands on whichever real account matches.
   const [account] = await sql<
     { email: string; worksheets: number; explanations: number }[]
   >`

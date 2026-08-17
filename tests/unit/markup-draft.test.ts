@@ -6,7 +6,6 @@ import {
   writeMarkupDraft,
 } from '@/lib/client/markup-draft'
 
-/** A localStorage that behaves, so the tests can drive it directly. */
 function store() {
   const data = new Map<string, string>()
   return {
@@ -56,12 +55,6 @@ describe('the markup draft', () => {
     expect(readMarkupDraft('ws-1').outcomes).toEqual({})
   })
 
-  /**
-   * This is user-writable storage that survives deploys, so anything read back
-   * has to be treated as suspect rather than spread into component state. An
-   * outcome that is not one of the three would reach the attempts route and be
-   * rejected there, after the student had marked a whole paper.
-   */
   describe('reading something it did not write', () => {
     it.each([
       ['not JSON at all', 'nonsense{'],
@@ -112,7 +105,6 @@ describe('the markup draft', () => {
     })
   })
 
-  /** Private browsing and a full quota both throw. Neither is worth a crash. */
   it('survives a storage that throws', () => {
     vi.stubGlobal('window', {
       localStorage: {

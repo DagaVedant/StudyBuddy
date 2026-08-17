@@ -41,10 +41,6 @@ const PERCENT = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 })
 
-/**
- * An upload date. Matches the worksheets page's own formatter, so the same
- * paper is dated identically on both screens.
- */
 const WHEN = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
@@ -122,8 +118,8 @@ export default async function DashboardPage() {
     .filter((topic) => topic.unsureRate >= 0.25)
     .slice(0, 5)
 
-  // Built from `rawStats`, not `stats`: the tree keys on the slug, and `stats`
-  // has already replaced `topicPath` with the display path for the ranked list.
+  
+  
   const subjectTree = pruneToAttempted(buildTopicTree(rawStats))
   const topicIdBySlug = new Map(topicRows.map((row) => [row.slug, row.id]))
 
@@ -131,11 +127,11 @@ export default async function DashboardPage() {
   const weekTotals = trend.map((p) => p.correct + p.unsure + p.wrong)
   const hasData = overview.attemptsLogged > 0
 
-  // Not `trend.length`. Every week in the window is a row now, including the
-  // empty ones, so the list is never empty and the length says nothing about
-  // whether there is anything to draw. A student who has never practised would
-  // have got twelve bars of height zero under a heading claiming to show their
-  // accuracy over time.
+  
+  
+  
+  
+  
   const hasTrend = weekTotals.some((total) => total > 0)
 
   return (
@@ -150,10 +146,10 @@ export default async function DashboardPage() {
       <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: 'Due today', value: overview.dueNow, href: '/review', tint: 'bg-tint-mint' },
-          // The whole queue, not a second slice of time. "Later this week"
-          // stopped meaning anything once the review tab stopped hiding what
-          // the scheduler had not got to yet: everything is available, and
-          // what this says is how much of it is left.
+          
+          
+          
+          
           {
             label: 'To practise',
             value: overview.toPractise,
@@ -184,15 +180,6 @@ export default async function DashboardPage() {
           </div>
         ))}
 
-        {/*
-          spec.md:398 asks the top strip to carry the streak and either trial
-          pages remaining or AI status. These are cards, not tinted tiles, on
-          purpose: the four above are progress counts a student acts on, and
-          giving these two the same bright treatment would read them as a
-          fifth and sixth count of the same kind, which they are not. Reusing
-          one of the four tints instead of a plain card would have been worse:
-          it would tie a metric to a colour that already means something else.
-        */}
         <div className="card px-4 py-3.5">
           <dt className="text-sm text-muted">Study streak</dt>
           <dd className="mt-1 text-2xl font-extrabold tabular-nums text-fg">
@@ -201,13 +188,6 @@ export default async function DashboardPage() {
         </div>
 
         <div className="card px-4 py-3.5">
-          {/*
-            "AI status", not "AI setup", which is what spec.md:398 asks this
-            slot to carry and what the value under it actually is. The label
-            read as a link to a settings screen while the value said
-            "3 trial worksheets left", so the two halves of one card were
-            answering different questions.
-          */}
           <dt className="text-sm text-muted">AI status</dt>
           <dd className="mt-1 text-lg font-semibold text-fg">
             <Link
@@ -220,11 +200,6 @@ export default async function DashboardPage() {
         </div>
       </dl>
 
-      {/*
-        Above the panels rather than among them. The panels answer "what should
-        I work on"; this answers "why will the next upload behave differently",
-        which is only useful before they upload it.
-      */}
       {shouldOfferAiSetup(aiStatus) && <AiSetupPrompt />}
 
       {!hasData && (
@@ -242,18 +217,6 @@ export default async function DashboardPage() {
               hint={`Ranked by how confident we can be that the misses are real, not by raw percentage. A topic needs ${MIN_ATTEMPTS} attempts before it appears here.`}
             >
               {weakest.length === 0 ? (
-                /*
-                 * "Not enough evidence yet" is the wrong explanation when the
-                 * reason is that nothing got tagged.
-                 *
-                 * Every panel on this screen is built from `question_topics`, so
-                 * a worksheet that finished untagged contributes to none of them.
-                 * The check screen says why at the time, and then the student
-                 * marks the paper and arrives here days later at an empty
-                 * dashboard with no memory of the warning, being told they have
-                 * not done enough work. They have; it just did not land anywhere
-                 * this screen can see.
-                 */
                 <Empty>
                   {untagged > 0 ? (
                     <>
@@ -287,11 +250,6 @@ export default async function DashboardPage() {
                         className="block py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       >
                         <div className="flex items-baseline justify-between gap-3">
-                          {/* Pairs with the <h1> on /topics/[topicId]; see the
-                              .topic-title rules in globals.css. Only this list
-                              claims the name; the other panels can repeat a
-                              topic, and two live elements sharing one
-                              view-transition-name breaks the morph. */}
                           <ViewTransition
                             name={`topic-title-${topic.topicId}`}
                             share="topic-title"
@@ -326,18 +284,6 @@ export default async function DashboardPage() {
             </Panel>
           </div>
 
-          {/*
-            spec.md:404 asks this panel for an expandable tree, `Math →
-            Geometry → Triangles → Angle Relationships`, with accuracy rolled up
-            from children at every level. It was one `rollUp` over
-            `subjectRoot`, so only the top level ever rendered and the three
-            levels between a subject and a topic were unreachable from here.
-
-            Pruned to what has been attempted, unlike /topics. This panel is
-            answering "how am I doing", and 341 topics a student has never seen
-            answers nothing; the index next door is where the untouched ones are
-            the point.
-          */}
           <Panel
             title="By subject"
             hint="Rolled up from every question you have marked. Open a row to go deeper."
@@ -382,15 +328,6 @@ export default async function DashboardPage() {
             )}
           </Panel>
 
-          {/*
-            spec.md:412's review forecast, and the panel worth building of the
-            three that were missing. This screen's stated job (spec.md:392) is
-            to answer "What should I do right now?", and the two counts in the
-            top strip are totals with no topic in them: they say how much there
-            is and never what it is. Placed directly under the weakest topics
-            for that reason, where "what am I bad at" and "what is due" can be
-            read together.
-          */}
           <Panel
             title="Due for review"
             hint="What the scheduler has lined up, by topic."
@@ -407,11 +344,6 @@ export default async function DashboardPage() {
                     >
                       {row.topicName}
                     </Link>
-                    {/*
-                      Today's count is the actionable one, so it leads. The
-                      week's total only appears when it differs, because "3
-                      today · 3 this week" is two numbers saying one thing.
-                    */}
                     <span className="shrink-0 text-sm tabular-nums text-muted">
                       {row.dueToday > 0 ? `${row.dueToday} today` : 'later this week'}
                       {row.dueThisWeek > row.dueToday && ` · ${row.dueThisWeek} this week`}
@@ -496,14 +428,6 @@ export default async function DashboardPage() {
                     >
                       {sheet.title}
                     </Link>
-                    {/*
-                      spec.md:414 asks this panel for a score, and it showed a
-                      miss count: the same information upside down, and only
-                      readable if you already knew the denominator. Shown only
-                      once the paper has been marked, since before that there is
-                      no score to report and "0%" would be a lie about a paper
-                      nobody has sat down with yet.
-                    */}
                     {sheet.markedCount > 0 && (
                       <span className="shrink-0 text-xs font-medium tabular-nums">
                         {PERCENT.format(sheet.correctCount / sheet.markedCount)}
@@ -517,11 +441,6 @@ export default async function DashboardPage() {
                     {sheet.wrongCount > 0 && ` · ${sheet.wrongCount} missed`}
                   </p>
 
-                  {/*
-                    Three at most. This is a summary line under a title, not the
-                    subject drilldown, and a paper spanning nine topics would
-                    otherwise push every other row off the panel.
-                  */}
                   {sheet.topics.length > 0 && (
                     <p className="mt-1 truncate text-xs text-muted">
                       {sheet.topics

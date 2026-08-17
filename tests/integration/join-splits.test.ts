@@ -28,7 +28,6 @@ const OPTIONS = [
   { label: 'E', text: '12' },
 ]
 
-/** Filler so the sheet has a settled option count of five to compare against. */
 const FILLER = (n: number) => ({
   page: 1,
   ordinal: n,
@@ -91,7 +90,6 @@ async function seed(spec: Spec[]): Promise<string> {
   return worksheetId
 }
 
-/** The AMC8 2024 shape: question 11 runs from the foot of page 2 onto page 3. */
 const SPLIT: Spec[] = [
   FILLER(1),
   FILLER(2),
@@ -107,7 +105,6 @@ const SPLIT: Spec[] = [
     choices: [],
   },
   {
-    // Written last, by a re-read, but printed at the very top of page 3.
     page: 3,
     ordinal: 15,
     printed: null,
@@ -164,7 +161,6 @@ describe('joinSplitQuestions', () => {
     expect(eleven.prompt).toContain('What is the value of y?')
     expect(eleven.choices).toBe(5)
 
-    // The half that only ever held options is gone, and nothing else moved.
     expect(rows.some((row) => row.prompt.startsWith('C(3,y)'))).toBe(false)
     expect(rows.find((row) => row.printed === 12)!.choices).toBe(5)
   })
@@ -194,9 +190,6 @@ describe('joinSplitQuestions', () => {
   })
 
   it('leaves a stem whose options were lost rather than moved', async () => {
-    // Nothing on page 3 is an orphan, so there is nothing to join. The stem
-    // stays as it is for the student to fix; it is not deleted, and page 3's
-    // real question does not have its options taken away.
     const id = await seed(SPLIT.filter((s) => s.prompt !== 'C(3,y)nA(5,7) B(11,7)'))
 
     expect(await joinSplitQuestions(client(), id)).toEqual({ joined: 0 })

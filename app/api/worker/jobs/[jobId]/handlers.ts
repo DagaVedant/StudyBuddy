@@ -26,17 +26,6 @@ import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/prog
 
 import type { bodySchema } from './schema'
 
-/**
- * One handler per action, moved out of the route so `route.ts` is the
- * dispatch table rather than the seven branches themselves.
- *
- * Each function still owns everything about its own action end to end: what
- * it reads, what it writes, and why. Splitting the *file* is what this is
- * for, not splitting the *reasoning*: a discriminated union where every
- * branch is independently readable was already the shape M-3 named as fine;
- * only the length of the one file holding all seven was the complaint.
- */
-
 export type Job = typeof processingJobs.$inferSelect
 type Body = z.infer<typeof bodySchema>
 type Action<Name extends Body['action']> = Extract<Body, { action: Name }>
@@ -62,17 +51,6 @@ export async function handlePhase(
   job: Job,
   body: Action<'phase'>,
 ): Promise<NextResponse> {
-  // Repaired before the audit reads the numbering, so it audits a repaired
-  // run rather than chasing a gap a phantom row created.
-  //
-  // Both phases run the same passes in the same order (see
-  // lib/worker/pipeline.ts) and the set only widens. Verifying holds the
-  // numbering back because the audit and the review pass are still writing
-  // rows after it. Classifying is the run that matters: a split only becomes
-  // visible once both halves are stored, and on the AMC8 paper neither half
-  // existed at the end of verifying: the stem and the orphaned options were
-  // both recovered by the audit re-read, which runs after it. Repeating the
-  // passes is safe; the second run finds nothing left to do.
   await runRepairPasses(db, job.worksheetId, {
     only: body.phase === 'classifying' ? FINAL_PASSES : VERIFYING_PASSES,
   })
@@ -81,8 +59,6 @@ export async function handlePhase(
     db,
     jobId,
     body.phase === 'classifying' ? CLASSIFYING_AT : VERIFYING_AT,
-    // Carried through untouched: a phase change moves the bar, it does not
-    // change where a resumed job would pick up from.
     job.checkpoint ?? {},
   )
 
@@ -117,18 +93,6 @@ export async function handlePageReview(
         )
     : []
 
-  // The same guard the repair passes run behind, which this path never had.
-  // Replacing a doubted row means deleting it, and
-  // `questions` cascades to `attempts` and `review_cards`, so on a worksheet
-  // the student had already marked up the audit re-read could take their
-  // answer and its place in the revision schedule with it. Nothing would show
-  // afterwards: the job reports the row as replaced either way.
-  //
-  // Applied before the plan is built rather than to its output, because
-  // `planPageReplacement` pairs each doubted row with its replacement by
-  // printed number. Dropping a row from the plan's input drops its
-  // replacement with it; filtering afterwards would leave the replacement
-  // behind and store it beside the original.
   const { removable: suspects, held } = await partitionByDeletability(db, doubted)
 
   if (held.length > 0) {
@@ -180,8 +144,6 @@ export async function handleExplanation(
     attemptId: body.attemptId ?? null,
     bodyMd: body.bodyMd,
     misconceptionNote: body.misconceptionNote ?? null,
-    // Left null: the column names a cloud vendor, and this came off the
-    // operator's own GPU, which is not one of them.
     provider: null,
     model: body.model,
   })
@@ -222,8 +184,6 @@ export async function handleSolution(
       workingMd: body.workingMd,
       traps: body.traps,
       confidence: body.confidence,
-      // Left null for the same reason as an explanation's: the column names a
-      // cloud vendor and this came off the operator's own GPU.
       provider: null,
       model: body.model,
     })
@@ -253,26 +213,7 @@ export async function handleComplete(
     { status: 'awaiting_review' },
   )
 
-  /*
-   * spec.md:611's completion notification, on the transition that delivered it.
-   *
-   * Guarded on the transition rather than fired unconditionally, because this
-   * handler also runs for the `answer_key` stage, which completes against a
-   * worksheet already sitting at `awaiting_review`. Announcing that one would
-   * tell a student their worksheet was ready a second time, an hour after they
-   * checked it.
-   */
   if (delivered) {
-    /*
-     * Tier C arrives here untagged, and nothing was going to say so.
-     *
-     * The operator's GPU classifies through its own route after extraction, and
-     * Tier B classifies inside its drain. The browser runner does neither: it
-     * reads pages and posts them, so a Tier C worksheet reached `awaiting_review`
-     * with no topics on it, an empty weakness dashboard, and no explanation
-     * anywhere. That is finding 8/106's exact complaint about Tier B, on a tier
-     * the finding never looked at.
-     */
     if (job.executor === 'browser') {
       await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.tierCUnsupported)
     }
@@ -280,35 +221,6 @@ export async function handleComplete(
     await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_ready')
   }
 
-  /*
-   * The answers follow the paper rather than holding it up.
-   *
-   * Working out every question is the better part of an hour on a long
-   * paper, and the student wants to mark their work now. So extraction
-   * completing is what makes the worksheet readable, and this queues the
-   * solving behind it at low priority, where it yields to anybody else's
-   * extraction.
-   *
-   * Only off an extract job, or a solving job completing would queue another
-   * one and the worker would solve the same paper until somebody noticed.
-   */
-  /*
-   * Not for Tier C, whose runner reads pages and nothing else yet.
-   *
-   * The executor also has to be inherited rather than written literally. This
-   * said `'operator_gpu'`, which was true by context rather than by reasoning:
-   * the worker route was the only caller. Tier B's own completion path already
-   * enqueues its follow-up on `'server'` for this reason
-   * (lib/worker/server-job.ts:251), and now a browser reaches this handler too,
-   * where a literal would hand the operator's GPU the answer key for a paper it
-   * never read, on behalf of the one tier that is meant to cost us no compute.
-   *
-   * And a `'browser'` answer-key job would be worse than useless: nothing
-   * claims it, so it would sit pending until the reaper failed it, and the
-   * student would watch a finished worksheet grow an error. Solving a long
-   * paper is the better part of an hour with the tab held open, which wants
-   * deciding on its own terms rather than inheriting extraction's.
-   */
   if (job.stage === 'extract' && job.executor !== 'browser') {
     await enqueueJob(db, {
       worksheetId: job.worksheetId,
@@ -340,9 +252,6 @@ export async function handlePageResult(
 
   const created = await persistQuestions(db, job, page.id, body.questions)
 
-  // Recorded as a set rather than a high-water mark. With more than one page
-  // in flight they finish out of order, so "everything up to N is done" would
-  // be a lie, and a resumed job would skip whatever was still running below N.
   const previous = (job.checkpoint as { donePages?: number[] } | null)?.donePages ?? []
   const donePages = [...new Set([...previous, body.pageNumber])].sort((a, b) => a - b)
 
@@ -350,8 +259,6 @@ export async function handlePageResult(
     db,
     jobId,
     readingProgress(donePages.length, body.totalPages),
-    // lastPageNumber stays for a job enqueued before this shipped, whose
-    // checkpoint has no donePages to read.
     { donePages, lastPageNumber: Math.max(...donePages) },
   )
 

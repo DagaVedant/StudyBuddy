@@ -14,24 +14,8 @@ import WorksheetTitle from './worksheet-title'
 export const metadata = { title: 'Worksheets · StudyBuddy' }
 export const dynamic = 'force-dynamic'
 
-/**
- * How many worksheet cards one page of this renders.
- *
- * A page size now rather than a ceiling. It used to be both: there was no
- * paging and no search, so the fifty-first worksheet was simply gone from the
- * interface. The row stayed, its questions still counted towards the dashboard,
- * and the paper itself was unreachable. For something a student uses across a
- * school year, fifty is a number they reach.
- */
 const WORKSHEETS_SHOWN = 50
 
-/**
- * Escapes what LIKE treats as wildcards, so a search means what was typed.
- *
- * Without this a title search for "50%" matches every worksheet, and one for
- * "unit_4" matches "unit 4" as well. `\` is escaped first or it would escape
- * the escapes added after it.
- */
 function likeLiteral(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`)
 }
@@ -71,18 +55,6 @@ export default async function WorksheetsPage({
 
   const query = (first(params.q) ?? '').trim().slice(0, 100)
 
-  /*
-   * A cursor on `createdAt` rather than an offset.
-   *
-   * The list is ordered by it and uploads keep arriving, so an offset shifts
-   * under the reader: upload something while looking at page two and the last
-   * row of page one arrives again at the top of it. The cursor names a position
-   * in the ordering instead, which does not move.
-   *
-   * An unparseable value is ignored rather than refused. This is a query string
-   * somebody can edit or a link that has gone stale, and the newest page is a
-   * better answer to both than an error.
-   */
   const beforeRaw = first(params.before)
   const before = beforeRaw ? new Date(beforeRaw) : null
   const cursor = before && !Number.isNaN(before.getTime()) ? before : null

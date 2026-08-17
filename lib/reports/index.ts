@@ -11,19 +11,6 @@ export type ReportResult =
   | { ok: true; reportId: string }
   | { ok: false; reason: 'not_found' | 'nothing_to_report' }
 
-/**
- * Records a student's report that something is wrong.
- *
- * Ownership is checked against the target rather than trusted from the input:
- * the id arrives from a browser, and without the check any signed-in account
- * could file reports against a stranger's worksheet and read its title back
- * off the admin page.
- *
- * An explanation report also sets `explanations.reported_wrong`, which is what
- * `/api/explain` reads to decide whether to hand back what it has or generate
- * again. That column existed and was read from the day it was added; this is
- * the write that was missing (finding 37).
- */
 export async function recordReport(
   db: Db,
   userId: string,
@@ -56,8 +43,6 @@ export async function recordReport(
 
   if (!question) return { ok: false, reason: 'not_found' }
 
-  // The newest explanation is the one on screen, and the only one worth
-  // marking. Older rows for the same question are superseded already.
   const [explanation] = await db
     .select({ id: explanations.id })
     .from(explanations)

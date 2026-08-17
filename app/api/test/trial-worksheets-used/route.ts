@@ -11,13 +11,6 @@ const schema = z.object({
   used: z.number().int().min(0),
 })
 
-/**
- * E2E-only: sets trial usage through the app's own DB connection.
- *
- * The suite drives the trial-exhausted paths through this rather than through
- * six real uploads. See `testEndpointsEnabled` for why it is not gated on
- * NODE_ENV.
- */
 export async function POST(request: Request) {
   if (!testEndpointsEnabled()) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })

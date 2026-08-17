@@ -8,13 +8,6 @@ import { guardWorksheet } from '@/lib/upload/guard'
 
 type Params = { params: Promise<{ id: string; pageId: string }> }
 
-/**
- * What the review screen's drag reads for every page after the first
- * (app/(app)/worksheets/[id]/edit/page.tsx only sends page one's lines up
- * front). Scoped to both the worksheet and the page, not just the page id,
- * so a signed-in student cannot walk another account's page ids and read
- * their OCR text.
- */
 export async function GET(_request: Request, { params }: Params) {
   const { id: worksheetId, pageId } = await params
 

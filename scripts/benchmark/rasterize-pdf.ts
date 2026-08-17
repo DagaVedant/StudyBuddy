@@ -13,15 +13,9 @@ export interface RasterizedPage {
   file: string
   width: number
   height: number
-  /** The PDF's own text layer, which production also feeds the model. */
   text: string
 }
 
-/**
- * Renders pages to disk at the same DPI, edge cap and encoding the browser
- * pipeline uses, so the models are scored on the images production would
- * actually hand them rather than on a cleaner or coarser render.
- */
 export async function rasterizePdfPages(
   pdfPath: string,
   outDir: string,
@@ -54,8 +48,6 @@ export async function rasterizePdfPages(
     const canvas = createCanvas(width, height)
     const context = canvas.getContext('2d')
 
-    // pdf.js renders transparent where the page is blank; the browser path
-    // composites onto a white canvas, so match that or the model sees black.
     context.fillStyle = '#ffffff'
     context.fillRect(0, 0, width, height)
 

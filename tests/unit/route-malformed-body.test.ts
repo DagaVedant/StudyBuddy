@@ -1,20 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-/**
- * Every write route used to call `await request.json()` bare. A body that is
- * not JSON makes that throw, the handler promise rejects, and Next turns the
- * rejection into a 500: the client is told the server broke when what actually
- * happened is that the client sent something unreadable. Truncated uploads on a
- * dropped mobile connection hit this, so it was not only malformed clients.
- *
- * These tests hold the handlers to resolving with a 400 instead. They call the
- * exported handler directly with a plain `Request`, which is all a route module
- * needs: the dependencies below are mocked only so far as getting past each
- * route's own gate, because the gate is not what is under test.
- */
-
 const state = vi.hoisted(() => ({
-  /** Every db call that would have written. Must stay empty on a bad body. */
   writes: [] as string[],
 }))
 
@@ -27,9 +13,6 @@ vi.mock('@/lib/upload/guard', () => ({
 }))
 
 vi.mock('@/lib/db', () => {
-  // One chainable thenable stands in for the query builder. Reads resolve to a
-  // row owned by the same user the mocked session is, so ownership checks that
-  // run before the body is read still pass and the body parse is reached.
   const rows = [{ userId: 'user-1', id: 'q-1' }]
   const chain: Record<string, unknown> = {
     then: (onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
@@ -60,9 +43,6 @@ vi.mock('@/lib/db', () => {
       insert: record('insert'),
       update: record('update'),
       delete: record('delete'),
-      // The callback is deliberately not run. Recording that the route opened a
-      // transaction at all is the signal we want, and running it would bury the
-      // failure in whichever statement blew up first.
       transaction: async () => {
         state.writes.push('transaction')
       },
@@ -95,7 +75,6 @@ const question = await import('@/app/api/questions/[questionId]/route')
 const rate = await import('@/app/api/review/rate/route')
 const pages = await import('@/app/api/worksheets/[id]/pages/route')
 
-/** A body that is syntactically not JSON, announced as JSON. */
 function badJson(url: string, method: 'POST' | 'PATCH' = 'POST') {
   return new Request(`http://localhost${url}`, {
     method,
@@ -139,8 +118,6 @@ describe('a malformed JSON body answers 400 rather than throwing', () => {
     expect(state.writes).toEqual([])
   })
 
-  // The two writes that correct rather than create, and so reach an UPDATE
-  // rather than an INSERT. A body that never parsed must not get that far.
   it('PATCH /api/worksheets/[id]/attempts', async () => {
     const response = await attempts.PATCH(
       badJson('/api/worksheets/ws-1/attempts'),

@@ -7,15 +7,6 @@ type Target =
   | { kind: 'worksheet'; worksheetId: string }
   | { kind: 'explanation'; questionId: string }
 
-/**
- * "Something is wrong here", with room to say what.
- *
- * Collapsed to a quiet link until it is used. A report is a rare action taken
- * when something has already gone wrong, so it should be findable without
- * competing with the thing the student came to do. The note is optional: the
- * fact that a particular worksheet gets reported at all is most of the signal,
- * and demanding an essay first is how you get no reports.
- */
 export default function ReportButton({
   target,
   label = 'Report a problem',

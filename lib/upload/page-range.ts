@@ -35,20 +35,6 @@ export type QuestionCountResult =
   | { ok: true; count: number | null }
   | { ok: false; message: string }
 
-/**
- * The question count off the upload form, or a reason it cannot be used.
- *
- * These three inputs were `type="number"`, which meant the browser rejected
- * most typos before they reached here. They are `type="text" inputMode="numeric"`
- * now, because a number input treats the scroll wheel as a way to change its
- * value: a student scrolling the upload page with the cursor over this field
- * silently rewrote the count the coverage audit is measured against, and
- * scrolling over the page range silently rewrote which pages get read.
- *
- * The browser's validation has to be replaced rather than dropped. Without
- * this, "2O" became `Number("2O")`, which is `NaN`, which `JSON.stringify`
- * writes as `null`: the count was quietly discarded and nothing said so.
- */
 export function parseQuestionCount(raw: string): QuestionCountResult {
   const text = raw.trim()
   if (!text) return { ok: true, count: null }

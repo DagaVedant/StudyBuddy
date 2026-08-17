@@ -13,32 +13,10 @@ import { EMBEDDING_DIMENSIONS, disposeExtractor, embed } from '@/lib/embeddings'
 import { asDb, createTestDb, type TestDb } from '../helpers/db'
 import { makeQuestion, makeUser, makeWorksheet, seedTaxonomy } from '../helpers/factories'
 
-/**
- * The orchestrator, which nothing tested.
- *
- * `classify.test.ts` covers what happens to one question. This is the loop
- * around it, and the loop is where the two decisions that matter live: which
- * failures are survivable, and which questions it skips on a second run. Both
- * of those have already gone wrong in production. A silently swallowed failure
- * is how a worksheet came back with a third of its questions untagged and no
- * error anywhere, and an empty shortlist reading as "nothing matched" is how a
- * host that could not load the model at all reported success.
- */
-
 let db: TestDb
 let close: () => Promise<void>
 let slugs: Map<string, string>
 
-/**
- * A handful of real vectors, not the whole taxonomy.
- *
- * `seedTaxonomy` writes no embeddings, so a shortlist over it is empty and
- * `classifyQuestion` returns before it ever asks the provider anything: the
- * first draft of this file passed the loop tests for that reason and asserted
- * nothing. These are embedded with the real model so the shortlist is a real
- * one; only these few, because embedding the whole tree is three hundred
- * forward passes to make the same point.
- */
 const EMBEDDED = [
   'high-school-math.geometry.circles.central-and-inscribed-angles',
   'high-school-math.geometry.circles.arcs-and-chords',
@@ -71,13 +49,6 @@ const client = () => asDb(db)
 
 const LEAF = 'high-school-math.geometry.circles.central-and-inscribed-angles'
 
-/**
- * A provider that answers classification however the test says.
- *
- * Only `classifyTopic` is reachable from here, so the rest throws rather than
- * returning something plausible: a `classifyWorksheet` that started extracting
- * should fail loudly in a test, not quietly pass.
- */
 function provider(
   answer: (promptText: string) => unknown,
   calls: string[] = [],
@@ -102,7 +73,6 @@ function provider(
   } as unknown as AIProvider
 }
 
-/** A worksheet of `count` questions, each with a distinguishable prompt. */
 async function worksheet(count: number) {
   const userId = await makeUser(db)
   const worksheetId = await makeWorksheet(db, userId)
@@ -142,16 +112,6 @@ describe('classifyWorksheet', () => {
     expect(await tagCount(worksheetId)).toBe(3)
   })
 
-  /*
-   * Finding 87. The vector this computes to run the pgvector shortlist search
-   * used to be thrown away the moment the search returned, so every worksheet
-   * classified through this path (the Tier B server drain, the only ingest
-   * path that reaches this function rather than the worker's own classify
-   * route) left `questions.embedding` NULL. The cross-worksheet duplicate
-   * check reads exactly that column, so the feature was silently dead for
-   * every student on their own cloud key: not absent, just never given
-   * anything to search.
-   */
   it('persists the embedding it computed to run the shortlist search', async () => {
     const { worksheetId, ids } = await worksheet(1)
 
@@ -166,8 +126,6 @@ describe('classifyWorksheet', () => {
     expect(row.embedding).toHaveLength(EMBEDDING_DIMENSIONS)
   })
 
-  // An abstain still runs the shortlist search to find out there was nothing
-  // good enough in it, so the vector still exists and is still worth keeping.
   it('persists the embedding even when the question abstains', async () => {
     const { worksheetId, ids } = await worksheet(1)
 
@@ -190,11 +148,6 @@ describe('classifyWorksheet', () => {
     expect(result.coarse).toBe(2)
   })
 
-  /**
-   * The resume path. This runs again on a retried job, and on a worksheet that
-   * is already tagged it should ask the model nothing at all: 114 questions is
-   * 114 paid calls to conclude there was nothing to do.
-   */
   it('skips questions that already carry a topic', async () => {
     const { worksheetId } = await worksheet(3)
     await classifyWorksheet(client(), provider(picks), worksheetId)
@@ -224,12 +177,6 @@ describe('classifyWorksheet', () => {
     expect(await tagCount(worksheetId)).toBe(3)
   })
 
-  /**
-   * One question failing is survivable and the rest of the paper is still worth
-   * having. It used to be swallowed in silence, which is how a worksheet came
-   * back a third untagged with nothing to explain it, so the count comes back
-   * and the failure is logged.
-   */
   it('counts a question the model could not answer and carries on', async () => {
     const { worksheetId } = await worksheet(3)
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -247,13 +194,6 @@ describe('classifyWorksheet', () => {
     error.mockRestore()
   })
 
-  /**
-   * The one failure that is not survivable, and the reason it is a distinct
-   * error class. Every remaining question would fail identically, and the
-   * caller needs to tell "the model declined to tag these" apart from "there is
-   * no embedding model on this host". Retrying it 113 more times tells nobody
-   * anything and costs a job's whole budget.
-   */
   it('stops at the first question when the embedding model will not load', async () => {
     const { worksheetId } = await worksheet(5)
     const asked: string[] = []
@@ -295,8 +235,6 @@ describe('classifyWorksheet', () => {
     const { worksheetId } = await worksheet(1)
     const asked: string[] = []
 
-    // A hint naming a subject with no circles topic under it leaves nothing to
-    // pick, which is the observable effect of the hint being applied at all.
     await classifyWorksheet(
       client(),
       provider(picks, asked),
@@ -322,12 +260,6 @@ describe('classifyWorksheet', () => {
   })
 })
 
-/**
- * The type guard between a vector arriving over HTTP from the worker and a
- * pgvector column. A wrong length is an insert Postgres rejects; a NaN is a
- * distance that compares false against everything, so the question silently
- * matches nothing.
- */
 describe('isEmbedding', () => {
   const good = new Array(EMBEDDING_DIMENSIONS).fill(0.1)
 

@@ -76,32 +76,11 @@ export async function resolveProvider(
     }
   }
 
-  /*
-   * Ollama, which this server can never call itself.
-   *
-   * `isAllowedOllamaUrl` only accepts a loopback address, so the base URL
-   * stored here names a machine reachable from the student's browser and
-   * nowhere else (spec.md:184). The provider handed back is therefore a null
-   * one: nothing on this side can run it, and saying so is the point. What
-   * carries the work is `executor: 'browser'`, which tells the caller to
-   * enqueue rather than execute, exactly as the trial tier does for the
-   * operator's GPU. The browser then claims that job for its own user and runs
-   * it against localhost.
-   *
-   * Ahead of the trial deliberately. A student who has installed Ollama and
-   * pointed us at it has done the thing the trial exists to talk them into, and
-   * silently spending a lifetime trial credit instead would be both wasteful
-   * and the same lie the dashboard used to tell: settings would say Ollama and
-   * the work would go somewhere else.
-   */
   const ollama = credentials.find(
     (row) => row.provider === 'ollama' && row.ollamaBaseUrl,
   )
 
   if (ollama) {
-    // Mock stands in for the student's machine the same way it stands in for a
-    // cloud provider above, so the e2e suite can drive this tier without an
-    // Ollama anywhere. Only under the mock flag does this run server-side.
     if (mockEnabled()) {
       return { provider: validated(new MockProvider()), tier: 'ollama', executor: 'server' }
     }
@@ -129,13 +108,6 @@ export async function resolveProvider(
   return { provider: validated(new NullProvider()), tier: 'free', executor: 'none' }
 }
 
-/**
- * A cloud provider, already wrapped.
- *
- * Wrapping here rather than at each call site is the point: `validated` is the
- * only route from a `RawAIProvider` to an `AIProvider`, so a provider added to
- * the switch below cannot reach a caller unchecked.
- */
 export function cloudProvider(
   provider: CloudProvider,
   apiKey: string,
@@ -172,47 +144,15 @@ const PROVIDER_LABEL: Record<CloudProvider | 'ollama', string> = {
 }
 
 export interface AiStatus {
-  /** "3 trial worksheets left", "Anthropic connected", "No AI configured". */
   label: string
   href: string
-  /**
-   * Trial worksheets left, or null for an account not on the trial.
-   *
-   * Null rather than zero when a provider is configured, because the two mean
-   * opposite things to the one caller that reads this: zero is a student about
-   * to hit a wall, and null is a student who cannot. spec.md:339 asks for the
-   * setup prompt at exactly one remaining, and it computes the number here
-   * anyway to write the label.
-   */
   trialWorksheetsRemaining: number | null
 }
 
-/**
- * Whether to put spec.md:339's "Choose how StudyBuddy thinks" prompt on screen.
- *
- * One worksheet left, and no provider configured. The spec asks for this moment
- * specifically, and the reason it is a moment rather than a banner is that it
- * is the last point where a student can act before the wall: at zero they have
- * already met it, on the completion route, as a message explaining they have
- * been dropped to the manual editor.
- */
 export function shouldOfferAiSetup(status: AiStatus): boolean {
   return status.trialWorksheetsRemaining === 1
 }
 
-/**
- * What the dashboard's top strip shows for "Trial pages remaining (Tier 0) or
- * AI status (other tiers)" (spec.md:398).
- *
- * Read from the credentials table rather than from {@link resolveProvider}'s
- * `tier`, which answers a nearby but different question: what would run the
- * *next* upload. The two agree now that resolution has an Ollama branch, and
- * they did not before, which is what made this worth writing down: this label
- * said "Ollama connected" while resolution could not see an Ollama row at all,
- * so the dashboard reported a tier that no upload would ever use. Keeping it on
- * the credentials table means it answers what the account is set up with, which
- * is what spec.md:398 asks the strip to carry.
- */
 export async function getAiStatus(db: Db, userId: string): Promise<AiStatus> {
   const credentials = await getCredentialSummary(db, userId)
   const configured = credentials.find(

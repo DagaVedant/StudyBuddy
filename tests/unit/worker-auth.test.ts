@@ -2,15 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { authenticateWorker } from '@/lib/worker/auth'
 
-/**
- * The credential on the door between the GPU worker and everything it can
- * write. It claims a whole worksheet, replaces its questions, and posts
- * classifications, so a caller that gets past this reaches other people's work.
- *
- * Untested until now, which is the wrong state for the only check standing
- * between an open internet and those routes.
- */
-
 const TOKEN = 'worker-token-0123456789'
 
 function request(
@@ -24,9 +15,9 @@ const original = { ...process.env }
 
 beforeEach(() => {
   process.env.WORKER_API_TOKEN = TOKEN
-  // Explicitly open, because unset is now a refusal. These cases are about the
-  // token, and leaving the allowlist unconfigured would fail them for a reason
-  // they are not testing.
+  
+  
+  
   process.env.WORKER_ALLOWED_IPS = '*'
 })
 
@@ -41,11 +32,6 @@ describe('authenticateWorker', () => {
     })
   })
 
-  /**
-   * 403 rather than 401, and the distinction is deliberate: an unset token is
-   * an operator mistake, not a caller one. Answering 401 would invite a worker
-   * to retry a credential that can never be right.
-   */
   it('refuses everything when no token is configured', () => {
     delete process.env.WORKER_API_TOKEN
 
@@ -59,8 +45,6 @@ describe('authenticateWorker', () => {
   it('refuses an empty configured token', () => {
     process.env.WORKER_API_TOKEN = ''
 
-    // The falsy check has to catch this. An empty string compared against an
-    // absent header is two empty strings, which is a match.
     expect(authenticateWorker(request()).ok).toBe(false)
     expect(authenticateWorker(request({ authorization: 'Bearer ' })).ok).toBe(false)
   })
@@ -82,12 +66,6 @@ describe('authenticateWorker', () => {
     })
   })
 
-  /**
-   * Not a leniency this code chose. `Headers` strips leading and trailing HTTP
-   * whitespace from a value on the way in, so the padded token never reaches
-   * the comparison. Asserted so that a future move to reading the raw header
-   * has to decide about it deliberately.
-   */
   it('accepts a token the Headers class has already trimmed', () => {
     const padded = new Request('https://studybuddy.test/api/worker/claim', {
       headers: { authorization: `Bearer ${TOKEN} ` },
@@ -97,11 +75,6 @@ describe('authenticateWorker', () => {
     expect(authenticateWorker(padded).ok).toBe(true)
   })
 
-  /**
-   * `timingSafeEqual` throws on a length mismatch rather than returning false,
-   * so the length is compared first. A caller sending a one-character token
-   * used to be a 500, which is a crash reachable by anyone.
-   */
   it('does not throw on a token of a different length', () => {
     expect(() => authenticateWorker(request({ authorization: 'Bearer x' }))).not.toThrow()
     expect(() =>

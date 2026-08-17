@@ -16,27 +16,11 @@ const OUT = 'benchmark/results'
 const FROM_PAGE = Number(process.env.BENCH_FROM ?? 1)
 const TO_PAGE = Number(process.env.BENCH_TO ?? 58)
 const EXPECTED_TOTAL = Number(process.env.BENCH_EXPECTED ?? 114)
-
-/**
- * The first printed question number the chosen pages contain.
- *
- * Only 1 when the run starts at the front of the paper; scoring a slice out of
- * the middle needs it, or every question before the slice counts as missing.
- */
 const EXPECTED_FROM = Number(process.env.BENCH_EXPECT_FROM ?? 1)
 const OLLAMA = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
 
-/**
- * One attempt per page, unlike production.
- *
- * The provider now retries an empty reply, which is the right behaviour for a
- * student uploading a worksheet but the wrong one for measurement: it would
- * hide exactly the weakness this benchmark exists to expose, and would make
- * later models incomparable to the batch already scored without it.
- */
 const ATTEMPTS = Number(process.env.BENCH_ATTEMPTS ?? 1)
 
-/** Anything at or above this needs more VRAM than the card has free. */
 const VRAM_BUDGET_BYTES = 14.7 * 1024 ** 3
 
 interface Candidate {
@@ -45,13 +29,6 @@ interface Candidate {
   offloaded: boolean
 }
 
-/**
- * Asks Ollama which pulled models can actually see an image.
- *
- * Discovering this rather than hardcoding a list means a model that finished
- * downloading mid-run gets picked up, and a text-only one cannot silently
- * score zero for a reason that has nothing to do with its quality.
- */
 async function visionModels(): Promise<Candidate[]> {
   const tags = (await (await fetch(`${OLLAMA}/api/tags`)).json()) as {
     models?: { name: string; size: number }[]
@@ -76,8 +53,6 @@ async function visionModels(): Promise<Candidate[]> {
     })
   }
 
-  // Smallest first: the models that fit finish quickly, so results start
-  // landing long before anything offloaded is done.
   return found.sort((a, b) => a.sizeBytes - b.sizeBytes)
 }
 
@@ -85,11 +60,6 @@ async function runModel(
   candidate: Candidate,
   pages: RasterizedPage[],
 ): Promise<PageRun[]> {
-  // Appended to rather than overwritten: the callback fires inside the
-  // provider, where the compiler cannot follow it, so anything assigned here
-  // gets narrowed to whatever it last held. Taking the newest entry after each
-  // page sidesteps that, and keeps the stats even if a page emits several
-  // calls.
   const statsLog: OllamaCallStats[] = []
 
   const raw = new OllamaProvider({
@@ -112,10 +82,6 @@ async function runModel(
     const started = Date.now()
 
     try {
-      // Pages are stored as WebP, which is what production stores, but Ollama
-      // rejects WebP with a 400. The real worker converts to PNG right before
-      // inference for the same reason, so this mirrors it rather than feeding
-      // the models something production would never send.
       const png = await sharp(await readFile(page.file)).png().toBuffer()
       const image = new Uint8Array(png)
 
@@ -185,8 +151,6 @@ async function previousScores(rerunning: Set<string>): Promise<ModelScore[]> {
       }
       if (score?.model && !rerunning.has(score.model)) kept.push(score)
     } catch {
-      // A run killed mid-write leaves a truncated file; it is not worth
-      // failing the whole benchmark over one unreadable result.
       console.warn(`  (ignoring unreadable ${file})`)
     }
   }
@@ -209,7 +173,6 @@ function report(scores: ModelScore[], baseline?: ModelScore): string {
       `${expectedCount} mean the model split passages or choices into extra questions.\n`,
   )
 
-  // Best first, so the table reads as a ranking rather than as run order.
   const ranked = [...scores].sort((a, b) => b.countRecall - a.countRecall)
 
   lines.push('| model | recall | found | missed | blank pages | dup | phantom | 4-choice | empty stem | rows | ms/page | ms/q | tok/s |')
@@ -259,11 +222,6 @@ function report(scores: ModelScore[], baseline?: ModelScore): string {
 async function main() {
   await mkdir(OUT, { recursive: true })
 
-  // Rebuilds the table from saved results alone. Needed after re-grading an
-  // existing set against a different page range, and after abandoning a run:
-  // the report is only written when a model finishes, so without this the last
-  // scores on disk would have no way to reach it. Deliberately ahead of model
-  // discovery, so it does not require Ollama to be up.
   if (process.env.BENCH_REPORT_ONLY === '1') {
     const saved = await previousScores(new Set())
     if (saved.length === 0) throw new Error('No saved results to report on.')

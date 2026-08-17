@@ -1,7 +1,3 @@
-/**
- * The four cloud providers, against the one interface they implement.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AnthropicProvider } from '@/lib/ai/anthropic'
 import { CLASSIFY_JSON_SCHEMA, EXPLAIN_JSON_SCHEMA, EXTRACTION_JSON_SCHEMA, EXTRACTION_SYSTEM, REVIEW_JSON_SCHEMA } from '@/lib/ai/prompts'
@@ -12,15 +8,6 @@ import { OpenAIProvider } from '@/lib/ai/openai'
 import { OpenRouterProvider } from '@/lib/ai/openrouter'
 
 describe('anthropic', () => {
-/**
- * The default cloud provider, and the only one of the four with no test.
- *
- * `cloud-providers.test.ts` covers OpenAI, OpenRouter and Gemini because those
- * three call `fetch` directly and are trivial to record. This one goes through
- * the Anthropic SDK, which is presumably why it was skipped, and it is the one
- * `DEFAULT_CLOUD_MODEL` points at.
- */
-
 const page = {
   image: new Uint8Array([1, 2, 3]),
   mediaType: 'image/webp',
@@ -116,12 +103,6 @@ describe('AnthropicProvider', () => {
     expect(content[1]).toMatchObject({ type: 'text' })
   })
 
-  /**
-   * The model is required by the constructor, and this is why. There used to be
-   * a default here as well as one in `DEFAULT_CLOUD_MODEL` and they disagreed,
-   * so a call that skipped the table billed a model the settings screen never
-   * mentioned.
-   */
   it('bills the model it was given, not one of its own', async () => {
     const calls = recorder(ok(oneQuestion))
 
@@ -159,11 +140,6 @@ describe('AnthropicProvider', () => {
     expect(budgets[0]).toBeGreaterThan(budgets[2])
   })
 
-  /**
-   * A schema-shaped response is still a string the model wrote. `\frac` is not
-   * valid JSON escaping, and a bare `JSON.parse` throws on it, which turned a
-   * page of algebra into a failed job rather than a page of algebra.
-   */
   it('recovers a response carrying raw LaTeX escapes', async () => {
     recorder(
       () =>
@@ -202,11 +178,6 @@ describe('AnthropicProvider', () => {
     await expect(provider().extractQuestions(page)).rejects.toBeInstanceOf(ProviderRefused)
   })
 
-  /**
-   * The message on these errors is not for a log. It is stored on the job and
-   * rendered on the student's status page, so the provider's response body must
-   * not survive into it: an auth error arrives as a JSON blob naming headers.
-   */
   it('translates a rejected key without echoing the body', async () => {
     const secret = 'x-api-key header sk-ant-leaked-0123456789 was invalid'
     recorder(failure(401, JSON.stringify({ error: { message: secret } })))
@@ -324,8 +295,6 @@ describe('an upstream that says no', () => {
     return (async () => new Response(body, { status })) as unknown as typeof fetch
   }
 
-  // The message on this error is rendered verbatim on the worksheet status
-  // page, so the body has to stay out of it. It goes to the log instead.
   it('keeps the response body off the student’s screen', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const body = '{"error":{"message":"org-7f3a exceeded quota at /internal/v2/route"}}'
@@ -357,8 +326,6 @@ describe('an upstream that says no', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const fetchImpl = (async (_url: string, init: RequestInit) => {
-      // Whatever the deadline is, the request has to carry one. Without it a
-      // hung upstream holds a pool connection for the whole invocation.
       expect(init.signal).toBeInstanceOf(AbortSignal)
       throw Object.assign(new Error('aborted'), { name: 'TimeoutError' })
     }) as unknown as typeof fetch
@@ -459,19 +426,7 @@ describe('geminiSchema', () => {
     expect(JSON.stringify(cleaned)).toContain('inner')
   })
 
-  /**
-   * The failure this guards was total and silent. Every nullable field in every
-   * schema is written `anyOf: [{ type: 'T' }, { type: 'null' }]`; the allow-list
-   * dropped `anyOf` and left `{}` behind while the field stayed in `required`.
-   * Gemini wants a type on every node, so a required property with no type is a
-   * rejected request, and the provider had never completed a single call.
-   *
-   * Stated as "every node has a type" rather than as the string `{}` not
-   * appearing, because that string is also absent from a schema that lost a
-   * whole subtree, and losing a subtree is the other way to break this.
-   */
   describe('nullable fields', () => {
-    /** Every schema node reachable through properties or items with no `type`. */
     function typeless(schema: unknown, path = '$'): string[] {
       if (schema === null || typeof schema !== 'object') return []
 
@@ -549,12 +504,6 @@ describe('geminiSchema', () => {
       expect(JSON.stringify(cleaned)).not.toContain('additionalProperties')
     })
 
-    /**
-     * A union of two concrete types has no Gemini equivalent. Guessing one of
-     * them would quietly narrow what the model is allowed to answer, so it is
-     * left alone to fail upstream where somebody can see it. Nothing in these
-     * four schemas has one; this records the choice.
-     */
     it('leaves a union of two real types alone', () => {
       const cleaned = geminiSchema({
         type: 'object',

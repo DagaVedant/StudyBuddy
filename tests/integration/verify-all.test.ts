@@ -22,7 +22,6 @@ afterAll(async () => {
 
 const client = () => asDb(db)
 
-/** The factory always makes a verified question; this is the unverified one. */
 async function unverified(userId: string, worksheetId: string): Promise<string> {
   const question = await makeQuestion(db, userId, worksheetId)
   await db.update(questions).set({ userVerified: false }).where(eq(questions.id, question.id))
@@ -75,7 +74,6 @@ describe('verifyRemaining', () => {
   it('does not re-touch a question already verified', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
-    // The factory's own default: already verified.
     const already = (await makeQuestion(db, userId, worksheetId)).id
 
     const ids = await verifyRemaining(client(), worksheetId)
@@ -103,7 +101,7 @@ describe('unverifyQuestions', () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
     const otherSheet = await makeWorksheet(db, userId)
-    const foreign = await makeQuestion(db, userId, otherSheet) // verified by default
+    const foreign = await makeQuestion(db, userId, otherSheet)
 
     const reverted = await unverifyQuestions(client(), worksheetId, [foreign.id])
 

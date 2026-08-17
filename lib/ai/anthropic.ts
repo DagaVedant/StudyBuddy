@@ -36,22 +36,12 @@ export class AnthropicProvider implements RawAIProvider {
 
   readonly model: string
 
-  /** One model does every job here, so this is that model. */
   get answeringModel(): string {
     return this.model
   }
 
   private readonly client: Anthropic
 
-  /**
-   * `model` is required, and deliberately so.
-   *
-   * There used to be a default here as well as one in `DEFAULT_CLOUD_MODEL`,
-   * and they disagreed. Every real call goes through `rawCloudProvider`, which
-   * always passes a model, so the one here was reachable only from a test or a
-   * script and would have quietly billed a different model than the settings
-   * screen advertises. One default, in the table next to the other providers'.
-   */
   constructor(apiKey: string, model: string) {
     this.client = new Anthropic({ apiKey })
     this.model = model
@@ -75,15 +65,9 @@ export class AnthropicProvider implements RawAIProvider {
             format: { type: 'json_schema', schema } as never,
           },
         },
-        // Explicit, because the SDK's own default is ten minutes and it scales
-        // that up further for a large `max_tokens` on a non-streaming request.
-        // Left alone, one wedged extraction outlives the route that started it.
         { timeout: CLOUD_TIMEOUT_MS },
       )
     } catch (error) {
-      // The SDK puts the response body in `message`, and that message is
-      // rendered on the student's status page. An authentication error arrives
-      // as a JSON blob naming the header that was wrong.
       if (error instanceof Anthropic.APIError && typeof error.status === 'number') {
         throw upstreamFailure('Anthropic', error.status, error.message)
       }
@@ -99,9 +83,6 @@ export class AnthropicProvider implements RawAIProvider {
       .map((block) => block.text)
       .join('')
 
-    // Through the shared parser like every other provider. A schema-shaped
-    // response is still a string the model wrote, so it carries the same
-    // LaTeX escapes that quietly destroy a fraction.
     return parseModelJson(text).value
   }
 
@@ -148,8 +129,6 @@ export class AnthropicProvider implements RawAIProvider {
     )
   }
 
-  // Twice an explanation's budget: this returns a walkthrough, two worked
-  // examples and the error list in one object.
   async teachTopic(input: LessonInput): Promise<unknown> {
     return this.complete(
       LESSON_SYSTEM,

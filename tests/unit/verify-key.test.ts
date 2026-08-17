@@ -2,19 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { verifyCloudKey } from '@/lib/ai/verify-key'
 
-/**
- * Asking the provider, and telling a refusal apart from a bad day.
- *
- * The distinction is the whole point. A refusal and an unreachable provider
- * look identical from the call site and mean opposite things: one is the
- * student's typo, the other is the network, and treating the second as the
- * first refuses to save a perfectly good key.
- */
 describe('verifyCloudKey', () => {
   const ok = () => Promise.resolve(new Response('{}', { status: 200 }))
 
-  // Mock mode short-circuits this, and it is on by default under the e2e
-  // server rather than here. Cleared so these test the real path.
   const wasMock = process.env.ENABLE_MOCK_AI
   beforeEach(() => {
     delete process.env.ENABLE_MOCK_AI
@@ -49,8 +39,6 @@ describe('verifyCloudKey', () => {
     const headersOf = (i: number) => new Headers(seen[i].init.headers)
     expect(headersOf(0).get('x-api-key')).toBe('KEY')
     expect(headersOf(1).get('authorization')).toBe('Bearer KEY')
-    // Google takes it in the query string, so it must be escaped rather than
-    // concatenated.
     expect(seen[2].url).toContain('key=KEY')
   })
 
@@ -63,10 +51,6 @@ describe('verifyCloudKey', () => {
     }
   })
 
-  /*
-   * A rate-limited request proves the key was recognised, so it is not the
-   * key's fault and must not block the save.
-   */
   it('does not call a rate limit a bad key', async () => {
     const verdict = await verifyCloudKey('openai', 'sk-real', () =>
       Promise.resolve(new Response('slow down', { status: 429 })),

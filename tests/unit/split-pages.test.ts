@@ -2,11 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import { planPageSplitJoins, type SplitHalf } from '@/lib/questions/split-pages'
 
-/**
- * Taken verbatim from the AMC8 2024 extraction that exposed this. Question 11
- * ends at the foot of page 2; its figure and its five options open page 3, and
- * came back as a row of their own.
- */
 const STEM: SplitHalf = {
   id: 'stem',
   pageNumber: 2,
@@ -20,11 +15,6 @@ const STEM: SplitHalf = {
   choices: [],
 }
 
-/**
- * Its position is 15 and its bbox top is 246. Both are real: the row was
- * written last because it came out of a re-read, but it is printed at the very
- * top of page 3, above question 12 at 639. Geometry is what says so.
- */
 const ORPHAN: SplitHalf = {
   id: 'orphan',
   pageNumber: 3,
@@ -42,7 +32,6 @@ const ORPHAN: SplitHalf = {
   ],
 }
 
-/** The next real question on page 3, which must never be touched. */
 const NEXT: SplitHalf = {
   id: 'guppies',
   pageNumber: 3,
@@ -89,15 +78,11 @@ describe('planPageSplitJoins', () => {
     expect(join([NEXT, ORPHAN, STEM])).toHaveLength(1)
   })
 
-  // Everything below is a case where joining would destroy a real question.
-
   it('leaves a stem that already has its own options', () => {
     expect(join([{ ...STEM, choices: ORPHAN.choices }, ORPHAN])).toHaveLength(0)
   })
 
   it('leaves an orphan that is really a question in its own right', () => {
-    // Same shape (first on the page, full option list) but it asks something,
-    // so the options are its own.
     expect(join([STEM, { ...ORPHAN, promptText: NEXT.promptText }])).toHaveLength(0)
   })
 
@@ -106,8 +91,6 @@ describe('planPageSplitJoins', () => {
   })
 
   it('leaves the orphan alone when it is not the first thing on its page', () => {
-    // Options belonging to page 2 cannot appear below a question that is
-    // itself printed on page 3.
     expect(join([STEM, { ...ORPHAN, top: 1400 }, NEXT])).toHaveLength(0)
   })
 
@@ -115,9 +98,6 @@ describe('planPageSplitJoins', () => {
     expect(join([STEM, { ...NEXT, pageNumber: 2, top: 1400 }, ORPHAN])).toHaveLength(0)
   })
 
-  // Ordinals put the orphan third on page 3, because it was written last by a
-  // re-read. Reading it off the page instead is the whole reason geometry is
-  // preferred, so the join has to survive a position that says otherwise.
   it('trusts the printed layout over the order the rows were written', () => {
     expect(join([STEM, ORPHAN, NEXT])).toHaveLength(1)
     expect(ORPHAN.position).toBeGreaterThan(NEXT.position)
@@ -126,23 +106,17 @@ describe('planPageSplitJoins', () => {
   it('falls back to arrival order when the page carries no geometry', () => {
     const flat = [STEM, ORPHAN, NEXT].map((q) => ({ ...q, top: null }))
 
-    // Ordinal order is orphan-last here, so without geometry there is nothing
-    // to say the options are printed above question 12, and it refuses.
     expect(join(flat)).toHaveLength(0)
     expect(join(flat.map((q) => (q.id === 'orphan' ? { ...q, position: 12 } : q)))).toHaveLength(1)
   })
 
   it('ignores geometry on a page where any question is missing it', () => {
-    // Half a page of coordinates is worse than none: a row with no bbox would
-    // sort to one end of the page on no evidence.
     const partial = [STEM, ORPHAN, { ...NEXT, top: null }]
 
     expect(join(partial)).toHaveLength(0)
   })
 
   it('refuses across a page that produced nothing', () => {
-    // The options are on the blank page in between, so a row two pages later
-    // is a different question however much it looks the part.
     expect(join([STEM, { ...ORPHAN, pageNumber: 4 }])).toHaveLength(0)
   })
 
@@ -161,8 +135,6 @@ describe('planPageSplitJoins', () => {
   })
 
   it('leaves a stem that asks nothing itself', () => {
-    // Two rows of page furniture in a row is not a split question, and the
-    // first one has no stem worth keeping.
     expect(join([{ ...STEM, promptText: 'CONTINUE ON TO THE NEXT PAGE' }, ORPHAN])).toHaveLength(0)
   })
 

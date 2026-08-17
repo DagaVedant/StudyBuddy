@@ -64,27 +64,12 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
 
   const abortRef = useRef<AbortController | null>(null)
 
-  /**
-   * True from the click, not from the first progress event.
-   *
-   * `busy` below is derived from state, and state does not update until React
-   * re-renders, so between pressing Upload and the first progress arriving the
-   * button was still live. A second press in that window started a second
-   * ingest of the same files, which is how one PDF became two worksheets.
-   */
   const runningRef = useRef(false)
 
-  /**
-   * The worksheet this run created, so Cancel can delete it.
-   *
-   * Held in a ref rather than state because Cancel reads it in the same tick it
-   * aborts, and a state update would not have landed yet.
-   */
   const worksheetRef = useRef<string | null>(null)
 
   const busy = progress !== null && progress.stage !== 'done'
 
-  // Closing the tab mid-ingest loses the rasterized pages, so warn first.
   useEffect(() => {
     if (!busy) return
     const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault()
@@ -92,18 +77,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [busy])
 
-  /*
-   * Leaving the page shuts the OCR worker down.
-   *
-   * Tesseract runs in a web worker holding a decoded page and a language model,
-   * and it cannot be interrupted mid-recognition: cancelling stops us waiting,
-   * it does not stop the work. Navigating away from a scanned upload therefore
-   * left a core busy on a page nobody would ever read, for as long as the tab
-   * stayed open, and the next upload would create a second worker beside it.
-   *
-   * Runs on unmount only, and after the abort above, so a still-running
-   * recognition is already unwanted by the time this fires.
-   */
   useEffect(() => {
     return () => {
       abortRef.current?.abort()
@@ -117,9 +90,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
     (incoming: FileList | null) => {
       if (!incoming?.length) return
       setError(null)
-      // Built outside the updater: calling setTitle inside setFiles' updater
-      // is a side effect React is free to drop, and does; the default title
-      // silently never applied.
       const next = [...files, ...Array.from(incoming)]
       setFiles(next)
       if (!titleTouched) setTitle(defaultTitle(next))

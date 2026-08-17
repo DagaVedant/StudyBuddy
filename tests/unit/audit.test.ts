@@ -118,9 +118,6 @@ describe('auditExtraction', () => {
     expect(result.retry).toEqual([])
   })
 
-  // Overshooting the stated total used to read as a clean run: the audit only
-  // ever looked for gaps, so a misread or double-counted number passed
-  // silently while claiming the paper was fully covered.
   it('reports numbers past the total the student gave', () => {
     const result = auditExtraction(
       [
@@ -158,13 +155,6 @@ describe('auditExtraction', () => {
     expect(result.missing).toEqual([])
   })
 
-  /**
-   * `test8_15` lost pages 2 and 3 entirely and the audit reported 100 % recall,
-   * because the solutions page had supplied numbers 8 to 15. A sheet missing
-   * more than half its questions passed the only check that would have
-   * triggered a re-read. The numbering being complete is not evidence that the
-   * pages were read.
-   */
   it('re-reads a page that prints questions and returned none', () => {
     const result = auditExtraction(
       [
@@ -184,7 +174,6 @@ describe('auditExtraction', () => {
     const result = auditExtraction(
       [
         { pageNumber: 1, printed: [1, 2], expectsQuestions: true },
-        // A cover page, an instructions page, an answer key.
         { pageNumber: 2, printed: [], expectsQuestions: false },
       ],
       2,
@@ -194,8 +183,6 @@ describe('auditExtraction', () => {
     expect(result.retry).toEqual([])
   })
 
-  // Blaming the last numbered page is right when the page after it did produce
-  // something. When it produced nothing, it is the page that lost them.
   it('sends the missing numbers to the silent page rather than its neighbour', () => {
     const result = auditExtraction(
       [
@@ -209,8 +196,6 @@ describe('auditExtraction', () => {
     expect(result.retry).toEqual([{ pageNumber: 2, expect: [3, 4] }])
   })
 
-  // What test8_15 needed: page 1 held 1-7, pages 2 and 3 came back empty, and
-  // the numbers 8-15 the audit thought it had were the solutions page's.
   it('splits a run of missing numbers across every silent page between', () => {
     const result = auditExtraction(
       [

@@ -8,23 +8,6 @@ import { planPageSplitJoins, type SplitHalf } from '@/lib/questions/split-pages'
 import { modalChoiceCount } from '@/lib/questions/validate'
 import { deletableQuestionIds } from '@/lib/worker/safe-delete'
 
-/**
- * Rejoins a question the page break cut in two.
- *
- * Extraction sends one page at a time and the model never sees its neighbours,
- * so a stem printed at the foot of page N and the options printed at the head
- * of page N+1 arrive as two rows: a question with no answers, and a block of
- * answers under a caption that asks nothing. The student sees both, the count
- * is one too high, and neither row is usable on its own.
- *
- * Runs before repairPrintedNumbers and renumberQuestions, because joining
- * changes both the count and the order those two work from.
- *
- * Safe to delete a row here for the same reason the merge is: nothing
- * downstream exists yet, so no attempt or review card points at it. What makes
- * it safe to delete *this* row is planPageSplitJoins, which refuses every pair
- * it cannot account for.
- */
 export async function joinSplitQuestions(
   db: Db,
   worksheetId: string,
@@ -50,8 +33,6 @@ export async function joinSplitQuestions(
 
   const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]))
 
-  // The half being folded away may be a row the student has already answered,
-  // and `questions` cascades to their attempts and review cards.
   const deletable = new Set(
     await deletableQuestionIds(
       db,

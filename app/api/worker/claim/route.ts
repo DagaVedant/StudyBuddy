@@ -12,10 +12,6 @@ import { pagesForJob } from '@/lib/worker/ingest'
 const claimSchema = z.object({
   workerName: z.string().trim().min(1).max(100),
   modelName: z.string().trim().max(200).nullish(),
-  // How many jobs the worker is already running. Only the worker knows; this
-  // route used to write 0 and then 1 regardless, which made the column say
-  // "idle" for a machine part-way through a 114 question paper. Optional so an
-  // older worker binary still claims successfully, at its previous accuracy.
   jobsInFlight: z.number().int().min(0).max(64).default(0),
 })
 
@@ -34,21 +30,11 @@ export async function POST(request: Request) {
 
   const workerId = await heartbeat(db, workerName, modelName ?? null, jobsInFlight)
 
-  // The queue's only regular heartbeat, so it is where the reaper lives. A
-  // worker that dies on its third claim leaves a job past the retry ceiling and
-  // still marked claimed, which nothing else will ever touch: unclaimable, and
-  // only a worker marks jobs failed. The worksheet sat at "Queued" forever and
-  // the trial credit was never refunded.
-  //
-  // Before the claim, so a job the student is about to be told about is not one
-  // that has already been abandoned.
   for (const abandoned of await reapAbandonedJobs(db)) {
     console.log(
       `[queue] reaped abandoned ${abandoned.stage} job ${abandoned.id} on ` +
         `worksheet ${abandoned.worksheetId}`,
     )
-    // The same path a reported failure takes, so a job that dies silently and
-    // one that dies loudly leave the account in the same state.
     await applyPermanentFailure(db, abandoned)
   }
 
@@ -61,15 +47,6 @@ export async function POST(request: Request) {
 
   await heartbeat(db, workerName, modelName ?? null, jobsInFlight + 1)
 
-  // The count the student typed off the front of the paper, sent with the job
-  // so the coverage audit has it without asking a second endpoint for it. It
-  // is set when the worksheet is created and never changes, so claim time and
-  // audit time are the same value.
-  //
-  // The comment here used to say this was for sizing the worker's own
-  // concurrency, which was true of a parallel page-reading path that has since
-  // been deleted; nothing read it at all after that, and it stayed as an extra
-  // query per claim serving a type declaration.
   const [worksheet] = await db
     .select({ expectedQuestionCount: worksheets.expectedQuestionCount })
     .from(worksheets)

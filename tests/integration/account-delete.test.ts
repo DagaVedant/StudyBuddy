@@ -31,7 +31,6 @@ afterAll(async () => {
   await close()
 })
 
-/** An account with something in every table that hangs off a user. */
 async function populated() {
   const userId = await makeUser(db)
   const worksheetId = await makeWorksheet(db, userId)
@@ -85,10 +84,6 @@ describe('deleteAccount', () => {
 
     await deleteAccount(asDb(db), userId)
 
-    // Asserted table by table rather than by trusting one delete, because the
-    // guarantee is a schema property: every one of these cascades, and a table
-    // added later without `onDelete: 'cascade'` would leave a student's answers
-    // behind after they asked for them to be gone.
     expect(await db.select().from(users).where(eq(users.id, userId))).toEqual([])
     expect(
       await db.select().from(worksheets).where(eq(worksheets.id, worksheetId)),
@@ -118,11 +113,6 @@ describe('deleteAccount', () => {
     expect(result.imagesRemoved + result.imagesFailed).toBe(1)
   })
 
-  /**
-   * The one reference that is `set null` rather than a cascade. A proposal is a
-   * queue item an admin still has to act on, so deleting the account that
-   * raised it detaches the person rather than destroying the operator's work.
-   */
   it('anonymises a topic proposal instead of deleting it', async () => {
     const { userId } = await populated()
 

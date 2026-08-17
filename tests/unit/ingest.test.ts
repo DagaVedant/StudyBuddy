@@ -1,17 +1,8 @@
-/**
- * `lib/worker/ingest.ts`, which is where a model's reply becomes rows.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import type { ExtractedQuestion } from '@/lib/ai/types'
 import { persistQuestions } from '@/lib/worker/ingest'
 
 describe('choice labels', () => {
-/**
- * A provider that skips the extraction schema (the mock does exactly this)
- * hands its rows straight to persistQuestions, so the label normalisation has
- * to live there rather than in each provider.
- */
 function fakeDb(captured: { label: string; text: string }[]) {
   let inserted: unknown[] = []
 
@@ -29,14 +20,9 @@ function fakeDb(captured: { label: string; text: string }[]) {
 
       return undefined
     }),
-    // One id per row, because the questions go in as a single batched insert
-    // and the choices are keyed off the returned order.
     returning: vi.fn(async () => inserted.map((_, i) => ({ id: `question-${i + 1}` }))),
   }))
 
-  // Only the shapes persistQuestions uses: a select of existing rows, the
-  // single-row lookup of the page's text, and inserts that either return an id
-  // (questions) or do not (choices).
   const empty = () => Object.assign(Promise.resolve([]), { limit: async () => [] })
 
   const fake: Record<string, unknown> = {
@@ -52,8 +38,6 @@ function fakeDb(captured: { label: string; text: string }[]) {
         },
       }
     },
-    // persistQuestions batches its two writes into one transaction. The fake
-    // just runs the body against itself.
     transaction: async (body: (tx: unknown) => Promise<unknown>) => body(fake),
   }
 
@@ -113,14 +97,6 @@ describe('persistQuestions label handling', () => {
     expect(captured.map((c) => c.label)).toEqual(['A', 'B'])
   })
 
-  /**
-   * `topic_test13_20` stored an orphaned option block as its question 17 and
-   * the real stem for 17 was never stored at all, so every count-based check
-   * passed on a sheet with a garbage question in it. Ingest drops a row whose
-   * whole prompt is a run of options, but only after the merge, and only
-   * after the merge has made sure the surviving stem is the real one, or the
-   * drop would take a good question's options down with the bad row's text.
-   */
   it('keeps the real stem when an option block arrives under the same number', async () => {
     const captured: { label: string; text: string }[] = []
 
@@ -162,10 +138,6 @@ describe('persistQuestions label handling', () => {
     expect(captured).toEqual([])
   })
 
-  // The same orphan, minus whatever the page break took with it. Re-reading
-  // topic_test8_15 produced this exact row and stored it as a second question
-  // 14 beside the real one, because the check used to require the run to start
-  // at A.
   it('drops an option block that lost its first options with the stem', async () => {
     const captured: { label: string; text: string }[] = []
 
@@ -201,10 +173,6 @@ describe('persistQuestions label handling', () => {
 })
 
 describe('printed numbers', () => {
-/**
- * Page 2 of topic_test3_20. Read on its own by the audit, the model numbered
- * what it could see from 1, and ingest stored that over the real numbering.
- */
 const PAGE_TEXT = `9. What value of x satisfies x/4 + 7 = 12?
 A. 20
 B. 48
@@ -215,7 +183,6 @@ B. 2
 A. 30
 B. 28`
 
-/** Captures the question rows, and serves the page's text to the one lookup. */
 function fakeDb(captured: { printedNumber: number | null; promptText: string }[], pageText: string) {
   const selectResult = (rows: unknown[]) =>
     Object.assign(Promise.resolve(rows), { limit: async () => rows })
@@ -223,7 +190,6 @@ function fakeDb(captured: { printedNumber: number | null; promptText: string }[]
   const fake: Record<string, unknown> = {
     select: (columns?: Record<string, unknown>) => ({
       from: () => ({
-        // The page lookup asks for ocrText and nothing else.
         where: () =>
           columns && 'ocrText' in columns
             ? selectResult([{ ocrText: pageText }])
@@ -231,9 +197,6 @@ function fakeDb(captured: { printedNumber: number | null; promptText: string }[]
       }),
     }),
     insert: () => ({
-      // persistQuestions batches now, so the question rows arrive as one array
-      // rather than one call per row. The choices arrive the same way and carry
-      // no promptText, which is what separates them.
       values: (rows: unknown) => {
         const list = Array.isArray(rows) ? rows : [rows]
         const ids: { id: string }[] = []
@@ -254,7 +217,6 @@ function fakeDb(captured: { printedNumber: number | null; promptText: string }[]
         })
       },
     }),
-    // The batched writes run in one transaction. The fake just runs the body.
     transaction: async (body: (tx: unknown) => Promise<unknown>) => body(fake),
   }
 
@@ -277,8 +239,6 @@ describe('persistQuestions printed numbers', () => {
   it('files a re-read page under the numbers the page prints', async () => {
     const captured: { printedNumber: number | null; promptText: string }[] = []
 
-    // What the audit's re-read actually returns: the page's 9, 10 and 11
-    // counted as 1, 2 and 3.
     await persistQuestions(
       fakeDb(captured, PAGE_TEXT),
       { worksheetId: 'w1', userId: 'u1' },

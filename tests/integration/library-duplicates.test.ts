@@ -21,11 +21,6 @@ afterAll(async () => {
 
 const client = () => asDb(db)
 
-/**
- * A unit vector pointing `angle` radians off the first axis, padded out to the
- * model's width. Two of these are as similar as their angles are close, which
- * makes the threshold testable without loading MiniLM.
- */
 function vector(angle: number): number[] {
   const values = new Array<number>(EMBEDDING_DIMENSIONS).fill(0)
   values[0] = Math.cos(angle)
@@ -88,8 +83,6 @@ describe('findLibraryDuplicates', () => {
     })
 
     const { id } = await makeQuestion(db, userId, newer, {
-      // The reader mangled a symbol, so the hashes differ and the vectors
-      // barely move. This is the case the embedding half exists for.
       promptText: 'Find angle C .',
       contentHash: 'new-hash',
       embedding: vector(0.05),

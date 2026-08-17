@@ -12,7 +12,6 @@ import { connect } from './db'
 
 type Db = ReturnType<typeof drizzle>
 
-/** Reported every this many rows, so a long run shows progress. */
 const REPORT_EVERY = 25
 
 async function backfillTopics(db: Db): Promise<number> {
@@ -43,18 +42,6 @@ async function backfillTopics(db: Db): Promise<number> {
   return done
 }
 
-/**
- * Questions written before the shortlist route started keeping the vector.
- *
- * Until this has run, the cross-worksheet duplicate check (spec §6.3) can only
- * see exact content-hash matches on anything already in the library: the near
- * match half reads `questions.embedding` and every old row holds NULL there.
- *
- * The text embedded is `promptText` and nothing else, which is what the GPU
- * worker sends for a live worksheet. Feeding the choices in as well here would
- * put two different meanings of "the question's vector" in one column and make
- * distances between an old row and a new one meaningless.
- */
 async function backfillQuestions(db: Db): Promise<number> {
   const pending = await db
     .select({ id: questions.id, promptText: questions.promptText })
@@ -74,10 +61,6 @@ async function backfillQuestions(db: Db): Promise<number> {
   for (const question of pending) {
     const vector = await embed(question.promptText)
 
-    // `embed` returns a zero vector for text that is empty once trimmed. Cosine
-    // distance is undefined against zero and pgvector reports it as NaN, which
-    // sorts first and would make a blank row the nearest neighbour of
-    // everything. Left NULL instead, which the duplicate check already skips.
     if (vector.every((value) => value === 0)) {
       skipped += 1
       continue
@@ -106,16 +89,12 @@ async function main() {
     throw new Error(`Unknown argument ${only}. Use --topics or --questions, or neither.`)
   }
 
-  // prepare: false: .env.example recommends a pooled connection string, and
-  // prepared statements fail against one.
   const sql = connect(url)
   const db = drizzle(sql)
 
   console.log('Model: all-MiniLM-L6-v2 (384d)')
 
   try {
-    // Both are resumable: each selects only the rows still holding NULL, so an
-    // interrupted run is continued by starting it again.
     const topicCount = only === '--questions' ? 0 : await backfillTopics(db)
     const questionCount = only === '--topics' ? 0 : await backfillQuestions(db)
 

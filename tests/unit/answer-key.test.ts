@@ -2,14 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import { isAnswerPage, mergeAnswerKeys, parseAnswerKey } from '@/lib/questions/answer-key'
 
-// The grid printed on the last page of edison_full_practice_test_45.
 const GRID = `ANSWER KEY — PRACTICE TEST 1
 1. D 2. C 3. A 4. C 5. B
 6. B 7. C 8. C 9. D 10. A
 11. C 12. A 13. B 14. A 15. D
 Edison Academy Magnet School — STEM Entrance Practice Test 1 Page 7 of 7`
 
-// The form the topic tests use, tags and all, straight from the text layer.
 const SOLUTIONS = `Answer Key
 <b>1.</b> B
 <b>2.</b> D
@@ -49,11 +47,7 @@ describe('parseAnswerKey', () => {
     expect(key.size).toBe(4)
   })
 
-  // Everything below would answer a question against the wrong letter.
-
   it('finds nothing on a page of questions', () => {
-    // Every one of these stems opens with a letter in the A-E range, which is
-    // what a loose "number then letter" match trips over.
     const page = `1. A rectangular concrete slab has a width of 5 meters. What is its area?
 A. 45
 B. 90
@@ -80,7 +74,6 @@ D. 405`
 3. Answer: A
 4. Answer: B`)
 
-    // 1 disagrees between the grid and the solutions; the rest agree.
     expect(key.has(1)).toBe(false)
     expect(key.get(2)).toBe('C')
     expect(key.get(3)).toBe('A')
@@ -99,10 +92,6 @@ describe('isAnswerPage', () => {
     expect(isAnswerPage(SOLUTIONS)).toBe(true)
   })
 
-  // edison_topic_test4_20 page 6, verbatim: the tail of the solutions, with no
-  // heading above it and only one worked answer on it. Under parseAnswerKey's
-  // three-entry floor, and still not a page of questions. Four sheets in the
-  // run each stored one phantom question off a page shaped exactly like this.
   it('calls a continuation of the solutions a key page', () => {
     const page = `4x 2 +12x+9 = (2x+3) 2 , so the side length is 2x+3, and the perimeter is 4(2x+3) = 8x + 12 . B reports the side length
 instead of the perimeter. A doubles the side length instead of multiplying by 4.
@@ -125,9 +114,6 @@ B. $60`
     expect(isAnswerPage(page)).toBe(false)
   })
 
-  // The trade F1 was about. A page that runs the last questions and the key
-  // together keeps its questions and pays for it in phantom rows; the reverse
-  // deletes work the student cannot get back.
   it('keeps a page that prints questions and then its key', () => {
     const page = `19. A cyclist rides 12 km in 40 minutes. What is the average speed in km/h?
 A. 15
@@ -141,8 +127,6 @@ Answer Key
     expect(isAnswerPage(page)).toBe(false)
   })
 
-  // A photograph, or a scan OCR could make nothing of. Positive evidence is
-  // required, so an unreadable page is read again rather than thrown away.
   it('says nothing about a page with no text', () => {
     expect(isAnswerPage('')).toBe(false)
     expect(isAnswerPage('   \n  ')).toBe(false)

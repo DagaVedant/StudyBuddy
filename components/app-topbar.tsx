@@ -14,13 +14,6 @@ export default async function AppTopbar() {
   return (
     <header className="inset-safe-top sticky top-0 z-50 border-b border-border bg-bg">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-4 sm:px-6">
-        {/*
-          The dashboard, not the pitch. This topbar is only rendered inside the
-          (app) group, so following it to `/` now leaves the group and takes the
-          nav with it: a signed-in reader landed on the marketing page with no
-          way back except the one button on it. The pitch is still reachable,
-          it is just no longer where the mark goes.
-        */}
         <Link
           href="/dashboard"
           className="flex shrink-0 items-center gap-2 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

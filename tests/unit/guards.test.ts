@@ -5,13 +5,6 @@ import { missingDatabaseUrlIsFatal, shouldSkipBuildMigration } from '@/lib/migra
 import { selectDriver } from '@/lib/storage'
 import { testEndpointsEnabled } from '@/lib/test-endpoints'
 
-/**
- * The e2e suite runs `next build && npx next start` (playwright.config.ts:44),
- * so its server reports NODE_ENV=production as loudly as the deployed one does.
- * Both guards below therefore key on VERCEL_ENV instead. These tests exist
- * because the obvious NODE_ENV version of each would pass review, ship, and
- * break all 41 e2e tests.
- */
 describe('testEndpointsEnabled', () => {
   const local = { ENABLE_TEST_ENDPOINTS: 'true' }
 
@@ -19,15 +12,10 @@ describe('testEndpointsEnabled', () => {
     expect(testEndpointsEnabled(local)).toBe(true)
   })
 
-  // The e2e suite's server runs a production build, so a NODE_ENV-based guard
-  // would refuse it. Both guards take only the keys they read, so NODE_ENV is
-  // not reachable from here: that is now a compile error rather than a test,
-  // which is the stronger version of this assertion.
   it('does not care what else is in the environment', () => {
     expect(testEndpointsEnabled({ ...local, VERCEL_ENV: undefined })).toBe(true)
   })
 
-  // These routes mint an admin account with no session and no CSRF token.
   it('refuses on every deployment, preview included', () => {
     for (const env of ['production', 'preview', 'development']) {
       expect(
@@ -42,7 +30,6 @@ describe('testEndpointsEnabled', () => {
     expect(
       testEndpointsEnabled({ ENABLE_TEST_ENDPOINTS: 'false' }),
     ).toBe(false)
-    // Exactly "true", so a stray "1" does not open them.
     expect(testEndpointsEnabled({ ENABLE_TEST_ENDPOINTS: '1' })).toBe(
       false,
     )
@@ -61,9 +48,6 @@ describe('selectDriver', () => {
     expect(selectDriver({ VERCEL_ENV: undefined }).name).toBe('local')
   })
 
-  // The failure this replaces was silent: uploads accepted, then "Page image
-  // missing" when the worker came for them, because .uploads does not survive
-  // the invocation that wrote it.
   it('refuses to boot a deployment with nowhere durable to write', () => {
     expect(() => selectDriver({ VERCEL_ENV: 'production' })).toThrow(
       /BLOB_READ_WRITE_TOKEN/,
@@ -81,12 +65,6 @@ describe('selectDriver', () => {
   })
 })
 
-/*
- * Finding 33. The first version of this guard keyed on
- * `VERCEL_ENV === 'production'` alone, which let every preview build - most
- * builds, since they fire on every push - migrate the single shared
- * DATABASE_URL unattended. See lib/migrate-guard.ts for the full reasoning.
- */
 describe('shouldSkipBuildMigration', () => {
   it('migrates a genuinely local build, which has no VERCEL_ENV at all', () => {
     expect(shouldSkipBuildMigration({})).toBe(false)
@@ -140,8 +118,6 @@ describe('isDisposableEmail', () => {
     }
   })
 
-  // Several of these hand out unlimited subdomains, which is the whole point of
-  // matching on the suffix rather than the exact host.
   it('catches a subdomain of a listed host', () => {
     expect(isDisposableEmail('x@inbox.mailinator.com')).toBe(true)
     expect(isDisposableEmail('x@a.b.guerrillamail.com')).toBe(true)
@@ -163,15 +139,11 @@ describe('isDisposableEmail', () => {
     }
   })
 
-  // A domain that merely ends in the same letters is not the same domain. The
-  // suffix match walks label boundaries, so this cannot pass.
   it('does not match a domain that merely contains a listed one', () => {
     expect(isDisposableEmail('x@notmailinator.com')).toBe(false)
     expect(isDisposableEmail('x@mailinator.com.evil.net')).toBe(false)
   })
 
-  // Rejecting a malformed address is the schema's job; doing it here too would
-  // report the wrong reason to whoever typed it.
   it('says nothing about an address it cannot read', () => {
     expect(isDisposableEmail('not-an-email')).toBe(false)
     expect(isDisposableEmail('')).toBe(false)

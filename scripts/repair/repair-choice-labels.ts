@@ -10,29 +10,12 @@ import { normalizeChoiceLabel } from '../../lib/questions/shape'
 import { requireLocalDb } from '../_confirm'
 import { connect } from '../db'
 
-/**
- * Rewrites option labels that arrived with the option stuck to them.
- *
- * `normalizeChoiceLabel` now reduces "A. 60" to "A" as options are ingested, but
- * rows written before that keep the old value, and both the review screen and
- * the dashboard render `{label}. {text}`, so a student reads "A. 60. 60", and
- * nothing matching on the label can find it.
- *
- *   npx tsx scripts/repair-choice-labels.ts            # report only
- *   npx tsx scripts/repair-choice-labels.ts --write    # rewrite them
- *
- * A row is only touched when everything being dropped from the label is already
- * held in the text beside it. Anything else is reported and left alone: a label
- * is not worth repairing at the price of losing the only copy of an option.
- */
 async function main() {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set.')
 
   const write = process.argv.includes('--write')
 
-  // Report-only is read-only and worth running against production. The writing
-  // form has no title filter at all: it rewrites labels on every account.
   if (write) requireLocalDb()
 
   const sql = connect(url)
@@ -56,7 +39,6 @@ async function main() {
     const next = normalizeChoiceLabel(row.label)
     if (next === row.label) continue
 
-    // Whatever the label loses has to survive in the text column.
     const dropped = row.label.slice(next.length).replace(/^\s*[.):\]]\s*/, '').trim()
 
     if (dropped.length > 0 && !row.text.includes(dropped)) {

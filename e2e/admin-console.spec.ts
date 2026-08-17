@@ -2,24 +2,11 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import { signInAsAdmin, visible } from './support/helpers'
 
-/**
- * `.fill()` on an `<input list="…">` can leave the browser's native datalist
- * suggestion popup open. It is outside the DOM and, intermittently, swallows
- * the very next click - the submit button click lands on the popup instead
- * of the button, and no request is ever sent. Escape closes it.
- */
 async function fillAndClose(input: Locator, value: string) {
   await input.fill(value)
   await input.press('Escape')
 }
 
-/**
- * Clicks a form's submit button and waits for the server action's own POST
- * to come back, rather than polling the DOM for however long the datalist
- * popup above happens to have swallowed the click for. A submit that never
- * reaches the server fails here, clearly, instead of the DOM assertion below
- * it timing out with nothing to say why.
- */
 async function submit(
   page: Page,
   section: Locator,
@@ -33,27 +20,9 @@ async function submit(
   await section.getByRole('button', { name: buttonName }).click()
   expect((await response).ok()).toBe(true)
 
-  // The POST resolving only means the write landed; whether the in-place RSC
-  // patch has actually reached the DOM yet is a second, separate race this
-  // suite's own streaming (every route has a loading.tsx, see support/helpers.ts's
-  // `visible()`) makes intermittent. A fresh navigation re-renders from
-  // scratch server-side, so what this reads next is never mid-patch.
   await page.goto('/admin/tree')
 }
 
-/**
- * Finding 118. spec.md §2.1 lists five admin capabilities; before this,
- * app/(app)/admin/ had reports and the proposal queue's accept/reject and
- * nothing else. Covers the two new pages end to end (tree editing, since it
- * is the one with real multi-step state to get wrong) and smoke-checks the
- * rest, since queue and merge both need a fixture (a stuck job, a topic
- * proposal) that nothing in the e2e harness can seed without opening a
- * second connection PGlite's single-socket server does not allow - see
- * e2e/support/database.ts. Those two are covered at the integration level
- * instead (tests/integration/queue.test.ts, tests/integration/proposals.test.ts).
- */
-
-/** Matches ADMIN_EMAILS in playwright.config.ts. */
 const ADMIN_EMAIL = 'admin@studybuddy.test'
 const OTHER_ADMIN_EMAIL = 'boss@studybuddy.test'
 
@@ -101,8 +70,6 @@ test('admin can add, rename, and move a topic in the canonical tree', async ({ b
     await signInAsAdmin(page, OTHER_ADMIN_EMAIL)
     await page.goto('/admin/tree')
 
-    // Two distinct seeded topics to move between, read before anything is
-    // created so neither can be the topic this test is about to add.
     const options = visible(page).locator('#all-topics option')
     const originalParent = await options.nth(0).getAttribute('value')
     const otherParent = await options.nth(1).getAttribute('value')
@@ -115,10 +82,6 @@ test('admin can add, rename, and move a topic in the canonical tree', async ({ b
     const name = `E2E Topic ${Date.now()}`
     await fillAndClose(addSection.locator('input[name="parentSlug"]'), originalParent)
     await fillAndClose(addSection.locator('input[name="name"]'), name)
-    // 90s rather than the default: the embedding model loads cold on the
-    // server's first call in this run, which is well past Playwright's usual
-    // wait on some hosts (see tests/integration/classify-worksheet.test.ts's
-    // own extended timeouts for the same reason).
     await submit(page, addSection, 'Add', 90_000)
 
     const created = visible(page).locator('#all-topics option', { hasText: name })
@@ -132,7 +95,6 @@ test('admin can add, rename, and move a topic in the canonical tree', async ({ b
     await fillAndClose(renameSection.locator('input[name="name"]'), renamed)
     await submit(page, renameSection, 'Rename')
 
-    // Same slug, new name: rename never touches the slug.
     await expect(visible(page).locator(`#all-topics option[value="${slug}"]`)).toHaveText(
       renamed,
     )
@@ -141,7 +103,6 @@ test('admin can add, rename, and move a topic in the canonical tree', async ({ b
     await fillAndClose(moveSection.locator('input[name="parentSlug"]'), otherParent)
     await submit(page, moveSection, 'Move')
 
-    // The old slug is gone; a new one under the new parent has the renamed topic.
     await expect(
       visible(page).locator(`#all-topics option[value="${slug}"]`),
     ).toHaveCount(0)

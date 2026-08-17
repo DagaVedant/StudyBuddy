@@ -15,27 +15,12 @@ export interface MarkedQuestion {
   choices: { id: string; label: string; text: string }[]
 }
 
-/**
- * The same three outcomes the marking flow offers, in the same order and with
- * the same words. A correction screen that renamed them would make a student
- * work out which of these was the thing they tapped.
- */
 const OUTCOMES: { value: Outcome; label: string }[] = [
   { value: 'correct', label: 'Got it' },
   { value: 'unsure', label: 'Unsure' },
   { value: 'wrong', label: 'Missed it' },
 ]
 
-/**
- * Per-question correction for a worksheet that has already been marked.
- *
- * Deliberately not a form with a submit. Marking is one tap per question by
- * design, and a mis-tap is a single question's problem, so the fix is a single
- * question's fix: each change is its own PATCH against the attempt that already
- * exists. What must not come back is a second bulk submit, which is what the
- * partial unique index exists to refuse and what used to push every review card
- * forward on answers nobody gave.
- */
 export default function CorrectionsClient({
   worksheetId,
   questions,
@@ -62,9 +47,6 @@ export default function CorrectionsClient({
   ) {
     const previous = marks[questionId]
 
-    // Optimistic, and rolled back on failure. The control is a set of buttons
-    // whose pressed state is the answer; leaving it on the old value until a
-    // round trip finishes makes a deliberate tap look like it missed.
     setMarks((current) => ({ ...current, [questionId]: next }))
     setSaving(questionId)
     setError(null)
@@ -128,9 +110,6 @@ export default function CorrectionsClient({
                       <button
                         key={outcome.value}
                         type="button"
-                        // `aria-pressed` rather than a visual-only highlight:
-                        // this is a toggle group reporting recorded state, and
-                        // which one is set is the entire content of the screen.
                         aria-pressed={isCurrent}
                         disabled={saving === question.id}
                         className={
@@ -141,10 +120,6 @@ export default function CorrectionsClient({
                         onClick={() =>
                           void correct(question.id, {
                             outcome: outcome.value,
-                            // A choice only means anything alongside a miss.
-                            // Carrying it onto "Got it" would record the
-                            // student picking the answer they got right as the
-                            // answer they gave instead.
                             selectedChoiceId:
                               outcome.value === 'correct' ? null : mark.selectedChoiceId,
                           })

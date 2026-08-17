@@ -1,16 +1,3 @@
-/**
- * The fallback for any route without a closer one.
- *
- * There was no `loading.tsx` anywhere, which means there was no Suspense
- * boundary anywhere, which means the browser sat on the old page until the new
- * one was ready. The dashboard runs five queries and the worksheet review page
- * runs five plus the taxonomy; on a cold serverless function against a remote
- * database that is a visible stall in which the click appears to have done
- * nothing at all.
- *
- * Deliberately vague, because it stands in for pages of different shapes. The
- * routes whose shape is worth matching have their own.
- */
 export default function Loading() {
   return (
     <main

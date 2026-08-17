@@ -24,10 +24,6 @@ afterAll(async () => {
 
 const client = () => asDb(db)
 
-/**
- * A marked question, in the state the markup flow leaves behind: one `markup`
- * attempt and one review card scheduled from that outcome.
- */
 async function marked(outcome: 'correct' | 'unsure' | 'wrong') {
   const userId = await makeUser(db)
   const worksheetId = await makeWorksheet(db, userId)
@@ -64,18 +60,7 @@ const markupRows = (userId: string, questionId: string) =>
       ),
     )
 
-/**
- * The highest-value finding in the product audit. Marking is one tap per
- * question by design, so a mis-tap is ordinary, and there was no un-mark,
- * re-mark, edit or reset anywhere: the only recourse was deleting the worksheet
- * and uploading it again, at the cost of a trial credit.
- */
 describe('correctMarkupAttempt', () => {
-  /**
-   * The consequence that actually costs the student something. The review
-   * queue's last clause is an `exists` over attempts with outcome wrong or
-   * unsure, so a question mis-marked `correct` was gone from practice for good.
-   */
   it('brings a question mis-marked correct back into the queue', async () => {
     const { userId, worksheetId, question } = await marked('correct')
 
@@ -103,11 +88,6 @@ describe('correctMarkupAttempt', () => {
     expect(await getDueCards(client(), userId)).toHaveLength(0)
   })
 
-  /**
-   * The whole point of correcting in place. A second insert is what the partial
-   * unique index refuses, and a correction that appended would double the
-   * denominator the weakness report is built on.
-   */
   it('updates the attempt rather than writing a second one', async () => {
     const { userId, worksheetId, question } = await marked('correct')
 
@@ -134,8 +114,6 @@ describe('correctMarkupAttempt', () => {
     const [item] = await getDueCards(client(), userId)
     expect(item.lastChoiceId).toBe(question.choiceIds.B)
 
-    // A choice alongside "got it" would record them picking the right answer as
-    // the answer they gave instead.
     await correctMarkupAttempt(client(), userId, worksheetId, {
       questionId: question.id,
       outcome: 'correct',
@@ -196,15 +174,9 @@ describe('correctMarkupAttempt', () => {
         .where(eq(reviewCards.questionId, question.id))
 
       expect(result).toMatchObject({ rescheduled: true })
-      // A miss is due within minutes; a correct answer is days out.
       expect(after.dueAt.getTime()).toBeLessThan(before.dueAt.getTime())
     })
 
-    /**
-     * A card that has been through the review screen carries real practice, and
-     * rewriting it from the original mark would throw away the more recent and
-     * more truthful of the two records.
-     */
     it('is left alone once the student has practised the question', async () => {
       const { userId, worksheetId, question } = await marked('wrong')
 
@@ -246,8 +218,6 @@ describe('correctMarkupAttempt', () => {
         outcome: 'wrong',
       })
 
-      // Retiring says "I know this now" and the correction says the opposite.
-      // The correction is the newer of the two statements.
       expect(await getDueCards(client(), userId)).toHaveLength(1)
     })
   })
@@ -260,9 +230,6 @@ describe('correctMarkupAttempt', () => {
         promptText: 'What is the value of x in this equation?',
       })
 
-      // Not an insert. Marking a single question outside the flow that marks
-      // the paper is the shape the unique index exists to keep to one
-      // submission.
       expect(
         await correctMarkupAttempt(client(), userId, worksheetId, {
           questionId: question.id,
@@ -284,10 +251,6 @@ describe('correctMarkupAttempt', () => {
       ).toEqual({ ok: false, reason: 'no-question' })
     })
 
-    /**
-     * The worksheet is checked as well as the question, so naming a question id
-     * from another paper does not reach it even for a caller who owns both.
-     */
     it('refuses a question that belongs to a different worksheet', async () => {
       const { userId, question } = await marked('correct')
       const otherWorksheet = await makeWorksheet(db, userId)

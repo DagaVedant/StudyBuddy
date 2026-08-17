@@ -39,8 +39,6 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({ ok: true, next })
   }
 
-  // Not a race worth failing over: a double-submit finds the door this
-  // request already opened, and markup is exactly as reachable either way.
   const [current] = await db
     .select({ status: worksheets.status })
     .from(worksheets)

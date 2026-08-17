@@ -5,18 +5,6 @@ import { useState } from 'react'
 
 import { fetchJson } from '@/lib/client/fetch-json'
 
-/**
- * The student-facing way onto a topic's lesson.
- *
- * Lessons used to only exist if an operator had run
- * `scripts/generate-lessons.ts` by hand, so a topic nobody had pre-generated
- * for showed no lesson section at all, with nothing inviting a student to ask
- * for one. This is that invitation.
- *
- * It does not render the lesson itself. The topic page is a server
- * component that already reads the lesson from the database when it exists,
- * so on success this only has to make that read happen again.
- */
 export default function GenerateLessonButton({ topicId }: { topicId: string }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)

@@ -4,30 +4,6 @@ import { TRIAL_WORKSHEET_LIMIT } from '../../lib/ai/limits'
 
 import { worksheetPdf } from './pdf'
 
-/**
- * The page as a reader sees it.
- *
- * Every route has a `loading.tsx` above it now, so every route streams, and
- * Next parks streamed content in a hidden div at the end of <body> until an
- * inline script moves it into place. That copy is inert and invisible, but it
- * matches on text and on selectors, so an unscoped locator can find two of
- * everything and fail Playwright's strict-mode check. Which of the two is
- * present depends on when the assertion samples the DOM, so it fails
- * intermittently, which is the worst way for it to fail.
- *
- * Use this for anything a page renders. The topbar is the exception: it sits
- * above the boundary and outside `#main`, so assertions about the nav, the
- * theme toggle and Sign out go through `page` directly.
- *
- * `#main` is the content wrapper each route group renders, and the buffer sits
- * outside it, so scoping to it is both the fix and a truer statement of what
- * these assertions mean: this text is on the page, not merely in the document.
- *
- * `:visible` is belt and braces. It costs nothing and it is what makes this
- * survive the boundary moving: put a `loading.tsx` above the wrapper rather
- * than below it and the buffer starts carrying a second `#main`, at which point
- * the id alone is ambiguous and every assertion in this suite fails at once.
- */
 export function visible(page: Page) {
   return page.locator('#main:visible')
 }
@@ -66,8 +42,6 @@ export async function registerAndSignIn(
   await visible(page).getByLabel('Date of birth').fill(adultDob())
   await visible(page).getByRole('button', { name: 'Create account' }).click()
 
-  // No verification round-trip any more: nothing sends mail, so an account is
-  // usable the moment it is made.
   await expect(statusBox(page)).toBeVisible()
 
   await page.goto('/signin')
@@ -79,13 +53,6 @@ export async function registerAndSignIn(
   return email
 }
 
-/**
- * Signs in as an admin, Google link and all.
- *
- * Not `registerAndSignIn` with an admin address: signup refuses those, and the
- * role needs a linked Google account rather than a password. The test endpoint
- * creates both, so what is exercised here is the rule, not a way around it.
- */
 export async function signInAsAdmin(page: Page, email: string): Promise<void> {
   const created = await page.request.post('/api/test/admin-account', {
     data: { email, password: PASSWORD },
@@ -103,9 +70,6 @@ export async function signInAsAdmin(page: Page, email: string): Promise<void> {
 export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Promise<void> {
   await page.goto('/upload')
 
-  // Scoped like every text assertion in this suite, and for the same reason:
-  // the streamed copy of the page carries its own file input, so an unscoped
-  // selector resolves to two and fails strict mode.
   await visible(page).locator('input[type="file"][accept*="pdf"]').setInputFiles({
     name: 'unit-4.pdf',
     mimeType: 'application/pdf',
@@ -120,15 +84,6 @@ export async function uploadWorksheet(page: Page, title = 'Unit 4 Practice'): Pr
   await page.waitForURL(/\/worksheets\/[^/]+\/(edit|status)/, { timeout: 90_000 })
 }
 
-/**
- * An empty worksheet, created through the real route.
- *
- * Two specs had their own copy of this: the library spec's `createWorksheet`
- * and the bulk-accept spec's `seedWorksheet`, both posting the identical body.
- * Only one of them checked whether the request succeeded, which is the half
- * worth keeping: without it a failed create surfaces later as a confusing
- * assertion about a page that never had the worksheet on it.
- */
 export async function createWorksheet(page: Page, title: string): Promise<string> {
   const response = await page.request.post('/api/worksheets', {
     data: { title, sourceType: 'pdf_digital', pageCount: 1 },
@@ -158,33 +113,11 @@ export interface SeededWorksheet {
   questionId: string
 }
 
-/** The smallest valid PNG there is: one pixel, enough for sharp to decode. */
 const ONE_PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64',
 )
 
-/**
- * A worksheet at `awaiting_review`, with one page image, one question and
- * its choices already in place - the state a real upload reaches once
- * extraction finishes, reached here without one.
- *
- * Built from the create-worksheet, page-upload and create-question routes
- * directly, the same reasoning verify-bulk-accept.spec.ts's own fixture
- * documents: a real upload's extraction runs on the trial tier's GPU queue,
- * which nothing in this harness ever claims, so the worksheet would sit in
- * `processing` forever with no question on it at all. The page image is
- * part of that: the review screen this fixture exists for reads it
- * directly ("This worksheet has no pages" otherwise), not through anything
- * extraction would have produced.
- *
- * The trial is exhausted first so POST .../complete takes its
- * `executor: 'none'` branch, which is what moves a worksheet straight to
- * `awaiting_review` inside the same request rather than queuing a job -
- * the only path this harness can drive synchronously, and the same one
- * `uploadWorksheet` rides once the suite that calls it has already spent
- * the trial.
- */
 export async function seedReviewableWorksheet(
   page: Page,
   email: string,

@@ -27,11 +27,6 @@ function question(over: Partial<ValidatableQuestion> = {}): ValidatableQuestion 
 const codes = (q: ValidatableQuestion, expected: number | null = 4) =>
   validateQuestion(q, { expectedChoiceCount: expected }).map((f) => f.code)
 
-/**
- * `topic_test13_20` stores twenty rows for a twenty-question paper with no gap
- * in the numbering, and row 17 is an orphaned option block. Every count-based
- * check passes and the real stem for 17 is gone.
- */
 describe('isOptionRun', () => {
   it('recognises an option block stored as a question', () => {
     expect(
@@ -46,9 +41,6 @@ describe('isOptionRun', () => {
   it('reads the bracketed style too', () => {
     expect(isOptionRun('(A) 28 (B) 29 (C) 30 (D) 31 (E) 32')).toBe(true)
   })
-
-  // Everything below is a question, and dropping one would be the failure this
-  // whole document is about.
 
   it('leaves an ordinary question alone', () => {
     expect(isOptionRun('A rectangular garden measures 12 m by 8 m. What is its area?')).toBe(false)
@@ -73,17 +65,11 @@ describe('isOptionRun', () => {
     expect(isOptionRun('A. 12   B. 314   D. 79')).toBe(false)
   })
 
-  // Used to require the run to start at A. A page break that takes the stem
-  // takes the options above it too, so what is left starts partway down the
-  // list: re-reading topic_test8_15 stored "B. 18  C. 144  D. 81" as a second
-  // question 14, beside the real one.
   it('catches a run whose first options went with the stem', () => {
     expect(isOptionRun('B. 18   C. 144   D. 81')).toBe(true)
     expect(isOptionRun('C. 25   D. 79   E. 81')).toBe(true)
   })
 
-  // Single letters outside the range papers label options with. Roman numeral
-  // lists are the reason this matters: "i." is a letter too.
   it('stays inside the A-E range options are labelled with', () => {
     expect(isOptionRun('i. one   j. two   k. three')).toBe(false)
     expect(isOptionRun('x. one   y. two   z. three')).toBe(false)
@@ -107,8 +93,6 @@ describe('validateQuestion', () => {
     expect(codes(question())).toEqual([])
   })
 
-  // The prose check above cannot see this one: four short answers are four
-  // ordinary sentences as far as it is concerned.
   it('catches an option block stored as a question', () => {
     const stem = 'A. 1 hole   B. 4 holes   C. 2 holes same side   D. 2 holes opposite sides'
 
@@ -158,8 +142,6 @@ describe('validateQuestion', () => {
     expect(codes(repeated)).toContain('duplicate_labels')
   })
 
-  // The shape the page-3 split produced: the stem swallowed the options and
-  // then they were listed again underneath.
   it('notices an option repeated inside the stem', () => {
     const swallowed = question({
       promptText:
@@ -169,7 +151,6 @@ describe('validateQuestion', () => {
   })
 
   it('treats a stem finished by its options as fine, not truncated', () => {
-    // Real SHSAT phrasing. Flagging these marked a fifth of a clean run.
     const opener = question({
       promptText:
         'The author’s use of the phrase “tall grasses” affects the tone of the excerpt by suggesting',
@@ -313,8 +294,6 @@ describe('planReview', () => {
   })
 
   it('caps how much of the worksheet can be re-read', async () => {
-    // Ten pages, every question broken. Re-reading all ten would double the
-    // job for an extraction that is wrong throughout anyway.
     const all = Array.from({ length: 10 }, (_, i) =>
       reviewable({ id: `q${i}`, pageNumber: i + 1, printedNumber: i + 1, choices: [] }),
     )
@@ -334,7 +313,6 @@ describe('planReview', () => {
       reviewable({ id: 'd', pageNumber: 3, printedNumber: 4 }),
     ]
 
-    // Three pages at a third of them apiece leaves room for exactly one.
     const plan = await planReview(questions, undefined, { maxRereadShare: 0.33 })
 
     expect(plan.reread).toEqual([{ pageNumber: 2, expect: [2, 3] }])
@@ -343,7 +321,6 @@ describe('planReview', () => {
 })
 
 describe('stem_is_not_a_question', () => {
-  // Coordinate labels lifted off a diagram, filed as their own question.
   it('catches figure labels captured as a question', () => {
     expect(codes(question({ promptText: 'C(3,y)nA(5,7) B(11,7)' }))).toContain(
       'stem_is_not_a_question',
@@ -361,8 +338,6 @@ describe('stem_is_not_a_question', () => {
     expect(codes(question({ promptText: '(C)' }))).toContain('stem_is_not_a_question')
   })
 
-  // The reason the first version of this rule was wrong. These are real
-  // questions on a real paper and carry almost no words at all.
   it('leaves a bare calculation alone', () => {
     for (const stem of [
       '3.6 ÷ 0.018 =',

@@ -11,15 +11,6 @@ import * as schema from '@/lib/db/schema'
 
 export type TestDb = ReturnType<typeof drizzle<typeof schema>>
 
-/**
- * A test handle as the `Db` production functions take.
- *
- * The two differ only in the driver's result-shape parameter, so this is a
- * widening rather than a reinterpretation, and it stays a single assertion for
- * that reason. It lives here so the cast is written once: every integration
- * test used to open with its own `db as unknown as Db`, and a double assertion
- * turns off the check that would tell us if the drivers ever diverged for real.
- */
 export function asDb(db: TestDb): Db {
   return db as Db
 }

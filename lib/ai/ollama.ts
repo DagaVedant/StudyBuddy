@@ -31,20 +31,6 @@ import {
   type TopicCandidate,
 } from './types'
 
-/**
- * Base64 for an image, in whichever runtime this provider is loaded in.
- *
- * This class runs in two places now. On the operator's GPU it is a Node
- * script, where `Buffer` is the obvious tool and was what this used. In Tier C
- * it is the student's own tab, where `Buffer` does not exist: the app router
- * ships no polyfill for it, so the extraction call failed on a
- * `ReferenceError` before it ever reached Ollama.
- *
- * Chunked rather than one spread into `String.fromCharCode`. A page image is
- * on the order of a megabyte, and applying a function to a million arguments
- * at once overflows the call stack in every engine; 32k at a time is well
- * inside the limit and costs one pass over the array.
- */
 function toBase64(bytes: Uint8Array): string {
   if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')
 
@@ -57,12 +43,6 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-/**
- * Timing and token counts Ollama reports alongside every reply.
- *
- * Durations are nanoseconds, which is what the API returns; dividing
- * evalCount by evalDurationNs gives generation tokens per second.
- */
 export interface OllamaCallStats {
   model: string
   promptTokens: number
@@ -70,17 +50,9 @@ export interface OllamaCallStats {
   promptDurationNs: number
   evalDurationNs: number
   totalDurationNs: number
-  /** Time spent bringing the model into memory; large when it is offloaded. */
   loadDurationNs: number
 }
 
-/**
- * The model accepted the request and then generated nothing.
- *
- * Distinct from a transport failure: the call succeeded, so no HTTP status
- * reports it, and distinct from a page that genuinely holds no questions,
- * because those come back as a valid empty list rather than empty content.
- */
 class EmptyReplyError extends Error {
   constructor(model: string) {
     super(`${model} returned an empty response.`)
@@ -88,25 +60,10 @@ class EmptyReplyError extends Error {
   }
 }
 
-/**
- * One question, its options, and room for a reasoning model to think.
- *
- * The longest stored question is a few hundred tokens and the system prompt is
- * under one thousand, so 8k leaves the whole budget to the working. Reasoning
- * models spend the output allowance thinking, which is why this is not smaller.
- */
 const ANSWER_CONTEXT_TOKENS = 8_192
 
-/** A lesson carries five sample questions in and a long answer out. */
 const LESSON_CONTEXT_TOKENS = 12_288
 
-/**
- * How long to wait for a list of pulled models.
- *
- * Short on purpose, and unrelated to `timeoutMs`, which bounds generation and
- * has to allow minutes. Reading tags is a local lookup that answers at once or
- * is not going to.
- */
 const TAGS_TIMEOUT_MS = 10_000
 
 export interface OllamaOptions {
@@ -118,48 +75,15 @@ export interface OllamaOptions {
   fetchImpl?: typeof fetch
   timeoutMs?: number
 
-  /**
-   * Model used to sanity-check extracted questions, defaulting to textModel.
-   *
-   * Its job is judging whether a question came out whole, which is far easier
-   * than reading the page was, so a small fast model is the right tool. This
-   * runs over every question on the worksheet.
-   */
-  /**
-   * Model used to work a question out and to teach a topic, defaulting to
-   * textModel.
-   *
-   * Its own setting because solving is not the job the other two models were
-   * chosen for. The vision model was picked by measurement on reading a page,
-   * and the review model on judging whether a question came out whole; neither
-   * contest says anything about whether a model can do the maths. A derived
-   * answer is stored as the answer and shown to a student, so this is the one
-   * place where being slower and larger is worth it.
-   */
   answerModel?: string
 
   reviewModel?: string
 
-  /**
-   * How many times to ask before giving up on a page.
-   *
-   * Benchmarking found empty replies on roughly a quarter of pages for some
-   * models, and each one silently costs every question on that page; the
-   * audit only sees gaps in the printed numbering it was given, so a page
-   * that returns nothing at all leaves nothing behind to notice. One retry
-   * recovered every such page in the sample.
-   */
   maxAttempts?: number
 
   contextTokens?: number
   maxOutputTokens?: number
 
-  /**
-   * Observability hook, unset in normal use. Ollama reports token counts and
-   * durations on every reply and the provider used to drop them; the
-   * benchmark needs them to report tokens/sec, and there is no way to
-   * recover them after the fact.
-   */
   onStats?: (stats: OllamaCallStats) => void
 }
 
@@ -168,22 +92,8 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   readonly supportsVision = true
   readonly executionSite: ExecutionSite
 
-  /**
-   * The text model, since that is the one whose output gets recorded.
-   *
-   * Ollama is the only provider that runs more than one, and there is no
-   * single answer here that is right for both jobs. The one caller that reads
-   * this is storing an explanation, which the text model wrote.
-   */
   readonly model: string
 
-  /**
-   * The answering model, which is also the one that writes lessons.
-   *
-   * Separate from `model` because this provider runs a different model per
-   * task, and the two jobs that record what wrote them (a solution and a
-   * lesson) both run here rather than on the text model.
-   */
   readonly answeringModel: string
 
   private readonly baseUrl: string
@@ -211,15 +121,6 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
 
     this.onStats = options.onStats
-    // 24576, not 32768: every request in flight reserves its own KV cache, so
-    // the reservation is what decides whether a second page can be read at the
-    // same time or whether the model spills out of VRAM and collapses to a
-    // tenth of its speed.
-    //
-    // Not lower, though. The densest page measured wanted 10,182 prompt tokens
-    // and hit the 8,192 output cap, so ~18.4k is the real worst case rather
-    // than the ~3.9k average; sizing this off the average would quietly
-    // truncate exactly the pages that carry the most questions.
     this.contextTokens = options.contextTokens ?? 24_576
     this.maxOutputTokens = options.maxOutputTokens ?? 8_192
     this.maxAttempts = Math.max(1, options.maxAttempts ?? 3)
@@ -231,17 +132,6 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     userText: string,
     images: string[] | undefined,
     schema: Record<string, unknown>,
-    /**
-     * Context to reserve, when the caller knows it needs far less than a page.
-     *
-     * The default is sized for the densest page measured, which is the right
-     * size for reading one and five times too big for solving one. Every
-     * request reserves its own KV cache, so a 24k reservation for a question
-     * that fits in one is not merely wasteful: on a 16GB card it is the
-     * difference between the model sitting in VRAM and spilling out of it.
-     * Measured on the backfill, where the same model that answered a benchmark
-     * question in five seconds was taking twenty-five.
-     */
     contextTokens = this.contextTokens,
   ): Promise<unknown> {
     for (let attempt = 1; ; attempt += 1) {
@@ -287,10 +177,6 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
           stream: false,
           format: schema,
           options: {
-            // Greedy first, since that is the most faithful transcription.
-            // A repeat means the model already chose to emit nothing here, so
-            // asking again identically would land on the same silence; a small
-            // amount of randomness is what lets the retry take another path.
             temperature: attempt === 1 ? 0 : 0.2 * (attempt - 1),
 
             num_ctx: contextTokens,
@@ -375,15 +261,6 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   }
 
   async answerQuestion(input: AnswerInput): Promise<unknown> {
-    /*
-     * The vision model when there is a page to look at, the answer model when
-     * there is not.
-     *
-     * Not a preference. The answer model is chosen for reasoning and is text
-     * only, so handing it an image is not a worse answer, it is an error. The
-     * two are different models on purpose and this is the one place the
-     * distinction has to be made at call time rather than at construction.
-     */
     const image = input.image
     const model = image ? this.visionModel : this.answerModel
 
@@ -393,7 +270,6 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       answerUserText(input),
       image ? [toBase64(image)] : undefined,
       ANSWER_JSON_SCHEMA as unknown as Record<string, unknown>,
-      // A page image is worth several thousand tokens on its own.
       image ? this.contextTokens : ANSWER_CONTEXT_TOKENS,
     )
   }
@@ -435,20 +311,6 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     return raw
   }
 
-  /**
-   * The models this Ollama has pulled.
-   *
-   * Bounded, and by a short timeout rather than the generous one the chat path
-   * uses. This is the first call the worker makes at boot, to check the model
-   * it needs is present, and it had no timeout at all: the `.catch` around it
-   * turns a refused connection into "Is it running?" but a socket that accepts
-   * and never answers is not a rejection, so the worker hung at startup having
-   * printed three lines and no error.
-   *
-   * Listing tags is a local read that returns immediately or not at all. Ten
-   * seconds is already generous for it, and waiting the chat timeout to find
-   * out Ollama is wedged helps nobody.
-   */
   async listModels(): Promise<string[]> {
     const response = await this.fetchImpl(`${this.baseUrl}/api/tags`, {
       signal: AbortSignal.timeout(TAGS_TIMEOUT_MS),

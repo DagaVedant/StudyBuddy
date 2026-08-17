@@ -40,10 +40,6 @@ async function event(over: {
   })
 }
 
-/*
- * Finding 118: spec.md §2.1 lists usage visibility as an admin capability
- * and nothing in app/ queried usage_events at all.
- */
 describe('usageSummary', () => {
   it('groups by kind and tier, counting events and summed quantity', async () => {
     const userId = await makeUser(db)

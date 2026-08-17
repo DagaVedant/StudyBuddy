@@ -1,25 +1,5 @@
 import Link from 'next/link'
 
-/**
- * spec.md:339's first moment: "when the trial runs low (1 worksheet left)".
- *
- * The second moment, settings, has always existed. This one did not, and its
- * absence is what made the trial end as a surprise: `worksheetsRemaining` was
- * read in exactly one place, on a screen a student has no particular reason to
- * visit. The dashboard tile does carry the count, but it is a label in a card,
- * it never changes character as the number falls, and nothing about reading
- * "1 trial worksheet left" in passing suggests that the next upload after this
- * one lands in a manual editor.
- *
- * Shown at one remaining rather than zero because zero is too late: at zero the
- * student has already met the wall, on the completion route, as a message
- * explaining they have been dropped to the manual editor.
- *
- * The three options are the spec's, in the spec's order, and the third is
- * deliberately not a link. "Stay free" is what happens if this card is ignored,
- * and dressing inaction up as a button to click would make the honest choice
- * look like the effortful one.
- */
 export default function AiSetupPrompt() {
   return (
     <section

@@ -29,12 +29,6 @@ afterEach(() => {
   process.env = { ...vapid }
 })
 
-/**
- * spec.md:611's completion notifications, which did not exist in any form: no
- * email, no push, no inbox. The queue, the heartbeat and the status UI were all
- * built, and the piece that makes them useful was not, so "safe to close this
- * page" was true and useless.
- */
 describe('notify', () => {
   it('records a notification the student will find when they come back', async () => {
     const userId = await makeUser(db)
@@ -54,11 +48,6 @@ describe('notify', () => {
     expect(unread).toBe(1)
   })
 
-  /**
-   * The half that has to work without any setup at all. A local checkout and
-   * the e2e suite both have no VAPID keys, and neither should have a completion
-   * path that throws.
-   */
   it('writes the row even with push unconfigured', async () => {
     delete process.env.VAPID_PUBLIC_KEY
     delete process.env.VAPID_PRIVATE_KEY
@@ -124,10 +113,6 @@ describe('markAllRead', () => {
     expect(after.rows).toHaveLength(2)
   })
 
-  /**
-   * `isNull` in the update, so the timestamp records when they were first seen
-   * rather than the last time the bell happened to be opened.
-   */
   it('does not move the timestamp on an already-read notification', async () => {
     const userId = await makeUser(db)
     await notify(client(), {
@@ -165,9 +150,6 @@ describe('notifyWorksheet', () => {
     const [row] = (await listNotifications(client(), userId)).rows
 
     expect(row.title).toBe('Trigonometry Unit 7')
-    // The status page rather than a resolved destination: by the time this is
-    // opened the worksheet may have been checked or marked, and that page asks
-    // `destination()` at the moment of the click.
     expect(row.href).toBe(`/worksheets/${worksheetId}/status`)
   })
 
@@ -183,7 +165,6 @@ describe('notifyWorksheet', () => {
     expect(row.body).toMatch(/not counted against your trial/)
   })
 
-  /** A worksheet deleted between the job finishing and this running. */
   it('says nothing about a worksheet that has gone', async () => {
     const userId = await makeUser(db)
 

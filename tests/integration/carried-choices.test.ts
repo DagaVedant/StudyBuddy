@@ -28,7 +28,6 @@ const OPTIONS = [
   { label: 'E', text: '26' },
 ]
 
-/** AMC8 2024 page 4: question 14's options, printed above question 15. */
 const PAGE_TEXT_CARRYING = `AoPS Community 2024 AMC 8 -
 (A) 28 (B) 29 (C) 30 (D) 31 (E) 32
 15 Let the letters F , L , Y , B , U , G represent different digits here.`
@@ -55,7 +54,6 @@ const WHOLE = (n: number, page: number, top: number): Q => ({
   choices: OPTIONS,
 })
 
-/** The stem stranded at the foot of page 3 with its options on page 4. */
 const STRANDED: Q = {
   page: 3,
   ordinal: 14,
@@ -135,7 +133,6 @@ async function read(worksheetId: string) {
   )
 }
 
-/** Three whole questions so the sheet has a settled option count of five. */
 const SHEET: Q[] = [
   WHOLE(12, 3, 639),
   WHOLE(13, 3, 903),
@@ -183,8 +180,6 @@ describe('recoverCarriedChoices', () => {
     await recoverCarriedChoices(client(), id)
     expect(await recoverCarriedChoices(client(), id)).toEqual({ recovered: 0 })
   })
-
-  // Everything below is a case where the options would go to the wrong place.
 
   it('leaves a page that carries nothing', async () => {
     const id = await seed(SHEET, { 3: 'page three text', 4: PAGE_TEXT_PLAIN })
@@ -250,20 +245,12 @@ describe('recoverCarriedChoices', () => {
     expect(await recoverCarriedChoices(client(), id)).toEqual({ recovered: 0 })
   })
 
-  /**
-   * Thirteen questions in the Edison run are this shape rather than the one
-   * above: the break falls inside the option list, so the stem keeps A and the
-   * rest are printed at the top of the next page. The recovery skipped every
-   * one of them, because a question with any options at all looked finished.
-   */
   describe('when the stem kept some of its options', () => {
-    /** topic_test7_25 page 2: question 7 kept A, and B, C, D are here. */
     const TAIL = `B. 314
 C. 25
 D. 79
 8. Two parallel lines are cut by a transversal, and one of the angles measures 65 degrees.`
 
-    /** Four options rather than five, so the modal count matches the Edison papers. */
     const FOUR = OPTIONS.slice(0, 4)
 
     const sheet = (kept: { label: string; text: string }[]): Q[] => [
@@ -286,7 +273,6 @@ D. 79
     })
 
     it('refuses a tail that does not begin where the stem left off', async () => {
-      // It kept A and B, so the tail owed is C and D; this page opens at B.
       const id = await seed(
         sheet([
           { label: 'A', text: '12' },
@@ -299,7 +285,6 @@ D. 79
     })
 
     it('refuses a tail that would take the question past the paper’s count', async () => {
-      // A full A-E block for a paper whose questions have four options.
       const id = await seed(sheet([{ label: 'A', text: '12' }]), {
         3: 'page three',
         4: PAGE_TEXT_CARRYING,

@@ -11,18 +11,6 @@ import { eq } from 'drizzle-orm'
 import { asDb, createTestDb, type TestDb } from '../helpers/db'
 import { makeUser } from '../helpers/factories'
 
-/**
- * Tier routing: which of four answers a student's account gets, and therefore
- * whether their upload runs on their own key, waits for the operator's GPU, or
- * is refused. Zero tests until now.
- *
- * The awkward part, and the reason this is worth writing carefully, is that
- * `ENABLE_MOCK_AI` short-circuits the cloud branch. The e2e suite sets it, so
- * every run of that suite takes the mock path and the decrypt below it has
- * never executed in a test. It is exercised here with the flag off, against a
- * real sealed key.
- */
-
 let db: TestDb
 let close: () => Promise<void>
 
@@ -33,8 +21,6 @@ beforeAll(async () => {
   db = created.db
   close = created.close
 
-  // A real 32-byte key, so the seal and the open below are the real AES-GCM
-  // and not a stub. The deployed one never leaves the environment.
   previousKey = process.env.CREDENTIALS_ENC_KEY
   process.env.CREDENTIALS_ENC_KEY = randomBytes(32).toString('base64')
 })
@@ -86,12 +72,6 @@ describe('resolveProvider', () => {
     expect((await resolveProvider(client(), userId)).tier).toBe('trial')
   })
 
-  /**
-   * The end of the trial is a tier, not an error. `free` with no executor is
-   * what the upload route reads to send somebody to the manual editor instead
-   * of refusing the upload, which is the difference between a dead end and a
-   * worksheet they can still mark.
-   */
   it('drops to free with nothing to run on once the trial is spent', async () => {
     const userId = await makeUser(db)
     await db
@@ -118,14 +98,6 @@ describe('resolveProvider', () => {
     })
   })
 
-  /**
-   * Not a throw, and not `free` either: an id with no row reads as a brand new
-   * account and gets the trial. Every caller authenticates first, so this is
-   * only reachable if the account went away mid-request, and the worst it costs
-   * is one worksheet of operator GPU time. Written down because the shape of
-   * the code, `user?.trialWorksheetsUsed ?? 0`, makes it look deliberate and
-   * nothing said whether it was.
-   */
   it('treats a user id with no row as a new account', async () => {
     expect((await resolveProvider(client(), 'nobody')).tier).toBe('trial')
   })
@@ -142,12 +114,6 @@ describe('resolveProvider', () => {
       })
     })
 
-    /**
-     * The path the e2e suite can never take. `openApiKey` is AES-GCM with an
-     * auth tag, so a wrong key, a truncated ciphertext or a mismatched IV
-     * throws rather than returning nonsense, and until now nothing had ever run
-     * it from here.
-     */
     it('decrypts the key rather than taking the mock path', async () => {
       delete process.env.ENABLE_MOCK_AI
       const userId = await makeUser(db)
@@ -155,8 +121,6 @@ describe('resolveProvider', () => {
 
       const resolved = await resolveProvider(client(), userId)
 
-      // A real provider, not the mock: the mock answers extraction from a fixed
-      // fixture, so a run that quietly took that path would look like success.
       expect(resolved.provider.name).toBe('anthropic')
     })
 
@@ -169,8 +133,6 @@ describe('resolveProvider', () => {
         .set({ keyAuthTag: Buffer.alloc(16).toString('base64') })
         .where(eq(userAiCredentials.userId, userId))
 
-      // Falling through to the trial would silently run somebody's paid work on
-      // the operator's GPU, and they would never learn their key was unreadable.
       await expect(resolveProvider(client(), userId)).rejects.toThrow()
     })
 
@@ -185,11 +147,6 @@ describe('resolveProvider', () => {
       expect(resolved.provider.name).toBe('mock')
     })
 
-    /**
-     * A row with a provider name but no ciphertext is what an interrupted save
-     * leaves behind. Treating it as a usable key is a decrypt of undefined on
-     * every upload that account makes.
-     */
     it('ignores a row that has no key on it', async () => {
       delete process.env.ENABLE_MOCK_AI
       const userId = await makeUser(db)
@@ -223,16 +180,6 @@ describe('resolveProvider', () => {
     },
   )
 
-  /**
-   * Tier C, whose whole shape is that this process resolves it and cannot run
-   * it. `executor: 'browser'` is the entire payload: the provider handed back
-   * refuses everything, on purpose, because the only thing that can reach the
-   * student's `localhost:11434` is their own tab.
-   *
-   * Until this branch existed the row resolved as `trial` or `free` while the
-   * dashboard read the same table and said "Ollama connected", so the two
-   * screens disagreed about the account in front of them.
-   */
   describe('with a saved ollama address', () => {
     async function withOllama(userId: string) {
       await db.insert(userAiCredentials).values({
@@ -260,9 +207,6 @@ describe('resolveProvider', () => {
 
       const resolved = await resolveProvider(client(), userId)
 
-      // Not an OllamaProvider. One built here would carry a base URL naming a
-      // machine this process cannot route to, and every call would hang until
-      // it timed out rather than failing for a reason anybody could read.
       expect(resolved.provider.name).toBe('null')
       expect(resolved.provider.executionSite).toBe('none')
     })
@@ -272,8 +216,6 @@ describe('resolveProvider', () => {
       const userId = await makeUser(db)
       await withOllama(userId)
 
-      // The student still has every trial worksheet. Spending one here would
-      // burn a lifetime allowance on hardware they already told us about.
       expect((await resolveProvider(client(), userId)).tier).toBe('ollama')
     })
 
@@ -294,12 +236,6 @@ describe('resolveProvider', () => {
       expect((await resolveProvider(client(), userId)).tier).toBe('trial')
     })
 
-    /**
-     * The e2e suite has no Ollama on the box and never will, so under the mock
-     * flag this tier runs server-side like the cloud one does. It stays named
-     * `ollama` because the tier is what the account is configured with, not
-     * where the mock happens to execute.
-     */
     it('runs server-side under the mock flag, still called ollama', async () => {
       process.env.ENABLE_MOCK_AI = 'true'
       const userId = await makeUser(db)

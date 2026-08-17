@@ -15,32 +15,9 @@ import type { Db } from '@/lib/db/types'
 
 import { MIN_ATTEMPTS, type TopicStats } from './ranking'
 
-/**
- * How much a topic's accuracy has to move before the arrow calls it a trend.
- *
- * Ten points. Below that the arrow would be reporting the difference between
- * four out of five and five out of six, which is not information a student
- * should change their evening around.
- */
 const TREND_BAND = 0.1
 
 export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[]> {
-  /*
-   * spec.md:398's trend arrow, which was specified and never computed. The
-   * example row is `38% (8/21) ↓`, and the arrow is the part that says whether
-   * the 38% is the story so far or the story now.
-   *
-   * The comparison splits a topic's own attempts down the middle by time rather
-   * than using a fixed window like "the last 30 days". A student works through a
-   * subject in bursts, so a calendar window is empty for most topics most of the
-   * time, and an arrow that is absent whenever the student took a fortnight off
-   * is worse than no arrow. Halves are always populated once there are two
-   * attempts, and they scale with however densely the topic was practised.
-   *
-   * `unsure` counts as correct on both sides, because it is: the answer was
-   * right. Whether it was *confident* is panel 4's question and has its own
-   * number, and folding it in here would make the arrow say two things at once.
-   */
   const result = rows<{
     topic_id: string
     topic_name: string
@@ -93,7 +70,6 @@ export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[
     return {
       topicId: row.topic_id,
       topicName: row.topic_name,
-
       topicPath: row.slug,
       subjectRoot: row.subject_root,
       correct: Number(row.correct),
@@ -104,11 +80,6 @@ export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[
   })
 }
 
-/**
- * Which way a topic is going, or null when it is not going anywhere worth an
- * arrow. Null rather than 'flat' for "not enough to say": a flat arrow claims
- * steadiness, and one attempt in each half claims nothing.
- */
 function trendOf(earlier: number | null, recent: number | null): TopicStats['trend'] {
   if (earlier === null || recent === null) return null
 
@@ -121,15 +92,7 @@ function trendOf(earlier: number | null, recent: number | null): TopicStats['tre
 export interface Overview {
   questionsTracked: number
   worksheetsUploaded: number
-  /** In the queue and scheduled for today or earlier. */
   dueNow: number
-  /**
-   * The whole review queue: every question got wrong or guessed that has not
-   * been retired with "Got it", whatever the scheduler says about it.
-   *
-   * This replaced a "due this week" count, which stopped meaning anything once
-   * the queue stopped hiding what was not due yet.
-   */
   toPractise: number
   attemptsLogged: number
 }
@@ -183,16 +146,6 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
   }
 }
 
-/**
- * How many of this student's worksheets finished with no topics on them.
- *
- * The weakness ranking, the forecast and the subject tree are all built from
- * `question_topics`, so a worksheet that finished untagged contributes to none
- * of them. The check screen says why at the time, and then the student marks the
- * paper and arrives at a dashboard with nothing on it and no memory of the
- * warning. "No topic has enough evidence yet" is the wrong explanation for that,
- * and it is the one they were getting.
- */
 export async function countUntaggedWorksheets(
   db: Db,
   userId: string,
@@ -210,46 +163,21 @@ export async function countUntaggedWorksheets(
 export interface ForecastRow {
   topicId: string
   topicName: string
-  /** In the queue and scheduled for the end of today or earlier. */
   dueToday: number
-  /** Including today. Everything landing in the next seven days. */
   dueThisWeek: number
 }
 
-/**
- * spec.md:412's review forecast: what is due today and this week, by topic.
- *
- * The panel the dashboard was missing, and the one worth building of the three
- * that were: the screen's stated job (spec.md:392) is to answer "What should I
- * do right now?", and a forecast broken down by topic is the panel that answers
- * it. The two counts in the top strip are not this. They are totals with no
- * topic in them, so they say how much there is and never what it is.
- *
- * Built on `inReviewQueue`, the same predicate the review tab draws from and the
- * same one the tiles count, because a third definition of "due" on the same
- * screen is how finding 109 happened.
- *
- * Bounded to the week rather than returning every topic with a card in it. This
- * is a forecast, and a topic whose next card lands in March is not a thing to
- * plan around today.
- */
 export async function getReviewForecast(
   db: Db,
   userId: string,
   now: Date = new Date(),
 ): Promise<ForecastRow[]> {
-  // Local end of day rather than `now + 24h`. "Due today" is a calendar answer,
-  // and a card landing at 23:00 is due today whether it is 09:00 or 22:00 when
-  // the dashboard is opened.
   const endOfToday = new Date(now)
   endOfToday.setHours(23, 59, 59, 999)
 
   const endOfWeek = new Date(now)
   endOfWeek.setDate(endOfWeek.getDate() + 7)
 
-  // ISO strings with an explicit cast, not Date objects. A Date interpolated
-  // into a raw fragment reaches the driver as something Postgres will not
-  // compare against timestamptz.
   const today = endOfToday.toISOString()
   const week = endOfWeek.toISOString()
 
@@ -294,21 +222,6 @@ export interface TrendPoint {
   wrong: number
 }
 
-/**
- * One row per week, including the weeks nothing happened in.
- *
- * This used to group the attempts and return whatever buckets came back, which
- * meant the chart's bars were weeks-with-attempts rather than weeks. Twelve
- * bars read as twelve consecutive weeks whatever they were, so a student who
- * practised in March and again in June saw two adjacent bars and a flat run
- * between them that did not exist. Worse in the other direction: a gap during
- * a bad patch closed up, and the chart showed steady work.
- *
- * The weeks are generated in SQL rather than in JS so the bucket boundaries are
- * Postgres's own. `date_trunc('week', ...)` starts on a Monday, and rebuilding
- * that here would be one timezone assumption away from bars that do not line up
- * with the rows they are counting.
- */
 export async function getAccuracyTrend(
   db: Db,
   userId: string,
@@ -352,19 +265,6 @@ export interface SubjectTrend {
   points: TrendPoint[]
 }
 
-/**
- * spec.md:406's other half: the same weekly chart, per subject.
- *
- * "Toggleable overall vs. per-subject" was specified and only the overall half
- * was built, which answers "is any of this working" and cannot answer "is it
- * working *at the thing I have been grinding*". A student who spent a month on
- * geometry while coasting through algebra sees one flat line either way.
- *
- * The weeks come from the same `generate_series` as the overall chart and are
- * generated per subject, so every series has the same x-axis and the toggle
- * does not reshape the chart under the reader. Subjects with no attempts at all
- * are dropped: an all-zero series is a legend entry that teaches nothing.
- */
 export async function getAccuracyTrendBySubject(
   db: Db,
   userId: string,
@@ -437,19 +337,8 @@ export interface RecentWorksheet {
   createdAt: Date
   questionCount: number
   wrongCount: number
-  /** Marks recorded from the markup flow, which a worksheet only gets once. */
   markedCount: number
-  /**
-   * Right first time, out of `markedCount`. spec.md:414 asks this panel for a
-   * score, and the panel showed a miss count instead, which is the same
-   * information upside down and only if you already know the denominator.
-   *
-   * `unsure` is not counted here. The answer was right, but this is the number a
-   * student reads as "how did I do", and a guess that landed is not the same as
-   * knowing it; panel 4 is where the unsure rate gets to speak for itself.
-   */
   correctCount: number
-  /** The topics this paper actually covered, most-represented first. */
   topics: { topicId: string; topicName: string; questionCount: number }[]
 }
 
@@ -487,16 +376,6 @@ export async function getRecentWorksheets(
     .orderBy(desc(worksheets.createdAt))
     .limit(limit)
 
-  /*
-   * Topics in a second query rather than another join.
-   *
-   * `questions` and `attempts` above are a chain, so the `distinct` counts
-   * survive it. `question_topics` is not part of that chain: joining it would
-   * multiply every row by the topics each question is filed under, and the
-   * counts already fought that battle once (see the note on the worksheets
-   * page's own query). Over at most `limit` worksheets this is one small
-   * indexed read.
-   */
   const ids = result.map((row) => row.id)
 
   const topicRows = ids.length
@@ -582,15 +461,6 @@ export interface AccountAccuracy {
   ranked: boolean
 }
 
-/**
- * Accuracy across every attempt on the account, not per topic.
- *
- * `summarize` in `lib/dashboard/ranking.ts` does the same division for one
- * topic's rows; this is the same arithmetic over all of them; for the profile
- * page's stats summary, which is a personal record rather than something to
- * act on, so it draws from the whole history rather than only what counts
- * toward a ranked weakness.
- */
 export async function getAccountAccuracy(db: Db, userId: string): Promise<AccountAccuracy> {
   const [row] = rows<{ correct: number; total: number }>(
     await db.execute(sql`
@@ -613,24 +483,6 @@ export async function getAccountAccuracy(db: Db, userId: string): Promise<Accoun
   }
 }
 
-/**
- * How many days in a row, ending today or yesterday, carry at least one
- * attempt.
- *
- * Any attempt counts, from review or from marking a worksheet: the streak is
- * about showing up, not about which screen. Days are UTC calendar days, the
- * same convention {@link getAccuracyTrend}'s week buckets already use, so the
- * two stay consistent with each other rather than one running on the reader's
- * clock and the other on the server's.
- *
- * Not broken by an empty today. A student who has not yet opened the app
- * today still has an active streak until the day actually passes with
- * nothing logged; starting the count from yesterday when today is empty is
- * what a streak is supposed to mean, and what every other streak feature
- * does. Computed live rather than stored: the input is a handful of rows per
- * active day, and storing a running count invites it drifting from what the
- * attempts actually show.
- */
 export async function getStudyStreak(
   db: Db,
   userId: string,

@@ -2,20 +2,6 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { createWorksheet, registerAndSignIn, visible } from './support/helpers'
 
-/**
- * Accepting every remaining question at once: the confirm step and the undo
- * that follows it. Self-contained rather than appended to journey.spec.ts's
- * shared serial suite, since this needs several unverified questions and that
- * suite's fixture carries exactly one, hand-drawn.
- *
- * Built from the create-worksheet and create-question routes directly rather
- * than a PDF upload, because a real upload's extraction runs on the trial
- * tier's queue (`executor: 'operator_gpu'`), which nothing in this harness
- * ever claims: the worksheet would sit in `processing` forever with no
- * questions on it at all, which is the failure this fixture avoids by not
- * depending on extraction to produce anything.
- */
-
 async function seedWorksheet(page: Page, count: number): Promise<string> {
   const id = await createWorksheet(page, 'Bulk Accept Fixture')
 
@@ -29,9 +15,6 @@ async function seedWorksheet(page: Page, count: number): Promise<string> {
     })
     const { questionId } = (await made.json()) as { questionId: string }
 
-    // Manual creation marks a question verified, since a student who boxed
-    // it themselves has already checked it. That is the wrong starting state
-    // for a screen whose whole job is checking questions nobody has yet.
     await page.request.patch(`/api/questions/${questionId}`, {
       data: { userVerified: false },
     })
@@ -53,8 +36,6 @@ test('accepting the remaining questions asks first, and can be undone', async ({
   await expect(acceptLink).toBeVisible()
   await acceptLink.click()
 
-  // The confirm step, not an immediate write. Cancelling it leaves every
-  // question exactly as unverified as before.
   await expect(visible(page).getByText(/Accept all \d+ without checking each one\?/)).toBeVisible()
   await visible(page).getByRole('button', { name: 'Cancel' }).click()
   await expect(acceptLink).toBeVisible()
@@ -64,14 +45,12 @@ test('accepting the remaining questions asks first, and can be undone', async ({
     .getByRole('button', { name: /Yes, accept \d+/ })
     .click()
 
-  // Every question checked, and the undo offer up.
   await expect(visible(page).getByText(/\d+ questions? accepted\./)).toBeVisible()
   await expect(visible(page).getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
   await expect(visible(page).getByText(/All \d+ questions? checked/)).toBeVisible()
 
   await visible(page).getByRole('button', { name: 'Undo' }).click()
 
-  // Back to needing a check, for the same count that was just accepted.
   await expect(acceptLink).toBeVisible()
   await expect(visible(page).getByText(/0 of \d+ checked/)).toBeVisible()
 })

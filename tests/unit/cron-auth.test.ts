@@ -2,14 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { authenticateCron } from '@/lib/cron-auth'
 
-/**
- * The credential between Vercel's own scheduler and the drain route it
- * triggers unattended (finding 7). Modeled on tests/unit/worker-auth.test.ts,
- * minus the IP allowlist: a cron dispatch comes from Vercel's own
- * infrastructure rather than one fixed machine, so there is no address to
- * check the way the GPU worker's own VPS can be.
- */
-
 const SECRET = 'cron-secret-0123456789'
 
 function request(
@@ -36,8 +28,6 @@ describe('authenticateCron', () => {
     })
   })
 
-  // 403 rather than 401: an unset secret is an operator mistake, not a
-  // caller one, and answering 401 would invite a retry that can never work.
   it('refuses everything when no secret is configured', () => {
     delete process.env.CRON_SECRET
 
@@ -72,10 +62,6 @@ describe('authenticateCron', () => {
     })
   })
 
-  // timingSafeEqual throws on a length mismatch rather than returning false,
-  // so the length has to be compared first. A caller sending a
-  // one-character token used to be a 500, which is a crash reachable by
-  // anyone who finds the path.
   it('does not throw on a secret of a different length', () => {
     expect(() => authenticateCron(request({ authorization: 'Bearer x' }))).not.toThrow()
     expect(() =>

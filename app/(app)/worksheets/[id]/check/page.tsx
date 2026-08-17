@@ -36,9 +36,6 @@ export default async function CheckPage({ params }: Params) {
   const [shaped, duplicates, pageRows] = await Promise.all([
     loadQuestionsWithChoices(db, id),
     findLibraryDuplicates(db, session.user.id, id),
-    // The scans themselves. `loadQuestionsWithChoices` carries the page number
-    // but not the image, and this screen asks the student to compare each
-    // question against the page it came from, which it could not show.
     db
       .select({
         id: worksheetPages.id,
@@ -53,8 +50,6 @@ export default async function CheckPage({ params }: Params) {
   const duplicateFor = new Map(duplicates.map((row) => [row.questionId, row]))
   const pageFor = new Map(pageRows.map((page) => [page.id, page]))
 
-  // The paper decides what a complete answer list looks like, so the flags
-  // below mean the same thing they do during extraction.
   const expectedChoiceCount = modalChoiceCount(shaped)
 
   const items: CheckableQuestion[] = shaped.map((row) => {
@@ -84,12 +79,6 @@ export default async function CheckPage({ params }: Params) {
     }
   })
 
-  // Paper order, so card one is question one. Doubtful questions used to come
-  // first, on the theory that a student who stops early should spend their
-  // cards where the reading is most likely wrong. In practice opening on
-  // question 25 reads as a bug: there is nothing to compare against yet, so
-  // the jump looks like the wrong worksheet rather than like triage. The
-  // concern banner still marks the doubtful ones as they come round.
   const ordered = items
 
   return (
@@ -102,13 +91,6 @@ export default async function CheckPage({ params }: Params) {
         whether we read it correctly.
       </p>
 
-      {/*
-        Written once, on the worksheet, by the server path that could not
-        assign a single topic to it. This is the one screen every one of
-        these worksheets reaches, so it is where a student finds out topics
-        never got a chance to be assigned, rather than quietly wondering why
-        their dashboard has nothing to say about this paper.
-      */}
       {worksheet.classificationError && (
         <p
           role="alert"

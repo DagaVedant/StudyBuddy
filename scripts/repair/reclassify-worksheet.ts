@@ -9,17 +9,11 @@ import { openDatabase } from '../db'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 async function main() {
-  // The first argument that is not a flag, so `--yes` in any position is not
-  // read as the worksheet id.
   const target = process.argv.slice(2).find((arg) => !arg.startsWith('--'))
   if (!target) {
     throw new Error('Usage: npx tsx scripts/reclassify-worksheet.ts <worksheet-id> [--yes]')
   }
 
-  // Titles are no longer accepted. This used to match `ilike '%target%'` across
-  // every account and take whichever worksheet was newest, so a one word
-  // argument could pick a stranger's sheet and drop its topic assignments,
-  // which are what the topic gap and recommendation screens are built from.
   if (!UUID.test(target)) {
     throw new Error(
       `"${target}" is not a worksheet id. Pass the exact id, the uuid in the ` +
@@ -61,10 +55,6 @@ async function main() {
     `Reclassify "${sheet.title}" (${sheet.pages} pages) on ${databaseHost(process.env.DATABASE_URL!)}`,
     `  owner:    ${sheet.email}`,
     `  clearing: ${sheet.topics} topic assignment(s), then queueing classification again`,
-    // The queued job is a full extract job held at the last page, so it still
-    // runs the audit re-read, which can replace question rows. It will not
-    // touch a question somebody has answered (the job route checks
-    // deletableQuestionIds first), but the row itself may be rewritten.
     '  the re-run also re-reads any page the audit doubts, replacing those rows',
   ])
 

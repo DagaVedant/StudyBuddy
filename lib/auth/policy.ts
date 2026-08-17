@@ -27,23 +27,11 @@ export function meetsAgeRequirement(dob: Date, now: Date = new Date()): boolean 
 
 export type AgeCheck = { ok: true; dob: Date } | { ok: false; reason: string }
 
-/** What `<input type="date">` submits, which is what both callers forward. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 export function validateDob(input: string | Date | null | undefined): AgeCheck {
   if (!input) return { ok: false, reason: 'Enter your date of birth.' }
 
-  /*
-   * Parsed from an exact shape rather than by handing the string to `new Date`.
-   *
-   * V8's fallback parser is lenient enough to read a year out of prose:
-   * `new Date('sometime in 2010')` is the first of January 2010, and it is
-   * local midnight rather than UTC. That is two problems. Free text became a
-   * valid date of birth, and the offset put the answer a day out either side of
-   * the boundary for anyone west of UTC, which is precisely what the UTC
-   * arithmetic below this exists to avoid. Both callers forward the value of a
-   * `type="date"` field, so the shape is known and worth insisting on.
-   */
   const dob =
     input instanceof Date
       ? input

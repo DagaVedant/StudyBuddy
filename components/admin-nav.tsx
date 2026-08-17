@@ -8,7 +8,6 @@ const PAGES = [
   { href: '/admin/reports', label: 'Reports' },
 ] as const
 
-/** The five admin pages, cross-linked from each other's intro line. */
 export default function AdminNav({ current }: { current: (typeof PAGES)[number]['href'] }) {
   const rest = PAGES.filter((page) => page.href !== current)
 

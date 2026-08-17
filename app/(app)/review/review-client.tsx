@@ -19,31 +19,11 @@ const RATINGS: { value: Rating; label: string; hint: string; key: string }[] = [
   { value: 'easy', label: 'Easy', hint: 'Instant', key: '4' },
 ]
 
-/**
- * How long the explanation poll waits, and how it spends that wait.
- *
- * The three minutes are unchanged; the request count is not. A flat two second
- * gap meant ninety GETs per explanation, nearly all of them asking a worker
- * that had not started writing yet, and the worker takes tens of seconds on a
- * cold model. Backing off spends the same three minutes in about seventeen
- * requests. The first wait stays short so an explanation that is already
- * cached still appears at once, and the cap keeps the tail from drifting so
- * far out that a finished answer sits unclaimed.
- */
 const EXPLAIN_DEADLINE_MS = 3 * 60_000
 const EXPLAIN_FIRST_WAIT_MS = 1_000
 const EXPLAIN_MAX_WAIT_MS = 15_000
 const EXPLAIN_BACKOFF = 1.6
 
-/**
- * `setTimeout` that an abort can cut short.
- *
- * The poll used to hold a bare timer, so leaving the screen mid-generation did
- * not stop it: it kept waking up and fetching against a component that was no
- * longer mounted. Now that the gap grows to fifteen seconds, a sleep that
- * ignored the signal would also be fifteen seconds of delay before the loop
- * noticed it had been cancelled.
- */
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
@@ -67,13 +47,6 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 
 export default function ReviewSession({
   items,
-  /**
-   * Set when the queue was narrowed to one topic, so the three empty states can
-   * say which of two very different things happened. "Everything you are
-   * tracking is scheduled for later" is a reasonable thing to read on the whole
-   * queue and a false one under a filter, where the rest of the queue may be
-   * full.
-   */
   topicName,
 }: {
   items: ReviewItem[]
@@ -89,30 +62,10 @@ export default function ReviewSession({
   const [explaining, setExplaining] = useState(false)
   const [explainError, setExplainError] = useState<string | null>(null)
   const [generated, setGenerated] = useState<Record<string, string>>({})
-  // True between rating the last card of a queue and its replacement landing.
-  // Without it the completion card below announces the end of the session for
-  // the length of a round trip, which is the same false claim the stale index
-  // used to make permanent.
   const [refreshing, setRefreshing] = useState(false)
 
   const explainAbort = useRef<AbortController | null>(null)
 
-  /**
-   * What counts as a different queue, as opposed to merely a different array.
-   *
-   * Rating the last card refreshes the route and parks the index past the end
-   * of the current queue, but the replacement `items` arrive a render or two
-   * later. Twenty more due questions therefore landed on a screen that was
-   * already showing the completion card, and it stayed there until the student
-   * reloaded the page.
-   *
-   * The card ids are the signal, not the identity of the array:
-   * `router.refresh()` hands this component a new array every time, so
-   * resetting on reference would send a student who is fifteen questions in
-   * back to question one, on any refresh at all. The same ids in the same
-   * order mean the same queue, so the index survives. `done` survives either
-   * way, because it counts the sitting rather than the batch.
-   */
   const queueKey = items.map((entry) => entry.cardId).join('|')
   const [queueSeen, setQueueSeen] = useState(queueKey)
 
@@ -127,17 +80,6 @@ export default function ReviewSession({
     return generated[entry.questionId] ?? entry.explanation?.body ?? null
   }
 
-  /**
-   * Waits for an explanation the GPU worker is generating.
-   *
-   * Trial accounts run on the operator's own machine, which this site cannot
-   * call directly, so the answer is queued and collected. Polling is on GET
-   * rather than POST so waiting does not spend the hourly request budget or
-   * charge the trial quota again.
-   *
-   * The gap between asks grows: see the constants at the top of the file for
-   * what that changed and what it deliberately did not.
-   */
   async function waitForExplanation(
     questionId: string,
     signal: AbortSignal,
@@ -146,8 +88,6 @@ export default function ReviewSession({
     let wait = EXPLAIN_FIRST_WAIT_MS
 
     while (Date.now() < deadline) {
-      // Clamped to what is left, so the last ask lands on the deadline rather
-      // than up to fifteen seconds past it.
       await sleep(Math.min(wait, deadline - Date.now()), signal)
       wait = Math.min(wait * EXPLAIN_BACKOFF, EXPLAIN_MAX_WAIT_MS)
 
@@ -173,10 +113,6 @@ export default function ReviewSession({
   }
 
   async function explain(entry: ReviewItem) {
-    // The ref holds at most one live controller. A second run that overwrote
-    // it while the first was still polling would leave the unmount cleanup
-    // above able to abort only the newer one, and the older poll would go on
-    // fetching from a screen that is gone: the thing this is here to prevent.
     explainAbort.current?.abort()
     const controller = new AbortController()
     explainAbort.current = controller
@@ -206,10 +142,6 @@ export default function ReviewSession({
 
       setGenerated((current) => ({ ...current, [entry.questionId]: text }))
     } catch (cause) {
-      // An abort is this screen going away or a second run taking over, not a
-      // failure to report. Nothing is lost once the POST is through: the job
-      // is queued server side and the worker writes the explanation against
-      // the question, so it is already on the card next time it comes round.
       if (controller.signal.aborted) return
       setExplainError((cause as Error).message)
     } finally {
@@ -220,40 +152,15 @@ export default function ReviewSession({
 
   const item = items[index]
 
-  /*
-   * The poll belongs to the card that started it.
-   *
-   * `explaining` and `explainError` are one pair of scalars for the whole
-   * session, so a poll left running after the student rated and moved on kept
-   * the next card's button disabled and reading "Writing…", and when it finally
-   * timed out it painted its error under a question it was never about. The
-   * request itself is safe to drop: the job is queued server side and the
-   * worker writes the explanation either way, so coming back to the card finds
-   * it waiting.
-   */
   const currentQuestionId = item?.questionId
   const [explainFor, setExplainFor] = useState(currentQuestionId)
 
-  // The flags reset during render, the same way the queue reset above does, so
-  // the next card never paints with the previous one's "Writing…" on its
-  // button. The request itself is dropped in the effect below: a ref is not
-  // readable here.
   if (currentQuestionId !== explainFor) {
     setExplainFor(currentQuestionId)
     setExplaining(false)
     setExplainError(null)
   }
 
-  /*
-   * Drops the poll when the card changes, and on unmount.
-   *
-   * Cleanup keyed on the card, so moving on aborts the request the previous one
-   * started. Safe to drop: the job is queued server side and the worker writes
-   * the explanation either way, so coming back to that card finds it waiting.
-   * Left running, it kept the next card's button disabled and reading
-   * "Writing…", and when it eventually timed out it painted its error under a
-   * question it was never about.
-   */
   useEffect(() => {
     return () => {
       explainAbort.current?.abort()
@@ -261,13 +168,6 @@ export default function ReviewSession({
     }
   }, [currentQuestionId])
 
-  /**
-   * Move past the card just dealt with.
-   *
-   * The last one in the batch refreshes rather than advancing, because the
-   * queue is a server render: what comes next is whatever is still unretired
-   * and unanswered, and the client has no way to know that itself.
-   */
   const advance = useCallback(() => {
     setDone((count) => count + 1)
 
@@ -281,14 +181,6 @@ export default function ReviewSession({
     }
   }, [index, items.length, router])
 
-  /**
-   * "Got it": take this question out of the queue for good.
-   *
-   * Not a rating. Rating it "easy" pushes it a few months out and it comes
-   * back, which is the thing a student is trying to escape when they say they
-   * have this one. The question stays wrong everywhere it is counted as wrong;
-   * only the queue lets go of it.
-   */
   const retire = useCallback(async () => {
     if (!item || busy) return
     setBusy(true)
@@ -359,14 +251,6 @@ export default function ReviewSession({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [revealed, rate])
 
-  /*
-   * Three different empty states, and the difference matters.
-   *
-   * Arriving with nothing due is not the same as finishing a session, and the
-   * server cannot tell them apart: by the time it re-renders, both are an empty
-   * queue. `done` is what separates them, which is why this component stays
-   * mounted across the refresh rather than being swapped for a page of its own.
-   */
   if (!item) {
     if (refreshing) {
       return (
@@ -376,11 +260,6 @@ export default function ReviewSession({
             You reviewed <span className="tabular-nums">{done}</span>{' '}
             {done === 1 ? 'question' : 'questions'} so far.
           </p>
-          {/*
-            The way out stays on screen while the refresh is in flight. If it
-            never lands, this is the whole screen, and a student waiting on a
-            request that failed should not need the back button to leave.
-          */}
           <div className="mt-4 flex flex-col justify-center gap-3 sm:flex-row">
             <Link href="/dashboard" className="btn btn-primary sm:w-auto sm:px-6">
               Back to dashboard
@@ -407,13 +286,6 @@ export default function ReviewSession({
       )
     }
 
-    // Arrived with nothing due. This used to be a separate page, and moving it
-    // here is what keeps the component mounted through a refresh.
-    //
-    // Under a topic filter the way out is the rest of the queue, not another
-    // upload: the student has questions waiting, just not in this topic, and
-    // sending them to the upload screen would be answering a question they did
-    // not ask.
     if (topicName) {
       return (
         <div className="card p-6 text-center">
@@ -480,15 +352,6 @@ export default function ReviewSession({
 
         <p className="whitespace-pre-line text-pretty">{reflowText(item.promptText)}</p>
 
-        {/*
-          The figure, for the questions that are one.
-          
-          A question about a net, a graph or a shaded diagram cannot be
-          answered from its text, and this screen used to show only the text.
-          Nothing crops a figure to its own file anywhere in the pipeline, so
-          this is a crop window over the page image, the same one the verify
-          screen draws.
-        */}
         {item.evidence && (
           <div className="mt-3">
             <QuestionCrop image={item.evidence} alt="The question as it was printed" />
@@ -617,13 +480,6 @@ export default function ReviewSession({
             Keys <kbd>1</kbd>–<kbd>4</kbd>, or <kbd>Space</kbd> to reveal
           </p>
 
-          {/*
-            The way out of the queue. Every question got wrong stays in the
-            review tab until the student says otherwise, which is the point,
-            but it does mean there has to be an otherwise. Set apart from the
-            four ratings above because it is not one: those schedule, this
-            stops.
-          */}
           <div className="mt-4 border-t border-border pt-3">
             <button
               type="button"

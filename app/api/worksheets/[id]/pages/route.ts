@@ -24,9 +24,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
   }
 
-  // Before the body is read, so a refused request does not first cost a 4 MB
-  // upload. The worksheet limit counts worksheets, which are one cheap row
-  // each; this is the call that writes to blob storage, and it was open.
   const allowance = await consumeRateLimit(
     db,
     PAGE_UPLOAD_LIMIT,
@@ -40,10 +37,6 @@ export async function POST(request: Request, { params }: Params) {
     )
   }
 
-  // Throws on a body that is not parseable multipart, which a client that got
-  // its boundary or its Content-Type wrong sends. Folded into the missing-image
-  // 400 below rather than left to become a 500: a body we cannot read carries no
-  // image either, and the caller's fix is the same.
   const form = await request.formData().catch(() => null)
   if (!form) {
     return NextResponse.json({ error: 'Missing image' }, { status: 400 })
@@ -56,12 +49,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Missing image' }, { status: 400 })
   }
 
-  // Bounded on its own, not against the worksheet's `pageCount`. Those measure
-  // different things: with a page range the client rasterizes pages 10 to 15 of
-  // a PDF and sends `pageCount: 6` alongside `pageNumber` 10 to 15, so tying
-  // one to the other would refuse every ranged upload. Proven live before this
-  // check existed: a worksheet declaring one page accepted seven, including
-  // page 500 and page 99999.
   if (
     !Number.isInteger(pageNumber) ||
     pageNumber < 1 ||
@@ -74,9 +61,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Page image is too large' }, { status: 413 })
   }
 
-  // How many pages this worksheet may hold, which is the half of the bound that
-  // actually caps cost. Re-uploading a page number already stored replaces it
-  // and is free, so only a new number counts against the declared total.
   const [sheet] = await db
     .select({ pageCount: worksheets.pageCount, status: worksheets.status })
     .from(worksheets)
@@ -100,31 +84,16 @@ export async function POST(request: Request, { params }: Params) {
     )
   }
 
-  // Decoded here rather than trusted. `width` and `height` used to be read from
-  // form fields the client filled in, so the dimension guard was checking two
-  // numbers rather than an image, `file.type` was whatever the client claimed,
-  // and the bytes went to storage verbatim. The operator's home machine then
-  // fed those exact bytes to sharp. Now the server is the first thing to decode
-  // them, and what it stores is its own re-encode: anything that will not
-  // decode is refused here instead of on somebody's GPU box.
   let encoded: Buffer
   let realWidth: number
   let realHeight: number
 
-  // Imported at call time, not at module load. sharp binds libvips, and a
-  // top-level import here put it into the prerender worker during
-  // `next build`, where it collided with the image pipeline behind
-  // `app/opengraph-image.tsx`: the build died on "colourspace: parameter space
-  // not set" while rendering a page that has nothing to do with this route.
-  // Same shape as lib/embeddings, and the same fix.
   const { default: sharp } = await import('sharp')
 
   try {
     const result = await sharp(Buffer.from(await file.arrayBuffer()), {
       limitInputPixels: MAX_DECODED_PIXELS,
     })
-      // Honours EXIF orientation, which a phone photo carries and which the
-      // model would otherwise read sideways.
       .rotate()
       .webp({ quality: 82 })
       .toBuffer({ resolveWithObject: true })
@@ -136,7 +105,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not an image' }, { status: 415 })
   }
 
-  // Measured after decoding, so this is the real size rather than a claim.
   if (realWidth > MAX_PAGE_DIMENSION || realHeight > MAX_PAGE_DIMENSION) {
     return NextResponse.json({ error: 'Page image is too large' }, { status: 413 })
   }
@@ -159,10 +127,6 @@ export async function POST(request: Request, { params }: Params) {
     })
     .returning({ id: worksheetPages.id })
 
-  // Only from the statuses that mean the upload is still happening. This used
-  // to be unconditional, so a stray page POST against a finished worksheet
-  // walked it backwards out of `ready` and the student watched a worksheet they
-  // had already marked up return to the processing screen.
   if (sheet.status === 'uploading' || sheet.status === 'processing') {
     await db
       .update(worksheets)

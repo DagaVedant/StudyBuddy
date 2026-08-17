@@ -3,17 +3,6 @@ import { MIN_ATTEMPTS } from '@/lib/dashboard/ranking'
 
 import styles from './dashboard-preview.module.css'
 
-/**
- * Homepage section two: the dashboard, shown rather than described.
- *
- * The numbers below are a consistent fiction: the four subject/topic
- * breakdowns add up to the 218 in the header, the weakest rows are in the
- * order `rankWeaknesses` would actually put them (Wilson lower bound on the
- * error rate, not raw percentage), and the meters are the real `<Meter>`
- * component, so the colour bands are the product's own thresholds rather
- * than a mock-up's guess.
- */
-
 const STATS = [
   { label: 'Due now', value: 12, tint: 'bg-tint-mint', link: true, pin: 3 },
   { label: 'Later this week', value: 41, tint: 'bg-tint-peach' },
@@ -21,7 +10,6 @@ const STATS = [
   { label: 'Worksheets', value: 9, tint: 'bg-tint-butter' },
 ] as const
 
-/** correct + wrong + unsure == attempts, in every row. */
 const WEAKEST = [
   {
     name: 'Nonlinear functions',
@@ -53,14 +41,6 @@ const WEAKEST = [
   },
 ] as const
 
-/**
- * Alphabetical, the way `rollUp` sorts. Attempts total the 218 above.
- *
- * These are subject roots, not topics, because that is what the real panel
- * groups by: `rollUp` keys on `subjectRoot`, which is always one of four. This
- * said "Algebra 1", which is a real part of the tree but three levels down, so
- * the mock showed a row the product cannot produce.
- */
 export const SUBJECTS = [
   { name: 'High School Math', correct: 28, attempts: 32 },
   { name: 'SAT Math', correct: 71, attempts: 104 },
@@ -228,9 +208,6 @@ export default function DashboardPreview() {
         </div>
       </div>
 
-      {/* The mock above is hidden from assistive tech; it is a picture of a
-          screen, and read out it is a wall of invented numbers. This sentence
-          and the notes below carry what it is there to say. */}
       <p className="sr-only">
         An example dashboard: 218 questions tracked across 9 worksheets, 12 due
         for review today, and a ranked list of the weakest topics with an
@@ -240,12 +217,6 @@ export default function DashboardPreview() {
       <ol className={styles.notes}>
         {NOTES.map((note, index) => (
           <li key={note.term} className={styles.note}>
-            {/*
-              Hidden from the accessibility tree: this is an `<ol>`, so a screen
-              reader already numbers each item. The pin is the same number drawn
-              again for sighted readers, and leaving it exposed had every note
-              announced as "one, one", "two, two".
-            */}
             <span aria-hidden="true" className={styles.pin}>
               {index + 1}
             </span>

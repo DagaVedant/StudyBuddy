@@ -17,10 +17,6 @@ export async function GET(request: Request, { params }: Params) {
 
   const { worksheetId } = await params
 
-  // Existence only. `expectedQuestionCount` used to be read here and returned
-  // as `expectedTotal`, and the worker already holds it: the claim response
-  // carries it, and it is written once when the worksheet is created and never
-  // changes. Two reads of one unchanging column, for one number.
   const [worksheet] = await db
     .select({ id: worksheets.id })
     .from(worksheets)
@@ -61,11 +57,6 @@ export async function GET(request: Request, { params }: Params) {
       return {
         pageNumber: page.pageNumber,
         printed: byPage.get(page.id) ?? [],
-        // What the page's own text says it holds, so the audit can tell a page
-        // that returned nothing because there was nothing on it from one that
-        // returned nothing and should not have. A cover page, an instructions
-        // page and an answer key are all legitimately empty of questions; a
-        // page printing eight of them is not.
         expectsQuestions: countQuestionStarts(text) > 0 && !isAnswerPage(text),
       }
     }),

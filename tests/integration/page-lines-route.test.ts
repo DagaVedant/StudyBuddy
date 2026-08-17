@@ -1,14 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-/**
- * Finding 95. The route the review page fetches every page but the first
- * from (app/(app)/worksheets/[id]/edit/page.tsx only ships page one's
- * lines up front). Scoped the same way guard-worksheet.test.ts already
- * proved `guardWorksheet` is - by worksheet ownership - plus the one thing
- * that guard alone does not cover: a page id has to actually belong to the
- * worksheet in the URL, not just exist somewhere.
- */
-
 const state = vi.hoisted(() => ({
   session: null as { user?: { id?: string; role?: string } } | null,
   db: null as unknown,
@@ -106,8 +97,6 @@ describe('GET /api/worksheets/[id]/pages/[pageId]/lines', () => {
     state.session = { user: { id: mine, role: 'student' } }
     const pageId = await makePage(otherWorksheet, 1, [])
 
-    // Even though the caller owns myWorksheet, the page they asked for is
-    // not on it - the check this route adds on top of guardWorksheet.
     const response = await request(myWorksheet, pageId)
     expect(response.status).toBe(404)
   })

@@ -1,10 +1,3 @@
-/**
- * The dashboard's own shape: four tiles, then the panels under them.
- *
- * Worth matching rather than falling through to the generic one because this
- * page runs five queries in parallel and is the app's landing screen after
- * sign-in, so it is the stall a student meets most often.
- */
 export default function Loading() {
   return (
     <main

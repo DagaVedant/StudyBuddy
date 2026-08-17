@@ -37,13 +37,6 @@ const correctionSchema = z.object({
   freeTextAnswer: z.string().trim().max(2000).nullish(),
 })
 
-/**
- * Change one question's recorded outcome, for the tap that went astray.
- *
- * The work is in `correctMarkupAttempt`, extracted so it could be tested: the
- * interesting behaviour is what a correction does to the review card, and that
- * is not reachable through a handler without standing up a session.
- */
 export async function PATCH(request: Request, { params }: Params) {
   const { id: worksheetId } = await params
 
@@ -107,10 +100,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'No matching questions' }, { status: 400 })
   }
 
-  // One set of marks per paper. The page behind this route stops offering the
-  // flow once marks exist, but a tab left open since before that still holds a
-  // live form, and a second post would write a second attempt per question and
-  // push every review card forward on answers nobody gave.
   const [already] = await db
     .select({ id: attempts.id })
     .from(attempts)
@@ -139,14 +128,6 @@ export async function POST(request: Request, { params }: Params) {
   const choiceOwner = new Map(validChoices.map((row) => [row.id, row.questionId]))
   const now = new Date()
 
-  /*
-   * Three statements for the whole worksheet, not three per question.
-   *
-   * This was a loop doing an insert, an upsert and an insert per mark, inside
-   * one transaction: a 500-question paper meant 1,500 round trips held open
-   * against a pooled connection, and the marking screen submits the lot in one
-   * go. The work per mark is identical, so it batches.
-   */
   await db.transaction(async (tx) => {
     const existing = await tx
       .select()
@@ -180,10 +161,6 @@ export async function POST(request: Request, { params }: Params) {
       return { mark, ...scheduleFromOutcome(stored, mark.outcome, now) }
     })
 
-    // `onConflictDoNothing` rather than an update: a repeat post is the tab
-    // that was left open, and the first answer is the one the student gave.
-    // The partial unique index on `markup` is what makes this safe against two
-    // posts landing together, which the 409 check above cannot be.
     await tx
       .insert(attempts)
       .values(
@@ -213,8 +190,6 @@ export async function POST(request: Request, { params }: Params) {
       )
       .onConflictDoUpdate({
         target: [reviewCards.userId, reviewCards.questionId],
-        // Each row carries its own schedule, so the update has to read the row
-        // being inserted rather than a single literal set.
         set: {
           dueAt: sql`excluded.due_at`,
           stability: sql`excluded.stability`,

@@ -13,8 +13,6 @@ beforeAll(async () => {
   db = created.db
   close = created.close
 
-  // One address per case: the tests share a database, and the address has to
-  // match the list exactly, so they cannot share one.
   process.env.ADMIN_EMAILS = [
     'boss1@studybuddy.test',
     'boss2@studybuddy.test',
@@ -33,8 +31,6 @@ async function makeUser(email: string, options: { google?: boolean } = {}) {
     .insert(users)
     .values({
       email,
-      // Stamped exactly as signup stamps it, which is the point: this column
-      // cannot tell whether anyone owns the address.
       emailVerified: new Date(),
       passwordHash: 'not-a-real-hash',
     })
@@ -53,8 +49,6 @@ async function makeUser(email: string, options: { google?: boolean } = {}) {
 }
 
 describe('accountMayBeAdmin', () => {
-  // The attack the old check allowed: register the admin address with a
-  // password before its owner does, and inherit the console.
   it('refuses a password account at an admin address', async () => {
     const id = await makeUser('boss1@studybuddy.test')
 
@@ -73,7 +67,6 @@ describe('accountMayBeAdmin', () => {
     expect(await accountMayBeAdmin(client(), id, 'student@studybuddy.test')).toBe(false)
   })
 
-  // A link belonging to someone else must not carry across.
   it('reads the link on this account, not any account', async () => {
     await makeUser('other@studybuddy.test', { google: true })
     const id = await makeUser('boss3@studybuddy.test')

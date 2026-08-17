@@ -26,18 +26,12 @@ export default async function StatusPage({
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-  // `found` is read below to report progress, and by `destination` to tell an
-  // extracted worksheet from one a student is typing in by hand. Alongside the
-  // worksheet rather than after it: the destination is needed before anything
-  // renders, so sequencing these would put a round trip in front of a redirect.
   const [[worksheet], found, markup] = await Promise.all([
     db.select().from(worksheets).where(eq(worksheets.id, id)).limit(1),
     db
       .select({ id: questions.id })
       .from(questions)
       .where(eq(questions.worksheetId, id)),
-    // What the two list screens compute as `markedCount`, asked as an
-    // existence check, since `destination` only compares it against zero.
     db
       .select({ id: attempts.id })
       .from(attempts)
@@ -48,16 +42,6 @@ export default async function StatusPage({
 
   if (!worksheet || worksheet.userId !== session.user.id) notFound()
 
-  // One answer per state, rather than this page's own. It used to send both
-  // `awaiting_review` and `ready` to `/worksheets/[id]/edit`, while a card
-  // for that same worksheet on the dashboard or in the library asked
-  // `destination` and got `/verify` or `/markup`. So the screen a student saw
-  // depended on whether they had arrived from their own upload or from a card,
-  // which is the one thing `destination` exists to prevent.
-  //
-  // Compared rather than listed: the states that belong on this page resolve
-  // back to this same path, so this keeps agreeing with `destination` if it
-  // ever changes its mind about which those are.
   const target = destination(id, {
     status: worksheet.status,
     questionCount: found.length,
@@ -82,20 +66,10 @@ export default async function StatusPage({
   const percent = Math.round(progress * 100)
   const phase = phaseFor(progress)
 
-  // The count is a running total during reading, so it can pass what the
-  // student told us the paper holds: a misread number, or the same question
-  // picked up twice. Showing "115 of 114" reads as a bug, and the number is
-  // not the useful thing at that point anyway: what matters is that the audit
-  // is now going back over it. So once we are at or past the stated total, the
-  // stage replaces the tally.
   const expected = worksheet.expectedQuestionCount
   const countIsTrustworthy = !expected || found.length < expected
   const stillReading = phase === 'reading' && countIsTrustworthy
 
-  // Tier B (`executor === 'server'`) needs no physical worker at all, and
-  // Tier C's worker is the tab this is rendering in, so neither is ever
-  // "offline" in the sense this page means; only a Tier 0 job stuck behind an
-  // operator GPU that has not sent a heartbeat is.
   const runsHere = job?.executor === 'browser'
   const isOnline = job?.executor === 'server' || runsHere || worker.online
 
@@ -141,13 +115,6 @@ export default async function StatusPage({
             />
           </div>
 
-          {/*
-            Tier C reports its own progress, from the tab doing the work, so
-            the server-rendered line below would be a second and staler answer
-            to the same question. `BrowserRunner` is also the only thing that
-            knows which page is being read right now; this page would find out
-            a minute later, on the next revalidate.
-          */}
           {runsHere ? (
             <BrowserRunner worksheetId={id} />
           ) : (
@@ -163,18 +130,6 @@ export default async function StatusPage({
                 {depth.pending > 1 && ` ${depth.pending} worksheets ahead of yours.`}
               </p>
 
-              {/*
-                Deliberately not shown for Tier C, where it would be the exact
-                opposite of the truth: that tier's worker is this tab, so
-                closing it stops the reading rather than leaving it running
-                somewhere. BrowserRunner says so in its own words instead.
-
-                "We will tell you" is a promise now rather than an implication.
-                Both halves of the old sentence were true and together they
-                implied something would reach the student, which nothing did:
-                there was no notification system in the codebase at all. There
-                is one, so this says what it does.
-              */}
               <p className="hint text-pretty">
                 This page updates itself every minute. Safe to close: we will
                 tell you when it is done, and it will be waiting in the bell at
@@ -183,13 +138,6 @@ export default async function StatusPage({
             </>
           )}
 
-          {/*
-            spec.md:374's manual fallback used to exist only after a hard
-            failure, which a worksheet queued against an offline worker never
-            reaches on its own: it just waits, for as long as the operator's
-            machine is down. This is the same escape, offered from the state a
-            student actually gets stuck in.
-          */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             {!isOnline && <GoManualButton worksheetId={id} />}
             <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">

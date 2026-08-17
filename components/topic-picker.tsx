@@ -85,13 +85,6 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
 
   return (
     <div ref={containerRef} className="relative">
-      {/*
-        A plain span, not a `<label htmlFor>`. The input it pointed at is only
-        rendered while the picker is open or empty, so on a card with a topic
-        already set the label referenced an id that was not in the document.
-        Clicking it did nothing, and a screen reader following the association
-        landed nowhere.
-      */}
       <span className="label" id={`${inputId}-label`}>
         Topic
       </span>
@@ -154,20 +147,6 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
         />
       )}
 
-      {/*
-        A listbox owns its options directly.
-
-        This was `role="listbox"` > `<li>` > `role="option"`, and the `<li>` in
-        between breaks the ownership relation: to an assistive technology the
-        list has no options in it, so the count is wrong and arrowing through
-        announces nothing. The two children that are not options made it worse.
-        "No topic matches that" and "Clear topic" were both inside the listbox,
-        and neither is something you can select.
-
-        So the popup is a plain container now. The listbox inside it holds
-        options and nothing else, and the message and the clear action are its
-        siblings.
-      */}
       {open && (
         <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
           {results.length === 0 && (
@@ -184,13 +163,6 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
             className="max-h-64 overflow-y-auto overscroll-contain"
           >
             {results.map((topic, index) => (
-              /*
-                A div rather than a button. An option is selected through the
-                combobox that owns it: the input keeps focus and points at the
-                active one with `aria-activedescendant`, and its Enter handler
-                commits. A button here would put a second tab stop inside a
-                widget that is supposed to have one.
-              */
               <div
                 key={topic.id}
                 id={`${listId}-${index}`}

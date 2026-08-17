@@ -1,8 +1,3 @@
-/**
- * `lib/questions/shape.ts`: what a question and its options are allowed to
- * look like once stored.
- */
-
 import { describe, expect, it } from 'vitest'
 import { normalizeChoiceLabel, normalizeOptionText } from '@/lib/questions/shape'
 import { validateQuestion } from '@/lib/questions/validate'
@@ -20,9 +15,9 @@ describe('normalizeChoiceLabel', () => {
     expect(normalizeChoiceLabel('[C]')).toBe('C')
   })
 
-  // Stored on eleven questions of edison_topic_test12_20: the option text came
-  // through in the label field, so the review screen read "A. 60. 60" and the
-  // answer key could not match C against "C. 53".
+  
+  
+  
   it('takes the letter when the option text came with it', () => {
     expect(normalizeChoiceLabel('A. 60')).toBe('A')
     expect(normalizeChoiceLabel('C. 53')).toBe('C')
@@ -42,7 +37,6 @@ describe('normalizeChoiceLabel', () => {
 })
 
 describe('option text', () => {
-/** Options that differ only by sign or by where the punctuation falls. */
 const REAL_PAIRS: [string, string][] = [
   ['-2', '2'],
   ['-3/4', '3/4'],
@@ -70,7 +64,6 @@ describe('normalizeOptionText', () => {
   })
 
   it('reads the paper’s dashes as one dash', () => {
-    // A minus sign, an en dash and a hyphen all print as a minus.
     expect(normalizeOptionText('−2')).toBe(normalizeOptionText('-2'))
     expect(normalizeOptionText('–2')).toBe(normalizeOptionText('-2'))
   })
@@ -84,9 +77,6 @@ const question = (choices: string[]) => ({
 })
 
 describe('validateQuestion duplicate options', () => {
-  // Every one of the 44 duplicate_choices flags on the stored worksheets was a
-  // pair like this. None of them was a real duplicate, and each one sent a
-  // page for a re-read that could not find anything wrong.
   it('does not call a sign change a duplicate', () => {
     const flags = validateQuestion(question(['-2', '2', '-4', '4']))
     expect(flags.map((flag) => flag.code)).not.toContain('duplicate_choices')
@@ -121,9 +111,6 @@ const stemOnly = (promptText: string) => ({
 })
 
 describe('validateQuestion nothing-asked', () => {
-  // Both were stored on real papers, both carry a printed number, and both are
-  // short enough to fall under three prose words while carrying no operator the
-  // maths test recognises.
   it('does not condemn a short question that asks', () => {
     for (const stem of ['60 is what percent of 40?', 'Dot sequence: 1, 3, 5, 7,?']) {
       expect(
@@ -133,8 +120,6 @@ describe('validateQuestion nothing-asked', () => {
     }
   })
 
-  // What the check is for: page furniture and figure labels, none of which ask
-  // anything.
   it('still condemns a row that asks nothing', () => {
     for (const stem of ['CONTINUE ON TO THE NEXT PAGE', '(C)', 'C(3,y)nA(5,7) B(11,7)']) {
       expect(

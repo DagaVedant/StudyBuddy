@@ -8,13 +8,6 @@ import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ jobId: string }> }
 
-/**
- * Everything the worker needs to explain one question.
- *
- * The job itself only carries a question id, and the worker has no database
- * of its own, so the text, the options and what the student actually answered
- * are assembled here.
- */
 export async function GET(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {

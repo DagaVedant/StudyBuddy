@@ -1,21 +1,12 @@
 'use client'
-
 import { useCallback, useRef, useState } from 'react'
 
 import type { BBox, TextLine } from '@/lib/db/schema'
 
 import type { EditablePage } from './types'
 
-/** Below this, a drag is a click that wobbled. */
 const MIN_DRAG_PX = 12
 
-/**
- * The words whose centres fall inside the box, in reading order.
- *
- * Centres rather than overlap, so a line clipped by the edge of the drag
- * belongs to whichever side most of it is on. That matters because a student
- * dragging around question 12 will always catch the descenders of 11.
- */
 export function textInside(lines: TextLine[], box: BBox): string {
   const [bx0, by0, bx1, by1] = box
 
@@ -32,22 +23,6 @@ export function textInside(lines: TextLine[], box: BBox): string {
     .trim()
 }
 
-/**
- * The page, and the drag that adds a question the reader missed.
- *
- * Owns nothing but the drag: the box being drawn is local state because it
- * changes on every pointermove, and lifting it would re-render the question
- * list sixty times a second for a rectangle the list does not care about.
- * A finished drag leaves through `onSelect` as a box and the text under it.
- *
- * A finger has to ask first. The container used to carry `touch-none`, which
- * hands every touch on it to these handlers and none to the browser, and the
- * page image is as tall as a phone: a student could neither scroll past the
- * page nor pinch into it to read the question they were meant to be checking,
- * and every attempt at either drew a box instead. So a touch drag is gated
- * behind a drawing mode, which the button under the page turns on for one box
- * at a time. A mouse is not gated, because a mouse never had the problem.
- */
 export default function PageCanvas({
   page,
   linesReady,
@@ -61,14 +36,6 @@ export default function PageCanvas({
   onSelect,
 }: {
   page: EditablePage
-  /**
-   * Whether `page.textLines` is this page's real lines rather than the empty
-   * array a page waiting on its own fetch starts with (ReviewClient, which
-   * only ships page one's lines up front). Gates the drag rather than
-   * letting it run against an empty array: reading nothing under a
-   * genuine box would look identical to a page with nothing printed on it,
-   * and the reader dragging it would have no way to tell the two apart.
-   */
   linesReady: boolean
   pageNumber: number
   pageCount: number
@@ -145,23 +112,12 @@ export default function PageCanvas({
       </div>
 
       <div
-        // `touch-manipulation` is pan and pinch-zoom kept, double-tap zoom
-        // dropped. The browser only gets to keep them while no box is being
-        // drawn: mid-drag it has to be `touch-none`, or the first vertical
-        // movement is read as a scroll and the drag is cancelled out from under
-        // the student.
         className={`card relative select-none overflow-hidden lg:sticky lg:top-4 ${
           drawing ? 'touch-none ring-2 ring-accent' : 'touch-manipulation'
         }`}
         onPointerDown={(event) => {
           if (event.button !== 0) return
-          // Off a mouse this is a scroll or a pinch until the student has said
-          // otherwise, and the browser is already treating it as one.
           if (event.pointerType !== 'mouse' && !drawing) return
-          // This page's lines have not arrived yet (page-canvas.tsx's own
-          // note on `linesReady`). No box at all, rather than one that reads
-          // as empty either because nothing is there or because the fetch
-          // has not landed - the reader has no way to tell those apart.
           if (!linesReady) return
           event.currentTarget.setPointerCapture(event.pointerId)
           const point = toPageCoords(event)
@@ -184,27 +140,16 @@ export default function PageCanvas({
           setDraft(box)
         }}
         onPointerUp={() => {
-          // Reads the ref, not the `draft` state closure: a pointerup that
-          // arrives before React commits the last pointermove's setDraft
-          // would otherwise see a stale (often zero-size) box.
           const box = draftRef.current
           endDrag()
           if (!box) return
           if (box[2] - box[0] < MIN_DRAG_PX || box[3] - box[1] < MIN_DRAG_PX) return
 
-          // One box per opt-in. Leaving the mode on would leave the page
-          // unscrollable again the moment the student wanted to go and read the
-          // card that just appeared. A drag too small to count leaves it on,
-          // because that one was a slip rather than a change of mind.
           setDrawing(false)
           onSelect(box, textInside(page.textLines, box))
         }}
-        // The browser takes the gesture back if it decides it was a scroll
-        // after all, and says so here. Without this the half-drawn box stayed
-        // painted and the next touch carried on from where that one stopped.
         onPointerCancel={endDrag}
       >
-        {/* Authenticated dynamic route; next/image can't forward the session. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={imageRef}
@@ -215,11 +160,6 @@ export default function PageCanvas({
           className="block h-auto w-full"
         />
 
-        {/* Nothing is drawn over the extracted questions: the boxes the model
-            reports are loose enough that they framed the wrong lines as often
-            as the right ones, and the cards beside the page are where the
-            checking actually happens. The draft box below is still drawn,
-            because that one is the pointer the reader is dragging. */}
         {draft && (
           <div
             aria-hidden="true"

@@ -42,13 +42,9 @@ async function main() {
     throw new Error('DATABASE_URL is not set. Copy .env.example to .env.local first.')
   }
 
-  // prepare: false: .env.example recommends a pooled connection string, and
-  // prepared statements fail against one. This is one of the two commands the
-  // README tells every new user to run.
   const sql = connect(url)
   const db = drizzle(sql, { schema }) as unknown as Db
 
-  // Parents must exist before children can reference them.
   const ordered = [...flat].sort((a, b) => a.depth - b.depth)
   const idBySlug = new Map<string, string>()
   let inserted = 0
@@ -98,28 +94,8 @@ async function main() {
     }
   }
 
-  // After the writes, because the UPDATE above sets `isLeaf` from the taxonomy
-  // file, which does not know about topics an admin accepted from the proposal
-  // queue. Left alone, a re-seed puts their parents back in the shortlist.
   const demoted = await demoteParentsWithChildren(db)
 
-  /*
-   * Reported, not removed.
-   *
-   * A canonical topic (`isCanonical: true`, meaning it came from this file
-   * rather than from an accepted proposal) whose slug is no longer in
-   * `flattenTaxonomy()` was renamed or deleted here and orphaned in the
-   * database. It used to vanish from this script's view entirely: nothing
-   * logged it, nothing flagged it, and it sat there, possibly still carrying
-   * questions and attempts, until someone happened to notice.
-   *
-   * Not deleted, on the same principle every other pass in this codebase that
-   * touches a row follows: this script cannot tell a genuine rename (the slug
-   * changed, a new canonical row now covers the same ground) from a topic
-   * someone simply took out. Guessing wrong destroys a student's topic
-   * assignments and their dashboard history. An operator who reads this list
-   * can tell the difference; the script cannot.
-   */
   const currentSlugs = new Set(flat.map((node) => node.slug))
   const orphaned = await db
     .select({ slug: topics.slug, name: topics.name })

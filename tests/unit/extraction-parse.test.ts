@@ -20,11 +20,6 @@ function reply(...prompts: string[]) {
 }
 
 describe('parseExtraction', () => {
-  // The real payload from a coordinate-geometry paper. Every option reads
-  // "A. (-2, 3)", which is ten characters, and the label bound used to be
-  // checked against that rather than against what normalizeChoiceLabel makes
-  // of it. Six of the seven questions on the page were dropped, and the sheet
-  // reported 8 of its 15 questions as its full contents.
   it('keeps a question whose choice labels arrive with the option attached', () => {
     const result = parseExtraction({
       questions: [
@@ -46,7 +41,6 @@ describe('parseExtraction', () => {
 
     expect(result.rejected).toBe(0)
     expect(result.questions).toHaveLength(1)
-    // Reduced to the label itself, which is what the transform was always for.
     expect(result.questions[0].choices.map((choice) => choice.label)).toEqual([
       'A',
       'B',

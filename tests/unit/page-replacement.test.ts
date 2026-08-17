@@ -15,9 +15,6 @@ B. 28`
 const fresh = (ordinal: number, prompt_text: string) => ({ ordinal, prompt_text })
 
 describe('planPageReplacement', () => {
-  // The case the old matching could not see. A page re-read on its own counts
-  // from 1, so comparing the model's count against the stored printed numbers
-  // matched nothing and the review did nothing, silently.
   it('matches a re-read that counted from 1 against the page numbering', () => {
     const plan = planPageReplacement(
       PAGE,
@@ -50,9 +47,6 @@ describe('planPageReplacement', () => {
     expect(plan.keep.map((row) => row.id)).toEqual(['b'])
   })
 
-  // Writing the whole page back is how a re-read used to add a second copy of
-  // questions nobody doubted: the text differs by a character, so the hash
-  // differs and the dedupe cannot see it.
   it('returns only the questions standing in for something deleted', () => {
     const plan = planPageReplacement(
       PAGE,

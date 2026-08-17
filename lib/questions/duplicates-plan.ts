@@ -8,18 +8,8 @@ export interface DuplicateCandidate {
 }
 
 export interface MergePlan {
-  /** The row that survives. */
   keepId: string
-  /** The row that gets deleted. */
   dropId: string
-  /**
-   * Number the surviving row should end up with.
-   *
-   * The phantom is built from material printed above the real question, so it
-   * takes the lower number and pushes the real one up by one, which then
-   * collides with the next question along. Handing the lower number back
-   * repairs the whole run, not just the count.
-   */
   printedNumber: number | null
 }
 
@@ -38,16 +28,6 @@ function labelStyle(choices: { label: string }[]): 'alpha' | 'numeric' | 'mixed'
   return 'mixed'
 }
 
-/**
- * True when every one of `inner`'s choices turns up inside one of `outer`'s.
- *
- * This is the check that separates a phantom from a real question. When the
- * model reads a list of numbered source sentences as though it were an answer
- * list, each of those sentences also appears verbatim inside the real
- * question's options, because the real options are combinations of them. Two
- * genuinely different questions that happen to share a stem will not have
- * that relationship.
- */
 function choicesAreContainedIn(
   inner: { text: string }[],
   outer: { text: string }[],
@@ -59,21 +39,11 @@ function choicesAreContainedIn(
 
   return inner.every((choice) => {
     const needle = normalizeForCompare(choice.text)
-    // Something trivially short would match almost anything.
     if (needle.length < 12) return false
     return haystacks.some((hay) => hay.includes(needle))
   })
 }
 
-/**
- * Finds questions the extractor produced twice from a single one on the page.
- *
- * Deliberately narrow. It only acts on a pair sharing an identical prompt
- * where one side is plainly the raw material of the other, because the cost of
- * being wrong is asymmetric: an extra question is visible in review and easy
- * to delete, while a wrongly merged pair silently destroys a real question and
- * nothing downstream will ever flag it.
- */
 export function planDuplicateMerges(questions: DuplicateCandidate[]): MergePlan[] {
   const byPrompt = new Map<string, DuplicateCandidate[]>()
 
@@ -86,16 +56,12 @@ export function planDuplicateMerges(questions: DuplicateCandidate[]): MergePlan[
   const plans: MergePlan[] = []
 
   for (const group of byPrompt.values()) {
-    // Three or more sharing a prompt is not the shape this handles, and
-    // guessing at it risks exactly the silent loss described above.
     if (group.length !== 2) continue
 
     const [a, b] = group
     const styleA = labelStyle(a.choices)
     const styleB = labelStyle(b.choices)
 
-    // One side has to look like an answer list and the other like the raw
-    // material it was drawn from.
     let real: DuplicateCandidate
     let phantom: DuplicateCandidate
 
@@ -125,7 +91,6 @@ export function planDuplicateMerges(questions: DuplicateCandidate[]): MergePlan[
   return plans
 }
 
-/** Printed numbers used by more than one question in the same worksheet. */
 export function duplicatePrintedNumbers(
   questions: { printedNumber: number | null }[],
 ): number[] {
@@ -142,14 +107,6 @@ export function duplicatePrintedNumbers(
     .sort((a, b) => a - b)
 }
 
-/**
- * How alike two prompts are, as the share of words they hold in common.
- *
- * Word sets rather than character distance, because the difference between two
- * reads of one question is usually a mangled symbol or a dropped fragment,
- * which barely moves the vocabulary. Two different questions off the same paper
- * move it a lot even when they are phrased alike.
- */
 export function promptSimilarity(left: string, right: string): number {
   const a = new Set(normalizeForCompare(left).split(' ').filter(Boolean))
   const b = new Set(normalizeForCompare(right).split(' ').filter(Boolean))
@@ -162,25 +119,8 @@ export function promptSimilarity(left: string, right: string): number {
   return shared / (a.size + b.size - shared)
 }
 
-/**
- * How alike two prompts must be before one of them may be deleted.
- *
- * Set high on purpose. Two consecutive questions on a maths paper share most of
- * their scaffolding: "what value of x satisfies 3x - 7 = 20" against "what
- * value of x satisfies 5(x - 3) = 2x + 9" already scores about 0.42, so
- * anything permissive here deletes real questions. A genuine second read of one
- * question differs by a symbol or two and scores well above this.
- */
 const SAME_QUESTION_SIMILARITY = 0.8
 
-/**
- * How damaged a transcription looks, lower being better.
- *
- * Used only to choose between two rows that are already known to be the same
- * question. The markers are the ones real re-reads produced: a bare underscore
- * where a fraction bar was, a digit stranded from its denominator, and a
- * shorter body that stopped early.
- */
 function damage(question: DuplicateCandidate, expectedChoices: number): number {
   const text = question.promptText
   let score = 0
@@ -193,35 +133,10 @@ function damage(question: DuplicateCandidate, expectedChoices: number): number {
   return score
 }
 
-/** The words of a prompt, for asking whether one is contained in another. */
 function wordSet(text: string): Set<string> {
   return new Set(normalizeForCompare(text).split(' ').filter(Boolean))
 }
 
-/**
- * One row holding a stem the other one finishes.
- *
- * `promptSimilarity` is a Jaccard ratio, so it measures overlap against the
- * union and is punished by the length gap rather than by disagreement. On the
- * 2020 AMC 8 question 22 came back twice, the second copy carrying the whole
- * stem and its five options and the first stopping at "the rule shown below.":
- * eighteen words, every one of them present in the longer copy, and a
- * similarity of 0.44 against a threshold of 0.8. Two rows for one question, and
- * the pass declined because a prefix does not look like a match.
- *
- * Containment rather than overlap, which is what a truncation actually is. The
- * conditions are narrow on purpose, because this deletes a row and the rule
- * above it has already been wrong twice on real data:
- *
- *   - every word of the short one appears in the long one, not merely most;
- *   - the short one carries no options at all and the long one carries some.
- *
- * That second condition is what makes it safe. Two genuinely different
- * questions sharing a misread number do not stand in that relationship: the
- * shorter would have to be a strict subset of the longer *and* be the only one
- * missing its answers. The shape it does describe is one read that stopped at a
- * page break and one that did not.
- */
 function truncationPair(
   a: DuplicateCandidate,
   b: DuplicateCandidate,
@@ -242,37 +157,6 @@ function truncationPair(
   return pair(a, b) ?? pair(b, a)
 }
 
-/**
- * Folds two rows that claim the same printed number.
- *
- * A number appears once on a real paper, so two rows carrying the same one are
- * the same question stored twice. This is the shape the review pass produced
- * before it stopped re-saving whole pages: the same question read a second
- * time, transcribed slightly differently, and therefore hashed differently.
- *
- * Separate from the prompt-based rule above, which cannot see these because
- * the two texts do not match. Kept narrow in the same way: pairs only, and the
- * survivor is whichever transcription is less damaged rather than whichever
- * arrived first, because the better copy was sometimes the later one.
- *
- * The number alone is never enough. A page whose printed numbers the extractor
- * failed to read comes back numbered 1..n by position, and those collide with
- * the real 1..n of the page before it: six collisions on one Edison sheet,
- * six real questions deleted, and every count-based check reporting success
- * afterwards because the totals still added up. So the texts have to agree as
- * well: a number held by two questions that read differently means one of them
- * is misnumbered, and misnumbering is repaired by renumbering, never by
- * deleting.
- *
- * Prompt similarity, and deliberately not the `choicesAreContainedIn` check the
- * rule above uses. That check needs a match of twelve characters or more, which
- * is correct where it is used, because there the options are whole source
- * sentences. The options here are "4", "6", "9", "12". Every one is under the
- * floor, so containment can never fire on a maths paper and requiring it would
- * mean never folding a re-read at all. Measured, not assumed: see
- * "folds the re-read that a containment check would have missed" in
- * tests/unit/duplicates.test.ts.
- */
 export function planNumberDuplicateMerges(
   questions: DuplicateCandidate[],
   expectedChoices: number,
@@ -294,7 +178,6 @@ export function planNumberDuplicateMerges(
 
     const [a, b] = group
 
-    // A stem cut short is the same question, and similarity cannot see it.
     const cut = truncationPair(a, b)
     if (cut) {
       plans.push({ keepId: cut.keep.id, dropId: cut.drop.id, printedNumber })

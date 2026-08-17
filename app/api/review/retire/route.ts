@@ -8,19 +8,6 @@ import { reviewCards } from '@/lib/db/schema'
 
 const schema = z.object({ cardId: z.string().min(1) })
 
-/**
- * "Got it": stop asking me this one.
- *
- * The card is stamped rather than deleted, and the attempts behind it are not
- * touched at all. That is the whole point of the feature: the question is still
- * one the student got wrong, so it still counts on the worksheet card, on the
- * topic page and in the Blooket export. All that changes is that the review
- * queue stops offering it.
- *
- * Deliberately not a rating. Rating it "easy" would push it a few months out
- * and it would come back, which is the behaviour a student is trying to escape
- * when they say they have this one.
- */
 export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -34,8 +21,6 @@ export async function POST(request: Request) {
 
   const { cardId } = parsed.data
 
-  // Scoped by owner in the update itself rather than read-then-write, so
-  // somebody else's card id changes nothing and reports nothing back.
   const updated = await db
     .update(reviewCards)
     .set({ retiredAt: new Date() })

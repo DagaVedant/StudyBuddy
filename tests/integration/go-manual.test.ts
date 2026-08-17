@@ -39,13 +39,6 @@ async function queuedWorksheet(userId: string): Promise<string> {
   return row.id
 }
 
-/**
- * The atomic claim behind `POST /api/worksheets/[id]/go-manual`.
- *
- * Same shape as `claimWorksheetForCompletion`'s own test, and for the same
- * reason: this is what stops a double click from cancelling the same job or
- * refunding the same trial credit twice.
- */
 describe('claimWorksheetForManualFallback', () => {
   it('lets the first caller through and refuses the second', async () => {
     const userId = await makeUser(db)
@@ -76,16 +69,6 @@ describe('claimWorksheetForManualFallback', () => {
   })
 })
 
-/**
- * The full sequence the route runs, exercised end to end against real rows:
- * cancel the open job, refund the trial, leave the worksheet in the state
- * the status page's existing manual-entry branch already renders.
- *
- * This is the part that matters most. A job left `pending` after the student
- * has started entering questions by hand is a job the worker can still claim
- * the moment it comes back online, extracting straight into a worksheet
- * someone is already editing.
- */
 describe('the go-manual sequence', () => {
   it('cancels the open job and refunds the trial credit it spent', async () => {
     const userId = await makeUser(db)
@@ -122,8 +105,6 @@ describe('the go-manual sequence', () => {
     expect(account.used).toBe(0)
   })
 
-  // A cancelled job must never be reachable by the worker's own claim query,
-  // or the whole point of cancelling it is lost.
   it('a cancelled job is never claimable again', async () => {
     const userId = await makeUser(db)
     const worksheetId = await queuedWorksheet(userId)

@@ -5,20 +5,6 @@ config({ path: '.env.local' })
 import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
 import { openDatabase } from '../db'
 
-/**
- * Throws away a worksheet's questions and queues a fresh extract.
- *
- * The id is matched exactly and nothing else. This used to also accept a title
- * and match it with `ilike '%arg%'` across every account, newest first, so
- * `reextract-worksheet.ts test` picked whichever stranger's worksheet happened
- * to sort first and deleted its questions. `questions` cascades to attempts,
- * review cards, explanations, answer choices and topic assignments, so that is
- * somebody's answer history and their whole review schedule gone.
- */
-
-// The ids are `crypto.randomUUID()` strings in a text column, so the shape is
-// all there is to check before the lookup. Version digit left loose because
-// rows that predate that helper were not all generated the same way.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const USAGE = 'Usage: npx tsx scripts/reextract-worksheet.ts <worksheet-id> [--yes]'
@@ -53,9 +39,6 @@ async function main() {
 
   const sql = openDatabase()
 
-  // Everything the delete reaches, counted before it runs. The counts are the
-  // only way to tell the worksheet you meant from one that shares its title:
-  // a sheet with attempts and review cards on it is somebody's studied work.
   const [sheet] = await sql<Preflight[]>`
     select w.id, w.title, w.user_id, u.email as owner_email,
            (select count(*) from worksheet_pages p

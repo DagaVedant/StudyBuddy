@@ -66,8 +66,6 @@ test('a new password account can sign in straight away', async ({ page }) => {
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
   await visible(page).getByRole('button', { name: 'Sign in' }).click()
 
-  // Nothing sends mail any more, so an account is usable as soon as it is
-  // made. This used to assert the opposite.
   await page.waitForURL(/\/dashboard/)
 })
 
@@ -110,10 +108,6 @@ test('an account in ADMIN_EMAILS gets the admin console', async ({ page }) => {
   await expect(visible(page).getByText('Workers & queue')).toBeVisible()
 })
 
-// The escalation this used to allow: register an admin address with a password
-// before its owner does and inherit the console. Signup refuses the address,
-// and the role needs a Google link the account has no way to get, so both
-// halves have to fail for the attack to be closed.
 test('a password signup cannot take an admin address', async ({ page }) => {
   await page.goto('/signup')
   await visible(page).getByLabel('Email').fill('boss@studybuddy.test')
@@ -121,11 +115,8 @@ test('a password signup cannot take an admin address', async ({ page }) => {
   await visible(page).getByLabel('Date of birth').fill(adultDob())
   await visible(page).getByRole('button', { name: 'Create account' }).click()
 
-  // The same reply every other outcome gives, so it does not say which
-  // addresses are admin.
   await expect(statusBox(page)).toBeVisible()
 
-  // Nothing was created, so there is nothing to sign in to.
   await page.goto('/signin')
   await visible(page).getByLabel('Email').fill('boss@studybuddy.test')
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
@@ -135,13 +126,6 @@ test('a password signup cannot take an admin address', async ({ page }) => {
   await expect(page).toHaveURL(/\/signin/)
 })
 
-/**
- * The pitch is prerendered, so its buttons cannot be chosen on the server.
- *
- * `HomeCta` picks them on the client instead, and the HTML ships the
- * signed-out pair because that is who the page is for. This is the other half:
- * a reader who does have a session is not left looking at a Sign in button.
- */
 test('the pitch offers a signed-in reader the dashboard', async ({ page }) => {
   await registerAndSignIn(page, `pitch-${Date.now()}@example.com`)
 

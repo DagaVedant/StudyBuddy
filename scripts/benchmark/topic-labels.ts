@@ -1,33 +1,6 @@
-/**
- * Questions with the topic a person says they are about.
- *
- * Lives beside the script that reads it rather than under benchmark/, which is
- * ignored in its entirety: everything there is a run artifact, and this is
- * hand-written source that is worthless if it is not in the history.
- *
- * Ground truth for the shortlist, which is the half of classification no
- * prompt change can rescue: `shortlistByVector` hands the model a fixed number
- * of nearby leaf topics, and if the right one is not among them the model
- * cannot pick it. A combinatorics question shown fifteen geometry candidates
- * picks a geometry one and reports 0.95 confidence, which is what the stored
- * run is full of.
- *
- * Every prompt here is verbatim from the Edison run. The set leans
- * deliberately towards the ones that came out wrong, because there is no
- * point measuring recall on questions nothing ever got wrong. So the number
- * it produces is a floor, not an estimate of the whole corpus.
- *
- * `accept` is a list because the right leaf is often genuinely arguable: a
- * word problem about two numbers whose product is 96 is a system of equations
- * to one teacher and a quadratic to another, and recall is about whether the
- * model was shown a defensible answer at all, not about picking between two
- * good ones.
- */
 export interface TopicLabel {
   prompt: string
-  /** Any of these counts as the shortlist having done its job. */
   accept: string[]
-  /** What the run actually assigned, where that is worth remembering. */
   assigned?: string
 }
 
@@ -37,7 +10,6 @@ const COMBINATORICS = [
 ]
 
 export const TOPIC_LABELS: TopicLabel[] = [
-  // The eight in the failure report, in its order.
   {
     prompt:
       'In how many ways can 6 people be seated around a circular table if two specific people must sit next to each other?',
@@ -93,8 +65,6 @@ export const TOPIC_LABELS: TopicLabel[] = [
     accept: ['high-school-math.algebra-1.foundations.order-of-operations'],
     assigned: 'high-school-math.number-sense.fractions-and-decimals.complex-fractions',
   },
-
-  // The rest of the nineteen that fell through to a non-leaf topic.
   {
     prompt: 'If today is Wednesday, what day of the week will it be 100 days from today?',
     accept: ['high-school-math.number-sense.number-theory.remainders-and-repeating-patterns'],
@@ -179,9 +149,6 @@ export const TOPIC_LABELS: TopicLabel[] = [
     ],
     assigned: 'high-school-math.algebra-1.linear-functions-and-graphing',
   },
-
-  // Controls: questions the run got right, or would have. A shortlist change
-  // that lifts the hard cases by breaking these has not helped anyone.
   {
     prompt:
       'A price is increased by 20% and then decreased by 20%. What is the net percent change from the original price?',

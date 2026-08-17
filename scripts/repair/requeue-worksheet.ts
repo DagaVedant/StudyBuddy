@@ -7,10 +7,6 @@ import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
 import { openDatabase } from '../db'
 
 async function main() {
-  // `--yes` belongs to confirmDestructive, so it is skipped when looking for
-  // the positional argument. Reading argv[2] directly meant `requeue --yes`
-  // searched for a worksheet whose id was the literal string "--yes" and
-  // reported nothing stranded, which reads exactly like a clean run.
   const arg = process.argv.slice(2).find((a) => a !== '--yes') ?? '--all'
 
   requireLocalDb()
@@ -39,11 +35,6 @@ async function main() {
     return
   }
 
-  // Nothing here is deleted, so the sweep felt safe enough to run without
-  // looking. It is not: with no argument it queues every account's stranded
-  // worksheets, which puts strangers' pages through the operator's GPU and
-  // moves their worksheets back to `queued` in their own list. Naming one id
-  // is a deliberate enough act to skip the prompt.
   if (arg === '--all') {
     await confirmDestructive([
       `Queue extraction for ${stranded.length} stranded worksheet(s) on ${databaseHost(process.env.DATABASE_URL!)}:`,

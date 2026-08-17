@@ -8,16 +8,6 @@ import {
   meetsAgeRequirement,
   validateDob,
 } from '@/lib/auth/policy'
-
-/**
- * The 13+ gate and the admin allowlist, neither of which had a test.
- *
- * The gate is the reason this app can take signups at all, and the allowlist
- * decides who reaches a console that can retire topics and read every report.
- * Both are a handful of lines, which is exactly the kind of code that gets
- * changed without anybody noticing what it was for.
- */
-
 const original = { ...process.env }
 
 afterEach(() => {
@@ -25,19 +15,11 @@ afterEach(() => {
 })
 
 describe('ageInYears', () => {
-  /**
-   * Computed in UTC on both sides, deliberately. Reading the birthday in local
-   * time and the clock in UTC makes the answer depend on the timezone of the
-   * machine, which for somebody born on the boundary is the difference between
-   * being allowed to sign up and not.
-   */
   it('counts whole years, not the difference in year numbers', () => {
     const now = new Date('2026-08-11T00:00:00Z')
 
     expect(ageInYears(new Date('2013-08-11T00:00:00Z'), now)).toBe(13)
-    // Birthday tomorrow: still twelve.
     expect(ageInYears(new Date('2013-08-12T00:00:00Z'), now)).toBe(12)
-    // Birthday yesterday.
     expect(ageInYears(new Date('2013-08-10T00:00:00Z'), now)).toBe(13)
   })
 
@@ -95,13 +77,6 @@ describe('validateDob', () => {
     })
   })
 
-  /**
-   * V8's fallback date parser reads a year out of most of these:
-   * `new Date('sometime in 2010')` is the first of January 2010, at local
-   * midnight rather than UTC. So the shape is checked before anything is
-   * parsed, which is why free text is refused and why the parse cannot land a
-   * day out for a reader west of UTC.
-   */
   it.each([
     ['prose', 'sometime in 2010'],
     ['a bare year', '2010'],
@@ -118,8 +93,6 @@ describe('validateDob', () => {
   })
 
   it('reads the date in UTC, not in whatever zone the server is in', () => {
-    // Parsed as local midnight this is the 14th in every zone west of UTC, and
-    // one day is the whole difference on a thirteenth birthday.
     const result = validateDob('2000-06-15')
 
     expect(result.ok === true && result.dob.getUTCDate()).toBe(15)
@@ -135,11 +108,6 @@ describe('validateDob', () => {
     })
   })
 
-  /**
-   * The upper bound is not pedantry. A typo of 1013 for 2013 passes every other
-   * check here, and an account with an impossible birth year is one nobody can
-   * tell apart from a real one later.
-   */
   it('refuses an implausible age', () => {
     expect(validateDob('1013-05-04')).toEqual({
       ok: false,
@@ -184,8 +152,6 @@ describe('the admin allowlist', () => {
   it('is empty when blank, rather than holding one empty entry', () => {
     process.env.ADMIN_EMAILS = ' , ,, '
 
-    // An empty entry that survived would make `isAdminEmail('')` true, and the
-    // callers pass a nullable address straight in.
     expect(adminEmails()).toEqual([])
     expect(isAdminEmail('')).toBe(false)
   })

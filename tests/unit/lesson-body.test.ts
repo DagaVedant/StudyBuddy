@@ -39,10 +39,6 @@ describe('trimLessonBody', () => {
     )
   })
 
-  /**
-   * The spelling that got past the prompt. Forbidding "## Common errors" by
-   * name produced this instead, with the same four mistakes in it.
-   */
   it('drops a bold pitfalls list, not only a heading', () => {
     const body = [
       'The idea.',
@@ -94,10 +90,6 @@ describe('trimLessonBody', () => {
     expect(trimLessonBody(body)).toBe('A composite figure is one you can cut up.')
   })
 
-  /**
-   * The rule is about collecting mistakes, not mentioning them. A method step
-   * warning about a trap where the trap arises is the lesson doing its job.
-   */
   it('keeps a trap named inside a step', () => {
     const body = [
       '## The method',

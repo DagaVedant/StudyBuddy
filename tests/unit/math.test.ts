@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { looksUnrendered, normalizeMath } from '@/lib/questions/math'
 
 describe('normalizeMath', () => {
-  // The three shapes one real worksheet produced, in a single run.
+  
   it('unwraps inline LaTeX delimiters', () => {
     expect(normalizeMath('Simplify: \\( 8x - (7 + 2.5x) + 2 \\)')).toBe(
       'Simplify: 8x - (7 + 2.5x) + 2',
@@ -41,7 +41,7 @@ describe('normalizeMath', () => {
     expect(normalizeMath(plain)).toBe(plain)
   })
 
-  // A stray dollar sign is money far more often than it is maths.
+  
   it('does not eat a price', () => {
     expect(normalizeMath('The ribbon costs $5.00 per metre.')).toBe(
       'The ribbon costs $5.00 per metre.',
@@ -52,8 +52,8 @@ describe('normalizeMath', () => {
     expect(normalizeMath('\\alpha + 1')).toBe('alpha + 1')
   })
 
-  // The AMC8 question that shipped reading `?rac{44}{11}`: three fractions,
-  // every backslash-f already swallowed by JSON.parse before ingest saw it.
+  
+  
   it('rebuilds a fraction a JSON parser ate', () => {
     const eaten = JSON.parse(
       '"What is the value of \\frac{44}{11}+\\frac{110}{44}+\\frac{44}{1100}?"',
@@ -102,12 +102,7 @@ describe('looksUnrendered', () => {
     expect(looksUnrendered('Two lines.\nStill clean.')).toBe(false)
   })
 
-  /*
-   * A bare brace is set-builder or interval notation the model wrote on
-   * purpose, not leftover markup. It used to flag any brace at all, which
-   * meant every question written this way printed as "UNRENDERED MATH" in
-   * the audit script even though nothing was wrong.
-   */
+  
   it('does not flag set-builder or interval notation', () => {
     expect(looksUnrendered('Let S = {1, 2, 3}. How many subsets does S have?')).toBe(
       false,
@@ -116,19 +111,15 @@ describe('looksUnrendered', () => {
     expect(looksUnrendered('f(x) = {2x if x > 0, -x otherwise}')).toBe(false)
   })
 
-  // The shape a brace-only bug actually takes: `\left\{...\right\}` has its
-  // `\left`/`\right` stripped by normalizeMath, leaving a literal `\{...\}`
-  // behind that nothing else touches. That backslash is the tell a bare
-  // brace does not carry.
+  
+  
+  
+  
   it('still flags a backslash-escaped brace normalizeMath could not reach', () => {
     expect(looksUnrendered('Solve \\{x : x > 0\\}')).toBe(true)
   })
 })
 
-/**
- * The single-dollar rule is also the money rule, and it used to lose.
- * Verified against a stored row: the paper said $5, the database said 5.
- */
 describe('normalizeMath and money', () => {
   it('leaves prices alone', () => {
     for (const text of [
@@ -151,17 +142,7 @@ describe('normalizeMath and money', () => {
     expect(normalizeMath('$x^{2}$')).toBe('x^2')
   })
 
-  /*
-   * These used to be lost, and one of them was recorded here as a known
-   * failure: a price with an operator between it and the next price read as
-   * maths and unwrapped. It was filed as one odd case and it was a family.
-   * A unit rate is the same shape, and unit rates are as ordinary at this
-   * level as two-price sentences.
-   *
-   * What tells them apart is the character past the closing dollar. That
-   * dollar is opening the next price, so a digit follows it, which is not
-   * something a genuine maths span does.
-   */
+  
   it('keeps a price separated from the next one by an operator', () => {
     expect(normalizeMath('It costs $5 + tax, or $12 delivered.')).toBe(
       'It costs $5 + tax, or $12 delivered.',

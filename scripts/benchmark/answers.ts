@@ -8,35 +8,6 @@ import { dirname } from 'node:path'
 import { ANSWER_JSON_SCHEMA, ANSWER_SYSTEM, answerUserText } from '../../lib/ai/prompts'
 import { connect, requireDatabaseUrl } from '../db'
 
-/**
- * Which local model should derive an answer key.
- *
- * The extraction model was chosen by measurement rather than by reputation, and
- * this is the same question for a different job: reading a page and solving one
- * are not the same skill, and the 7B vision model that won the first contest has
- * no particular claim on the second.
- *
- * Scored against the papers' own answer keys. 275 stored questions carry a
- * `pdf_key` answer read out of the source PDF, which is ground truth nobody in
- * this pipeline produced, so a model cannot score well here by agreeing with
- * something the pipeline already believed.
- *
- * What matters as much as the score is the shape of the failures. A model that
- * answers 70% and admits the rest is more useful than one that answers 75% and
- * is confidently wrong about the remainder, because a derived answer is stored
- * as `ai_derived` and shown to the student as the answer. So this reports
- * refusals and confident-wrong separately rather than folding both into
- * accuracy.
- *
- * Results are written to a file as each model finishes, not only printed.
- * Node buffers stdout when it is a pipe and flushes on exit, so a run watched
- * from another process shows nothing at all until it ends: this one looked
- * stuck for an hour and had in fact finished three models. A synchronous append
- * per model is worth more than the tidiness of printing only.
- *
- *   npx tsx scripts/benchmark-answers.ts [--limit 40] [--models a,b,c] [--out path]
- */
-
 const OLLAMA = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
 
 const DEFAULT_MODELS = ['qwen3.5:9b', 'gemma4:12b', 'gpt-oss:20b', 'qwen3.6:27b']
@@ -52,7 +23,6 @@ interface Scored {
   seconds: number
 }
 
-/** Explicit, so the negative checks in the loop narrow to the answered case. */
 type AskResult =
   | { kind: 'failed' }
   | { kind: 'truncated' }
@@ -105,9 +75,6 @@ async function ask(model: string, row: Row, timeoutMs = 300_000): Promise<AskRes
     }
     const content = body.message?.content
 
-    // Distinguished rather than folded into one failure count. A model that
-    // ran out of budget mid-thought is telling you something different from
-    // one that returned nonsense, and the fix is different too.
     if (!content) {
       return { kind: body.done_reason === 'length' ? ('truncated' as const) : ('failed' as const) }
     }
@@ -137,9 +104,6 @@ function label(answer: string | null, choices: Row['choices']): string | null {
   const bare = trimmed.replace(/^[('"]*([A-Ea-e])[)."'\s]*$/, '$1').toUpperCase()
   if (/^[A-E]$/.test(bare)) return bare
 
-  // A model that answered with the option's text rather than its label is
-  // right about the question and wrong about the format, which is a parsing
-  // problem here and not a knowledge one.
   const match = choices.find(
     (choice) => choice.text.trim().toLowerCase() === trimmed.toLowerCase(),
   )
@@ -163,7 +127,6 @@ async function main(): Promise<void> {
 
   const sql = connect(requireDatabaseUrl())
 
-  // Ordered, not random, so two runs compare on the same questions.
   const rows = await sql<Row[]>`
     select q.id, q.prompt_text as "promptText", q.correct_answer as "correctAnswer",
       coalesce(
@@ -207,7 +170,6 @@ async function main(): Promise<void> {
       } else {
         const chosen = label(result.answer, row.choices)
         score.answered += 1
-        // Some models answer 0-100 however firmly the prompt says 0-1.
         const raw = Number(result.confidence ?? 0)
         const confidence = raw > 1 ? raw / 100 : raw
         if (chosen === row.correctAnswer.trim().toUpperCase()) score.correct += 1

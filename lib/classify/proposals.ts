@@ -8,33 +8,6 @@ export type AcceptOutcome =
   | { ok: true; topicId: string; slug: string; taggedSource: boolean }
   | { ok: false; reason: 'not_found' | 'not_pending' | 'no_parent' }
 
-/**
- * Turns a proposal into a real topic.
- *
- * Accepting used to only flip the proposal's status, which nothing read; the
- * queue looked like it worked and the tree never changed, so the same
- * proposal would be raised again by the next question that did not fit.
- *
- * The new topic is marked non-canonical: it did not come from the seeded
- * taxonomy, and keeping that distinction means a later re-seed can tell what
- * it is allowed to overwrite. That is all the flag means; it does not gate
- * shortlisting, which it used to, with the result that an accepted topic could
- * never be matched to anything.
- *
- * The writes run in one transaction. There are four of them and they are only
- * coherent together: a topic whose parent is still a leaf, or a proposal
- * pointing at a topic that was never created, is worse than a proposal nobody
- * has got to yet.
- *
- * Picking the slug is inside that transaction and the whole thing retries on a
- * collision, because `topics.slug` is unique and choosing a free one is a read
- * followed by a write. Two admins accepting from the queue at the same time,
- * or the same admin double-clicking Accept, could both read the same slug as
- * free; whoever inserted second used to get a constraint violation thrown out
- * of here as a 500, with the proposal left pending and no indication that the
- * name was the problem. Two proposals with names that slugify the same is not
- * a rare shape either: "Circle theorems" and "circle theorems!" are one slug.
- */
 export async function acceptTopicProposal(
   db: Db,
   proposalId: string,
@@ -48,9 +21,6 @@ export async function acceptTopicProposal(
   if (!proposal) return { ok: false, reason: 'not_found' }
   if (proposal.status !== 'pending') return { ok: false, reason: 'not_pending' }
 
-  // Without a parent there is nowhere in the tree to hang it, and a topic
-  // outside the tree would never be shortlisted, so it would be worse than
-  // leaving the proposal pending for someone to place by hand.
   if (!proposal.suggestedParentId) return { ok: false, reason: 'no_parent' }
 
   const [parent] = await db
@@ -63,16 +33,12 @@ export async function acceptTopicProposal(
 
   const wanted = `${parent.slug}.${slugify(proposal.proposedName)}`
 
-  // A violation aborts the transaction it happened in, so the retry has to be
-  // around the whole thing rather than around the insert.
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await accept(db, proposal, parent, wanted)
     } catch (error) {
       if (!isUniqueViolation(error) || attempt >= SLUG_ATTEMPTS) throw error
 
-      // Someone took the slug between the read and the write. Re-reading is the
-      // whole fix: `uniqueSlug` will now see it taken and step past it.
       console.warn(
         `[proposals] slug collision on ${wanted}, attempt ${attempt}; retrying`,
       )
@@ -80,7 +46,6 @@ export async function acceptTopicProposal(
   }
 }
 
-/** How many times to lose a race for a slug before giving up on it. */
 const SLUG_ATTEMPTS = 3
 
 async function accept(
@@ -102,14 +67,10 @@ async function accept(
         subjectRoot: parent.subjectRoot,
         isCanonical: false,
         isLeaf: true,
-        // Carried over so the new topic is shortlistable straight away. Without
-        // it the topic exists but no question would ever be matched to it.
         embedding: proposal.embedding,
       })
       .returning({ id: topics.id })
 
-    // The parent has a child now, so it is no longer somewhere a question can
-    // land directly.
     if (parent.isLeaf) {
       await tx.update(topics).set({ isLeaf: false }).where(eq(topics.id, parent.id))
     }
@@ -117,8 +78,6 @@ async function accept(
     let taggedSource = false
 
     if (proposal.sourceQuestionId) {
-      // The question that could not be classified is the one question we know
-      // belongs here, so it gets the tag without waiting to be reclassified.
       await tx
         .insert(questionTopics)
         .values({
@@ -146,20 +105,6 @@ export type MergeOutcome =
   | { ok: true; taggedSource: boolean }
   | { ok: false; reason: 'not_found' | 'not_pending' | 'target_not_found' | 'target_not_leaf' }
 
-/**
- * §7.2's other resolution: the question was not describing a gap in the
- * tree, it was describing a leaf that already exists under a name the
- * classifier's shortlist did not surface. `acceptTopicProposal` only ever
- * grows the tree; this tags the source question against a topic an admin
- * picked instead, and leaves the tree exactly as it was.
- *
- * Restricted to leaves for the same reason classification only ever tags a
- * leaf: an internal node is a shelf, not a place a question can sit.
- *
- * One write plus one status flip rather than four, so no transaction is
- * needed the way `accept` needs one - there is no slug to mint and no
- * parent whose `isLeaf` flag might flip.
- */
 export async function mergeTopicProposal(
   db: Db,
   proposalId: string,
@@ -212,18 +157,9 @@ export function slugify(name: string): string {
     .replace(/^-+|-+$/g, '')
     .slice(0, 60)
 
-  // Slugs are joined with dots into a path, so an empty segment would produce
-  // a path that reads as though a level were missing.
   return slug || 'topic'
 }
 
-/**
- * Appends a counter until the slug is free, since slugs are unique.
- *
- * Exported for `lib/taxonomy/edit.ts`, which mints a slug the same way for a
- * topic an admin adds or moves directly rather than through a proposal - the
- * collision handling does not care which caller is asking.
- */
 export async function uniqueSlug(db: Db, wanted: string): Promise<string> {
   const candidates = [wanted, ...Array.from({ length: 20 }, (_, i) => `${wanted}-${i + 2}`)]
 
@@ -238,7 +174,5 @@ export async function uniqueSlug(db: Db, wanted: string): Promise<string> {
 
   const free = candidates.find((candidate) => !taken.has(candidate))
 
-  // Twenty collisions on one name means something is wrong upstream; a random
-  // suffix keeps the insert from failing outright.
   return free ?? `${wanted}-${Date.now().toString(36)}`
 }

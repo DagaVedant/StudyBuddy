@@ -30,19 +30,6 @@ export interface RevisitQuestionProps {
   freeText: string | null
 }
 
-/**
- * One row in a topic page's "Questions to revisit" list.
- *
- * The prompt, outcome badge and worksheet/date metadata stay visible; the
- * student's own answer and the correct one sit behind a "Show answer" toggle,
- * the same reveal-then-show shape as the review queue's full-screen card
- * (app/(app)/review/review-client.tsx), scaled down to a dense list item.
- * Each card owns its `revealed` state, so opening one in a list of fifty
- * does not disturb the rest.
- *
- * Text-only by design: this list has no page-image evidence to crop, unlike
- * the review queue's `QuestionCrop`, so nothing here renders an image.
- */
 export default function RevisitQuestion({
   promptText,
   outcome,

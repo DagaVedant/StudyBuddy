@@ -140,14 +140,6 @@ export function previewIntervals(
   ) as Record<ReviewRating, Date>
 }
 
-/**
- * A due date as the wait until it, in one unit.
- *
- * This sits under a rating button, so it has to read at a glance and fit in
- * about five characters. One rounded unit is the whole point: the difference
- * between "10 min" and "3 d" is the decision being made, and the precision
- * beyond that is noise.
- */
 export function formatInterval(due: Date, now: Date = new Date()): string {
   const minutes = Math.round((due.getTime() - now.getTime()) / 60_000)
 

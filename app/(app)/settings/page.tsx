@@ -17,7 +17,6 @@ export default async function SettingsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-
   const [credentials, trial, worker] = await Promise.all([
     getCredentialSummary(db, session.user.id),
     getTrialState(db, session.user.id),
@@ -50,14 +49,6 @@ export default async function SettingsPage() {
         appUrl={appBaseUrl()}
       />
 
-      {/*
-        Profile lives here now rather than in a nav slot of its own. Two
-        top-level slots for one account area was one too many, and the less
-        important of them was listed first: this screen holds the provider
-        setup, the trial and account deletion, and that one holds a display
-        name, a username and an avatar. Somebody looking for either is already
-        on this page.
-      */}
       <section aria-labelledby="profile-heading" className="card mt-6 p-4">
         <h2 id="profile-heading" className="text-sm font-medium">
           Your profile
@@ -71,8 +62,6 @@ export default async function SettingsPage() {
         </Link>
       </section>
 
-      {/* Last on the page and in its own card, because it is the one control
-          here that cannot be undone. */}
       {session.user.email && <DeleteAccount email={session.user.email} />}
     </main>
   )

@@ -14,9 +14,6 @@ const ERRORS: Record<string, string> = {
 
 function SignInForm() {
   const params = useSearchParams()
-  // Validated here as well as in the action. The action is the boundary that
-  // matters, but a hostile `next` reaching the hidden input means it is also in
-  // the DOM, and a rendered attacker URL is worth not having either.
   const next = safeNextPath(params.get('next'))
   const linkError = params.get('error')
 

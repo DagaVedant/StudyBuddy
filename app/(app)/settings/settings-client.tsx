@@ -29,25 +29,8 @@ type ProbeResult =
   | { ok: true; models: string[]; hasVisionModel: boolean }
   | { ok: false; message: string }
 
-/** The model Tier C reads pages with, and what the save defaults to. */
 const OLLAMA_VISION_MODEL = 'qwen2.5vl:7b'
 
-/**
- * spec.md:339's live connection test, which only this side can run.
- *
- * The server never dials a student's machine, by design and by the localhost
- * allowlist, so "is Ollama reachable" is a question with a different answer on
- * each side of the wire and only the browser's answer matters: the browser is
- * what will be doing the reading.
- *
- * The failure message is deliberately one message covering three causes.
- * A cross-origin refusal, a refused connection and a wrong port are all a bare
- * `TypeError` here: the fetch spec gives page script no way to tell them
- * apart, on purpose, because distinguishing them would let any page port-scan
- * the machine it is running on. Guessing one of the three and naming it would
- * be wrong two times in three, so this names the one fix that is invisible
- * from a terminal, and leaves the two that are not.
- */
 async function probeOllama(baseUrl: string, appUrl: string): Promise<ProbeResult> {
   try {
     const { OllamaProvider } = await import('@/lib/ai/ollama')
@@ -60,8 +43,6 @@ async function probeOllama(baseUrl: string, appUrl: string): Promise<ProbeResult
     return {
       ok: true,
       models,
-      // Tag-insensitive: `qwen2.5vl:7b` and a `qwen2.5vl:7b-q4_K_M` a student
-      // pulled by hand are the same model as far as this check cares.
       hasVisionModel: models.some((name) => name.startsWith(OLLAMA_VISION_MODEL.split(':')[0])),
     }
   } catch (cause) {
@@ -219,7 +200,6 @@ export default function SettingsClient({
                 value={provider}
                 onChange={(event) => {
                   setProvider(event.target.value as CloudProvider)
-                  // The old provider's model name means nothing to the new one.
                   setModel('')
                 }}
               >
@@ -345,13 +325,6 @@ export default function SettingsClient({
               </pre>
             </details>
 
-            {/*
-              The test is offered before the save rather than after it, and
-              does not gate it. A student whose Ollama is not running yet
-              should still be able to store the address; what they must not do
-              is leave this screen believing it works when it does not, which
-              is what saving alone used to imply.
-            */}
             {probe && (
               <p
                 role="status"

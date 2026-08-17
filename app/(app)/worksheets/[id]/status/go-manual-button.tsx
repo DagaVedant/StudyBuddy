@@ -5,17 +5,6 @@ import { useRouter } from 'next/navigation'
 
 import { fetchJson } from '@/lib/client/fetch-json'
 
-/**
- * The offline queue's way out.
- *
- * A plain `Link` was enough for the failed branch, because a failed job is
- * already in a terminal state and nothing else will touch it. This worksheet
- * is not: a job is still `pending`, and clicking through without cancelling
- * it first would let the worker claim it the moment it comes back online,
- * extracting straight into a worksheet the student has since started filling
- * in by hand. So this is a button, not a link, and it waits for the server to
- * cancel that job before it navigates anywhere.
- */
 export default function GoManualButton({ worksheetId }: { worksheetId: string }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)

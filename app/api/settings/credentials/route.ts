@@ -88,19 +88,6 @@ export async function POST(request: Request) {
     )
   }
 
-  /*
-   * Asked before it is stored, rather than found out later.
-   *
-   * This route used to answer "Saved." to anything shaped like a key, and a
-   * typo surfaced as a failed job on a worksheet the student had already
-   * uploaded and waited for, with nothing on the settings screen suggesting
-   * the key was the problem.
-   *
-   * Only a refusal stops the save. If the provider cannot be reached, that
-   * says nothing about the key, and refusing to store a good key because of a
-   * network blip is the worse failure: it is stored, and the reply says it
-   * could not be checked.
-   */
   const verdict = await verifyCloudKey(input.provider, input.apiKey)
 
   if (verdict.status === 'rejected') {
@@ -112,8 +99,6 @@ export async function POST(request: Request) {
     .values({
       userId,
       provider: input.provider,
-      // Stamped only when something actually checked. Null still means
-      // unverified, which is what it meant when nothing ever checked.
       verifiedAt: verdict.status === 'ok' ? new Date() : null,
       encryptedKey: sealed.ciphertext,
       keyIv: sealed.iv,
@@ -140,8 +125,6 @@ export async function POST(request: Request) {
     ok: true,
     last4: sealed.last4,
     verified: verdict.status === 'ok',
-    // Said plainly when it could not be checked, so "Saved." never stands in
-    // for "works".
     message:
       verdict.status === 'ok'
         ? undefined

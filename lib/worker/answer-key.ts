@@ -5,17 +5,6 @@ import type { Db } from '@/lib/db/types'
 import { mergeAnswerKeys, parseAnswerKey } from '@/lib/questions/answer-key'
 import { normalizeChoiceLabel } from '@/lib/questions/shape'
 
-/**
- * Writes the paper's own answer key onto its questions.
- *
- * Runs last, after the numbering passes, because it matches on the printed
- * number and that number is not final until they have finished with it.
- *
- * A key the student typed in themselves outranks anything read off the page and
- * is never touched. Everything else is replaced rather than merely filled,
- * because what the paper prints beats what a model inferred, and re-running the
- * job then lands on the same answer every time.
- */
 export async function applyAnswerKey(
   db: Db,
   worksheetId: string,
@@ -38,8 +27,6 @@ export async function applyAnswerKey(
     .where(
       and(
         eq(questions.worksheetId, worksheetId),
-        // A key the student supplied is theirs, not the paper's, and is never
-        // overwritten by this.
         ne(questions.answerSource, 'user_key'),
       ),
     )
@@ -57,9 +44,6 @@ export async function applyAnswerKey(
       .set({ correctAnswer: label, answerSource: 'pdf_key' })
       .where(eq(questions.id, row.id))
 
-    // The option list is what the review screen ticks, so it has to agree with
-    // the answer stored on the question. Written for every option rather than
-    // only the winner, so a key that changed clears the previous tick.
     const choices = await db
       .select({
         id: answerChoices.id,

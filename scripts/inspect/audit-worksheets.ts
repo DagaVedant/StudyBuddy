@@ -10,46 +10,8 @@ import { runRepairPasses } from '../../lib/worker/pipeline'
 import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
 import { connect } from '../db'
 
-/**
- * Checks recently extracted worksheets for everything known to go wrong.
- *
- * Written against real failures rather than imagined ones: a page returning
- * nothing, a question emitted twice, ordinals handed out by arrival instead of
- * by position, and maths arriving as LaTeX the student cannot read. Each of
- * those shipped at some point, so each is checked every time now.
- *
- * The audit reads and prints. Running it against production is the normal way
- * to use it, so nothing below gates that; only the repair path is guarded.
- *
- *   npx tsx scripts/inspect/audit-worksheets.ts                    # the three most recent
- *   AUDIT_LIMIT=10 npx tsx scripts/inspect/audit-worksheets.ts
- *   npx tsx scripts/inspect/audit-worksheets.ts <worksheet id>     # only that one
- *   AUDIT_FIX=true npx tsx scripts/inspect/audit-worksheets.ts <worksheet id>   # and repair it
- */
 const LIMIT = Number(process.env.AUDIT_LIMIT ?? 3)
 
-/**
- * Repairs as well as reports, by running the job's own passes over one
- * worksheet.
- *
- * This note used to promise that duplicates were left alone because choosing
- * which copy to destroy is a guess. That stopped being true when the script
- * was changed to call `runRepairPasses` rather than keep its own pass list:
- * the merge pass is in that list and it deletes the row it folds away. Keeping
- * the old promise would mean owning a private list of passes again, which is
- * exactly what let this script repair a worksheet into a state no production
- * path would ever produce, so the note is what changed instead.
- *
- * What holds the deletion back is `deletableQuestionIds` in
- * lib/worker/safe-delete.ts: the merge drops a duplicate only when no attempt
- * and no review card points at it, and logs the ones it kept. So a duplicate
- * the student has already answered survives, and the review screen still lets
- * them delete it by hand.
- *
- * Because it writes, this path needs a worksheet id, a local database and a
- * typed confirmation. It used to need none of those: `AUDIT_FIX=true` alone
- * repaired whichever worksheets were created most recently, account-wide.
- */
 const FIX = process.env.AUDIT_FIX === 'true'
 
 interface Row {
@@ -190,9 +152,9 @@ async function main() {
     console.log(`  COUNT SHOWN      ${rows.length}${expected ? ` (paper has ${expected})` : ''}`)
 
     if (FIX) {
-      // Asked here rather than before the audit ran, so the findings for this
-      // worksheet are on the screen above the prompt: the merge is the pass
-      // that deletes, and the DUPLICATED line is what it will act on.
+      
+      
+      
       await confirmDestructive([
         '',
         `About to repair ${sheet.title} (${sheet.id}) on ${databaseHost(url)}.`,

@@ -13,24 +13,13 @@ interface Item {
   createdAt: string
 }
 
-/** How often the bell asks. A worksheet takes minutes, so this is not a chat. */
 const POLL_MS = 60_000
 
-/**
- * Turns the base64url VAPID public key into the Uint8Array the API wants.
- *
- * `applicationServerKey` predates the platform having any interest in making
- * this convenient: it takes raw bytes, and the key travels as base64url, which
- * `atob` does not read. Hence the two character swaps and the padding.
- */
 function decodeVapidKey(base64Url: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64Url.length % 4)) % 4)
   const base64 = (base64Url + padding).replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(base64)
 
-  // Built over an explicit ArrayBuffer rather than `Uint8Array.from`, which
-  // infers `ArrayBufferLike` and so could be backed by a SharedArrayBuffer.
-  // `applicationServerKey` will not take one of those.
   const bytes = new Uint8Array(new ArrayBuffer(raw.length))
   for (let index = 0; index < raw.length; index += 1) {
     bytes[index] = raw.charCodeAt(index)
@@ -39,21 +28,6 @@ function decodeVapidKey(base64Url: string): Uint8Array<ArrayBuffer> {
   return bytes
 }
 
-/**
- * spec.md:611's completion notification, both halves of it.
- *
- * The queue, the heartbeat and the status UI were all built and the piece that
- * makes them useful was not, so "safe to close this page" was true and useless:
- * a student had no way to learn a worksheet had finished except to come back
- * and look. On the trial tier, where extraction runs on a home GPU and can take
- * a while, that is the difference between a background job and one you babysit.
- *
- * The list is the half that always works. Push is offered on top, and every
- * reason it might not arrive is a reason to keep the list rather than to skip
- * it: permission can be declined or revoked, iOS delivers push only to a site
- * installed to the home screen, and a server with no VAPID keys cannot send at
- * all. In every one of those cases the bell still fills up.
- */
 export default function NotificationBell() {
   const [items, setItems] = useState<Item[]>([])
   const [unread, setUnread] = useState(0)
@@ -62,8 +36,6 @@ export default function NotificationBell() {
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Guards every write, so a poll in flight when the topbar unmounts does not
-    // set state on a component that has gone.
     let cancelled = false
 
     async function poll() {
@@ -80,8 +52,6 @@ export default function NotificationBell() {
         setItems(data.notifications)
         setUnread(data.unread)
       } catch {
-        // A failed poll is not worth an error message. The next one is a minute
-        // away, and a stale count beats the bell showing a complaint.
       }
     }
 
@@ -94,17 +64,6 @@ export default function NotificationBell() {
     }
   }, [])
 
-  /*
-   * Whether to offer push at all. Not whether it is granted: a student who has
-   * already granted or already denied should not be asked again, and the
-   * browser remembers which.
-   *
-   * Decided here rather than during render because every input is a browser
-   * API: the server has no `navigator` and would render a different answer,
-   * which is a hydration mismatch. Set from inside an async function rather
-   * than straight out of the effect body, since a synchronous setState during
-   * an effect is a second render pass before the browser has painted the first.
-   */
   useEffect(() => {
     let cancelled = false
 
@@ -125,8 +84,6 @@ export default function NotificationBell() {
     }
   }, [])
 
-  // Closing on an outside click and on Escape, which is what every other
-  // popover on the web does and what a student will try.
   useEffect(() => {
     if (!open) return
 
@@ -153,8 +110,6 @@ export default function NotificationBell() {
 
       const registration = await navigator.serviceWorker.register('/sw.js')
       const subscription = await registration.pushManager.subscribe({
-        // Required to be true, and honestly so: this only ever shows a
-        // notification, which is what the flag promises the browser.
         userVisibleOnly: true,
         applicationServerKey: decodeVapidKey(
           process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
@@ -176,8 +131,6 @@ export default function NotificationBell() {
 
     if (open || unread === 0) return
 
-    // Cleared here rather than after the round trip: opening the panel is the
-    // student seeing them, and a badge that lingers for a request looks stuck.
     setUnread(0)
     setItems((current) => current.map((item) => ({ ...item, read: true })))
     await fetch('/api/notifications', { method: 'POST' }).catch(() => {})
@@ -194,8 +147,6 @@ export default function NotificationBell() {
         className="relative flex min-h-11 items-center rounded-xl border border-border px-2.5 text-sm transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         onClick={() => void openPanel()}
       >
-        {/* Drawn, not an emoji: an emoji bell is a different picture on every
-            platform and ignores the theme. */}
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"

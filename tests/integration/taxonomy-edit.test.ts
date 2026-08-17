@@ -47,10 +47,6 @@ async function makeTopic(over: {
   return row.id
 }
 
-/*
- * Finding 118. spec.md §2.1 lists "Add/rename/reparent topics" as an admin
- * capability and nothing in app/ offered any of the three.
- */
 describe('createTopic', () => {
   it('adds a topic under its parent with a real embedding', async () => {
     const parentId = await makeTopic({ slug: 'high-school-math.trig-2' })

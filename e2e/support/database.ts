@@ -15,16 +15,6 @@ interface Journal {
   entries: { idx: number; tag: string }[]
 }
 
-/**
- * Applies every migration in journal order, not just the first one.
- *
- * This hardcoded 0000_init.sql for long enough that three later migrations
- * (trial_worksheets_used, printed_number/expected_question_count, the
- * openrouter/google provider enum values) were silently missing from every
- * E2E run, invisibly, since a missing column only surfaces the moment some
- * code tries to write to it, which for trial_worksheets_used is the very
- * first signup. That's most of what "16 E2E specs are failing" actually was.
- */
 async function applyMigration(client: PGlite): Promise<void> {
   const journal = JSON.parse(
     await readFile(resolve(process.cwd(), 'drizzle/meta/_journal.json'), 'utf8'),
@@ -77,12 +67,6 @@ export async function startDatabase(): Promise<void> {
   await applyMigration(db)
   await seedTopics(db)
 
-  // maxConnections stays at its default of 1: PGlite only tolerates one live
-  // session over this socket. A second connection (even a persistent one
-  // opened once) corrupts the first rather than being safely queued, despite
-  // the library advertising multi-connection support. Anything the test
-  // process needs to read or write goes through the app's own connection via
-  // the app/api/test/* routes instead of a rival connection here.
   server = new PGLiteSocketServer({ db, port: E2E_PORT, host: '127.0.0.1' })
   await server.start()
 }

@@ -3,40 +3,11 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-/**
- * Puts the embedding model on disk at build time instead of mid-request.
- *
- * @huggingface/transformers ships no weights. npm installs the runtime, and the
- * model itself is fetched from huggingface.co on first use into a cache
- * directory inside node_modules. That is invisible on a developer machine,
- * where it happens once and then never again, and it is a real problem on a
- * serverless host: a fresh deploy has no cache, so the first worksheet to be
- * classified downloads 23MB inside an `after()` callback, on the clock of a
- * request that has already returned, over a connection nothing is watching.
- * When it fails the job still completes and the student gets a worksheet with
- * every question untagged.
- *
- * So it is fetched here, where a failure fails the build, and read from the
- * repo at runtime with the network turned off. `next.config.ts` traces this
- * directory into the serverless bundle; `lib/embeddings/index.ts` points the
- * library at it.
- *
- * Checked by digest rather than by presence. A half-written 23MB file from an
- * interrupted build looks exactly like a complete one to a `existsSync`, and
- * the failure it produces at runtime is an ONNX parse error a long way from
- * here.
- */
-
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-// Kept in step with EMBEDDING_MODEL in lib/embeddings/index.ts. The layout
-// under it is what the library looks for: `${localModelPath}/${model}/...`.
 const MODEL = 'Xenova/all-MiniLM-L6-v2'
 const TARGET = join(REPO, 'models', ...MODEL.split('/'))
 
-// Digests are of the files this app was built and benchmarked against, taken
-// from the copy the local cache already held. They are the reason this script
-// is not a way to have arbitrary weights substituted into a build.
 const FILES = [
   {
     path: 'config.json',
@@ -54,8 +25,6 @@ const FILES = [
     sha256: '9261e7d79b44c8195c1cada2b453e55b00aeb81e907a6664974b4d7776172ab3',
   },
   {
-    // The q8 build, because that is the dtype lib/embeddings asks the pipeline
-    // for. A different dtype is a different filename and a different vector.
     path: 'onnx/model_quantized.onnx',
     bytes: 22972370,
     sha256: 'afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1',
@@ -134,8 +103,6 @@ async function main() {
 }
 
 await main().catch((error) => {
-  // Loud, and fatal. A build that skipped this quietly is a deploy that
-  // classifies nothing, and the only sign of it is topics that never appear.
   console.error(`[embedding-model] ${error.message}`)
   process.exitCode = 1
 })

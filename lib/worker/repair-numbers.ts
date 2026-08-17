@@ -4,15 +4,6 @@ import type { Db } from '@/lib/db/types'
 import { questions, worksheetPages, worksheets } from '@/lib/db/schema'
 import { inferPrintedNumbers } from '@/lib/questions/numbering'
 
-/**
- * Recovers printed numbers the model dropped or misread.
- *
- * Runs after the audit and the review, so it sees the final set of questions
- * rather than one the later stages are about to change. Its whole job is to
- * turn a question that is present but unlabelled into one the coverage check
- * can count, which is the difference between a worksheet reporting 112 of 114
- * and reporting the truth.
- */
 export async function repairPrintedNumbers(
   db: Db,
   worksheetId: string,

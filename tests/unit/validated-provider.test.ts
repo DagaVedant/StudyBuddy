@@ -1,8 +1,3 @@
-/**
- * `lib/ai/validated.ts`, the single place a model reply becomes trusted, and
- * the retry underneath it.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { canReview, type PageInput, type RawAIProvider } from '@/lib/ai/types'
 import { validated } from '@/lib/ai/validated'
@@ -18,7 +13,6 @@ const PAGE: PageInput = {
   pageNumber: 1,
 }
 
-/** A provider that returns whatever it is told to, checking nothing. */
 function raw(replies: Partial<Record<keyof RawAIProvider, unknown>>): RawAIProvider {
   return {
     name: 'mock',
@@ -109,7 +103,7 @@ describe('validated', () => {
 
     const result = await provider.classifyTopic('Find angle C.', [])
 
-    // Percentages are folded to the 0-1 range, and the rest take their defaults.
+    
     expect(result).toEqual({
       topic_slug: 'g.1',
       confidence: 0.9,
@@ -131,12 +125,7 @@ describe('validated', () => {
     warn.mockRestore()
   })
 
-  /**
-   * Reviewing is its own interface, so "can this provider review" is a
-   * narrowing rather than a property check every caller repeats. The compiler
-   * now refuses `provider.reviewQuestions` on a provider that cannot, which is
-   * the half of this that no test can assert.
-   */
+  
   it('does not present a reviewer when the provider cannot review', async () => {
     const provider = validated(raw({}))
 
@@ -147,13 +136,13 @@ describe('validated', () => {
     const provider = validated(raw({}))
 
     expect(provider.name).toBe('mock')
-    // The model separately from the name, because the one caller that stores
-    // this used to store the name in both columns.
+    
+    
     expect(provider.model).toBe('mock-1')
-    // And the answering model separately again, because a lesson records this
-    // one and prints it to the reader. Dropping it here would not fail a type
-    // check on the way past: the wrapper builds a fresh object, so a field it
-    // forgets is simply undefined by the time a column stores it.
+    
+    
+    
+    
     expect(provider.answeringModel).toBe('mock-answers-1')
     expect(provider.supportsVision).toBe(true)
     expect(provider.executionSite).toBe('server')
@@ -182,9 +171,9 @@ describe('a bbox the model got wrong', () => {
     return provider.extractQuestions(PAGE)
   }
 
-  // The wire schema says "array of numbers" and cannot say four, because
-  // neither Anthropic's structured outputs nor Gemini's schema filter take a
-  // length. So the wrong length arrives, and the question has to survive it.
+  
+  
+  
   it.each([
     ['too few', [10, 20]],
     ['too many', [10, 20, 30, 40, 50]],
@@ -230,7 +219,6 @@ const oneQuestion = {
   ],
 }
 
-/** Replies with each content string in turn, recording what was sent. */
 function scripted(contents: string[]) {
   const bodies: Record<string, unknown>[] = []
 

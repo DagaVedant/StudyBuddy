@@ -8,20 +8,6 @@ import { authenticateWorker } from '@/lib/worker/auth'
 
 type Params = { params: Promise<{ worksheetId: string }> }
 
-/**
- * The questions on this worksheet that still have no worked solution.
- *
- * The worker asks for work rather than being handed a list, which is what makes
- * a solving job resumable across a restart: whatever it has already posted back
- * is absent from the next answer, so a job that died at 80 of 114 asks for the
- * remaining 34 and not for all of them again.
- *
- * Everything is offered, including questions whose answer is already known from
- * the paper's own key. The working is the point for those: a student checking
- * their own paper wants the steps whether or not the answer was in doubt. What
- * the pipeline does with the derived answer afterwards is where the key is
- * protected, not here.
- */
 export async function GET(request: Request, { params }: Params) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
@@ -36,9 +22,6 @@ export async function GET(request: Request, { params }: Params) {
       promptText: questions.promptText,
       printedNumber: questions.printedNumber,
       answerSource: questions.answerSource,
-      // For the retry: a question that turns on a graph or a net cannot be
-      // answered from its text, and the page it is printed on is the only
-      // place that information exists.
       pageId: questions.pageId,
     })
     .from(questions)
@@ -65,9 +48,6 @@ export async function GET(request: Request, { params }: Params) {
       text: answerChoices.text,
     })
     .from(answerChoices)
-    // `inArray`, not an interpolated list. These ids come from our own table
-    // and are safe today, which is exactly the reasoning that leaves a real
-    // injection behind the day the source changes.
     .where(inArray(answerChoices.questionId, rows.map((row) => row.id)))
     .orderBy(...CHOICE_ORDER)
 

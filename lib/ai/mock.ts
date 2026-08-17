@@ -23,9 +23,6 @@ export class MockProvider implements RawAIProvider {
       .filter((line) => /^\s*\d+[.)]\s+/.test(line))
       .slice(0, 40)
 
-    // Shaped like a model reply rather than like the parsed result, because
-    // that is what a provider returns now: `validated` does the parsing, and
-    // the mock has to go through it like everything else.
     if (lines.length === 0) {
       return {
         questions: [
@@ -112,14 +109,6 @@ export class MockProvider implements RawAIProvider {
     }
   }
 
-  /**
-   * Answers whichever option the fixture marked correct, or the first one.
-   *
-   * Deterministic on purpose. The e2e suite marks a paper and checks what the
-   * dashboard says afterwards, so an answer that moved between runs would make
-   * every downstream assertion flaky for reasons that have nothing to do with
-   * what is being tested.
-   */
   async answerQuestion(input: AnswerInput): Promise<unknown> {
     const answer = input.choices[0]?.label ?? '42'
 
@@ -164,13 +153,9 @@ Mock lesson for ${input.topicPath}.`,
 
 export class NullProvider implements RawAIProvider {
   readonly name = 'null' as const
-  // It never generates anything, so there is no model to name. 'none' rather
-  // than '' so a value that reaches a log or a column still reads as an answer.
   readonly model = 'none' as const
   readonly answeringModel = 'none' as const
   readonly supportsVision = false
-  // Not 'server'. It answers nothing here or anywhere, and claiming a site is
-  // what forced the one caller that needs to know to match on `name === 'null'`.
   readonly executionSite = 'none' as const
 
   async extractQuestions(_page: PageInput): Promise<unknown> {

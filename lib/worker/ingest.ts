@@ -56,10 +56,6 @@ export async function runExtraction(
       continue
     }
 
-    // The paper's answer key and worked solutions are not questions, and the
-    // model reads them as questions anyway. Decided before the call rather
-    // than after, so a key page costs nothing to skip. persistQuestions makes
-    // the same decision again for the paths that do not come through here.
     if (isAnswerPage(page.ocrText ?? '')) {
       processed += 1
       await checkpointJob(db, job.id, processed / pages.length, {
@@ -84,10 +80,6 @@ export async function runExtraction(
       width: page.width ?? 0,
       height: page.height ?? 0,
       pageNumber: page.pageNumber,
-      // The pages either side, so a question that ran over the fold can be read
-      // whole. Indexed against the full list rather than this loop's position,
-      // because answer-key pages are skipped above and the page a question
-      // continued onto is the one next to it in the document.
       ...seamAround(pages, pages.indexOf(page)),
     })
 
@@ -101,14 +93,6 @@ export async function runExtraction(
     onProgress?.({ page: page.pageNumber, total: pages.length })
   }
 
-  // Deliberately not marking the worksheet ready here. Reading the pages is
-  // the first half of the job: the repair passes and the classifier still have
-  // to run, and two of those passes delete rows on the understanding that
-  // nothing downstream points at them. Advertising the worksheet at this point
-  // let a student reach markup while that was still going on, and a merge
-  // landing after their first attempt takes the attempt and the review card
-  // with it, because `questions` cascades to both. The caller sets the status
-  // once the job is actually finished.
   return { pagesProcessed: processed, questionsCreated: created }
 }
 
@@ -128,13 +112,6 @@ function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[
       continue
     }
 
-    // The first half seen keeps the prompt, which is right when it is a stem
-    // and wrong when it is the option block that was printed above the stem.
-    // Two rows numbered 17, one of them "A. 1 hole B. 4 holes C. 2 holes same
-    // side D. 2 holes opposite sides" and the other the actual question, must
-    // not come out of here with the option run as the surviving stem: the
-    // filter in persistQuestions drops an option-run prompt, and it would take
-    // the real question's options with it.
     if (isOptionRun(seen.prompt_text) && !isOptionRun(question.prompt_text)) {
       seen.prompt_text = question.prompt_text
       seen.question_type = question.question_type
@@ -142,10 +119,6 @@ function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[
     }
 
     for (const choice of question.choices) {
-      // The option's own comparison for its text. On the prose one "-2" and
-      // "2" are the same string, so joining two halves of a question dropped
-      // whichever sign arrived second, and the student was left choosing
-      // between three options where the paper printed four.
       const duplicate = seen.choices.some(
         (existing) =>
           normalizeForCompare(existing.label) === normalizeForCompare(choice.label) ||
@@ -166,17 +139,6 @@ export async function persistQuestions(
 ): Promise<number> {
   if (raw.length === 0) return 0
 
-  // Nothing a page of answers produces is a question, whichever route it came
-  // in by. The GPU worker posts its pages to the job route rather than going
-  // through runExtraction, and it is a separately deployed process that can be
-  // running last month's code, so the decision is made again here where every
-  // writer has to pass: a worker that skips the page saves a model call, and
-  // one that does not still cannot store what it read.
-  //
-  // This is the failure that hid the worst one. The sixteen rows those pages
-  // produced carried the printed numbers of the questions they were answers
-  // to, so the coverage audit counted them as covered and never re-read the
-  // two pages test8_15 had actually lost.
   const [page] = await db
     .select({ ocrText: worksheetPages.ocrText, pageNumber: worksheetPages.pageNumber })
     .from(worksheetPages)
@@ -191,16 +153,6 @@ export async function persistQuestions(
     return 0
   }
 
-  // Labels first, before anything reads one. Four of the five providers parse
-  // their own output through the extraction schema, which normalises the label
-  // on the way; a provider that does not (the mock does not) hands its rows
-  // straight to the insert below. The result was options stored as `A. 60`
-  // instead of `A`, and a malformed label does not merely look wrong: it is a
-  // single letter that every downstream test demands. `foldLeadInChoices` and
-  // `labelStyle` both match /^[a-z]$/, so a stuck-together label silently
-  // switches off the lead-in fold and the duplicate merge, and the answer key
-  // cannot find the option the paper marked. One normalisation here covers
-  // every provider and both routes into this function.
   const labelled = raw.map((question) => ({
     ...question,
     choices: question.choices.map((choice) => ({
@@ -209,21 +161,8 @@ export async function persistQuestions(
     })),
   }))
 
-  // After the merge, not before: the union of two split rows is one of the two
-  // ways a question ends up holding both its options and the sentences they
-  // were built from, and it only exists once the merge has run.
   const merged = mergeSplitQuestions(labelled).map(foldLeadInChoices)
 
-  // A row whose whole prompt is a run of options is an orphaned option block,
-  // never a question. `topic_test13_20` stores one as its question 17, so the
-  // sheet holds twenty rows for a twenty-question paper with no gap in the
-  // numbering and every count-based check passes, while the real stem for 17
-  // is gone. Dropping it turns a silent corruption into a visible gap, which
-  // the audit re-reads, and leaves the options on the page for the carried
-  // options recovery to hand to the question they belong to.
-  //
-  // After the merge, because a block that arrived as its own row alongside the
-  // stem it belongs to is joined here rather than dropped.
   const extracted = merged.filter((question) => {
     if (!isOptionRun(question.prompt_text)) return true
     console.log(
@@ -235,10 +174,6 @@ export async function persistQuestions(
 
   if (extracted.length === 0) return 0
 
-  // What the page prints, which outranks what the model counted. Read once for
-  // the whole batch: a page re-read on its own comes back numbered from 1, and
-  // taking those numbers at face value files a page of recovered questions on
-  // top of another page's real ones.
   const printed = printedNumbersFor(
     page?.ocrText ?? '',
     extracted.map((question) => question.prompt_text),
@@ -255,20 +190,14 @@ export async function persistQuestions(
     existing.map((row) => row.contentHash).filter((hash): hash is string => !!hash),
   )
 
-  /** Questions this page repeated, counted so the drop is not silent. */
   let duplicatesDropped = 0
 
-  // Everything is decided before anything is written, so the writes below are
-  // two statements rather than two per question.
   const pending: {
     row: typeof questions.$inferInsert
     choices: { label: string; text: string }[]
   }[] = []
 
   for (const [index, raw] of extracted.entries()) {
-    // Normalised before hashing and before storing, so the hash matches what
-    // the student actually reads and the same question written two ways does
-    // not survive as two rows.
     const question = {
       ...raw,
       // Reflowed after the maths, never before: the recovery of an eaten
@@ -283,21 +212,6 @@ export async function persistQuestions(
 
     const contentHash = hashQuestion(question.prompt_text, question.choices)
 
-    /*
-     * A repeat of something already read, dropped, and said out loud.
-     *
-     * This was a bare `continue`. Two identical hashes usually means the model
-     * returned the same question twice off one page, which is the case worth
-     * dropping silently, and sometimes means a paper really does ask the same
-     * thing twice, which is a question the student never sees again and no
-     * trace of anywhere. Every other pass that removes a question logs it; the
-     * quietest one was the one nobody had to reason about.
-     *
-     * Still dropped. A duplicate row would be worse than a missing one here,
-     * because the dedupe passes downstream take a view on which of a pair to
-     * keep and this one has no basis for choosing. But dropping is now
-     * something a reader of the logs can find.
-     */
     if (seen.has(contentHash)) {
       duplicatesDropped += 1
       continue
@@ -310,8 +224,6 @@ export async function persistQuestions(
         worksheetId: job.worksheetId,
         pageId,
         ordinal: nextOrdinal,
-        // The page's own number when it could be found, and the model's count
-        // only when it could not.
         printedNumber: printed[index] ?? (question.ordinal >= 1 ? question.ordinal : null),
         promptText: question.prompt_text,
         questionType: question.question_type,
@@ -336,20 +248,6 @@ export async function persistQuestions(
 
   if (pending.length === 0) return 0
 
-  /*
-   * One transaction, two statements.
-   *
-   * This was an insert per question plus an insert per choice batch, and none
-   * of it transactional: a 114 question paper meant 228 round trips, and a
-   * connection dropping halfway left the worksheet holding questions with no
-   * options against them. Nothing downstream can tell that apart from a
-   * question the paper printed without options, so the repair passes would
-   * later try to recover options that were never lost.
-   *
-   * The choices need their questions' ids, so the insert returns them in the
-   * order the rows went in, which Postgres guarantees for a multi-row INSERT
-   * with RETURNING.
-   */
   await db.transaction(async (tx) => {
     const inserted = await tx
       .insert(questions)

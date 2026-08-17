@@ -115,11 +115,6 @@ describe('getOverview', () => {
     expect(overview.attemptsLogged).toBe(1)
   })
 
-  /**
-   * The worksheets page filtered page furniture out of its counts and the
-   * dashboard did not, so the same paper was 25 questions on one screen and 26
-   * on the other and nothing told the student which to believe.
-   */
   it('counts questions the same way the worksheets page does', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
@@ -135,18 +130,12 @@ describe('getOverview', () => {
     expect(overview.questionsTracked).toBe(1)
   })
 
-  /**
-   * The two tiles describe the review queue, which is the same set the review
-   * tab draws from, so a student cannot read one number on the dashboard and
-   * find a different one behind the link.
-   */
   it('counts the review queue, and the slice of it due today', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
 
     const day = 24 * 3600_000
 
-    // Two overdue, two ahead: all four are in the queue, two are due today.
     for (const offset of [-3 * day, -day, 2 * day, 30 * day]) {
       const q = await makeQuestion(db, userId, worksheetId)
       await makeAttempt(db, userId, q.id, 'wrong')
@@ -159,8 +148,6 @@ describe('getOverview', () => {
       })
     }
 
-    // Markup writes a card for every question on the paper, including the ones
-    // the student got right. Those were never what this screen is about.
     const known = await makeQuestion(db, userId, worksheetId)
     await makeAttempt(db, userId, known.id, 'correct')
     await db.insert(reviewCards).values({
@@ -171,7 +158,6 @@ describe('getOverview', () => {
       difficulty: 5,
     })
 
-    // And one the student has said they have.
     const mastered = await makeQuestion(db, userId, worksheetId)
     await makeAttempt(db, userId, mastered.id, 'wrong')
     await db.insert(reviewCards).values({
@@ -224,7 +210,6 @@ describe('getAccuracyTrend', () => {
 
     const trend = await getAccuracyTrend(db as Db, userId)
 
-    // Counted from the end, because the last bucket is always the current week.
     expect(trend.at(-4)!.wrong).toBe(2)
     expect(trend.at(-2)!.correct).toBe(1)
 
@@ -232,13 +217,6 @@ describe('getAccuracyTrend', () => {
     expect(trend.map((p) => p.weekStart)).toEqual(sorted.map((p) => p.weekStart))
   })
 
-  /**
-   * The chart draws one bar per row and nothing else, so a row per
-   * week-with-attempts made twelve bars read as twelve consecutive weeks
-   * whatever they actually were. A student who practised in March and again in
-   * June saw two adjacent bars, and a gap during a bad patch closed up into a
-   * run of steady work.
-   */
   it('returns a row per week, including the ones with nothing in them', async () => {
     const userId = await withAttemptsAt([5, 1])
 
@@ -248,7 +226,6 @@ describe('getAccuracyTrend', () => {
     expect(trend.at(-6)!.wrong).toBe(1)
     expect(trend.at(-2)!.wrong).toBe(1)
 
-    // Everything between the two is present and empty rather than absent.
     for (const point of trend.slice(-5, -2)) {
       expect(point.correct + point.unsure + point.wrong).toBe(0)
     }
@@ -321,8 +298,6 @@ describe('getDistractorPatterns', () => {
       ],
     })
 
-    // Picked B on the paper, then picked B again when it came back in review.
-    // That repetition is the entire signal this report is looking for.
     await makeAttempt(db, userId, q.id, 'wrong', { selectedChoiceId: q.choiceIds.B })
     await makeAttempt(db, userId, q.id, 'wrong', {
       selectedChoiceId: q.choiceIds.B,
@@ -337,10 +312,6 @@ describe('getDistractorPatterns', () => {
   })
 })
 
-/**
- * The three panels spec.md §5.5 asks for that the dashboard did not have, and
- * the arrow it asks panel 1 for and never computed.
- */
 describe('the panels that were missing', () => {
   describe('getReviewForecast', () => {
     it('breaks what is due down by topic', async () => {
@@ -367,16 +338,10 @@ describe('the panels that were missing', () => {
 
       const forecast = await getReviewForecast(db as Db, userId)
 
-      // Most due first, which is the order a student would work in.
       expect(forecast[0]).toMatchObject({ dueToday: 2 })
       expect(forecast.map((row) => row.dueToday)).toEqual([2, 1])
     })
 
-    /**
-     * A forecast is about the near future. A card scheduled for March is not a
-     * thing to plan today around, and listing its topic would fill the panel
-     * with rows reading zero.
-     */
     it('leaves out what is not due within the week', async () => {
       const userId = await makeUser(db)
       const worksheetId = await makeWorksheet(db, userId)
@@ -409,7 +374,6 @@ describe('the panels that were missing', () => {
           promptText: 'What is the value of x in this equation?',
           topicId: topicIds.get(TRIANGLES)!,
         })
-        // Ordered, so the halves are the halves this is describing.
         await db.insert(attempts).values({
           userId,
           questionId: question.id,
@@ -441,9 +405,6 @@ describe('the panels that were missing', () => {
       ).toBe('flat')
     })
 
-    /**
-     * Null, not 'flat'. Flat claims steadiness, and one attempt claims nothing.
-     */
     it('says nothing at all with a single attempt', async () => {
       expect((await topicWithHistory(['wrong'])).trend).toBeNull()
     })
@@ -467,8 +428,6 @@ describe('the panels that were missing', () => {
 
       const series = await getAccuracyTrendBySubject(db as Db, userId, 4)
 
-      // Both topics are under the same subject root, so one series, and every
-      // series carries every week so the toggle cannot reshape the x-axis.
       expect(series).toHaveLength(1)
       expect(series[0].points).toHaveLength(4)
       expect(series[0].points.at(-1)?.wrong).toBe(2)
@@ -510,14 +469,6 @@ describe('the panels that were missing', () => {
   })
 })
 
-/**
- * Finding 8/106 asked for the job to "fail loudly rather than completing it
- * untagged". The complaint was right and the remedy was not: failing sends the
- * worksheet to `failed`, which makes the extracted questions unreachable and
- * refunds a credit the student would rather have spent on a usable paper. The
- * paper is fine; marking, review and the Blooket export all work with no topics
- * on it. What was actually wrong is that it was silent.
- */
 describe('countUntaggedWorksheets', () => {
   it('counts the worksheets that finished with no topics', async () => {
     const userId = await makeUser(db)
@@ -547,12 +498,6 @@ describe('countUntaggedWorksheets', () => {
     expect(await countUntaggedWorksheets(db as Db, mine)).toBe(0)
   })
 
-  /**
-   * Tier C reads pages in the browser and classifies nothing, which was silent:
-   * the worksheet reached `awaiting_review` with no topics, an empty dashboard,
-   * and no explanation anywhere. Exactly the finding's complaint about Tier B,
-   * on a tier the finding never looked at.
-   */
   it('reads the same column Tier C writes when it finishes', async () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)

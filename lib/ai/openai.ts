@@ -27,7 +27,6 @@ import {
 import { CLOUD_TIMEOUT_MS, upstreamFailure, upstreamUnreachable } from './upstream'
 
 export interface ChatCompletionsOptions {
-
   endpoint?: string
 
   label?: string
@@ -43,7 +42,6 @@ export class OpenAIProvider implements RawAIProvider {
 
   readonly model: string
 
-  /** One model does every job here, so this is that model. */
   get answeringModel(): string {
     return this.model
   }
@@ -59,7 +57,6 @@ export class OpenAIProvider implements RawAIProvider {
     model = 'gpt-4.1',
     options: ChatCompletionsOptions | typeof fetch = {},
   ) {
-
     const resolved: ChatCompletionsOptions =
       typeof options === 'function' ? { fetchImpl: options } : options
 
@@ -102,9 +99,6 @@ export class OpenAIProvider implements RawAIProvider {
     })
 
     if (!response.ok) {
-      // The body is logged, not thrown: this error is rendered verbatim on the
-      // status page, and OpenAI-compatible endpoints echo the request back in
-      // it, which on an extraction means the page's own text.
       throw upstreamFailure(this.label, response.status, await response.text())
     }
 

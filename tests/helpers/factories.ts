@@ -74,12 +74,6 @@ export async function makeQuestion(
       userId,
       worksheetId,
       ordinal: spec.ordinal ?? 1,
-      // Long enough to satisfy `IS_QUESTION`, which every question count on the
-      // dashboard and the worksheets page filters on. The old default was
-      // "Solve for x.", which that predicate rejects: three runs of letters or
-      // an operator is the bar, and a real but terse question does not clear
-      // it. A factory called `makeQuestion` handing back a row the app does not
-      // count as a question is a trap for whoever writes the next count.
       promptText: spec.promptText ?? 'What is the value of x in this equation?',
       questionType: spec.choices?.length ? 'multiple_choice' : 'free_response',
       userVerified: true,
@@ -123,12 +117,6 @@ export async function makeAttempt(
   options: {
     selectedChoiceId?: string
     createdAt?: Date
-    /**
-     * Defaults to `markup`, which a question may only have once: the partial
-     * unique index `attempts_markup_once` enforces it. A test that wants a
-     * question attempted more than once is describing review, and has to say
-     * so, because that is the only way it happens in the product too.
-     */
     source?: 'markup' | 'review'
   } = {},
 ): Promise<void> {

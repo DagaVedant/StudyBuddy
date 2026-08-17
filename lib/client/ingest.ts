@@ -40,13 +40,6 @@ export interface IngestOptions {
 
   expectedQuestionCount?: number | null
   onProgress: (progress: IngestProgress) => void
-  /**
-   * Called the moment the worksheet row exists, before any page is uploaded.
-   *
-   * Cancel needs it. The row and its page images are created inside this
-   * function, so without a way out the caller cannot clean up what it started
-   * and had to claim nothing had been saved.
-   */
   onWorksheetCreated?: (worksheetId: string) => void
   signal?: AbortSignal
 }

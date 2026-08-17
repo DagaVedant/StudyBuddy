@@ -57,9 +57,6 @@ export default async function TopicPage({
     topicName: topic.name,
     topicPath: path,
     subjectRoot: topic.subjectRoot,
-    // The arrow belongs to the dashboard's ranked list, where it earns its
-    // place by letting a student compare rows. This screen is already showing
-    // the topic's whole history underneath.
     trend: null,
     correct: Number(tally?.correct ?? 0),
     unsure: Number(tally?.unsure ?? 0),
@@ -117,7 +114,6 @@ export default async function TopicPage({
         </Link>
       </nav>
 
-      {/* Pairs with the weakest-topics row on the dashboard. */}
       <ViewTransition
         name={`topic-title-${topicId}`}
         share="topic-title"
@@ -232,12 +228,6 @@ export default async function TopicPage({
             </>
           )}
 
-          {/*
-            Said plainly rather than left for the reader to assume. This is
-            teaching material a model wrote, not something a teacher checked,
-            and the questions below it are the student's own real work. Telling
-            the two apart matters more here than anywhere else on the site.
-          */}
           <p className="hint mt-6 text-pretty">
             Written by {lesson.model ?? 'a model'}, not by a teacher. The questions
             below are your own.
@@ -281,14 +271,6 @@ export default async function TopicPage({
           </ul>
         )}
 
-        {/*
-          `?topic=`, so "these" is these. This linked to the bare review queue,
-          which is a different set of questions from the ones listed directly
-          above it and need not contain a single one of them: the dashboard's
-          weakest-topics panel is the main way into this screen, so the app's
-          "what should I work on" flow ended at a button that did not do what it
-          said.
-        */}
         <div className="mt-4">
           <Link
             href={`/review?topic=${topicId}`}

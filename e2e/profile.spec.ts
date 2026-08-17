@@ -2,18 +2,10 @@ import { expect, test } from '@playwright/test'
 
 import { registerAndSignIn, visible } from './support/helpers'
 
-/**
- * The profile page end to end: saving an identity, the validation error a
- * bad username produces, and that the account actions reach the right
- * places.
- */
-
 test('saves a name and username, and shows them after a reload', async ({ page }) => {
   await registerAndSignIn(page)
   await page.goto('/profile')
 
-  // Exact, because "Username" contains "name" as a case-insensitive
-  // substring and Playwright's default label match is exactly that.
   await visible(page).getByLabel('Name', { exact: true }).fill('Ada Lovelace')
   await visible(page).getByLabel('Username').fill('ada_l')
   await visible(page).getByRole('button', { name: 'Save' }).click()
@@ -24,7 +16,6 @@ test('saves a name and username, and shows them after a reload', async ({ page }
 
   await expect(visible(page).getByLabel('Name', { exact: true })).toHaveValue('Ada Lovelace')
   await expect(visible(page).getByLabel('Username')).toHaveValue('ada_l')
-  // The initials avatar reads the saved name.
   await expect(visible(page).getByText('AL', { exact: true })).toBeVisible()
 })
 
@@ -74,8 +65,6 @@ test('the record panel shows worksheets, streak and accuracy', async ({ page }) 
   await expect(visible(page).getByRole('heading', { name: 'Your record' })).toBeVisible()
   await expect(visible(page).getByText('Worksheets')).toBeVisible()
   await expect(visible(page).getByText('Study streak')).toBeVisible()
-  // A fresh account has answered nothing, so accuracy is unranked rather
-  // than a bare 0%, and the streak reads as a dash rather than "0 days".
   await expect(visible(page).getByText('0/5 answered')).toBeVisible()
   await expect(visible(page).getByText('—')).toBeVisible()
 })
@@ -84,8 +73,6 @@ test('sign out and the delete-account link both reach the right place', async ({
   await registerAndSignIn(page)
   await page.goto('/profile')
 
-  // Delete account first: it only navigates, so it does not disturb the
-  // session the next assertion needs.
   await visible(page).getByRole('link', { name: 'Delete account' }).click()
   await expect(page).toHaveURL(/\/settings$/)
 
@@ -101,8 +88,6 @@ test('profile is reachable from settings rather than the nav', async ({ page }) 
   await registerAndSignIn(page)
   await page.goto('/dashboard')
 
-  // The slot it used to occupy on a 375px strip. Unscoped for the same reason:
-  // this is asserting the absence of a nav item, and the nav is not in #main.
   await expect(page.getByRole('link', { name: 'Profile', exact: true })).toHaveCount(0)
 
   await page.goto('/settings')

@@ -44,9 +44,7 @@ afterAll(async () => {
 })
 
 async function drain(executor: 'server' | 'operator_gpu' | 'browser' = 'operator_gpu') {
-
   while (await claimJob(db as Db, executor)) {
-
   }
   await db.delete(processingJobs)
 }
@@ -128,10 +126,6 @@ describe('claimJob', () => {
       executor: 'operator_gpu',
     })
 
-    // Aged deliberately rather than by sleeping for 10ms and hoping the clock
-    // and the insert order agree. A tie-break test whose whole premise is a
-    // race is a test that passes for the wrong reason on a slow machine, and
-    // asserts nothing at all if the two rows land in the same millisecond.
     await db
       .update(processingJobs)
       .set({ createdAt: new Date(Date.now() - 60_000) })

@@ -73,9 +73,6 @@ const statusOf = async (worksheetId: string) => {
 }
 
 describe('applyPermanentFailure', () => {
-  // The one that did three wrong things at once. An explain job carries the
-  // worksheet its question came from, and the handler could not tell the two
-  // kinds of job apart.
   it('leaves the worksheet alone when an explanation fails', async () => {
     const { userId, worksheetId } = await seed({ tierUsed: 'trial' })
 
@@ -85,12 +82,11 @@ describe('applyPermanentFailure', () => {
       worksheetId,
     })
 
-    // Still finished. It was extracted, verified and marked up.
     expect(await statusOf(worksheetId)).toBe('ready')
 
     const after = await counters(userId)
-    expect(after.explanations).toBe(3) // the credit it actually charged
-    expect(after.worksheets).toBe(3) // untouched
+    expect(after.explanations).toBe(3)
+    expect(after.worksheets).toBe(3)
   })
 
   it('fails the worksheet and refunds it when extraction fails on the trial', async () => {
@@ -106,10 +102,9 @@ describe('applyPermanentFailure', () => {
 
     const after = await counters(userId)
     expect(after.worksheets).toBe(2)
-    expect(after.explanations).toBe(4) // untouched
+    expect(after.explanations).toBe(4)
   })
 
-  // A student's own key already paid whoever owns it.
   it('refunds nothing when the worksheet did not use the trial', async () => {
     const { userId, worksheetId } = await seed({ tierUsed: 'cloud', status: 'queued' })
 
@@ -126,16 +121,6 @@ describe('applyPermanentFailure', () => {
     expect(after.explanations).toBe(4)
   })
 
-  /*
-   * The same mistake as the explain one, made again by a stage added later.
-   *
-   * Solving runs after the worksheet is finished and readable, takes the better
-   * part of an hour on a long paper, and never checkpoints, so it is the stage
-   * most likely to be reaped at the attempt ceiling. Falling through to the
-   * extraction branch, it refunded a worksheet credit correctly spent on an
-   * extraction that had succeeded, and failed a paper the student may already
-   * have marked up.
-   */
   it('leaves the worksheet alone when solving fails', async () => {
     const { userId, worksheetId } = await seed({ tierUsed: 'trial' })
 
@@ -145,11 +130,10 @@ describe('applyPermanentFailure', () => {
       worksheetId,
     })
 
-    // The paper is exactly what it was. Answers are an addition to it.
     expect(await statusOf(worksheetId)).toBe('ready')
 
     const after = await counters(userId)
-    expect(after.worksheets).toBe(3) // the extraction it paid for succeeded
+    expect(after.worksheets).toBe(3)
     expect(after.explanations).toBe(4)
   })
 

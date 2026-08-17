@@ -5,8 +5,6 @@ import { foldLeadInChoices } from '@/lib/questions/lead-in'
 const COMBINE =
   'What is the best way to combine these sentences to clarify the relationship between ideas?'
 
-// The row this was written for: one stored question carrying its three source
-// sentences and its four options as a single seven-item answer list.
 const SENTENCES = [
   { label: '1', text: 'The International Space Station has been inhabited by crew members since 2000.' },
   { label: '2', text: 'Tourists will soon be allowed to pay for visits to the space station.' },
@@ -59,8 +57,6 @@ describe('foldLeadInChoices', () => {
     ])
   })
 
-  // A worksheet is allowed to number its options. Nothing about that shape says
-  // the numbers are anything other than the answer list.
   it('leaves a question whose options are genuinely numbered alone', () => {
     const question = {
       prompt_text: 'Which sentence contains an error in its construction and should be revised?',
@@ -81,8 +77,6 @@ describe('foldLeadInChoices', () => {
     expect(foldLeadInChoices(question)).toEqual(question)
   })
 
-  // One stray numeric label beside one letter is a mess of some other kind, and
-  // guessing which of the two is the answer list would be guessing.
   it('will not act on a single lettered choice', () => {
     const question = {
       prompt_text: 'Which sentence should be revised?',

@@ -1,5 +1,4 @@
 'use client'
-
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -44,19 +43,6 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [restored, setRestored] = useState(false)
 
-  /**
-   * Whatever was marked before the page went away.
-   *
-   * In an effect rather than in `useState`'s initialiser, because this
-   * component is server-rendered: `localStorage` does not exist there, so
-   * seeding from it would make the first client render disagree with the HTML
-   * React is hydrating.
-   *
-   * That is the case `set-state-in-effect` is written to catch, and the reason
-   * it does not apply here is that this runs once on mount and reads something
-   * outside React entirely. It cannot loop: the only state it sets is state it
-   * does not depend on, and it returns early once there is nothing to restore.
-   */
   useEffect(() => {
     const draft = readMarkupDraft(worksheetId)
     if (Object.keys(draft.outcomes).length === 0) return
@@ -77,12 +63,6 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
     writeMarkupDraft(worksheetId, { outcomes, answers, cursor })
   }, [worksheetId, outcomes, answers, cursor, marked])
 
-  /**
-   * The same guard the upload flow has, for the same reason.
-   *
-   * Marking is one atomic post at the end, so anything not yet submitted is
-   * only in this tab. Closing it loses the lot.
-   */
   useEffect(() => {
     if (marked === 0 || submitting) return
     const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault()
@@ -90,15 +70,6 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [marked, submitting])
   const currentQuestion = questions[cursor]
-  /**
-   * The ones worth asking "what did you put" about.
-   *
-   * Guesses as well as misses. "Right, but I guessed" means the mark landed by
-   * luck, so which option they landed on is the same evidence a wrong answer
-   * is: it tells the explanation what to address, and it is the difference
-   * between a near miss and a shot in the dark. Only misses were asked before,
-   * so a paper full of guesses recorded no answers at all.
-   */
   const unresolved = useMemo(
     () =>
       questions.filter((question) => {
@@ -160,10 +131,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         body: JSON.stringify({ marks }),
       })
       const body = (await response.json()) as { next?: string; error?: string }
-      // Already marked: the marks this form would write are the ones already
-      // stored, so there is nothing to retry and nothing to warn about.
       if (response.status === 409) {
-        // Already marked, so what is in the draft is what is already stored.
         clearMarkupDraft(worksheetId)
         router.push(body.next ?? '/dashboard')
         return

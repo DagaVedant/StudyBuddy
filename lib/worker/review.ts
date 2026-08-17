@@ -21,46 +21,24 @@ export interface Suspect {
 
 export interface ReviewPlan {
   suspects: Suspect[]
-  /** Pages to hand back to the vision model, worst first. */
   reread: { pageNumber: number; expect: number[] }[]
-  /** Pages left out because the cap was reached. */
   skippedPages: number[]
   modelConsulted: boolean
 }
 
 export type ReviewFn = (candidates: ReviewCandidate[]) => Promise<QuestionReview[]>
 
-/** A stored question the review doubted, as the write path sees it. */
 export interface DoubtedQuestion {
   id: string
   printedNumber: number | null
 }
 
 export interface PageReplacement<T> {
-  /** Rows to delete, because the second read returned their number. */
   replace: DoubtedQuestion[]
-  /** Rows to leave alone, because it did not. */
   keep: DoubtedQuestion[]
-  /** The fresh questions that stand in for the deleted rows. */
   replacements: T[]
 }
 
-/**
- * What a page's second read is allowed to overwrite.
- *
- * Split out of the route because it decides deletions, and a rule about
- * deleting a student's questions should be readable and testable on its own.
- *
- * Both sides are numbered off the page, the same way the write path numbers
- * what it stores. Matching on the model's own count only works while the
- * re-read happens to count from where the paper does: a page read on its own
- * counts from 1, so on page 2 every number would miss every doubted row, and
- * the review would silently do nothing at all.
- *
- * A doubted row whose number does not come back is kept. Turning a question
- * that is merely damaged into one that is missing is strictly worse, and the
- * student can fix damaged; they cannot fix absent.
- */
 export function planPageReplacement<T extends { ordinal: number; prompt_text: string }>(
   pageText: string,
   fresh: readonly T[],
@@ -86,10 +64,6 @@ export function planPageReplacement<T extends { ordinal: number; prompt_text: st
   )
   const keep = doubted.filter((row) => !replace.includes(row))
 
-  // Only what stands in for something deleted. Writing the whole page back
-  // looked harmless because the write path skips a hash it already has, but a
-  // second read rarely reproduces a page character for character, so every
-  // re-read quietly added a second copy of questions never in doubt.
   const wanted = new Set(
     replace.map((row) => row.printedNumber).filter((n): n is number => n !== null),
   )
@@ -102,15 +76,6 @@ export function planPageReplacement<T extends { ordinal: number; prompt_text: st
   return { replace, keep, replacements }
 }
 
-/**
- * Share of the worksheet's pages that may be re-read.
- *
- * Re-reading costs about as much as the first pass did, so a run where most
- * questions look wrong must not quietly double the job. Past this point the
- * problem is the extraction as a whole, and the student is better served by
- * reaching the review screen and seeing it than by waiting twice as long for
- * the same model to make the same mistakes.
- */
 export const MAX_REREAD_SHARE = 0.3
 
 export async function planReview(
@@ -143,8 +108,8 @@ export async function planReview(
     }
   }
 
-  // Only questions the cheap checks cleared are worth a model's time, and only
-  // numbered ones, since the verdict points back by printed number.
+  
+  
   const unreviewed = questions.filter(
     (q) => !suspects.has(q.id) && q.printedNumber !== null,
   )
@@ -176,8 +141,6 @@ export async function planReview(
           if (question) flag(question, verdict.reason ?? 'the reviewer called it damaged')
         }
       } catch (error) {
-        // The questions are already saved; a reviewer that errors costs a
-        // second opinion, not the upload.
         console.error('[review] could not review a page, continuing:', error)
       }
     }
@@ -192,7 +155,6 @@ export async function planReview(
     byPage.set(suspect.pageNumber, [...(byPage.get(suspect.pageNumber) ?? []), suspect.printedNumber])
   }
 
-  // Worst pages first, so the cap spends its budget where the most is wrong.
   const ordered = [...byPage.entries()]
     .map(([pageNumber, expect]) => ({
       pageNumber,

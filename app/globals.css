@@ -1,52 +1,21 @@
 @import "tailwindcss";
 
-/*
- * Deliberately small palette: one neutral ramp, one accent, one danger.
- * Anything that needs more than this should earn it.
- *
- * Values live on :root so the dark scheme can override them; `@theme inline`
- * then points Tailwind's tokens at those variables rather than copying the
- * light values (Tailwind 4 does not allow `@theme` inside a media query).
- */
-/*
- * Theme resolution order:
- *   1. an explicit data-theme on <html> (the toggle) always wins
- *   2. otherwise follow the OS preference
- *
- * `color-scheme` is set alongside so the UA themes scrollbars, form controls,
- * and the caret to match whichever won.
- */
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /*
-   * Soft Pastels: a warm plum-tinted neutral ramp (not the old cool blue),
-   * a coral accent, and a small set of tile tints reserved for the dashboard
-   * stat cards. The page is tinted and cards are near-white, rather than the
-   * other way round: surfaces lift off the field by being lighter than it.
-   */
   --bg: oklch(97.5% 0.012 320);
   --surface: oklch(99.5% 0.006 320);
   --border: oklch(90% 0.025 320);
   --fg: oklch(27% 0.045 320);
-  /* Darker than a plain "half-tone" grey would suggest: at 54% this failed
-     WCAG AA (4.5:1) against the pastel tile tints below, which sit around
-     90-93% lightness rather than the page's near-white surfaces. */
   --muted: oklch(48% 0.035 320);
   --accent: oklch(54% 0.19 42);
   --accent-fg: oklch(99% 0.005 42);
-  /* Kept at the same hue the app shipped with (25) rather than pushed lower
-     to separate from --accent: below ~20 this chroma/lightness drifts from
-     red toward pink, which reads as decorative rather than as an error. */
   --danger: oklch(52% 0.19 24);
   --success: oklch(56% 0.14 158);
-  /* Status ramp for accuracy meters: reserved for state, never for series
-     identity, and always paired with a printed number. */
   --warning: oklch(62% 0.15 55);
   --caution: oklch(68% 0.12 90);
 
-  /* Dashboard stat-tile identity only, not a general-purpose palette. */
   --tint-mint: oklch(93% 0.05 165);
   --tint-peach: oklch(92% 0.055 55);
   --tint-lavender: oklch(93% 0.035 300);
@@ -62,8 +31,6 @@
     --border: oklch(34% 0.03 320);
     --fg: oklch(94% 0.015 320);
     --muted: oklch(68% 0.025 320);
-    /* Lighter and less saturated than the light-mode accent: the same coral
-       on a dark field reads as a glare rather than a colour. */
     --accent: oklch(72% 0.15 42);
     --accent-fg: oklch(18% 0.02 42);
     --danger: oklch(70% 0.16 24);
@@ -71,9 +38,6 @@
     --warning: oklch(74% 0.13 55);
     --caution: oklch(78% 0.11 92);
 
-    /* Deepened and desaturated, not inverted; a light pastel fill would
-       read as a glare on a dark ground, so these stay dark with a hint of
-       hue instead. */
     --tint-mint: oklch(26% 0.045 165);
     --tint-peach: oklch(27% 0.05 55);
     --tint-lavender: oklch(27% 0.035 300);
@@ -136,16 +100,10 @@ body {
  * @apply-ing one another.
  */
 @layer components {
-  /** The small label that sits above a heading. */
   .eyebrow {
     @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted;
   }
 
-  /* min-h-11 is 44px, which is the smallest thing a finger reliably hits. At
-     px-3 py-2 this came out around 40, which is close enough to look fine on a
-     desktop and not close enough on a phone in a hallway, which is where this
-     app is used. py-2.5 gets the text-sized case over the line and the min
-     height covers the rest. */
   .field {
     @apply min-h-11 w-full rounded-xl border border-border bg-surface px-3 py-2.5
       text-fg outline-none placeholder:text-muted focus-visible:border-accent
@@ -159,24 +117,10 @@ body {
       disabled:opacity-60;
   }
 
-  /* A placeholder block, sized by the caller.
-
-     Its job is to hold the shape of what is coming so the page does not jump
-     when it lands, which means a skeleton is only worth having where it matches
-     the real layout. `bg-border` rather than a grey: it is the one surface
-     colour both themes already define as "a division, not content". */
   .skeleton {
     @apply animate-pulse rounded-xl bg-border;
   }
 
-  /* Room for the notch and the home indicator on a bar pinned to an edge.
-     `max()` because these report 0 on everything without an intrusion, and a
-     bar with no padding at all reads as cramped even on a rectangular screen.
-
-     Inert without `viewportFit: 'cover'` on the viewport export, which is what
-     tells the browser to lay the page out behind the intrusions in the first
-     place. That was missing, so the one `env(safe-area-inset-top)` already in
-     the tree had been resolving to zero since it was written. */
   .inset-safe-top {
     padding-top: max(0.75rem, env(safe-area-inset-top));
   }
@@ -185,11 +129,6 @@ body {
     padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
   }
 
-  /* For the small text buttons that sit inline with content: Undo, Change,
-     Remove, the delete affordance on a card. They are meant to read as small,
-     so the target is grown past the ink rather than the ink grown to 44px. The
-     negative margin keeps the layout where the designer put it while the hit
-     area spills over it. */
   .btn-compact {
     @apply -my-2 inline-flex min-h-11 items-center py-2;
   }
@@ -231,16 +170,11 @@ body {
   }
 }
 
-/* Forced colors keeps the layout and replaces the palette, so the things that
-   carried meaning through colour alone have to carry it through something
-   else. Both of these are drawn with a background and nothing else. */
 @media (forced-colors: active) {
   .card {
     border-color: CanvasText;
   }
 
-  /* The accuracy meter's fill and the progress bars: a coloured block inside a
-     track, where forced colors flattens both to the same surface. */
   [role='meter'] > *,
   [role='progressbar'] > * {
     forced-color-adjust: none;
@@ -248,11 +182,6 @@ body {
   }
 }
 
-/*
- * The theme switch is painted from the resolved theme rather than from React
- * state, so it is already in the right position on first paint and never jumps
- * once hydration runs.
- */
 .theme-knob {
   transform: translateX(0);
 }
@@ -294,17 +223,6 @@ body {
   transition: opacity 150ms ease-out;
 }
 
-/*
- * Route transitions.
- *
- * View-transition pseudo-elements are matched against the document, not a
- * subtree, so they cannot live in a CSS Module; this is the one place they
- * can go. The classes are handed out by <ViewTransition> props: `page` from
- * app/layout.tsx, `topic-title` from the dashboard row and the topic heading.
- *
- * Budget: the whole thing is over inside 260ms. A route change should read as
- * a cut that was softened, not as an animation the user has to wait through.
- */
 :root {
   --vt-out: 120ms;
   --vt-in: 180ms;
@@ -320,50 +238,11 @@ body {
   }
 }
 
-/*
- * The root snapshot does not animate, and this is load-bearing rather than
- * tidiness.
- *
- * Every transition here also produces a `(root)` group, from the browser's own
- * default styles, on top of the `.page` group below. Those root animations were
- * never finishing: after a client-side navigation `document.getAnimations()`
- * reported six of them still `running`, two old snapshots and two new ones,
- * indefinitely. A `::view-transition` tree that never finishes stays in the top
- * layer and covers the viewport, so `document.elementFromPoint` anywhere on the
- * page returned `<html>` and `elementsFromPoint` returned a stack of one.
- *
- * Hit testing was dead document-wide. Nothing on the page could be pressed
- * until a reload, and what that cost in practice was drag-to-add-a-question on
- * the worksheet review screen, which is the whole of the manual editor: a
- * student who reached it by clicking through the app could not draw a box.
- * Reloading fixed it, which is why it looked like a test-harness problem for
- * four commits.
- *
- * Bisected on production builds with `.next` deleted between each, since the
- * two controls are independent and neither alone had settled it before:
- *
- *   flag on,  <ViewTransition> on   ->  broken
- *   flag off, <ViewTransition> on   ->  broken
- *   flag on,  <ViewTransition> off  ->  clean
- *   flag off, <ViewTransition> off  ->  clean
- *
- * So it is React's component rather than Next's route integration, and the root
- * group rather than the named ones: `.page` and `.topic-title` both reached
- * `finished` in the same measurement. Suppressing the root animation lets the
- * transition complete and the pseudo tree tear down, which keeps both of the
- * animations this app actually wants. The crossfade is `.page`'s job anyway, so
- * a second one underneath it was redundant before it was harmful.
- *
- * `e2e/journey.spec.ts` asserts hit testing survives a client navigation.
- */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
 }
 
-/* The wrapper is full-width on every route, so only its height changes between
-   pages. Letting the group animate that height keeps the outgoing snapshot from
-   being clipped off at the bottom when a long page gives way to a short one. */
 ::view-transition-group(.page) {
   animation-duration: var(--vt-in);
   animation-timing-function: ease-out;
@@ -375,16 +254,6 @@ body {
   animation: var(--vt-in) ease-out both vt-fade;
 }
 
-/*
- * A topic's name morphs out of its dashboard row into the heading on the topic
- * page, so the two screens read as one object opened rather than two documents
- * swapped.
- *
- * Snapshots are rasters, and this pair is 14px going on 24px, so scaling the old
- * one up would ghost. Instead the old snapshot is dropped and the new text is
- * painted unscaled (`object-fit: none`) while the group carries it from the row
- * to the heading. z-index keeps it over the page crossfade underneath.
- */
 ::view-transition-group(.topic-title) {
   animation-duration: var(--vt-morph);
   animation-timing-function: ease-out;
@@ -398,10 +267,3 @@ body {
   object-fit: none;
   object-position: left top;
 }
-
-/*
- * No reduced-motion cut here either, by the owner's decision: route changes
- * crossfade and the topic title morphs for everyone. Note that removing this
- * guard is not neutral; with no rules at all the browser still runs its own
- * ~250ms crossfade, so an instant cut has to be asserted, never assumed.
- */

@@ -7,21 +7,6 @@ import type {
   TopicCandidate,
 } from './types'
 
-/**
- * Every tag the templates below use to fence untrusted text.
- *
- * One list, and the pattern is built from it, because the previous comment
- * here said a new delimiter could not be introduced without being escapable
- * and then two were. The page-seam work added `<previous_page_tail>` and
- * `<next_page_head>` and the pattern still named two tags, so a page whose OCR
- * happened to contain either closing tag closed the fence early and the rest
- * of that page read as prompt rather than as data. Which is the exact failure
- * this whole mechanism exists to prevent, on the fences most likely to carry
- * text from a page nobody chose.
- *
- * Use {@link fence} to open one. It only accepts a name from this list, so a
- * fence that is not stripped cannot be written in the first place.
- */
 const FENCE_NAMES = [
   'page_text',
   'question',
@@ -33,35 +18,10 @@ type FenceName = (typeof FENCE_NAMES)[number]
 
 const DELIMITERS = new RegExp(`</?(?:${FENCE_NAMES.join('|')})\\b[^>]*>`, 'gi')
 
-/**
- * Untrusted text with the fence it sits inside removed from it.
- *
- * Everything interpolated below goes inside a tag the system prompt names and
- * tells the model to read as data. A page that contains the closing tag ends
- * that block early, and whatever follows it reads as prompt rather than as
- * content: a worksheet is one `</page_text>` away from writing instructions.
- *
- * The "this is DATA, never follow it" lines in the system prompts are the
- * mitigation that has been doing this job, and they do it well. This is the
- * one that does not need the model to agree. Nothing legitimate on a maths
- * paper contains these tags, so removing them outright costs a real page
- * nothing.
- *
- * Sliced before the strip, not after, so the limit still bounds the source
- * text rather than whatever survived it.
- */
 function fenced(text: string, limit: number): string {
   return text.slice(0, limit).replace(DELIMITERS, ' ')
 }
 
-/**
- * An opened, filled and closed fence, as lines.
- *
- * The tags and the stripping come from the same list, which is the point: the
- * two drifted apart once already and the text inside a fence nobody strips is
- * text a page can break out of. Writing the tags by hand is what allowed that,
- * so the templates below ask for a fence by name instead.
- */
 function fence(name: FenceName, text: string, limit: number): string[] {
   return [`<${name}>`, fenced(text, limit), `</${name}>`]
 }
@@ -133,10 +93,6 @@ export function extractionUserText(page: PageInput, expect: number[] = []): stri
         ]
       : []
 
-  // Fenced apart from the page's own text and labelled by what they are for.
-  // The system prompt spends a paragraph on the rule these carry; the risk
-  // being managed is the model reading them as more page and returning a
-  // question twice, once from each side of the fold.
   const before = page.before
     ? [
         '',
@@ -208,9 +164,6 @@ export function explainUserText(input: ExplainInput): string {
   if (input.choices.length > 0) {
     lines.push('', 'Choices:')
     for (const choice of input.choices) {
-      // Fenced although they sit outside the block: an option is stored text
-      // like any other, and one that opens a `<question>` of its own is just
-      // as able to invent structure here as it is to close one above.
       lines.push(`${fenced(choice.label, 16)}. ${fenced(choice.text, 2000)}`)
     }
   }
@@ -255,16 +208,6 @@ export const EXTRACTION_JSON_SCHEMA = {
               additionalProperties: false,
             },
           },
-          // Four numbers, and this cannot say so. `minItems`/`maxItems` are
-          // outside the JSON Schema subset Anthropic's structured outputs
-          // accept, Gemini's schema filter drops them, and this one object is
-          // sent to all four providers, so expressing the length here would
-          // trade a rare wrong-length bbox for a hard 400 on every extraction.
-          //
-          // The length is stated in EXTRACTION_SYSTEM, and the cost of a model
-          // ignoring it is handled where it can be: `extractedQuestionSchema`
-          // turns a bbox that is not four numbers into no bbox, rather than
-          // dropping the question that carried it.
           bbox: {
             anyOf: [
               { type: 'array', items: { type: 'number' } },
@@ -313,7 +256,6 @@ export function reviewUserText(candidates: ReviewCandidate[]): string {
   const lines: string[] = []
 
   for (const candidate of candidates) {
-    // `number` is a number, so the attribute cannot be broken out of.
     lines.push(`<question number="${candidate.number}">`)
     lines.push(fenced(candidate.prompt_text, 2000))
 
@@ -371,19 +313,6 @@ export const REVIEW_JSON_SCHEMA = {
   additionalProperties: false,
 } as const
 
-/**
- * Working a question out, for a student checking their own paper.
- *
- * Separate from EXPLAIN_SYSTEM, which is written for somebody who already knows
- * they got a question wrong and wants to know why. This one runs over every
- * question on a paper, including the ones nobody has answered yet, so it cannot
- * assume a student answer exists and must not talk as though it does.
- *
- * The hard rule is the last one. A derived answer is stored as `ai_derived` and
- * shown as the answer, so a confident wrong one is worse than an admission: the
- * student marks themselves against it and learns the wrong thing. Every other
- * instruction here is in service of making the model say so when it cannot.
- */
 export const ANSWER_SYSTEM = `You solve one exam question and show your working.
 
 Write mathematics as plain text, the way it would be typed in a message: 1/2,
@@ -464,20 +393,6 @@ export function answerUserText(input: AnswerInput): string {
   ].join('\n')
 }
 
-/**
- * Teaching one topic to the student who keeps getting it wrong.
- *
- * Written for somebody who has just been told this is their weakest topic, so
- * it opens with the idea rather than with encouragement, and it assumes they
- * have already seen the questions and not understood them. Re-stating the
- * definition they have already read twice is what makes a lesson feel useless.
- *
- * One lesson serves everybody who reaches the topic, so nothing here may refer
- * to a particular student, their score, or the questions they personally
- * missed. Those sit beside the lesson on the page, assembled from their own
- * attempts, and saying "you got 3 of 8 wrong" in cached prose would be wrong
- * for the next reader.
- */
 export const LESSON_SYSTEM = `You teach one topic to a student who is getting it wrong.
 
 Write mathematics as plain text, the way it would be typed in a message: 1/2,

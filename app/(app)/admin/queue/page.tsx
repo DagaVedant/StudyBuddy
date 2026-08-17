@@ -38,10 +38,6 @@ export default async function AdminQueuePage() {
     if (action === 'cancel') {
       const cancelled = await cancelJob(db, jobId)
       if (cancelled) {
-        // Same accounting a job that failed on its own gets: refund the
-        // trial credit if one was spent, fail the worksheet for a stage
-        // that owns one. Reused rather than duplicated so an admin cancel
-        // and a real failure cannot drift apart.
         await applyPermanentFailure(db, cancelled)
       } else {
         console.warn(`[admin] could not cancel job ${jobId}: already finished`)

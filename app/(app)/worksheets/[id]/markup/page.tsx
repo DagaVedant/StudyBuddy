@@ -30,12 +30,6 @@ export default async function MarkupPage({
 
   if (!worksheet || worksheet.userId !== session.user.id) notFound()
 
-  // Marking a worksheet is a one-time thing: you sat the paper once, so there
-  // is one set of outcomes to record. Coming back here (from a bookmark, the
-  // back button, a stale tab) used to offer the whole flow again and write a
-  // second attempt per question, which moves the review schedule on answers
-  // the student never actually gave. Every link into this page is dropped once
-  // the marks exist; this is the guard behind them.
   const marks = await db
     .select({
       questionId: attempts.questionId,
@@ -52,18 +46,6 @@ export default async function MarkupPage({
       ),
     )
 
-  /*
-   * Marked already, so this shows what was recorded and lets one row be
-   * changed. It used to be a dead end reading "that is all it needs".
-   *
-   * The guard above is still doing its job: what is refused is re-running the
-   * flow, not correcting a row. A student flying through forty questions at one
-   * tap each will occasionally tap the wrong one, and that tap fed the FSRS
-   * schedule, the topic accuracy, the weakness ranking and the Blooket export
-   * with no way back. A question mis-marked `correct` left the practice queue
-   * permanently, and the only recourse was deleting the worksheet and uploading
-   * it again, at the cost of a trial credit.
-   */
   if (marks.length > 0) {
     const markByQuestion = new Map(marks.map((mark) => [mark.questionId, mark]))
 

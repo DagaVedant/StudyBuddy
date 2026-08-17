@@ -20,11 +20,9 @@ export interface ModelScore {
   pagesRun: number
   pagesFailed: number
 
-  /** The printed numbers this run was graded against, inclusive. */
   expectedFrom: number
   expectedTotal: number
 
-  // Coverage, measured against printed numbers expectedFrom..expectedTotal.
   found: number
   missed: number[]
   duplicated: number[]
@@ -32,7 +30,6 @@ export interface ModelScore {
 
   countRecall: number
 
-  // Fidelity.
   rowsEmitted: number
   phantomPairs: number
   choicesComplete: number
@@ -40,7 +37,6 @@ export interface ModelScore {
   emptyStems: number
   schemaRejected: number
 
-  // Cost.
   totalWallMs: number
   msPerPage: number
   msPerQuestion: number
@@ -49,18 +45,6 @@ export interface ModelScore {
   evalTokens: number
 }
 
-/**
- * Scores one model's run.
- *
- * Coverage is graded against the printed numbers rather than a hand-labelled
- * key: every number in expectedFrom..expectedTotal should appear exactly once
- * across the pages given, which makes the sequence its own ground truth and
- * keeps the range gradeable without labelling pages by hand.
- *
- * expectedFrom exists so a slice out of the middle of a paper can be scored:
- * grading pages 42-58 against 1..114 would count the entire first half as
- * missing.
- */
 export function scoreRun(
   model: string,
   runs: PageRun[],
@@ -86,8 +70,6 @@ export function scoreRun(
       const n = question.ordinal
       if (Number.isInteger(n) && n >= 1) counts.set(n, (counts.get(n) ?? 0) + 1)
 
-      // Every question on this paper is multiple choice with four options, so
-      // anything short of that lost content the extractor could see.
       if (question.choices.length === 4) choicesComplete += 1
       else choicesIncomplete += 1
 

@@ -26,7 +26,6 @@ const client = () => db as unknown as Db
 
 const HOURS_AGO = (n: number) => new Date(Date.now() - n * 60 * 60_000)
 
-/** A worksheet in whatever state, aged so the cutoff can see it. */
 async function stale(
   userId: string,
   status: 'uploading' | 'processing' | 'ready' | 'failed',
@@ -41,8 +40,6 @@ async function addPage(worksheetId: string): Promise<void> {
   await db.insert(worksheetPages).values({
     worksheetId,
     pageNumber: 1,
-    // Never written to storage: the sweep tolerates a key it cannot remove,
-    // and these tests are about which rows it chooses, not about blobs.
     imageKey: `pages/${worksheetId}-1.png`,
   })
 }
@@ -55,17 +52,6 @@ async function survives(worksheetId: string): Promise<boolean> {
   return rows.length > 0
 }
 
-/**
- * Which half-finished uploads get reclaimed, and which are somebody's work.
- *
- * The sweep looked at `uploading` only, and the first page POST moves a
- * worksheet to `processing`. So it could only ever see the variant that holds
- * no images, and every case it was written for, the tab closed at page 40 of
- * 75, was invisible to it.
- *
- * This deletes rows and blobs, so the assertions that matter most are the ones
- * about what it leaves alone.
- */
 describe('sweepAbandonedUploads', () => {
   it('reclaims an upload that never got a page', async () => {
     const userId = await makeUser(db)
@@ -75,7 +61,6 @@ describe('sweepAbandonedUploads', () => {
     expect(await survives(abandoned)).toBe(false)
   })
 
-  // The case the sweep was written for and could not see.
   it('reclaims an upload abandoned partway through its pages', async () => {
     const userId = await makeUser(db)
     const abandoned = await stale(userId, 'processing', HOURS_AGO(2))
@@ -85,11 +70,6 @@ describe('sweepAbandonedUploads', () => {
     expect(await survives(abandoned)).toBe(false)
   })
 
-  /*
-   * The one that must never be touched. A worksheet handed off for extraction
-   * sits in `processing` for as long as the work takes, and on a busy queue
-   * that is longer than the cutoff. The job row is what tells them apart.
-   */
   it('leaves a worksheet alone once something is queued for it', async () => {
     const userId = await makeUser(db)
     const real = await stale(userId, 'processing', HOURS_AGO(5))

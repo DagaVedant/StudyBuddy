@@ -1,4 +1,3 @@
-/** The worksheets grid: a card per paper, three across on a wide screen. */
 export default function Loading() {
   return (
     <main

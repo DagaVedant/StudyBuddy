@@ -1,5 +1,4 @@
 'use client'
-
 import {
   forwardRef,
   memo,
@@ -28,13 +27,6 @@ import {
   type QuestionType,
 } from './types'
 
-/**
- * A key for a choice that has no row yet.
- *
- * Only has to be unique for the life of the screen: it is a React key and the
- * server never sees it. A module counter satisfies that everywhere, which
- * `crypto.randomUUID` does not, being secure-context only.
- */
 let choiceKeySeq = 0
 const nextChoiceKey = () => `new-choice-${(choiceKeySeq += 1)}`
 
@@ -46,37 +38,14 @@ interface CardProps {
   topics: TopicChoice[]
   onUpdate: (id: string, patch: Partial<EditableQuestion>) => void
   onRemove: (id: string) => void
-  /**
-   * The page id travels with the question id because the parent would
-   * otherwise have to search `questions` for it, and a handler that closes over
-   * `questions` is rebuilt on every keystroke, which is exactly what the memo
-   * below cannot survive.
-   */
   onFocus: (id: string, pageId: string | null) => void
   onToggleExpanded: (id: string, pageId: string | null) => void
   registerRef: (id: string, node: HTMLLIElement | null) => void
-  /**
-   * Set only once the list is long enough to virtualize (see `QuestionList`
-   * below). `measureRef` reports the row's real, post-render height back to
-   * the virtualizer - collapsed and expanded rows differ by a lot, and an
-   * estimate would leave every row after one that guessed wrong overlapping
-   * or gapped. `style` and `dataIndex` are the virtualizer's own absolute
-   * positioning and the index its resize observer keys measurements by.
-   */
   measureRef?: (node: HTMLLIElement | null) => void
   style?: CSSProperties
   dataIndex?: number
 }
 
-/**
- * One question, summarised, with the editor behind a "Fix".
- *
- * Memoized, and that is the point of the whole split. Typing one character
- * into one prompt used to re-render every card on the worksheet, which on a
- * 114 question paper is most of a second per keystroke. The props here are all
- * either primitives or identities the parent holds stable, so React can skip
- * the 113 cards that did not change.
- */
 const QuestionCard = memo(function QuestionCard({
   question,
   expanded,
@@ -106,7 +75,6 @@ const QuestionCard = memo(function QuestionCard({
         selected ? 'border-accent' : 'border-transparent'
       }`}
     >
-      {/* Summary: what the AI actually pulled off the page. */}
       <div className="p-3">
         <div className="flex items-start gap-2">
           <span className="mt-0.5 shrink-0 rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium tabular-nums text-accent">
@@ -123,9 +91,6 @@ const QuestionCard = memo(function QuestionCard({
           </button>
         </div>
 
-        {/* One choice per line. Pills only fit choices that are a word or a
-            number; a choice can be a whole rewritten sentence, and those used
-            to run off the side of the card. */}
         {question.choices.length > 0 && (
           <ul className="mt-2 space-y-0.5 pl-8 text-xs">
             {question.choices.map((choice) => (
@@ -167,7 +132,6 @@ const QuestionCard = memo(function QuestionCard({
         </div>
       </div>
 
-      {/* Editor: only when something needs correcting. */}
       {expanded && (
         <div className="space-y-4 border-t border-border p-3">
           <div>
@@ -210,13 +174,6 @@ const QuestionCard = memo(function QuestionCard({
           {question.questionType === 'multiple_choice' && (
             <fieldset>
               <legend className="label">Answer choices</legend>
-              {/* Keyed by id, and matched by id in every handler below. Both
-                  used to be the row's position, and a position is not an
-                  identity in a list you can delete out of the middle of: with
-                  `key={index}`, removing C handed C's text box to what had been
-                  D, so the caret, the selection and whatever the browser was
-                  still holding for that field stayed where they were while the
-                  text under them changed. */}
               <ul className="space-y-2">
                 {question.choices.map((choice) => (
                   <li key={choice.id} className="flex items-center gap-2">
@@ -258,9 +215,6 @@ const QuestionCard = memo(function QuestionCard({
                       className="btn-compact shrink-0 rounded px-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       onClick={() =>
                         onUpdate(question.id, {
-                          // The relabel stays positional on purpose: what is
-                          // left after a removal has to read A, B, C with no
-                          // gap, whatever it read before.
                           choices: question.choices
                             .filter((other) => other.id !== choice.id)
                             .map((other, i) => ({ ...other, label: CHOICE_LABELS[i] })),
@@ -282,16 +236,6 @@ const QuestionCard = memo(function QuestionCard({
                       choices: [
                         ...question.choices,
                         {
-                          // Minted here. A choice added by hand has no
-                          // `answer_choices` row to borrow an id from and needs
-                          // a key the moment it is on screen; the row the save
-                          // writes gets an id of its own that nothing reads
-                          // back.
-                          //
-                          // A counter and not `crypto.randomUUID`, which is
-                          // secure-context only: over http on a LAN address,
-                          // which is how this screen gets tested on a real
-                          // phone, it is undefined and Add Choice threw.
                           id: nextChoiceKey(),
                           label: CHOICE_LABELS[question.choices.length],
                           text: '',
@@ -344,25 +288,11 @@ const QuestionCard = memo(function QuestionCard({
   )
 })
 
-/**
- * Below this threshold, the plain list. A worksheet this size never pays for
- * a virtualizer: the DOM cost of forty collapsed cards is not the problem
- * finding 48 named, and every row staying permanently mounted is one fewer
- * thing that can go wrong on the very screen where a lost edit costs the
- * most.
- */
 const VIRTUALIZE_THRESHOLD = 40
 
-/**
- * Rough collapsed-card height, in pixels, before the virtualizer has
- * measured a real one. Wrong by a little just means the scrollbar jumps
- * slightly on first paint; every row is re-measured off its own rendered
- * height (`measureRef`) the moment it mounts.
- */
 const ESTIMATED_ROW_HEIGHT = 132
 
 export interface QuestionListHandle {
-  /** Brings a question into view even if it is not currently rendered. */
   scrollToId: (id: string) => void
 }
 
@@ -379,25 +309,6 @@ interface Props {
   registerRef: (id: string, node: HTMLLIElement | null) => void
 }
 
-/**
- * `useWindowVirtualizer` runs on every render regardless of `questions.length`,
- * even for a five-question worksheet that will never read its output: Rules
- * of Hooks rule out calling it only sometimes, and splitting the virtualized
- * path into a child component instead used to mean two `useImperativeHandle`
- * calls racing to write the same forwarded ref (child effects commit before
- * parent effects, so the parent's would have won and silently discarded the
- * virtualizer's real `scrollToId`). One component, one handle, and the
- * unvirtualized branch returns before any of the virtualizer's output is
- * used - the listener it attached costs a resize/scroll subscription, not a
- * render.
- *
- * Windows the *rendered* set, not the *mounted* set of anything mid-edit:
- * `rangeExtractor` always includes the expanded row even when scrolling has
- * carried it out of the naturally-computed range, so the one row that can
- * hold an unsaved keystroke never unmounts out from under the student typing
- * into it. Everything else is free to come and go - a collapsed card has
- * nothing in it a remount could lose.
- */
 const QuestionList = forwardRef<QuestionListHandle, Props>(function QuestionList(
   {
     questions,
@@ -417,10 +328,6 @@ const QuestionList = forwardRef<QuestionListHandle, Props>(function QuestionList
 
   const listRef = useRef<HTMLUListElement>(null)
 
-  // Measured after mount rather than assumed: this section sits below a
-  // heading, an optional error banner and an optional undo toast, none of a
-  // fixed height, so the offset from the top of the document is only known
-  // once the browser has actually laid the page out.
   const [scrollMargin, setScrollMargin] = useState(0)
   useLayoutEffect(() => {
     if (virtualize) setScrollMargin(listRef.current?.offsetTop ?? 0)
