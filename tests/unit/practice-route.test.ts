@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   executionSite: 'server' as ExecutionSite,
   limited: false,
   generated: 0,
+  ollama: true,
   calls: [] as string[],
 }))
 
@@ -41,11 +42,28 @@ vi.mock('@/lib/rate-limit', () => ({
   },
 }))
 
+vi.mock('@/lib/ai/ollama-config', () => ({
+  ollamaConfig: async () =>
+    state.ollama ? { baseUrl: 'http://localhost:11434', textModel: 'qwen', visionModel: 'qwen' } : null,
+}))
+
 vi.mock('@/lib/practice/generate', () => ({
   PRACTICE_BATCH: 4,
   PRACTICE_BATCH_MAX: 8,
   generatePractice: async () => {
     state.calls.push('generate')
+    return {
+      created: state.generated,
+      rejected: state.generated === 0 ? [{ flags: [] }] : [],
+      questionIds: [],
+    }
+  },
+  practiceInput: async () => {
+    state.calls.push('input')
+    return { topicName: 'Triangles', topicPath: 'Math > Triangles', owned: [], count: 4 }
+  },
+  acceptPractice: async () => {
+    state.calls.push('accept')
     return {
       created: state.generated,
       rejected: state.generated === 0 ? [{ flags: [] }] : [],
@@ -72,6 +90,7 @@ beforeEach(() => {
   state.executionSite = 'server'
   state.limited = false
   state.generated = 4
+  state.ollama = true
   state.calls.length = 0
 })
 
@@ -108,14 +127,100 @@ describe('which tiers may write practice questions', () => {
     expect(state.calls).toEqual([])
   })
 
-  it('tells an Ollama student this one is not for them', async () => {
+  it('hands an Ollama student the batch to write on their own machine', async () => {
     state.tier = 'ollama'
     state.executor = 'browser'
     state.executionSite = 'none'
 
     const response = await practice.POST(post(), params)
 
-    expect(response.status).toBe(501)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      runsHere: true,
+      input: { count: 4 },
+      ollama: { baseUrl: 'http://localhost:11434' },
+    })
+
+    // No model call here: the batch is written in the browser.
+    expect(state.calls).toEqual(['rate-limit', 'input'])
+  })
+
+  it('turns an Ollama student away when the address is gone from settings', async () => {
+    state.tier = 'ollama'
+    state.executor = 'browser'
+    state.executionSite = 'none'
+    state.ollama = false
+
+    const response = await practice.POST(post(), params)
+
+    expect(response.status).toBe(409)
+  })
+})
+
+describe('the batch a browser writes on its own GPU', () => {
+  function put(body: unknown) {
+    return new Request('https://studybuddy.test/api/topics/topic-1/practice', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  const written = {
+    questions: [
+      {
+        prompt_text: 'What is the area of a triangle with base 6 and height 4?',
+        choices: [
+          { label: 'A', text: '12' },
+          { label: 'B', text: '24' },
+          { label: 'C', text: '10' },
+          { label: 'D', text: '20' },
+        ],
+        correct_label: 'A',
+        working: 'Half of 6 times 4.',
+      },
+    ],
+    model: 'qwen',
+  }
+
+  beforeEach(() => {
+    state.tier = 'ollama'
+    state.executor = 'browser'
+    state.executionSite = 'none'
+  })
+
+  it('is sifted and stored by the server, not taken as given', async () => {
+    const response = await practice.PUT(put(written), params)
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ created: 4 })
+    expect(state.calls).toEqual(['accept'])
+  })
+
+  it('is a 422 when nothing in it survived the sift', async () => {
+    state.generated = 0
+
+    const response = await practice.PUT(put(written), params)
+
+    expect(response.status).toBe(422)
+    expect(await response.json()).toMatchObject({ rejected: 1 })
+  })
+
+  it('refuses a question that is not shaped like one', async () => {
+    const response = await practice.PUT(put({ questions: [{ prompt_text: '' }] }), params)
+
+    expect(response.status).toBe(400)
+    expect(state.calls).toEqual([])
+  })
+
+  it('refuses an account whose model runs on the server', async () => {
+    state.tier = 'cloud'
+    state.executor = 'server'
+    state.executionSite = 'server'
+
+    const response = await practice.PUT(put(written), params)
+
+    expect(response.status).toBe(409)
     expect(state.calls).toEqual([])
   })
 })

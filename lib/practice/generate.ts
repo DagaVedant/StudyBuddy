@@ -2,7 +2,12 @@ import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 
 import type { Tier } from '@/lib/ai/resolve'
 import { storedProvider } from '@/lib/ai/stored-provider'
-import type { AIProvider, GeneratedQuestion } from '@/lib/ai/types'
+import type {
+  AIProvider,
+  GeneratedQuestion,
+  PracticeInput,
+  ProviderName,
+} from '@/lib/ai/types'
 import {
   answerChoices,
   attempts,
@@ -29,6 +34,11 @@ export const PRACTICE_WORKSHEET_TITLE = 'Practice written for you'
 const SAMPLES_SHOWN = 6
 
 const OWNED_HASHES = 2000
+
+export interface PracticeAuthor {
+  name: ProviderName
+  answeringModel: string
+}
 
 export interface PracticeRequest {
   userId: string
@@ -116,13 +126,14 @@ async function ownedHashes(db: Db, userId: string): Promise<string[]> {
   return rows.map((row) => row.contentHash).filter((hash) => hash !== null)
 }
 
-export async function generatePractice(
-  db: Db,
-  provider: AIProvider,
-  request: PracticeRequest,
-): Promise<PracticeOutcome> {
-  const count = Math.max(1, Math.min(request.count ?? PRACTICE_BATCH, PRACTICE_BATCH_MAX))
+function batchSize(count: number | undefined): number {
+  return Math.max(1, Math.min(count ?? PRACTICE_BATCH, PRACTICE_BATCH_MAX))
+}
 
+export async function practiceInput(
+  db: Db,
+  request: PracticeRequest,
+): Promise<PracticeInput> {
   const [topic] = await db
     .select({ name: topics.name, slug: topics.slug })
     .from(topics)
@@ -131,17 +142,27 @@ export async function generatePractice(
 
   if (!topic) throw new Error(`No topic ${request.topicId}`)
 
-  const [samples, hashes] = await Promise.all([
-    ownedStems(db, request.userId, request.topicId),
-    ownedHashes(db, request.userId),
-  ])
-
-  const written = await provider.writePractice({
+  return {
     topicName: topic.name,
     topicPath: pathBySlug().get(topic.slug) ?? topic.name,
-    owned: samples,
-    count,
-  })
+    owned: await ownedStems(db, request.userId, request.topicId),
+    count: batchSize(request.count),
+  }
+}
+
+/**
+ * Everything after the model call: sifting, then storing what survives. Split
+ * out because Tier C makes the call in the student's browser, and what a batch
+ * has to clear before it is stored cannot live there.
+ */
+export async function acceptPractice(
+  db: Db,
+  author: PracticeAuthor,
+  request: PracticeRequest,
+  written: GeneratedQuestion[],
+): Promise<PracticeOutcome> {
+  const count = batchSize(request.count)
+  const hashes = await ownedHashes(db, request.userId)
 
   const { kept, rejected } = siftPractice(written.slice(0, count), hashes)
 
@@ -149,7 +170,7 @@ export async function generatePractice(
     return { created: 0, rejected: rejected.map(({ flags }) => ({ flags })), questionIds: [] }
   }
 
-  const questionIds = await store(db, provider, request, kept)
+  const questionIds = await store(db, author, request, kept)
 
   return {
     created: questionIds.length,
@@ -158,9 +179,19 @@ export async function generatePractice(
   }
 }
 
-async function store(
+export async function generatePractice(
   db: Db,
   provider: AIProvider,
+  request: PracticeRequest,
+): Promise<PracticeOutcome> {
+  const written = await provider.writePractice(await practiceInput(db, request))
+
+  return acceptPractice(db, provider, request, written)
+}
+
+async function store(
+  db: Db,
+  author: PracticeAuthor,
   request: PracticeRequest,
   written: GeneratedQuestion[],
 ): Promise<string[]> {
@@ -216,8 +247,8 @@ async function store(
           questionId: row.id,
           derivedAnswer: question.correct_label,
           workingMd: question.working,
-          provider: storedProvider(provider.name),
-          model: provider.answeringModel,
+          provider: storedProvider(author.name),
+          model: author.answeringModel,
         })
       }
 
@@ -233,7 +264,7 @@ async function store(
     await tx.insert(usageEvents).values({
       userId: request.userId,
       kind: 'generate_practice',
-      provider: storedProvider(provider.name),
+      provider: storedProvider(author.name),
       tierUsed: request.tier ?? null,
       quantity: created.length,
     })

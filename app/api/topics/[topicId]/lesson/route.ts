@@ -1,12 +1,13 @@
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
+import { ollamaConfig } from '@/lib/ai/ollama-config'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { ProviderRefused, ProviderUnavailable, lessonSchema } from '@/lib/ai/types'
 import { db } from '@/lib/db'
-import { topics, userAiCredentials } from '@/lib/db/schema'
+import { topics } from '@/lib/db/schema'
 import { LESSON_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import {
   generateLesson,
@@ -71,21 +72,9 @@ export async function POST(_request: Request, { params }: Params) {
   }
 
   if (executor === 'browser') {
-    const [credential] = await db
-      .select({
-        baseUrl: userAiCredentials.ollamaBaseUrl,
-        textModel: userAiCredentials.modelName,
-      })
-      .from(userAiCredentials)
-      .where(
-        and(
-          eq(userAiCredentials.userId, userId),
-          eq(userAiCredentials.provider, 'ollama'),
-        ),
-      )
-      .limit(1)
+    const ollama = await ollamaConfig(db, userId)
 
-    if (!credential?.baseUrl) {
+    if (!ollama) {
       return NextResponse.json(
         { error: 'No Ollama is configured. Connect one in settings.' },
         { status: 409 },
@@ -95,10 +84,7 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({
       runsHere: true,
       input: await lessonInput(db, topicId),
-      ollama: {
-        baseUrl: credential.baseUrl,
-        textModel: credential.textModel ?? 'qwen2.5vl:7b',
-      },
+      ollama: { baseUrl: ollama.baseUrl, textModel: ollama.textModel },
     })
   }
 

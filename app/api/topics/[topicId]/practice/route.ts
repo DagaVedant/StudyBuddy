@@ -3,14 +3,21 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
+import { ollamaConfig } from '@/lib/ai/ollama-config'
 import { resolveProvider } from '@/lib/ai/resolve'
-import { ProviderRefused, ProviderUnavailable } from '@/lib/ai/types'
+import {
+  ProviderRefused,
+  ProviderUnavailable,
+  generatedQuestionSchema,
+} from '@/lib/ai/types'
 import { db } from '@/lib/db'
 import { topics } from '@/lib/db/schema'
 import {
   PRACTICE_BATCH,
   PRACTICE_BATCH_MAX,
+  acceptPractice,
   generatePractice,
+  practiceInput,
 } from '@/lib/practice/generate'
 import { PRACTICE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 
@@ -23,9 +30,9 @@ const bodySchema = z.object({
 const NO_MODEL =
   'Writing practice questions needs a connected AI provider. Add an API key in Settings.'
 
-const NOT_ON_OLLAMA =
-  'Ollama reads your worksheets, but it does not write practice questions yet. ' +
-  'Add a cloud API key in settings if you want those.'
+const NO_OLLAMA = 'No Ollama is configured. Connect one in settings.'
+
+const NOTHING_KEPT = 'Nothing came back that was good enough to practise on. Try again.'
 
 export async function POST(request: Request, { params }: Params) {
   const { topicId } = await params
@@ -53,11 +60,11 @@ export async function POST(request: Request, { params }: Params) {
 
   const { provider, tier, executor } = await resolveProvider(db, userId)
 
-  if (executor === 'browser') {
-    return NextResponse.json({ error: NOT_ON_OLLAMA }, { status: 501 })
+  if (executor !== 'server' && executor !== 'browser') {
+    return NextResponse.json({ error: NO_MODEL }, { status: 409 })
   }
 
-  if (executor !== 'server' || provider.executionSite === 'none') {
+  if (executor === 'server' && provider.executionSite === 'none') {
     return NextResponse.json({ error: NO_MODEL }, { status: 409 })
   }
 
@@ -69,6 +76,23 @@ export async function POST(request: Request, { params }: Params) {
   )
   if (limited) return limited
 
+  if (executor === 'browser') {
+    const ollama = await ollamaConfig(db, userId)
+    if (!ollama) {
+      return NextResponse.json({ error: NO_OLLAMA }, { status: 409 })
+    }
+
+    return NextResponse.json({
+      runsHere: true,
+      input: await practiceInput(db, {
+        userId,
+        topicId,
+        count: parsed.data.count ?? PRACTICE_BATCH,
+      }),
+      ollama: { baseUrl: ollama.baseUrl, textModel: ollama.textModel },
+    })
+  }
+
   try {
     const outcome = await generatePractice(db, provider, {
       userId,
@@ -79,11 +103,7 @@ export async function POST(request: Request, { params }: Params) {
 
     if (outcome.created === 0) {
       return NextResponse.json(
-        {
-          error:
-            'Nothing came back that was good enough to practise on. Try again.',
-          rejected: outcome.rejected.length,
-        },
+        { error: NOTHING_KEPT, rejected: outcome.rejected.length },
         { status: 422 },
       )
     }
@@ -109,4 +129,74 @@ export async function POST(request: Request, { params }: Params) {
       { status: 502 },
     )
   }
+}
+
+const writtenSchema = z.object({
+  questions: z.array(generatedQuestionSchema).max(PRACTICE_BATCH_MAX),
+  count: z.number().int().min(1).max(PRACTICE_BATCH_MAX).optional(),
+  model: z.string().max(200).nullish(),
+})
+
+/**
+ * Tier C writes on the student's own GPU, so the batch arrives here rather
+ * than being generated here. It is sifted on the way in exactly as a batch the
+ * server wrote: what a question has to clear to be stored is not something the
+ * machine that wrote it gets to decide.
+ */
+export async function PUT(request: Request, { params }: Params) {
+  const { topicId } = await params
+
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const userId = session.user.id
+
+  const parsed = writtenSchema.safeParse(await request.json().catch(() => ({})))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
+
+  const [topic] = await db
+    .select({ id: topics.id })
+    .from(topics)
+    .where(eq(topics.id, topicId))
+    .limit(1)
+
+  if (!topic) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const { tier, executor } = await resolveProvider(db, userId)
+
+  if (executor !== 'browser') {
+    return NextResponse.json(
+      { error: 'Practice questions are written on the server for this account.' },
+      { status: 409 },
+    )
+  }
+
+  const ollama = await ollamaConfig(db, userId)
+  if (!ollama) {
+    return NextResponse.json({ error: NO_OLLAMA }, { status: 409 })
+  }
+
+  const outcome = await acceptPractice(
+    db,
+    { name: 'ollama', answeringModel: parsed.data.model ?? ollama.textModel },
+    { userId, topicId, count: parsed.data.count ?? PRACTICE_BATCH, tier },
+    parsed.data.questions,
+  )
+
+  if (outcome.created === 0) {
+    return NextResponse.json(
+      { error: NOTHING_KEPT, rejected: outcome.rejected.length },
+      { status: 422 },
+    )
+  }
+
+  return NextResponse.json({
+    created: outcome.created,
+    rejected: outcome.rejected.length,
+  })
 }

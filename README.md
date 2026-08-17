@@ -67,11 +67,11 @@ only determines how questions come off the page.
 | 0 (Trial) | nothing | Operator GPU, 3 worksheets lifetime | 20 | no |
 | A (Free) | nothing | Manual editor and browser OCR | none | no |
 | B (Cloud key) | Anthropic or OpenAI key | Server-side vision model | unlimited | 12 batches a day |
-| C (Ollama) | Ollama running locally | Student's own GPU, in-browser | Student's own GPU, in-browser | no |
+| C (Ollama) | Ollama running locally | Student's own GPU, in-browser | Student's own GPU, in-browser | Student's own GPU, in-browser |
 
 Tier C runs in the browser against `localhost:11434`, so the tab must stay open.
-Extraction, the derived answer key, explanations, topic lessons and the topic
-pick all go the same way. Reading is checkpointed per page and the answer pass asks the server
+Extraction, the derived answer key, explanations, topic lessons, practice
+questions and the topic pick all go the same way. Reading is checkpointed per page and the answer pass asks the server
 what is still unsolved, so both resume rather than restart. Ollama requires
 `OLLAMA_ORIGINS` set to the app's URL; the settings screen provides the command
 and a connection test.
@@ -235,6 +235,12 @@ an option about the other options, a reference to a figure that does not exist,
 LaTeX, no working, or a stem that duplicates one in the batch or one the student
 already owns. A batch where nothing survives is a 422, not a silent success.
 
+Tier B writes on the server. Tier C writes in the browser: `POST` hands back the
+topic, its path and up to six of the student's own questions on it, the model
+runs against `localhost:11434`, and `PUT` takes the batch back. The sift runs on
+the way in either way, because what a question has to clear before it is stored
+is not something the machine that wrote it gets to decide.
+
 ## Operator scripts
 
 Ad-hoc tools run with `npx tsx` against the `DATABASE_URL` in `.env.local`.
@@ -286,7 +292,7 @@ and a script with no terminal aborts rather than hanging.
 - Trial explanations are queued and require the GPU worker to be running. When
   it is not, the review screen says so before and after the ask rather than
   spinning.
-- Practice questions are written for Tier B only. Tier 0 has no synchronous
-  model: its work goes through the operator GPU as a queued job, and that path
-  is a worker stage this repository cannot exercise, since the worker runs
-  against the deployed app. Tier A has no model and Tier C cannot write prose.
+- Practice questions are written for Tier B and Tier C. Tier 0 has no
+  synchronous model: its work goes through the operator GPU as a queued job, and
+  that path is a worker stage this repository cannot exercise, since the worker
+  runs against the deployed app. Tier A has no model at all.
