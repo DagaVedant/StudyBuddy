@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({
@@ -23,7 +23,10 @@ vi.mock('@/lib/db', () => ({
 }))
 
 const { POST, PUT } = await import('@/app/api/topics/[topicId]/lesson/route')
-const { topicLessons, topics, userAiCredentials } = await import('@/lib/db/schema')
+const { getLesson, getOwnLesson, storeLesson } = await import('@/lib/topics/lesson')
+const { topicLessons, topics, userAiCredentials, users } = await import(
+  '@/lib/db/schema'
+)
 const { asDb, createTestDb } = await import('../helpers/db')
 const { makeUser, seedTaxonomy } = await import('../helpers/factories')
 
@@ -31,8 +34,11 @@ let db: Awaited<ReturnType<typeof createTestDb>>['db']
 let close: () => Promise<void>
 
 let ollamaUser: string
+let secondOllamaUser: string
 let plainUser: string
 let topicId: string
+
+const client = () => asDb(db)
 
 function params(id: string) {
   return { params: Promise.resolve({ topicId: id }) }
@@ -66,14 +72,17 @@ beforeAll(async () => {
   topicId = topic.id
 
   ollamaUser = await makeUser(db)
+  secondOllamaUser = await makeUser(db)
   plainUser = await makeUser(db)
 
-  await db.insert(userAiCredentials).values({
-    userId: ollamaUser,
-    provider: 'ollama',
-    ollamaBaseUrl: 'http://localhost:11434',
-    modelName: 'qwen2.5vl:7b',
-  })
+  for (const userId of [ollamaUser, secondOllamaUser]) {
+    await db.insert(userAiCredentials).values({
+      userId,
+      provider: 'ollama',
+      ollamaBaseUrl: 'http://localhost:11434',
+      modelName: 'qwen2.5vl:7b',
+    })
+  }
 })
 
 afterAll(async () => {
@@ -128,19 +137,28 @@ describe('a Tier C account asking for a lesson', () => {
     expect(rows).toHaveLength(0)
   })
 
-  it('leaves an existing lesson alone rather than overwriting it', async () => {
+  it('leaves their own existing lesson alone rather than overwriting it', async () => {
     await put(topicId, { lesson: LESSON, model: 'first' })
     await put(topicId, {
       lesson: { ...LESSON, body_md: '# Slope\n\nSomething else.' },
       model: 'second',
     })
 
+    const own = await getOwnLesson(client(), topicId, ollamaUser)
+
+    expect(own?.model).toBe('first')
+  })
+
+  it('writes it against themselves, never as the canonical copy', async () => {
+    await put(topicId, { lesson: LESSON, model: 'qwen2.5vl:7b' })
+
     const [row] = await db
-      .select({ model: topicLessons.model })
+      .select({ userId: topicLessons.userId })
       .from(topicLessons)
       .where(eq(topicLessons.topicId, topicId))
 
-    expect(row.model).toBe('first')
+    expect(row.userId).toBe(ollamaUser)
+    expect(await getLesson(client(), topicId, null)).toBeNull()
   })
 
   it('refuses an unknown topic', async () => {
@@ -153,5 +171,98 @@ describe('an account whose lessons are written on the server', () => {
     state.session = { user: { id: plainUser, role: 'student' } }
 
     expect((await put(topicId, { lesson: LESSON })).status).toBe(409)
+  })
+})
+
+describe('a lesson one student wrote in their own browser', () => {
+  it('is not shown to anybody else', async () => {
+    await put(topicId, { lesson: LESSON, model: 'theirs' })
+
+    expect(await getLesson(client(), topicId, ollamaUser)).not.toBeNull()
+    expect(await getLesson(client(), topicId, secondOllamaUser)).toBeNull()
+    expect(await getLesson(client(), topicId, plainUser)).toBeNull()
+  })
+
+  it('does not block another student writing their own', async () => {
+    await put(topicId, { lesson: LESSON, model: 'first-student' })
+
+    state.session = { user: { id: secondOllamaUser, role: 'student' } }
+    expect(
+      (await put(topicId, { lesson: LESSON, model: 'second-student' })).status,
+    ).toBe(200)
+
+    expect((await getOwnLesson(client(), topicId, ollamaUser))?.model).toBe(
+      'first-student',
+    )
+    expect((await getOwnLesson(client(), topicId, secondOllamaUser))?.model).toBe(
+      'second-student',
+    )
+  })
+
+  it('is superseded by the canonical one without being deleted', async () => {
+    await storeLesson(client(), topicId, ollamaUser, LESSON, 'theirs')
+    await storeLesson(client(), topicId, null, LESSON, 'canonical')
+
+    expect((await getLesson(client(), topicId, ollamaUser))?.model).toBe('canonical')
+    expect((await getOwnLesson(client(), topicId, ollamaUser))?.model).toBe('theirs')
+  })
+
+  it('goes when the account does', async () => {
+    await storeLesson(client(), topicId, secondOllamaUser, LESSON, 'theirs')
+
+    const doomed = await makeUser(db)
+    await storeLesson(client(), topicId, doomed, LESSON, 'doomed')
+
+    await db.delete(users).where(eq(users.id, doomed))
+
+    const left = await db
+      .select({ userId: topicLessons.userId })
+      .from(topicLessons)
+      .where(eq(topicLessons.topicId, topicId))
+
+    expect(left.map((row) => row.userId)).toEqual([secondOllamaUser])
+  })
+})
+
+describe('the canonical row', () => {
+  it('cannot be duplicated for one topic, which a plain unique index would allow', async () => {
+    await storeLesson(client(), topicId, null, LESSON, 'canonical')
+
+    const refused = await db
+      .insert(topicLessons)
+      .values({
+        topicId,
+        userId: null,
+        bodyMd: 'A second canonical lesson.',
+        model: 'sneaked-in',
+      })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      )
+
+    expect(refused).not.toBeNull()
+    expect(String((refused as { cause?: unknown }).cause)).toContain(
+      'topic_lessons_canonical_once',
+    )
+
+    const canonical = await db
+      .select({ model: topicLessons.model })
+      .from(topicLessons)
+      .where(and(eq(topicLessons.topicId, topicId), isNull(topicLessons.userId)))
+
+    expect(canonical).toEqual([{ model: 'canonical' }])
+  })
+
+  it('upserts in place on a second server generation', async () => {
+    await storeLesson(client(), topicId, null, LESSON, 'first-pass')
+    await storeLesson(client(), topicId, null, LESSON, 'second-pass')
+
+    const canonical = await db
+      .select({ model: topicLessons.model })
+      .from(topicLessons)
+      .where(and(eq(topicLessons.topicId, topicId), isNull(topicLessons.userId)))
+
+    expect(canonical).toEqual([{ model: 'second-pass' }])
   })
 })

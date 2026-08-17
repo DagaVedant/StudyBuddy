@@ -10,6 +10,7 @@ import { topics, userAiCredentials } from '@/lib/db/schema'
 import {
   generateLesson,
   getLesson,
+  getOwnLesson,
   lessonInput,
   storeLesson,
   type StoredLesson,
@@ -46,7 +47,7 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const existing = await getLesson(db, topicId)
+  const existing = await getLesson(db, topicId, userId)
   if (existing) {
     return NextResponse.json({ lesson: serialize(existing) })
   }
@@ -95,7 +96,7 @@ export async function POST(_request: Request, { params }: Params) {
   try {
     const generated = await generateLesson(db, provider, topicId)
 
-    const lesson = generated ?? (await getLesson(db, topicId))
+    const lesson = generated ?? (await getLesson(db, topicId, null))
     if (!lesson) {
       return NextResponse.json(
         { error: 'Could not generate that lesson. Try again.' },
@@ -167,7 +168,7 @@ export async function PUT(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const existing = await getLesson(db, topicId)
+  const existing = await getOwnLesson(db, topicId, userId)
   if (existing) {
     return NextResponse.json({ lesson: serialize(existing) })
   }
@@ -175,6 +176,7 @@ export async function PUT(request: Request, { params }: Params) {
   const lesson = await storeLesson(
     db,
     topicId,
+    userId,
     parsed.data.lesson,
     parsed.data.model ?? null,
   )

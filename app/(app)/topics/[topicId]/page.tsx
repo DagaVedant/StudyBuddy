@@ -40,7 +40,7 @@ export default async function TopicPage({
   if (!topic) notFound()
 
   const path = pathBySlug().get(topic.slug) ?? topic.name
-  const lesson = await getLesson(db, topicId)
+  const lesson = await getLesson(db, topicId, userId)
 
   const [tally] = await db
     .select({
