@@ -193,6 +193,24 @@ export const verificationTokens = pgTable(
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
 )
 
+export const passwordResetTokens = pgTable(
+  'password_reset_tokens',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    tokenHash: text('token_hash').notNull().unique(),
+
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+
+    createdAt: createdAt(),
+  },
+  (t) => [index('password_reset_tokens_user_idx').on(t.userId)],
+)
+
 export const userAiCredentials = pgTable(
   'user_ai_credentials',
   {

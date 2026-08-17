@@ -36,6 +36,27 @@ export const SIGNIN_EMAIL_LIMIT: LimitRule = {
   windowSeconds: 3600,
 }
 
+export const RESET_REQUEST_IP_LIMIT: LimitRule = {
+  action: 'reset-request-ip',
+  limit: 10,
+  windowSeconds: 3600,
+  failClosed: true,
+}
+
+export const RESET_REQUEST_EMAIL_LIMIT: LimitRule = {
+  action: 'reset-request-email',
+  limit: 5,
+  windowSeconds: 3600,
+  failClosed: true,
+}
+
+export const RESET_ATTEMPT_LIMIT: LimitRule = {
+  action: 'reset-attempt',
+  limit: 20,
+  windowSeconds: 3600,
+  failClosed: true,
+}
+
 export const UPLOAD_LIMIT: LimitRule = { action: 'upload', limit: 30, windowSeconds: 3600 }
 
 export const PAGE_UPLOAD_LIMIT: LimitRule = {

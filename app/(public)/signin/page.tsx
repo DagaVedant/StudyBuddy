@@ -84,6 +84,12 @@ function SignInForm() {
       </form>
 
       <p className="hint mt-6">
+        <Link href="/forgot" className="text-accent underline underline-offset-2">
+          Forgot your password?
+        </Link>
+      </p>
+
+      <p className="hint mt-2">
         No account?{' '}
         <Link href="/signup" className="text-accent underline underline-offset-2">
           Create one

@@ -131,6 +131,31 @@ test('a password signup cannot take an admin address', async ({ page }) => {
   await expect(page).toHaveURL(/\/signin/)
 })
 
+test('a forgotten password is reachable from sign in', async ({ page }) => {
+  await page.goto('/signin')
+  await visible(page).getByRole('link', { name: 'Forgot your password?' }).click()
+
+  await page.waitForURL(/\/forgot/)
+  await expect(visible(page).getByLabel('Email')).toBeVisible()
+})
+
+test('a deployment that cannot send email says so rather than promising a link', async ({
+  page,
+}) => {
+  await page.goto('/forgot')
+  await visible(page).getByLabel('Email').fill(uniqueEmail('forgot'))
+  await visible(page).getByRole('button', { name: 'Email me a link' }).click()
+
+  await expect(alertBox(page)).toContainText('cannot send email')
+})
+
+test('a reset link that was never issued is refused', async ({ page }) => {
+  await page.goto('/reset/not-a-real-token')
+
+  await expect(visible(page).getByRole('link', { name: 'Send me another' })).toBeVisible()
+  await expect(visible(page).getByLabel('New password')).toHaveCount(0)
+})
+
 test('the pitch offers a signed-in reader the dashboard', async ({ page }) => {
   await registerAndSignIn(page, `pitch-${Date.now()}@example.com`)
 

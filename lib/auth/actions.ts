@@ -10,11 +10,20 @@ import { AuthError } from 'next-auth'
 import { auth, signIn } from '@/auth'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
-import { SIGNUP_LIMIT, callerIp, consumeRateLimit } from '@/lib/rate-limit'
+import { mailConfigured, sendMail } from '@/lib/mail'
+import {
+  RESET_ATTEMPT_LIMIT,
+  RESET_REQUEST_EMAIL_LIMIT,
+  RESET_REQUEST_IP_LIMIT,
+  SIGNUP_LIMIT,
+  callerIp,
+  consumeRateLimit,
+} from '@/lib/rate-limit'
 
 import { isDisposableEmail } from './disposable'
 import { isAdminEmail, validateDob } from './policy'
 import { safeNextPath } from './redirect'
+import { consumeResetToken, findResetTarget, issueResetToken, resetLink } from './reset'
 
 export interface FormState {
   error?: string
@@ -127,6 +136,116 @@ export async function signInWithCredentials(
     }
     throw error
   }
+}
+
+const SENT =
+  'If that address has an account with a password, a link to set a new one is on its way. It works once, and for an hour.'
+
+const NO_MAIL =
+  'This deployment cannot send email, so there is no password reset. Sign in with Google, or ask whoever runs it.'
+
+/**
+ * The reply never changes: an address that has no account, an account that
+ * only signs in with Google, and an account that was mailed a link all get
+ * the same sentence, so the form cannot be used to find out who has signed up.
+ * What does change is a deployment with no mail configured at all, which is
+ * true of every account rather than any one of them.
+ */
+export async function requestPasswordReset(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (!mailConfigured()) return { error: NO_MAIL }
+
+  const email = String(formData.get('email') ?? '')
+    .trim()
+    .toLowerCase()
+
+  const ip = callerIp(await headers())
+  const byIp = await consumeRateLimit(db, RESET_REQUEST_IP_LIMIT, `ip:${ip}`)
+
+  if (!byIp.ok) {
+    return {
+      error: `Too many reset requests from this connection. Try again in ${waitFor(byIp.retryAfter)}.`,
+    }
+  }
+
+  if (!z.string().email().safeParse(email).success) {
+    return { error: 'Enter a valid email address.' }
+  }
+
+  const byEmail = await consumeRateLimit(db, RESET_REQUEST_EMAIL_LIMIT, `email:${email}`)
+  if (!byEmail.ok) return { message: SENT }
+
+  const [user] = await db
+    .select({ id: users.id, passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1)
+
+  if (!user?.passwordHash) return { message: SENT }
+
+  const token = await issueResetToken(db, user.id)
+
+  try {
+    await sendMail({
+      to: email,
+      subject: 'Set a new StudyBuddy password',
+      text:
+        `Open this link to set a new password:\n\n${resetLink(token)}\n\n` +
+        `It works once, and stops working in an hour. ` +
+        `If you did not ask for it, nothing has changed and you can ignore this.`,
+    })
+  } catch (error) {
+    console.error('[auth] could not send a reset link:', (error as Error).message)
+
+    return {
+      error: 'We could not send that email just now. Try again in a few minutes.',
+    }
+  }
+
+  return { message: SENT }
+}
+
+const resetSchema = z.object({
+  token: z.string().min(1),
+  password: z
+    .string()
+    .min(10, 'Use at least 10 characters.')
+    .max(200, 'That password is too long.'),
+})
+
+const DEAD_LINK =
+  'That link has expired or has already been used. Ask for a new one below.'
+
+export async function resetPassword(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const ip = callerIp(await headers())
+  const attempt = await consumeRateLimit(db, RESET_ATTEMPT_LIMIT, `ip:${ip}`)
+
+  if (!attempt.ok) {
+    return {
+      error: `Too many attempts from this connection. Try again in ${waitFor(attempt.retryAfter)}.`,
+    }
+  }
+
+  const parsed = resetSchema.safeParse({
+    token: formData.get('token'),
+    password: formData.get('password'),
+  })
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Check the form and try again.' }
+  }
+
+  const target = await findResetTarget(db, parsed.data.token)
+  if (!target) return { error: DEAD_LINK }
+
+  await consumeResetToken(db, target, await bcrypt.hash(parsed.data.password, 12))
+
+  return { message: 'Your password is set. Sign in with it below.' }
 }
 
 export async function submitDob(_prev: FormState, formData: FormData): Promise<FormState> {

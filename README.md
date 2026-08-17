@@ -35,7 +35,7 @@ The app runs at http://localhost:3000.
 
 | Command | Effect |
 |---|---|
-| `db:migrate` | Enables pgvector and creates 25 tables |
+| `db:migrate` | Enables pgvector and creates 26 tables |
 | `db:seed` | Loads 341 topics, 276 of them classifiable leaves |
 | `db:embed` | Computes topic embeddings, required for auto-classification |
 
@@ -53,6 +53,7 @@ The app runs at http://localhost:3000.
 | `CRON_SECRET` | production | Authorizes the scheduled queue drain |
 | `BLOB_READ_WRITE_TOKEN` | production | Page image storage. Without it images are written to local disk and lost on serverless |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google sign-in | OAuth client credentials |
+| `MAIL_FROM` and `BREVO_API_KEY` | password reset | Sender address and Brevo key. Unset disables reset cleanly |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and VAPID keys | web push | From `npm run gen:vapid`. Unset disables push cleanly |
 | `OLLAMA_VISION_MODEL` | GPU worker | Extraction model, `qwen2.5vl:7b` |
 | `OLLAMA_REVIEW_MODEL` | optional | Second-pass reviewer, `gpt-oss:20b` |
@@ -127,8 +128,23 @@ http://localhost:3000/api/auth/callback/google
 https://your-project.vercel.app/api/auth/callback/google
 ```
 
-There is no email provider configured, so Google is the only way to verify an
-address and there is no password reset.
+## Password reset
+
+Set `MAIL_FROM` to an address you can receive at and `BREVO_API_KEY` to a
+[Brevo](https://www.brevo.com) key. Brevo verifies a single sender address
+rather than a whole domain, which is what makes reset possible without owning
+one; its free tier sends 300 a day. Verify the address under Senders, generate
+an API key, and set both.
+
+Leave either unset and the reset screen says the deployment cannot send email,
+rather than promising a link that will never arrive. Google sign-in still works,
+and so does every account that has a password already.
+
+A link is a 32-byte token, stored only as a SHA-256 hash, good for one hour and
+one use. Spending one deletes every other outstanding link for that account, and
+sets `email_verified`, since reading the mail proves the address. Requests are
+limited per address and per connection, and the reply is the same sentence
+whether or not the address has an account.
 
 ## Sorting into topics
 
