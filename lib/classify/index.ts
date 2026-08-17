@@ -211,6 +211,14 @@ export async function applyClassification(
   }
 }
 
+async function embedOrNull(text: string): Promise<number[] | null> {
+  try {
+    return await embed(text)
+  } catch {
+    return null
+  }
+}
+
 export async function proposeTopic(
   db: Db,
   input: {
@@ -224,23 +232,26 @@ export async function proposeTopic(
   const name = input.name.trim().slice(0, 120)
   if (!name) return null
 
-  const vector = input.embedding ?? (await embed(name))
-  const literal = `[${vector.join(',')}]`
+  const vector = input.embedding ?? (await embedOrNull(name))
 
-  const [nearProposal] = await db
-    .select({
-      id: topicProposals.id,
-      distance: sql<number>`${topicProposals.embedding} <=> ${literal}::vector`,
-    })
-    .from(topicProposals)
-    .where(
-      and(eq(topicProposals.status, 'pending'), isNotNull(topicProposals.embedding)),
-    )
-    .orderBy(sql`${topicProposals.embedding} <=> ${literal}::vector`)
-    .limit(1)
+  if (vector) {
+    const literal = `[${vector.join(',')}]`
 
-  if (nearProposal && 1 - Number(nearProposal.distance) >= PROPOSAL_DEDUP_THRESHOLD) {
-    return nearProposal.id
+    const [nearProposal] = await db
+      .select({
+        id: topicProposals.id,
+        distance: sql<number>`${topicProposals.embedding} <=> ${literal}::vector`,
+      })
+      .from(topicProposals)
+      .where(
+        and(eq(topicProposals.status, 'pending'), isNotNull(topicProposals.embedding)),
+      )
+      .orderBy(sql`${topicProposals.embedding} <=> ${literal}::vector`)
+      .limit(1)
+
+    if (nearProposal && 1 - Number(nearProposal.distance) >= PROPOSAL_DEDUP_THRESHOLD) {
+      return nearProposal.id
+    }
   }
 
   const [row] = await db

@@ -106,15 +106,15 @@ async function runOneServerJob(
         db,
         job.worksheetId,
         error instanceof EmbeddingUnavailableError
-          ? UNTAGGED_REASON.classifierDown
+          ? UNTAGGED_REASON.browserPending
           : UNTAGGED_REASON.classifierFailed,
       )
 
       if (error instanceof EmbeddingUnavailableError) {
         console.error(
-          `[server-job] CLASSIFICATION IS OFF on this host: ${error.message}. ` +
-            `Worksheet ${job.worksheetId} is extracted but untagged, and so is ` +
-            `every other one until the embedding model can load here.`,
+          `[server-job] the embedding model will not load on this host: ${error.message}. ` +
+            `Worksheet ${job.worksheetId} is extracted but untagged, and so is every ` +
+            `other one until it loads. Sorting falls to the student's browser.`,
         )
       } else {
         console.error(

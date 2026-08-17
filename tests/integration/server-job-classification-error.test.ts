@@ -9,6 +9,7 @@ import { worksheetPages, worksheets } from '@/lib/db/schema'
 import { enqueueJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
 import { drainServerQueue } from '@/lib/worker/server-job'
+import { UNTAGGED_REASON } from '@/lib/worker/untagged'
 
 import { createTestDb, type TestDb } from '../helpers/db'
 import { makeUser, makeWorksheet } from '../helpers/factories'
@@ -96,7 +97,7 @@ describe('drainServerQueue records a classification failure the student can see'
     // work regardless of what classification could do, and failing the whole
     // job over it would take that away for nothing.
     expect(worksheet.status).toBe('awaiting_review')
-    expect(worksheet.classificationError).toContain('unavailable')
+    expect(worksheet.classificationError).toBe(UNTAGGED_REASON.browserPending)
   })
 
   it('leaves classificationError null when classification succeeds', async () => {

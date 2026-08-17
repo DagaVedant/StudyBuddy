@@ -106,6 +106,7 @@ const pages = await import('@/app/api/worksheets/[id]/pages/route')
 const pageLines = await import('@/app/api/worksheets/[id]/pages/[pageId]/lines/route')
 const questions = await import('@/app/api/worksheets/[id]/questions/route')
 const verifyAll = await import('@/app/api/worksheets/[id]/check-all/route')
+const classify = await import('@/app/api/worksheets/[id]/classify/route')
 
 const UNGATED_BY_DESIGN = new Set([
   '/api/auth/[...nextauth]',
@@ -227,6 +228,8 @@ const ROUTES: [string, Handler, string, never][] = [
   ['GET /api/worksheets/[id]/questions', questions.GET as Handler, 'GET', WS],
   ['POST /api/worksheets/[id]/questions', questions.POST as Handler, 'POST', WS],
   ['POST /api/worksheets/[id]/check-all', verifyAll.POST as Handler, 'POST', WS],
+  ['GET /api/worksheets/[id]/classify', classify.GET as Handler, 'GET', WS],
+  ['POST /api/worksheets/[id]/classify', classify.POST as Handler, 'POST', WS],
   [
     'GET /api/worksheets/[id]/pages/[pageId]/lines',
     pageLines.GET as Handler,

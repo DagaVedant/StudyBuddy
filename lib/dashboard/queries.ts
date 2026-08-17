@@ -146,18 +146,26 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
   }
 }
 
-export async function countUntaggedWorksheets(
+export const UNTAGGED_WORKSHEETS_SHOWN = 20
+
+export interface UntaggedWorksheet {
+  id: string
+  title: string
+}
+
+export async function listUntaggedWorksheets(
   db: Db,
   userId: string,
-): Promise<number> {
-  const [row] = await db
-    .select({ value: sql<number>`count(*)::int` })
+  limit = UNTAGGED_WORKSHEETS_SHOWN,
+): Promise<UntaggedWorksheet[]> {
+  return db
+    .select({ id: worksheets.id, title: worksheets.title })
     .from(worksheets)
     .where(
       and(eq(worksheets.userId, userId), isNotNull(worksheets.classificationError)),
     )
-
-  return Number(row?.value ?? 0)
+    .orderBy(desc(worksheets.createdAt))
+    .limit(limit)
 }
 
 export interface ForecastRow {
