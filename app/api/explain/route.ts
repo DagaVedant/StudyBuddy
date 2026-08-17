@@ -9,11 +9,31 @@ import { CHOICE_ORDER } from '@/lib/questions/sql'
 import { ProviderRefused, ProviderUnavailable } from '@/lib/ai/types'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
-import { answerChoices, attempts, explanations, questions } from '@/lib/db/schema'
-import { enqueueJob, pendingExplainJob } from '@/lib/queue'
+import {
+  answerChoices,
+  attempts,
+  explanations,
+  processingJobs,
+  questions,
+} from '@/lib/db/schema'
+import { enqueueJob, pendingExplainJob, workerStatus } from '@/lib/queue'
 import { EXPLAIN_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 
 const schema = z.object({ questionId: z.string().min(1) })
+
+async function writerStatus(
+  jobId: string,
+): Promise<{ runsHere: boolean; writerOnline: boolean }> {
+  const [job] = await db
+    .select({ executor: processingJobs.executor })
+    .from(processingJobs)
+    .where(eq(processingJobs.id, jobId))
+    .limit(1)
+
+  if (job?.executor === 'browser') return { runsHere: true, writerOnline: true }
+
+  return { runsHere: false, writerOnline: (await workerStatus(db)).online }
+}
 
 export async function GET(request: Request) {
   const session = await auth()
@@ -54,7 +74,9 @@ export async function GET(request: Request) {
     question.id,
   )
 
-  return NextResponse.json({ status: pending ? 'queued' : 'none' })
+  if (!pending) return NextResponse.json({ status: 'none' })
+
+  return NextResponse.json({ status: 'queued', ...(await writerStatus(pending)) })
 }
 
 export async function POST(request: Request) {
@@ -149,7 +171,7 @@ export async function POST(request: Request) {
       }))
 
     return NextResponse.json(
-      { status: 'queued', jobId, runsHere: executor === 'browser' },
+      { status: 'queued', jobId, ...(await writerStatus(jobId)) },
       { status: 202 },
     )
   }

@@ -236,5 +236,7 @@ and a script with no terminal aborts rather than hanging.
 - Rate limiting covers signup, sign-in, upload, explain, reports and
   question-writes. Session-authenticated routes touching only the caller's own
   rows are unbounded.
-- Trial explanations are queued and require the GPU worker to be running.
+- Trial explanations are queued and require the GPU worker to be running. When
+  it is not, the review screen says so before and after the ask rather than
+  spinning.
 - AI-generated practice questions are not implemented.

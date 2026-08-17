@@ -24,6 +24,18 @@ const EXPLAIN_FIRST_WAIT_MS = 1_000
 const EXPLAIN_MAX_WAIT_MS = 15_000
 const EXPLAIN_BACKOFF = 1.6
 
+const WRITER_OFFLINE =
+  'The machine that writes these is not running right now, so this one has not ' +
+  'started. Your request is saved and the explanation appears here once it is back.'
+
+const WRITER_OFFLINE_AHEAD =
+  'The machine that writes these is offline right now. Asking queues the ' +
+  'explanation rather than writing it, and it appears here once it is back.'
+
+const WRITER_SLOW =
+  'This one is taking longer than usual. It is still queued, and it appears here ' +
+  'once it is written.'
+
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
@@ -48,9 +60,11 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 export default function ReviewSession({
   items,
   topicName,
+  writerOffline = false,
 }: {
   items: ReviewItem[]
   topicName?: string | null
+  writerOffline?: boolean
 }) {
   const router = useRouter()
 
@@ -61,6 +75,7 @@ export default function ReviewSession({
   const [done, setDone] = useState(0)
   const [explaining, setExplaining] = useState(false)
   const [explainError, setExplainError] = useState<string | null>(null)
+  const [explainNotice, setExplainNotice] = useState<string | null>(null)
   const [generated, setGenerated] = useState<Record<string, string>>({})
   const [refreshing, setRefreshing] = useState(false)
 
@@ -83,7 +98,7 @@ export default function ReviewSession({
   async function waitForExplanation(
     questionId: string,
     signal: AbortSignal,
-  ): Promise<string> {
+  ): Promise<{ text: string } | { waiting: string }> {
     const deadline = Date.now() + EXPLAIN_DEADLINE_MS
     let wait = EXPLAIN_FIRST_WAIT_MS
 
@@ -98,18 +113,23 @@ export default function ReviewSession({
       const body = (await response.json()) as {
         status?: 'ready' | 'queued' | 'none'
         explanation?: { body: string }
+        writerOnline?: boolean
       }
 
-      if (body.status === 'ready' && body.explanation) return body.explanation.body
+      if (body.status === 'ready' && body.explanation) {
+        return { text: body.explanation.body }
+      }
 
       if (body.status === 'none') {
         throw new Error('That explanation did not come through. Try again.')
       }
+
+      if (body.status === 'queued' && body.writerOnline === false) {
+        return { waiting: WRITER_OFFLINE }
+      }
     }
 
-    throw new Error(
-      'The tutor is taking longer than usual. It will be here when you come back to this question.',
-    )
+    return { waiting: WRITER_SLOW }
   }
 
   async function explain(entry: ReviewItem) {
@@ -119,6 +139,7 @@ export default function ReviewSession({
 
     setExplaining(true)
     setExplainError(null)
+    setExplainNotice(null)
 
     try {
       const response = await fetchJson('/api/explain', {
@@ -131,16 +152,27 @@ export default function ReviewSession({
         explanation?: { body: string }
         status?: string
         error?: string
+        writerOnline?: boolean
       }
       if (!response.ok && response.status !== 202) {
         throw new Error(body.error ?? 'Could not generate that.')
       }
 
-      const text =
-        body.explanation?.body ??
-        (await waitForExplanation(entry.questionId, controller.signal))
+      if (body.status === 'queued' && body.writerOnline === false) {
+        setExplainNotice(WRITER_OFFLINE)
+        return
+      }
 
-      setGenerated((current) => ({ ...current, [entry.questionId]: text }))
+      const result = body.explanation
+        ? { text: body.explanation.body }
+        : await waitForExplanation(entry.questionId, controller.signal)
+
+      if ('waiting' in result) {
+        setExplainNotice(result.waiting)
+        return
+      }
+
+      setGenerated((current) => ({ ...current, [entry.questionId]: result.text }))
     } catch (cause) {
       if (controller.signal.aborted) return
       setExplainError((cause as Error).message)
@@ -434,11 +466,14 @@ export default function ReviewSession({
                     disabled={explaining}
                     onClick={() => void explain(item)}
                   >
-                    {explaining ? 'Writing…' : 'Explain this'}
+                    {explaining ? 'Writing…' : writerOffline ? 'Ask for one' : 'Explain this'}
                   </button>
                   <p aria-live="polite" className="hint">
                     {explainError ??
-                      'Generated once, then saved. It uses your answer to target the mistake.'}
+                      explainNotice ??
+                      (writerOffline
+                        ? WRITER_OFFLINE_AHEAD
+                        : 'Generated once, then saved. It uses your answer to target the mistake.')}
                   </p>
                 </div>
               )}
