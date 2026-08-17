@@ -9,7 +9,7 @@ import {
   getRecentWorksheets,
   getReviewForecast,
   getTopicStats,
-  countUntaggedWorksheets,
+  listUntaggedWorksheets,
 } from '@/lib/dashboard/queries'
 import type { Db } from '@/lib/db/types'
 import { attempts, reviewCards, worksheets } from '@/lib/db/schema'
@@ -469,23 +469,23 @@ describe('the panels that were missing', () => {
   })
 })
 
-describe('countUntaggedWorksheets', () => {
-  it('counts the worksheets that finished with no topics', async () => {
+describe('listUntaggedWorksheets', () => {
+  it('lists the worksheets that finished with no topics', async () => {
     const userId = await makeUser(db)
     const untagged = await makeWorksheet(db, userId)
     await makeWorksheet(db, userId)
 
-    expect(await countUntaggedWorksheets(db as Db, userId)).toBe(0)
+    expect(await listUntaggedWorksheets(db as Db, userId)).toHaveLength(0)
 
     await db
       .update(worksheets)
       .set({ classificationError: UNTAGGED_REASON.classifierDown })
       .where(eq(worksheets.id, untagged))
 
-    expect(await countUntaggedWorksheets(db as Db, userId)).toBe(1)
+    expect(await listUntaggedWorksheets(db as Db, userId)).toHaveLength(1)
   })
 
-  it('counts only this student’s', async () => {
+  it('lists only this student’s', async () => {
     const mine = await makeUser(db)
     const theirs = await makeUser(db)
     const theirSheet = await makeWorksheet(db, theirs)
@@ -495,7 +495,7 @@ describe('countUntaggedWorksheets', () => {
       .set({ classificationError: UNTAGGED_REASON.classifierDown })
       .where(eq(worksheets.id, theirSheet))
 
-    expect(await countUntaggedWorksheets(db as Db, mine)).toBe(0)
+    expect(await listUntaggedWorksheets(db as Db, mine)).toHaveLength(0)
   })
 
   it('reads the same column Tier C writes when it finishes', async () => {
@@ -504,7 +504,7 @@ describe('countUntaggedWorksheets', () => {
 
     await recordUntagged(db as Db, worksheetId, UNTAGGED_REASON.tierCUnsupported)
 
-    expect(await countUntaggedWorksheets(db as Db, userId)).toBe(1)
+    expect(await listUntaggedWorksheets(db as Db, userId)).toHaveLength(1)
 
     const [row] = await db
       .select({ reason: worksheets.classificationError })

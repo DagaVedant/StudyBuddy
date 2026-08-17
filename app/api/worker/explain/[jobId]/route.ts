@@ -1,10 +1,10 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
-import { CHOICE_ORDER } from '@/lib/questions/sql'
-import { answerChoices, attempts, processingJobs, questions } from '@/lib/db/schema'
+import { processingJobs } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
+import { explainInput } from '@/lib/worker/explain-input'
 
 type Params = { params: Promise<{ jobId: string }> }
 
@@ -31,41 +31,10 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Job names no question' }, { status: 400 })
   }
 
-  const [question] = await db
-    .select()
-    .from(questions)
-    .where(and(eq(questions.id, questionId), eq(questions.userId, job.userId)))
-    .limit(1)
-
-  if (!question) {
+  const input = await explainInput(db, job.userId, questionId)
+  if (!input) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const choices = await db
-    .select()
-    .from(answerChoices)
-    .where(eq(answerChoices.questionId, question.id))
-    .orderBy(...CHOICE_ORDER)
-
-  const [lastAttempt] = await db
-    .select()
-    .from(attempts)
-    .where(and(eq(attempts.userId, job.userId), eq(attempts.questionId, question.id)))
-    .orderBy(desc(attempts.createdAt))
-    .limit(1)
-
-  const studentAnswer =
-    choices.find((choice) => choice.id === lastAttempt?.selectedChoiceId)?.label ??
-    lastAttempt?.freeTextAnswer ??
-    null
-
-  return NextResponse.json({
-    questionId: question.id,
-    attemptId: lastAttempt?.id ?? null,
-    promptText: question.promptText,
-    choices: choices.map((choice) => ({ label: choice.label, text: choice.text })),
-    correctAnswer:
-      choices.find((choice) => choice.isCorrect)?.label ?? question.correctAnswer,
-    studentAnswer,
-  })
+  return NextResponse.json(input)
 }

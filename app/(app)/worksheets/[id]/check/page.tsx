@@ -2,6 +2,9 @@ import { and, eq } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import { getCredentialSummary } from '@/lib/ai/resolve'
+import { isCloudProvider } from '@/lib/ai/providers'
+import TopicSorter from '@/components/topic-sorter'
 import { db } from '@/lib/db'
 import { worksheetPages, worksheets } from '@/lib/db/schema'
 import { evidenceFor } from '@/lib/questions/evidence'
@@ -33,7 +36,7 @@ export default async function CheckPage({ params }: Params) {
 
   if (!worksheet) notFound()
 
-  const [shaped, duplicates, pageRows] = await Promise.all([
+  const [shaped, duplicates, pageRows, credentials] = await Promise.all([
     loadQuestionsWithChoices(db, id),
     findLibraryDuplicates(db, session.user.id, id),
     db
@@ -45,7 +48,10 @@ export default async function CheckPage({ params }: Params) {
       })
       .from(worksheetPages)
       .where(eq(worksheetPages.worksheetId, id)),
+    getCredentialSummary(db, session.user.id),
   ])
+
+  const canSortHere = credentials.some((row) => isCloudProvider(row.provider))
 
   const duplicateFor = new Map(duplicates.map((row) => [row.questionId, row]))
   const pageFor = new Map(pageRows.map((page) => [page.id, page]))
@@ -92,13 +98,23 @@ export default async function CheckPage({ params }: Params) {
       </p>
 
       {worksheet.classificationError && (
-        <p
-          role="alert"
-          className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution"
-        >
-          {worksheet.classificationError} Your answers still count once you mark
-          this worksheet; they just will not show up sorted by topic.
-        </p>
+        <div className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution">
+          <p role="alert">
+            {worksheet.classificationError}{' '}
+            {canSortHere
+              ? 'Until they are sorted, your answers still count; they just will not show up by topic.'
+              : 'Your answers still count once you mark this worksheet; they just will not show up sorted by topic.'}
+          </p>
+
+          {canSortHere && (
+            <div className="mt-3">
+              <TopicSorter
+                worksheets={[{ id: worksheet.id, title: worksheet.title }]}
+                label="Sort these into topics"
+              />
+            </div>
+          )}
+        </div>
       )}
 
       <CheckClient worksheetId={worksheet.id} questions={ordered} />

@@ -20,11 +20,12 @@ async function main(): Promise<void> {
   const sql = openDatabase()
 
   const rows = (await sql`
-    select t.id as topic_id, t.name, l.model, l.body_md, l.examples, l.common_errors
+    select l.id as lesson_id, t.name, l.model, l.body_md, l.examples, l.common_errors
     from topic_lessons l join topics t on t.id = l.topic_id
+    where l.user_id is null
     order by t.name
   `) as unknown as {
-    topic_id: string
+    lesson_id: string
     name: string
     model: string | null
     body_md: string
@@ -44,7 +45,7 @@ async function main(): Promise<void> {
       const left = COLLECTED.filter((c) => c.pattern.test(trimmed)).map((c) => c.label)
 
       if (trimmed.length > 0 && left.length === 0) {
-        await sql`update topic_lessons set body_md = ${trimmed} where topic_id = ${row.topic_id}`
+        await sql`update topic_lessons set body_md = ${trimmed} where id = ${row.lesson_id}`
         note = ` (repaired, ${row.body_md.length} -> ${trimmed.length} chars, dropped ${hits.join(', ')})`
         fixed += 1
         hits = []

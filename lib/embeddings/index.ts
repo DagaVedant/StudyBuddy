@@ -3,8 +3,13 @@ import path from 'node:path'
 
 import type { FeatureExtractionPipeline } from '@huggingface/transformers'
 
-export const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
-export const EMBEDDING_DIMENSIONS = 384
+import {
+  EMBEDDING_DIMENSIONS,
+  EMBEDDING_INPUT_LIMIT,
+  EMBEDDING_MODEL,
+} from './model'
+
+export { EMBEDDING_DIMENSIONS, EMBEDDING_INPUT_LIMIT, EMBEDDING_MODEL }
 
 const VENDORED = path.join(process.cwd(), 'models')
 
@@ -41,7 +46,7 @@ export async function embed(text: string): Promise<number[]> {
 
   const extractor = await getExtractor()
 
-  const output = await extractor(trimmed.slice(0, 2000), {
+  const output = await extractor(trimmed.slice(0, EMBEDDING_INPUT_LIMIT), {
     pooling: 'mean',
     normalize: true,
   })

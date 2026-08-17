@@ -3,8 +3,10 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import { resolveProvider } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { topics } from '@/lib/db/schema'
+import { workerStatus } from '@/lib/queue'
 import { countReviewQueue, getDueCards } from '@/lib/review/queue'
 
 import ReviewSession from './review-client'
@@ -34,10 +36,14 @@ export default async function ReviewPage({
 
   const topicId = topic?.id ?? null
 
-  const [queue, waiting] = await Promise.all([
+  const [queue, waiting, resolved] = await Promise.all([
     getDueCards(db, session.user.id, SITTING, new Date(), topicId),
     countReviewQueue(db, session.user.id, new Date(), topicId),
+    resolveProvider(db, session.user.id),
   ])
+
+  const writerOffline =
+    resolved.executor === 'operator_gpu' && !(await workerStatus(db)).online
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
@@ -71,7 +77,11 @@ export default async function ReviewPage({
         </p>
       )}
 
-      <ReviewSession items={queue} topicName={topic?.name ?? null} />
+      <ReviewSession
+        items={queue}
+        topicName={topic?.name ?? null}
+        writerOffline={writerOffline}
+      />
     </main>
   )
 }

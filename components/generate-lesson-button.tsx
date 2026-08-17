@@ -3,12 +3,46 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import { OllamaProvider } from '@/lib/ai/ollama'
+import type { LessonInput } from '@/lib/ai/types'
+import { validated } from '@/lib/ai/validated'
 import { fetchJson } from '@/lib/client/fetch-json'
+
+interface LessonResponse {
+  error?: string
+  runsHere?: boolean
+  input?: LessonInput
+  ollama?: { baseUrl: string; textModel: string }
+}
 
 export default function GenerateLessonButton({ topicId }: { topicId: string }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  async function writeHere(input: LessonInput, ollama: { baseUrl: string; textModel: string }) {
+    const provider = validated(
+      new OllamaProvider({
+        baseUrl: ollama.baseUrl,
+        visionModel: ollama.textModel,
+        textModel: ollama.textModel,
+        executionSite: 'browser',
+      }),
+    )
+
+    const lesson = await provider.teachTopic(input)
+
+    const stored = await fetchJson(`/api/topics/${topicId}/lesson`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lesson, model: ollama.textModel }),
+    })
+
+    if (!stored.ok) {
+      const detail = (await stored.json().catch(() => ({}))) as { error?: string }
+      throw new Error(detail.error ?? 'Could not save that lesson. Try again.')
+    }
+  }
 
   async function generate() {
     setBusy(true)
@@ -18,10 +52,14 @@ export default function GenerateLessonButton({ topicId }: { topicId: string }) {
       const response = await fetchJson(`/api/topics/${topicId}/lesson`, {
         method: 'POST',
       })
-      const body = (await response.json().catch(() => ({}))) as { error?: string }
+      const body = (await response.json().catch(() => ({}))) as LessonResponse
 
       if (!response.ok) {
         throw new Error(body.error ?? 'Could not generate that lesson. Try again.')
+      }
+
+      if (body.runsHere && body.input && body.ollama) {
+        await writeHere(body.input, body.ollama)
       }
 
       router.refresh()

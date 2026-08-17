@@ -63,7 +63,7 @@ export async function POST(request: Request, { params }: Params) {
     case 'explanation':
       return handleExplanation(db, job, body)
     case 'solution':
-      return handleSolution(db, job, body)
+      return handleSolution(db, jobId, job, body)
     case 'complete':
       return handleComplete(db, jobId, job)
     case 'page_result':

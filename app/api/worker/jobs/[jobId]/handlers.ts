@@ -11,7 +11,7 @@ import {
   questions,
   worksheetPages,
 } from '@/lib/db/schema'
-import { checkpointJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
+import { checkpointJob, completeJob, enqueueJob, failJob, touchJob } from '@/lib/queue'
 import { CHOICE_ORDER } from '@/lib/questions/sql'
 import { notifyWorksheet } from '@/lib/notifications/worksheet'
 import { transitionWorksheet } from '@/lib/upload/claim'
@@ -153,6 +153,7 @@ export async function handleExplanation(
 
 export async function handleSolution(
   db: Db,
+  jobId: string,
   job: Job,
   body: Action<'solution'>,
 ): Promise<NextResponse> {
@@ -197,6 +198,8 @@ export async function handleSolution(
     answerSource: question.answerSource,
   })
 
+  await touchJob(db, jobId)
+
   return NextResponse.json({ ok: true, promoted })
 }
 
@@ -221,7 +224,7 @@ export async function handleComplete(
     await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_ready')
   }
 
-  if (job.stage === 'extract' && job.executor !== 'browser') {
+  if (job.stage === 'extract') {
     await enqueueJob(db, {
       worksheetId: job.worksheetId,
       userId: job.userId,

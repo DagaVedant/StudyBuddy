@@ -67,12 +67,14 @@ only determines how questions come off the page.
 | 0 (Trial) | nothing | Operator GPU, 3 worksheets lifetime | 20 |
 | A (Free) | nothing | Manual editor and browser OCR | none |
 | B (Cloud key) | Anthropic or OpenAI key | Server-side vision model | unlimited |
-| C (Ollama) | Ollama running locally | Student's own GPU, in-browser | not supported |
+| C (Ollama) | Ollama running locally | Student's own GPU, in-browser | Student's own GPU, in-browser |
 
-Tier C runs extraction in the browser against `localhost:11434`, so the tab must
-stay open. Reading is checkpointed per page and resumes rather than restarts.
-Ollama requires `OLLAMA_ORIGINS` set to the app's URL; the settings screen
-provides the command and a connection test.
+Tier C runs in the browser against `localhost:11434`, so the tab must stay open.
+Extraction, the derived answer key, explanations and topic lessons all go the
+same way. Reading is checkpointed per page and the answer pass asks the server
+what is still unsolved, so both resume rather than restart. Ollama requires
+`OLLAMA_ORIGINS` set to the app's URL; the settings screen provides the command
+and a connection test.
 
 ## Commands
 
@@ -117,6 +119,29 @@ https://your-project.vercel.app/api/auth/callback/google
 
 There is no email provider configured, so Google is the only way to verify an
 address and there is no password reset.
+
+## Sorting into topics
+
+Topic accuracy, the weakness ranking and the topic tree all need every question
+tagged with a leaf topic. Tagging takes two things: a 384d MiniLM embedding of
+the question, and one small model call to pick from the 25 nearest leaves.
+
+Only the embedding needs the model. The shortlist is a pgvector query and the
+pick is a text call, so both stay on the server, and the vector is the one piece
+that can be computed anywhere.
+
+- Tier 0 and the operator GPU embed in the worker process.
+- Tier B embeds in the student's browser. The extraction pass tries the server
+  first and falls back when the runtime will not load the model there, which is
+  the case on serverless. `POST /api/worksheets/:id/classify` takes the vectors,
+  shortlists against them and spends the student's own key on the pick. The key
+  never leaves the server.
+- Tier A and Tier C are untagged. Topics can still be set by hand in the editor.
+
+The browser model is MiniLM under WebAssembly, about 23MB, fetched once from the
+Hugging Face hub and then cached by the browser, the same way Tier A's OCR
+fetches its own weights. Sorting is resumable: an already-tagged question is not
+offered again, so closing the tab costs only the batch in flight.
 
 ## GPU worker
 
@@ -202,13 +227,16 @@ and a script with no terminal aborts rather than hanging.
 
 ## Limitations
 
-- Tier C supports extraction only. Derived answer keys, explanations and lessons
-  are not implemented for it.
-- Tier B uploads are not auto-classified. The embedding model requires a native
-  runtime unavailable on serverless. Questions are saved and reviewable but
-  untagged, and the UI reports this.
+- Tier C questions are not sorted into topics. Everything else it produces is
+  the same as the other tiers.
+- Tier B classification is not automatic on serverless. The embedding model
+  requires a native runtime the host does not have, so the extraction pass
+  leaves the worksheet untagged and the student sorts it from the dashboard or
+  the check screen with one click. See "Sorting into topics" below.
 - Rate limiting covers signup, sign-in, upload, explain, reports and
   question-writes. Session-authenticated routes touching only the caller's own
   rows are unbounded.
-- Trial explanations are queued and require the GPU worker to be running.
+- Trial explanations are queued and require the GPU worker to be running. When
+  it is not, the review screen says so before and after the ask rather than
+  spinning.
 - AI-generated practice questions are not implemented.

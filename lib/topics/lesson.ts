@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 
-import type { AIProvider } from '@/lib/ai/types'
+import type { AIProvider, Lesson, LessonInput } from '@/lib/ai/types'
 import { questionTopics, questions, topicLessons, topics } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 import { pathBySlug } from '@/lib/taxonomy/trees'
@@ -16,7 +16,17 @@ export interface StoredLesson {
   generatedAt: Date
 }
 
-export async function getLesson(db: Db, topicId: string): Promise<StoredLesson | null> {
+function ownedBy(userId: string | null) {
+  return userId === null
+    ? isNull(topicLessons.userId)
+    : eq(topicLessons.userId, userId)
+}
+
+async function lessonFor(
+  db: Db,
+  topicId: string,
+  userId: string | null,
+): Promise<StoredLesson | null> {
   const [row] = await db
     .select({
       bodyMd: topicLessons.bodyMd,
@@ -26,7 +36,7 @@ export async function getLesson(db: Db, topicId: string): Promise<StoredLesson |
       generatedAt: topicLessons.generatedAt,
     })
     .from(topicLessons)
-    .where(eq(topicLessons.topicId, topicId))
+    .where(and(eq(topicLessons.topicId, topicId), ownedBy(userId)))
     .limit(1)
 
   if (!row) return null
@@ -40,17 +50,26 @@ export async function getLesson(db: Db, topicId: string): Promise<StoredLesson |
   }
 }
 
-export async function generateLesson(
+export async function getOwnLesson(
   db: Db,
-  provider: AIProvider,
   topicId: string,
-  options: { force?: boolean } = {},
+  userId: string,
 ): Promise<StoredLesson | null> {
-  if (!options.force) {
-    const existing = await getLesson(db, topicId)
-    if (existing) return null
-  }
+  return lessonFor(db, topicId, userId)
+}
 
+export async function getLesson(
+  db: Db,
+  topicId: string,
+  userId: string | null,
+): Promise<StoredLesson | null> {
+  const canonical = await lessonFor(db, topicId, null)
+  if (canonical || userId === null) return canonical
+
+  return lessonFor(db, topicId, userId)
+}
+
+export async function lessonInput(db: Db, topicId: string): Promise<LessonInput> {
   const [topic] = await db
     .select({ name: topics.name, slug: topics.slug })
     .from(topics)
@@ -59,33 +78,69 @@ export async function generateLesson(
 
   if (!topic) throw new Error(`No topic ${topicId}`)
 
-  const lesson = await provider.teachTopic({
+  return {
     topicName: topic.name,
     topicPath: pathBySlug().get(topic.slug) ?? topic.name,
     samples: await sampleQuestions(db, topicId),
-  })
+  }
+}
 
+export async function storeLesson(
+  db: Db,
+  topicId: string,
+  userId: string | null,
+  lesson: Lesson,
+  model: string | null,
+): Promise<StoredLesson> {
   const values = {
     topicId,
+    userId,
     bodyMd: trimLessonBody(lesson.body_md),
     examples: lesson.examples,
     commonErrors: lesson.common_errors,
     provider: null,
-    model: provider.answeringModel,
+    model,
   }
+
+  const conflict =
+    userId === null
+      ? {
+          target: topicLessons.topicId,
+          targetWhere: isNull(topicLessons.userId),
+        }
+      : {
+          target: [topicLessons.topicId, topicLessons.userId],
+          targetWhere: isNotNull(topicLessons.userId),
+        }
 
   await db
     .insert(topicLessons)
     .values(values)
-    .onConflictDoUpdate({ target: topicLessons.topicId, set: values })
+    .onConflictDoUpdate({ ...conflict, set: values })
 
   return {
     bodyMd: values.bodyMd,
     examples: lesson.examples,
     commonErrors: lesson.common_errors,
-    model: provider.answeringModel,
+    model,
     generatedAt: new Date(),
   }
+}
+
+export async function generateLesson(
+  db: Db,
+  provider: AIProvider,
+  topicId: string,
+  options: { force?: boolean } = {},
+): Promise<StoredLesson | null> {
+  if (!options.force) {
+    const existing = await getLesson(db, topicId, null)
+    if (existing) return null
+  }
+
+  const lesson = await provider.teachTopic(await lessonInput(db, topicId))
+
+  return storeLesson(db, topicId, null, lesson, provider.answeringModel)
 }
 
 async function sampleQuestions(db: Db, topicId: string): Promise<string[]> {
@@ -116,7 +171,11 @@ export async function topicsNeedingLessons(
     .where(
       options.includeWritten
         ? sql`true`
-        : sql`not exists (select 1 from ${topicLessons} where ${topicLessons.topicId} = ${topics.id})`,
+        : sql`not exists (
+            select 1 from ${topicLessons}
+            where ${topicLessons.topicId} = ${topics.id}
+              and ${topicLessons.userId} is null
+          )`,
     )
     .groupBy(topics.id, topics.name)
     .orderBy(desc(sql`count(*)`), asc(topics.name))

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, isNull } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -64,6 +64,7 @@ export async function POST(request: Request) {
       .values({ topicId: topic.id, bodyMd, examples, commonErrors, model })
       .onConflictDoUpdate({
         target: topicLessons.topicId,
+        targetWhere: isNull(topicLessons.userId),
         set: { bodyMd, examples, commonErrors, model },
       })
   }

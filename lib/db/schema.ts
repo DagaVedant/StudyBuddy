@@ -476,8 +476,8 @@ export const topicLessons = pgTable(
     id: id(),
     topicId: text('topic_id')
       .notNull()
-      .references(() => topics.id, { onDelete: 'cascade' })
-      .unique(),
+      .references(() => topics.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
 
     bodyMd: text('body_md').notNull(),
     examples: jsonb('examples').$type<
@@ -491,7 +491,18 @@ export const topicLessons = pgTable(
     model: text('model'),
     generatedAt: createdAt(),
   },
-  (t) => [index('topic_lessons_topic_idx').on(t.topicId)],
+  (t) => [
+    uniqueIndex('topic_lessons_canonical_once')
+      .on(t.topicId)
+      .where(sql`${t.userId} is null`),
+
+    uniqueIndex('topic_lessons_per_user_once')
+      .on(t.topicId, t.userId)
+      .where(sql`${t.userId} is not null`),
+
+    index('topic_lessons_topic_idx').on(t.topicId),
+    index('topic_lessons_user_idx').on(t.userId),
+  ],
 )
 
 export const reports = pgTable(

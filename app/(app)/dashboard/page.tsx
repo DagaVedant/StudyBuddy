@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation'
 import { ViewTransition } from 'react'
 
 import { auth } from '@/auth'
-import { getAiStatus, shouldOfferAiSetup } from '@/lib/ai/resolve'
+import { getAiStatus, getCredentialSummary, shouldOfferAiSetup } from '@/lib/ai/resolve'
+import { isCloudProvider } from '@/lib/ai/providers'
 import AiSetupPrompt from '@/components/ai-setup-prompt'
+import TopicSorter from '@/components/topic-sorter'
 import { AccuracyLabel, Meter } from '@/components/meter'
 import { countMissedQuestions } from '@/lib/blooket/missed'
 import { db } from '@/lib/db'
@@ -17,7 +19,7 @@ import {
   getOverview,
   getRecentWorksheets,
   getReviewForecast,
-  countUntaggedWorksheets,
+  listUntaggedWorksheets,
   getStudyStreak,
   getTopicStats,
 } from '@/lib/dashboard/queries'
@@ -91,6 +93,7 @@ export default async function DashboardPage() {
     aiStatus,
     topicRows,
     untagged,
+    credentials,
   ] = await Promise.all([
     getOverview(db, userId),
     getTopicStats(db, userId),
@@ -103,8 +106,11 @@ export default async function DashboardPage() {
     getStudyStreak(db, userId),
     getAiStatus(db, userId),
     db.select({ id: topics.id, slug: topics.slug }).from(topics),
-    countUntaggedWorksheets(db, userId),
+    listUntaggedWorksheets(db, userId),
+    getCredentialSummary(db, userId),
   ])
+
+  const canSortHere = credentials.some((row) => isCloudProvider(row.provider))
 
   const paths = pathBySlug()
 
@@ -218,21 +224,36 @@ export default async function DashboardPage() {
             >
               {weakest.length === 0 ? (
                 <Empty>
-                  {untagged > 0 ? (
+                  {untagged.length > 0 ? (
                     <>
-                      {untagged === 1
+                      {untagged.length === 1
                         ? 'One of your worksheets '
-                        : `${untagged} of your worksheets `}
+                        : `${untagged.length} of your worksheets `}
                       finished without topics assigned, so nothing from{' '}
-                      {untagged === 1 ? 'it' : 'them'} can be ranked here. Open{' '}
-                      {untagged === 1 ? 'it' : 'one'} from{' '}
-                      <Link
-                        href="/worksheets"
-                        className="text-accent underline underline-offset-2"
-                      >
-                        your worksheets
-                      </Link>{' '}
-                      to see why.
+                      {untagged.length === 1 ? 'it' : 'them'} can be ranked here.{' '}
+                      {canSortHere ? (
+                        <span className="mt-3 block">
+                          <TopicSorter
+                            worksheets={untagged}
+                            label={
+                              untagged.length === 1
+                                ? 'Sort it into topics'
+                                : 'Sort them into topics'
+                            }
+                          />
+                        </span>
+                      ) : (
+                        <>
+                          Open {untagged.length === 1 ? 'it' : 'one'} from{' '}
+                          <Link
+                            href="/worksheets"
+                            className="text-accent underline underline-offset-2"
+                          >
+                            your worksheets
+                          </Link>{' '}
+                          to see why.
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
