@@ -1,12 +1,19 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 
 import { auth } from '@/auth'
 import { resolveProvider } from '@/lib/ai/resolve'
-import { ProviderRefused, ProviderUnavailable } from '@/lib/ai/types'
+import { ProviderRefused, ProviderUnavailable, lessonSchema } from '@/lib/ai/types'
 import { db } from '@/lib/db'
-import { topics } from '@/lib/db/schema'
-import { generateLesson, getLesson, type StoredLesson } from '@/lib/topics/lesson'
+import { topics, userAiCredentials } from '@/lib/db/schema'
+import {
+  generateLesson,
+  getLesson,
+  lessonInput,
+  storeLesson,
+  type StoredLesson,
+} from '@/lib/topics/lesson'
 
 type Params = { params: Promise<{ topicId: string }> }
 
@@ -54,14 +61,35 @@ export async function POST(_request: Request, { params }: Params) {
   }
 
   if (executor === 'browser') {
-    return NextResponse.json(
-      {
-        error:
-          'Ollama reads your worksheets, but it does not write lessons yet. ' +
-          'Add a cloud API key in settings if you want those.',
+    const [credential] = await db
+      .select({
+        baseUrl: userAiCredentials.ollamaBaseUrl,
+        textModel: userAiCredentials.modelName,
+      })
+      .from(userAiCredentials)
+      .where(
+        and(
+          eq(userAiCredentials.userId, userId),
+          eq(userAiCredentials.provider, 'ollama'),
+        ),
+      )
+      .limit(1)
+
+    if (!credential?.baseUrl) {
+      return NextResponse.json(
+        { error: 'No Ollama is configured. Connect one in settings.' },
+        { status: 409 },
+      )
+    }
+
+    return NextResponse.json({
+      runsHere: true,
+      input: await lessonInput(db, topicId),
+      ollama: {
+        baseUrl: credential.baseUrl,
+        textModel: credential.textModel ?? 'qwen2.5vl:7b',
       },
-      { status: 501 },
-    )
+    })
   }
 
   try {
@@ -99,4 +127,57 @@ export async function POST(_request: Request, { params }: Params) {
       { status: 502 },
     )
   }
+}
+
+const storedSchema = z.object({
+  lesson: lessonSchema,
+  model: z.string().max(200).nullish(),
+})
+
+export async function PUT(request: Request, { params }: Params) {
+  const { topicId } = await params
+
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const userId = session.user.id
+
+  const [topic] = await db
+    .select({ id: topics.id })
+    .from(topics)
+    .where(eq(topics.id, topicId))
+    .limit(1)
+
+  if (!topic) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const { executor } = await resolveProvider(db, userId)
+
+  if (executor !== 'browser') {
+    return NextResponse.json(
+      { error: 'Lessons are written on the server for this account.' },
+      { status: 409 },
+    )
+  }
+
+  const parsed = storedSchema.safeParse(await request.json().catch(() => ({})))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
+
+  const existing = await getLesson(db, topicId)
+  if (existing) {
+    return NextResponse.json({ lesson: serialize(existing) })
+  }
+
+  const lesson = await storeLesson(
+    db,
+    topicId,
+    parsed.data.lesson,
+    parsed.data.model ?? null,
+  )
+
+  return NextResponse.json({ lesson: serialize(lesson) })
 }

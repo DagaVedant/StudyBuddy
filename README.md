@@ -67,12 +67,14 @@ only determines how questions come off the page.
 | 0 (Trial) | nothing | Operator GPU, 3 worksheets lifetime | 20 |
 | A (Free) | nothing | Manual editor and browser OCR | none |
 | B (Cloud key) | Anthropic or OpenAI key | Server-side vision model | unlimited |
-| C (Ollama) | Ollama running locally | Student's own GPU, in-browser | not supported |
+| C (Ollama) | Ollama running locally | Student's own GPU, in-browser | Student's own GPU, in-browser |
 
-Tier C runs extraction in the browser against `localhost:11434`, so the tab must
-stay open. Reading is checkpointed per page and resumes rather than restarts.
-Ollama requires `OLLAMA_ORIGINS` set to the app's URL; the settings screen
-provides the command and a connection test.
+Tier C runs in the browser against `localhost:11434`, so the tab must stay open.
+Extraction, the derived answer key, explanations and topic lessons all go the
+same way. Reading is checkpointed per page and the answer pass asks the server
+what is still unsolved, so both resume rather than restart. Ollama requires
+`OLLAMA_ORIGINS` set to the app's URL; the settings screen provides the command
+and a connection test.
 
 ## Commands
 
@@ -225,8 +227,8 @@ and a script with no terminal aborts rather than hanging.
 
 ## Limitations
 
-- Tier C supports extraction only. Derived answer keys, explanations and lessons
-  are not implemented for it.
+- Tier C questions are not sorted into topics. Everything else it produces is
+  the same as the other tiers.
 - Tier B classification is not automatic on serverless. The embedding model
   requires a native runtime the host does not have, so the extraction pass
   leaves the worksheet untagged and the student sorts it from the dashboard or

@@ -101,9 +101,11 @@ export async function claimJob(
   workerId: string | null = null,
   now: Date = new Date(),
   userId: string | null = null,
+  stages: JobStage[] | null = null,
 ): Promise<ClaimedJob | null> {
   const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS).toISOString()
   const claimedAt = now.toISOString()
+  const wanted = stages?.length ? stages.join(',') : null
 
   const result = await db.execute(sql`
     with next_job as (
@@ -112,6 +114,10 @@ export async function claimJob(
       where ${processingJobs.executor} = ${executor}
         and ${processingJobs.attemptCount} < ${MAX_ATTEMPTS}
         and (${userId}::text is null or ${processingJobs.userId} = ${userId})
+        and (
+          ${wanted}::text is null
+          or ${processingJobs.stage}::text = any(string_to_array(${wanted}, ','))
+        )
         and (
           ${processingJobs.status} = 'pending'
           or (
@@ -176,6 +182,18 @@ export async function checkpointJob(
       claimedAt: new Date(),
     })
     .where(eq(processingJobs.id, jobId))
+}
+
+export async function touchJob(db: Db, jobId: string): Promise<void> {
+  await db
+    .update(processingJobs)
+    .set({ status: 'running', claimedAt: new Date() })
+    .where(
+      and(
+        eq(processingJobs.id, jobId),
+        inArray(processingJobs.status, ['claimed', 'running']),
+      ),
+    )
 }
 
 export async function completeJob(db: Db, jobId: string): Promise<void> {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import { OllamaProvider } from '@/lib/ai/ollama'
 import { validated } from '@/lib/ai/validated'
+import { toPngBytes } from '@/lib/client/page-image'
 import { isAnswerPage } from '@/lib/questions/answer-key'
 import { seamAround } from '@/lib/questions/page-text'
 
@@ -35,32 +36,6 @@ type Phase =
   | { kind: 'done' }
   | { kind: 'error'; message: string }
 
-async function toPngBytes(blob: Blob): Promise<{ image: Uint8Array; mediaType: string }> {
-  if (blob.type === 'image/png' || blob.type === 'image/jpeg') {
-    return { image: new Uint8Array(await blob.arrayBuffer()), mediaType: blob.type }
-  }
-
-  const bitmap = await createImageBitmap(blob)
-  try {
-    const canvas = document.createElement('canvas')
-    canvas.width = bitmap.width
-    canvas.height = bitmap.height
-
-    const context = canvas.getContext('2d')
-    if (!context) throw new Error('This browser would not give us a canvas to convert the page on.')
-    context.drawImage(bitmap, 0, 0)
-
-    const png = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/png'),
-    )
-    if (!png) throw new Error('The page image could not be converted to PNG.')
-
-    return { image: new Uint8Array(await png.arrayBuffer()), mediaType: 'image/png' }
-  } finally {
-    bitmap.close()
-  }
-}
-
 export default function BrowserRunner({ worksheetId }: { worksheetId: string }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const router = useRouter()
@@ -84,7 +59,9 @@ export default function BrowserRunner({ worksheetId }: { worksheetId: string }) 
   }, [])
 
   const run = useCallback(async () => {
-    const claimResponse = await fetch('/api/browser-jobs/claim', { method: 'POST' })
+    const claimResponse = await fetch('/api/browser-jobs/claim?stages=extract', {
+      method: 'POST',
+    })
 
     if (claimResponse.status === 409) {
       // No Ollama configured. Nothing to say here: the page already explains

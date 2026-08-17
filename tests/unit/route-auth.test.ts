@@ -160,6 +160,12 @@ const ROUTES: [string, Handler, string, never][] = [
     'POST',
     id({ topicId: 't-1' }),
   ],
+  [
+    'PUT /api/topics/[topicId]/lesson',
+    lesson.PUT as Handler,
+    'PUT',
+    id({ topicId: 't-1' }),
+  ],
   ['POST /api/worksheets/[id]/go-manual', goManual.POST as Handler, 'POST', WS],
   ['GET /api/explain', explain.GET as Handler, 'GET', undefined as never],
   ['POST /api/explain', explain.POST as Handler, 'POST', undefined as never],

@@ -131,18 +131,10 @@ export async function POST(request: Request) {
     }
   }
 
-  if (executor === 'browser') {
-    return NextResponse.json(
-      {
-        error:
-          'Ollama reads your worksheets, but it does not write explanations yet. ' +
-          'Add a cloud API key in settings if you want those.',
-      },
-      { status: 501 },
-    )
-  }
-
-  if (executor === 'operator_gpu' && provider.executionSite === 'none') {
+  if (
+    executor === 'browser' ||
+    (executor === 'operator_gpu' && provider.executionSite === 'none')
+  ) {
     const existing = await pendingExplainJob(db, userId, question.id)
 
     const jobId =
@@ -151,12 +143,15 @@ export async function POST(request: Request) {
         worksheetId: question.worksheetId,
         userId,
         stage: 'explain',
-        executor: 'operator_gpu',
+        executor: executor === 'browser' ? 'browser' : 'operator_gpu',
         priority: 'high',
         checkpoint: { questionId: question.id, attemptId: lastAttempt?.id ?? null },
       }))
 
-    return NextResponse.json({ status: 'queued', jobId }, { status: 202 })
+    return NextResponse.json(
+      { status: 'queued', jobId, runsHere: executor === 'browser' },
+      { status: 202 },
+    )
   }
 
   try {

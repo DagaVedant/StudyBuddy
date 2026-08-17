@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNotNull, sql } from 'drizzle-orm'
 
-import type { AIProvider } from '@/lib/ai/types'
+import type { AIProvider, Lesson, LessonInput } from '@/lib/ai/types'
 import { questionTopics, questions, topicLessons, topics } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 import { pathBySlug } from '@/lib/taxonomy/trees'
@@ -40,17 +40,7 @@ export async function getLesson(db: Db, topicId: string): Promise<StoredLesson |
   }
 }
 
-export async function generateLesson(
-  db: Db,
-  provider: AIProvider,
-  topicId: string,
-  options: { force?: boolean } = {},
-): Promise<StoredLesson | null> {
-  if (!options.force) {
-    const existing = await getLesson(db, topicId)
-    if (existing) return null
-  }
-
+export async function lessonInput(db: Db, topicId: string): Promise<LessonInput> {
   const [topic] = await db
     .select({ name: topics.name, slug: topics.slug })
     .from(topics)
@@ -59,19 +49,26 @@ export async function generateLesson(
 
   if (!topic) throw new Error(`No topic ${topicId}`)
 
-  const lesson = await provider.teachTopic({
+  return {
     topicName: topic.name,
     topicPath: pathBySlug().get(topic.slug) ?? topic.name,
     samples: await sampleQuestions(db, topicId),
-  })
+  }
+}
 
+export async function storeLesson(
+  db: Db,
+  topicId: string,
+  lesson: Lesson,
+  model: string | null,
+): Promise<StoredLesson> {
   const values = {
     topicId,
     bodyMd: trimLessonBody(lesson.body_md),
     examples: lesson.examples,
     commonErrors: lesson.common_errors,
     provider: null,
-    model: provider.answeringModel,
+    model,
   }
 
   await db
@@ -83,9 +80,25 @@ export async function generateLesson(
     bodyMd: values.bodyMd,
     examples: lesson.examples,
     commonErrors: lesson.common_errors,
-    model: provider.answeringModel,
+    model,
     generatedAt: new Date(),
   }
+}
+
+export async function generateLesson(
+  db: Db,
+  provider: AIProvider,
+  topicId: string,
+  options: { force?: boolean } = {},
+): Promise<StoredLesson | null> {
+  if (!options.force) {
+    const existing = await getLesson(db, topicId)
+    if (existing) return null
+  }
+
+  const lesson = await provider.teachTopic(await lessonInput(db, topicId))
+
+  return storeLesson(db, topicId, lesson, provider.answeringModel)
 }
 
 async function sampleQuestions(db: Db, topicId: string): Promise<string[]> {
