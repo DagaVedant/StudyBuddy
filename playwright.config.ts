@@ -40,7 +40,8 @@ export default defineConfig({
       DATABASE_IDLE_TIMEOUT: '0',
       DATABASE_MAX_LIFETIME: '0',
       ...TEST_SECRETS,
-      ADMIN_EMAILS: 'admin@studybuddy.test,boss@studybuddy.test',
+      ADMIN_EMAILS:
+        'admin@studybuddy.test,boss@studybuddy.test,unclaimed@studybuddy.test',
       ENABLE_MOCK_AI: 'true',
       DISABLE_RATE_LIMITS: 'true',
       SKIP_MIGRATIONS: 'true',

@@ -11,6 +11,8 @@ import {
   uniqueEmail,
 } from './support/helpers'
 
+const UNCLAIMED_ADMIN_EMAIL = 'unclaimed@studybuddy.test'
+
 test('signed-out visitors are sent to sign in, with a return path', async ({ page }) => {
   await page.goto('/dashboard')
 
@@ -110,7 +112,7 @@ test('an account in ADMIN_EMAILS gets the admin console', async ({ page }) => {
 
 test('a password signup cannot take an admin address', async ({ page }) => {
   await page.goto('/signup')
-  await visible(page).getByLabel('Email').fill('boss@studybuddy.test')
+  await visible(page).getByLabel('Email').fill(UNCLAIMED_ADMIN_EMAIL)
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
   await visible(page).getByLabel('Date of birth').fill(adultDob())
   await visible(page).getByRole('button', { name: 'Create account' }).click()
@@ -118,7 +120,7 @@ test('a password signup cannot take an admin address', async ({ page }) => {
   await expect(statusBox(page)).toBeVisible()
 
   await page.goto('/signin')
-  await visible(page).getByLabel('Email').fill('boss@studybuddy.test')
+  await visible(page).getByLabel('Email').fill(UNCLAIMED_ADMIN_EMAIL)
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
   await visible(page).getByRole('button', { name: 'Sign in' }).click()
 
