@@ -186,6 +186,16 @@ export async function getAiStatus(db: Db, userId: string): Promise<AiStatus> {
   return { label: 'No AI configured', href: '/settings', trialWorksheetsRemaining: 0 }
 }
 
+export function canSortTopicsHere(
+  credentials: Awaited<ReturnType<typeof getCredentialSummary>>,
+): boolean {
+  return credentials.some(
+    (row) =>
+      isCloudProvider(row.provider) ||
+      (row.provider === 'ollama' && Boolean(row.ollamaBaseUrl)),
+  )
+}
+
 export async function getCredentialSummary(db: Db, userId: string) {
   const rows = await db
     .select({

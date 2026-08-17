@@ -3,6 +3,9 @@
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { OllamaProvider } from '@/lib/ai/ollama'
+import type { AIProvider, TopicCandidate } from '@/lib/ai/types'
+import { validated } from '@/lib/ai/validated'
 import { embedInBrowser } from '@/lib/client/embeddings'
 
 export interface SortableWorksheet {
@@ -10,11 +13,27 @@ export interface SortableWorksheet {
   title: string
 }
 
+interface OllamaSettings {
+  baseUrl: string
+  visionModel: string
+  textModel: string
+}
+
 interface PendingResponse {
   supported: boolean
+  executor: 'server' | 'browser' | 'operator_gpu' | 'none'
   batchSize: number
   remaining: number
   questions: { id: string; promptText: string }[]
+  ollama: OllamaSettings | null
+}
+
+interface ShortlistResponse {
+  batch: {
+    questionId: string
+    promptText: string
+    candidates: TopicCandidate[]
+  }[]
 }
 
 interface AppliedResponse {
@@ -31,6 +50,9 @@ type Phase =
   | { kind: 'done'; sorted: number }
   | { kind: 'error'; message: string }
 
+const NO_PROVIDER =
+  'Sorting questions into topics needs a cloud API key or your own Ollama. Add one in settings.'
+
 async function pending(worksheetId: string): Promise<PendingResponse> {
   const response = await fetch(`/api/worksheets/${worksheetId}/classify`)
 
@@ -39,6 +61,23 @@ async function pending(worksheetId: string): Promise<PendingResponse> {
   }
 
   return response.json() as Promise<PendingResponse>
+}
+
+async function send(worksheetId: string, body: unknown): Promise<unknown> {
+  const response = await fetch(`/api/worksheets/${worksheetId}/classify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null)) as {
+      error?: string
+    } | null
+    throw new Error(detail?.error ?? 'The server refused a batch of questions.')
+  }
+
+  return response.json() as Promise<unknown>
 }
 
 export default function TopicSorter({
@@ -54,15 +93,16 @@ export default function TopicSorter({
 
   const run = useCallback(async () => {
     let total = 0
+    let executor: PendingResponse['executor'] = 'server'
+    let ollama: OllamaSettings | null = null
+
     for (const worksheet of worksheets) {
       const first = await pending(worksheet.id)
 
-      if (!first.supported) {
-        throw new Error(
-          'Sorting questions into topics needs a cloud API key. Add one in settings.',
-        )
-      }
+      if (!first.supported) throw new Error(NO_PROVIDER)
 
+      executor = first.executor
+      ollama = first.ollama
       total += first.remaining
     }
 
@@ -70,6 +110,21 @@ export default function TopicSorter({
       setPhase({ kind: 'done', sorted: 0 })
       router.refresh()
       return
+    }
+
+    let provider: AIProvider | null = null
+
+    if (executor === 'browser') {
+      if (!ollama) throw new Error(NO_PROVIDER)
+
+      provider = validated(
+        new OllamaProvider({
+          baseUrl: ollama.baseUrl,
+          visionModel: ollama.visionModel,
+          textModel: ollama.textModel,
+          executionSite: 'browser',
+        }),
+      )
     }
 
     setPhase({ kind: 'sorting', done: 0, total })
@@ -94,20 +149,9 @@ export default function TopicSorter({
           })
         }
 
-        const response = await fetch(`/api/worksheets/${worksheet.id}/classify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items }),
-        })
-
-        if (!response.ok) {
-          const detail = (await response.json().catch(() => null)) as {
-            error?: string
-          } | null
-          throw new Error(detail?.error ?? 'The server refused a batch of questions.')
-        }
-
-        const applied = (await response.json()) as AppliedResponse
+        const applied = provider
+          ? await pickHere(worksheet.id, provider, items)
+          : ((await send(worksheet.id, { items })) as AppliedResponse)
 
         sorted += applied.applied
         setPhase((current) =>
@@ -186,4 +230,51 @@ export default function TopicSorter({
       <strong className="font-medium text-fg">Keep this tab open.</strong>
     </p>
   )
+}
+
+async function pickHere(
+  worksheetId: string,
+  provider: AIProvider,
+  items: { questionId: string; embedding: number[] }[],
+): Promise<AppliedResponse> {
+  const { batch } = (await send(worksheetId, {
+    action: 'shortlist',
+    items,
+  })) as ShortlistResponse
+
+  const results = []
+
+  for (const entry of batch) {
+    try {
+      const classification = await provider.classifyTopic(
+        entry.promptText,
+        entry.candidates,
+      )
+
+      const chosen =
+        classification.topic_slug && !classification.abstain
+          ? entry.candidates.find(
+              (candidate) => candidate.slug === classification.topic_slug,
+            )
+          : undefined
+
+      results.push({
+        questionId: entry.questionId,
+        classification,
+        candidates: entry.candidates,
+        proposalEmbedding:
+          chosen || !classification.suggested_name
+            ? undefined
+            : await embedInBrowser(classification.suggested_name),
+      })
+    } catch (error) {
+      console.warn(`[tier-c] question ${entry.questionId} could not be sorted:`, error)
+    }
+  }
+
+  if (results.length === 0) {
+    return { applied: 0, coarse: 0, failed: batch.length, done: false }
+  }
+
+  return (await send(worksheetId, { action: 'apply', results })) as AppliedResponse
 }

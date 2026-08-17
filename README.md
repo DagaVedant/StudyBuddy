@@ -70,8 +70,8 @@ only determines how questions come off the page.
 | C (Ollama) | Ollama running locally | Student's own GPU, in-browser | Student's own GPU, in-browser | no |
 
 Tier C runs in the browser against `localhost:11434`, so the tab must stay open.
-Extraction, the derived answer key, explanations and topic lessons all go the
-same way. Reading is checkpointed per page and the answer pass asks the server
+Extraction, the derived answer key, explanations, topic lessons and the topic
+pick all go the same way. Reading is checkpointed per page and the answer pass asks the server
 what is still unsolved, so both resume rather than restart. Ollama requires
 `OLLAMA_ORIGINS` set to the app's URL; the settings screen provides the command
 and a connection test.
@@ -146,7 +146,10 @@ that can be computed anywhere.
   the case on serverless. `POST /api/worksheets/:id/classify` takes the vectors,
   shortlists against them and spends the student's own key on the pick. The key
   never leaves the server.
-- Tier A and Tier C are untagged. Topics can still be set by hand in the editor.
+- Tier C embeds in the student's browser and picks there too, against their own
+  Ollama. The server only ever runs the pgvector shortlist, so no key is needed
+  and no question text leaves the machine for a provider.
+- Tier A is untagged. Topics can still be set by hand in the editor.
 
 The browser model is MiniLM under WebAssembly, about 23MB, fetched once from the
 Hugging Face hub and then cached by the browser, the same way Tier A's OCR
@@ -265,8 +268,6 @@ and a script with no terminal aborts rather than hanging.
 
 ## Limitations
 
-- Tier C questions are not sorted into topics. Everything else it produces is
-  the same as the other tiers.
 - Tier B classification is not automatic on serverless. The embedding model
   requires a native runtime the host does not have, so the extraction pass
   leaves the worksheet untagged and the student sorts it from the dashboard or

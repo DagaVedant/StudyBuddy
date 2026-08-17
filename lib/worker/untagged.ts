@@ -8,8 +8,6 @@ export const UNTAGGED_REASON = {
     'The topic classifier was unavailable while this worksheet was processed, so no topics were assigned.',
   classifierFailed:
     'Topic classification failed while this worksheet was processed, so no topics were assigned.',
-  tierCUnsupported:
-    'Ollama read this worksheet in your browser, which does not sort questions into topics yet, so none were assigned.',
   browserPending:
     'These questions are not sorted into topics yet. The model that sorts them cannot run on our server, so it runs in your browser instead, on this screen.',
 } as const

@@ -218,7 +218,7 @@ export async function handleComplete(
 
   if (delivered) {
     if (job.executor === 'browser') {
-      await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.tierCUnsupported)
+      await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
     }
 
     await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_ready')

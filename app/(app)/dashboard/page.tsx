@@ -3,8 +3,12 @@ import { redirect } from 'next/navigation'
 import { ViewTransition } from 'react'
 
 import { auth } from '@/auth'
-import { getAiStatus, getCredentialSummary, shouldOfferAiSetup } from '@/lib/ai/resolve'
-import { isCloudProvider } from '@/lib/ai/providers'
+import {
+  canSortTopicsHere,
+  getAiStatus,
+  getCredentialSummary,
+  shouldOfferAiSetup,
+} from '@/lib/ai/resolve'
 import AiSetupPrompt from '@/components/ai-setup-prompt'
 import TopicSorter from '@/components/topic-sorter'
 import { AccuracyLabel, Meter } from '@/components/meter'
@@ -110,7 +114,7 @@ export default async function DashboardPage() {
     getCredentialSummary(db, userId),
   ])
 
-  const canSortHere = credentials.some((row) => isCloudProvider(row.provider))
+  const canSortHere = canSortTopicsHere(credentials)
 
   const paths = pathBySlug()
 

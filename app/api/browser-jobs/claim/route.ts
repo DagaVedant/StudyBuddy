@@ -1,9 +1,10 @@
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { ollamaConfig } from '@/lib/ai/ollama-config'
 import { db } from '@/lib/db'
-import { userAiCredentials, worksheets } from '@/lib/db/schema'
+import { worksheets } from '@/lib/db/schema'
 import { claimJob, queueDepth, type JobStage } from '@/lib/queue'
 import { explainInput } from '@/lib/worker/explain-input'
 import { pagesForJob } from '@/lib/worker/ingest'
@@ -31,19 +32,9 @@ export async function POST(request: Request) {
 
   const userId = session.user.id
 
-  const [credential] = await db
-    .select({
-      baseUrl: userAiCredentials.ollamaBaseUrl,
-      visionModel: userAiCredentials.visionModelName,
-      textModel: userAiCredentials.modelName,
-    })
-    .from(userAiCredentials)
-    .where(
-      and(eq(userAiCredentials.userId, userId), eq(userAiCredentials.provider, 'ollama')),
-    )
-    .limit(1)
+  const ollama = await ollamaConfig(db, userId)
 
-  if (!credential?.baseUrl) {
+  if (!ollama) {
     return NextResponse.json({ error: 'No Ollama is configured.' }, { status: 409 })
   }
 
@@ -83,10 +74,6 @@ export async function POST(request: Request) {
     ...(job.stage === 'explain' && questionId
       ? { explain: await explainInput(db, userId, questionId) }
       : {}),
-    ollama: {
-      baseUrl: credential.baseUrl,
-      visionModel: credential.visionModel ?? 'qwen2.5vl:7b',
-      textModel: credential.textModel ?? 'qwen2.5vl:7b',
-    },
+    ollama,
   })
 }

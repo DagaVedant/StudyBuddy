@@ -502,7 +502,7 @@ describe('listUntaggedWorksheets', () => {
     const userId = await makeUser(db)
     const worksheetId = await makeWorksheet(db, userId)
 
-    await recordUntagged(db as Db, worksheetId, UNTAGGED_REASON.tierCUnsupported)
+    await recordUntagged(db as Db, worksheetId, UNTAGGED_REASON.browserPending)
 
     expect(await listUntaggedWorksheets(db as Db, userId)).toHaveLength(1)
 
@@ -511,6 +511,6 @@ describe('listUntaggedWorksheets', () => {
       .from(worksheets)
       .where(eq(worksheets.id, worksheetId))
 
-    expect(row.reason).toMatch(/does not sort questions into topics yet/)
+    expect(row.reason).toMatch(/runs in your browser/)
   })
 })

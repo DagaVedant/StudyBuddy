@@ -221,7 +221,7 @@ describe('the worksheet classify route', () => {
     expect(tags).toHaveLength(0)
   })
 
-  it('will not classify for an account with no cloud key', async () => {
+  it('will not spend a key that is not there when the pick runs in the browser', async () => {
     state.executor = 'browser'
 
     const worksheetId = await makeWorksheet(db, mine)
@@ -233,8 +233,110 @@ describe('the worksheet classify route', () => {
 
     expect(response.status).toBe(409)
 
-    const listed = (await (await get(worksheetId)).json()) as { supported: boolean }
-    expect(listed.supported).toBe(false)
+    const listed = (await (await get(worksheetId)).json()) as {
+      supported: boolean
+      executor: string
+    }
+
+    expect(listed.supported).toBe(true)
+    expect(listed.executor).toBe('browser')
+  }, 60_000)
+
+  it('hands the browser a shortlist and takes back the pick it made', async () => {
+    state.executor = 'browser'
+
+    const worksheetId = await makeWorksheet(db, mine)
+    const questionId = await makeQuestion(
+      worksheetId,
+      mine,
+      'What is the slope of the line y = 3x + 1?',
+      1,
+    )
+
+    await db
+      .update(worksheets)
+      .set({ classificationError: 'not sorted yet' })
+      .where(eq(worksheets.id, worksheetId))
+
+    const shortlisted = await post(worksheetId, {
+      action: 'shortlist',
+      items: [
+        {
+          questionId,
+          embedding: await embed('What is the slope of the line y = 3x + 1?'),
+        },
+      ],
+    })
+
+    expect(shortlisted.status).toBe(200)
+
+    const { batch } = (await shortlisted.json()) as {
+      batch: {
+        questionId: string
+        promptText: string
+        candidates: { slug: string; name: string; path: string }[]
+      }[]
+    }
+
+    expect(batch).toHaveLength(1)
+    expect(batch[0].questionId).toBe(questionId)
+    expect(batch[0].promptText).toContain('slope')
+    expect(batch[0].candidates.length).toBeGreaterThan(0)
+
+    const [stored] = await db
+      .select({ id: questions.id })
+      .from(questions)
+      .where(and(eq(questions.id, questionId), isNotNull(questions.embedding)))
+
+    expect(stored).toBeDefined()
+
+    const applied = await post(worksheetId, {
+      action: 'apply',
+      results: [
+        {
+          questionId,
+          classification: {
+            topic_slug: batch[0].candidates[0].slug,
+            confidence: 0.9,
+            abstain: false,
+            suggested_name: null,
+          },
+          candidates: batch[0].candidates,
+        },
+      ],
+    })
+
+    expect(applied.status).toBe(200)
+    expect((await applied.json()) as { applied: number; done: boolean }).toMatchObject({
+      applied: 1,
+      done: true,
+    })
+
+    const tags = await db
+      .select({ topicId: questionTopics.topicId })
+      .from(questionTopics)
+      .where(eq(questionTopics.questionId, questionId))
+
+    expect(tags).toHaveLength(1)
+
+    const [worksheet] = await db
+      .select({ classificationError: worksheets.classificationError })
+      .from(worksheets)
+      .where(eq(worksheets.id, worksheetId))
+
+    expect(worksheet.classificationError).toBeNull()
+  }, 60_000)
+
+  it('refuses a browser pick from an account whose key runs on the server', async () => {
+    const worksheetId = await makeWorksheet(db, mine)
+    const questionId = await makeQuestion(worksheetId, mine, 'Two plus two.', 1)
+
+    const response = await post(worksheetId, {
+      action: 'shortlist',
+      items: [{ questionId, embedding: await embed('Two plus two.') }],
+    })
+
+    expect(response.status).toBe(409)
   }, 60_000)
 
   it('refuses a batch larger than the browser sends', async () => {

@@ -2,8 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getCredentialSummary } from '@/lib/ai/resolve'
-import { isCloudProvider } from '@/lib/ai/providers'
+import { canSortTopicsHere, getCredentialSummary } from '@/lib/ai/resolve'
 import TopicSorter from '@/components/topic-sorter'
 import { db } from '@/lib/db'
 import { worksheetPages, worksheets } from '@/lib/db/schema'
@@ -51,7 +50,7 @@ export default async function CheckPage({ params }: Params) {
     getCredentialSummary(db, session.user.id),
   ])
 
-  const canSortHere = credentials.some((row) => isCloudProvider(row.provider))
+  const canSortHere = canSortTopicsHere(credentials)
 
   const duplicateFor = new Map(duplicates.map((row) => [row.questionId, row]))
   const pageFor = new Map(pageRows.map((page) => [page.id, page]))
