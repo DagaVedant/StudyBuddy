@@ -11,6 +11,7 @@ import {
   inFlightExtractCount,
   workerStatus,
 } from '@/lib/queue'
+import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { claimWorksheetForCompletion, transitionWorksheet } from '@/lib/upload/claim'
 import { guardWorksheet } from '@/lib/upload/guard'
 import { drainServerQueue } from '@/lib/worker/server-job'
@@ -52,6 +53,14 @@ export async function POST(_request: Request, { params }: Params) {
   if (!guard.ok) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    WORKSHEET_WRITE_LIMIT,
+    `user:${guard.userId}`,
+    'Too many changes to your worksheets. Try again shortly.',
+  )
+  if (limited) return limited
 
   const { tier, executor } = await resolveProvider(db, guard.userId)
 

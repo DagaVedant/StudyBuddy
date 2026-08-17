@@ -62,12 +62,12 @@ The app runs at http://localhost:3000.
 Review, spaced repetition and the dashboard are identical across tiers. The tier
 only determines how questions come off the page.
 
-| Tier | Requires | Extraction | Explanations |
-|---|---|---|---|
-| 0 (Trial) | nothing | Operator GPU, 3 worksheets lifetime | 20 |
-| A (Free) | nothing | Manual editor and browser OCR | none |
-| B (Cloud key) | Anthropic or OpenAI key | Server-side vision model | unlimited |
-| C (Ollama) | Ollama running locally | Student's own GPU, in-browser | Student's own GPU, in-browser |
+| Tier | Requires | Extraction | Explanations | Practice questions |
+|---|---|---|---|---|
+| 0 (Trial) | nothing | Operator GPU, 3 worksheets lifetime | 20 | no |
+| A (Free) | nothing | Manual editor and browser OCR | none | no |
+| B (Cloud key) | Anthropic or OpenAI key | Server-side vision model | unlimited | 12 batches a day |
+| C (Ollama) | Ollama running locally | Student's own GPU, in-browser | Student's own GPU, in-browser | no |
 
 Tier C runs in the browser against `localhost:11434`, so the tab must stay open.
 Extraction, the derived answer key, explanations and topic lessons all go the
@@ -175,6 +175,7 @@ lib/queue/              Postgres queue, FOR UPDATE SKIP LOCKED
 lib/embeddings/         MiniLM 384d, runs in browser, server and worker
 lib/classify/           shortlist, classify, propose
 lib/review/             FSRS scheduling and the due queue
+lib/practice/           generated questions, and the validator that sifts them
 lib/dashboard/          Wilson-bounded weakness ranking
 lib/notifications/      in-app bell and web push
 lib/taxonomy/           the canonical topic tree
@@ -187,7 +188,33 @@ deploy/worker/          container and egress rules for the worker
 Prompts are fixed and schema-validated. Users supply images, never instructions:
 there is no passthrough and no chat endpoint. Page text is interpolated into the
 prompt as data, with delimiters stripped so content cannot close the block that
-contains it. Both halves are in `lib/ai/prompts.ts`.
+contains it. The same holds for the topic name and the sample questions sent
+when writing practice. Both halves are in `lib/ai/prompts.ts`.
+
+## Practice questions
+
+Everything else in StudyBuddy comes off a paper the student uploaded. A topic
+page also offers to write new questions on that topic, so there is something to
+practise on once they have worked through their own.
+
+They are stored as ordinary questions, marked `origin = 'generated'`, in a
+per-account worksheet that never appears in the library. They enter the FSRS
+queue as new cards due immediately, and are reviewed, explained and scheduled by
+the same code as everything else.
+
+What they are kept out of is the measured record: topic accuracy, account
+accuracy, the accuracy chart, the distractor patterns, the uploaded-worksheet
+and tracked-question counts, and the Blooket export. The answer key came from a
+model, not from a paper, so letting a wrong answer on one push a topic further
+up the weakness ranking would close a loop between the ranking and the questions
+it generates. They still count as practice done, so the streak includes them.
+
+Each batch is sifted before anything is stored. `lib/practice/validate.ts`
+refuses a question with no defensible single answer, four options that are not
+A to D, an answer printed in the stem or given away by being much the longest,
+an option about the other options, a reference to a figure that does not exist,
+LaTeX, no working, or a stem that duplicates one in the batch or one the student
+already owns. A batch where nothing survives is a 422, not a silent success.
 
 ## Operator scripts
 
@@ -233,10 +260,14 @@ and a script with no terminal aborts rather than hanging.
   requires a native runtime the host does not have, so the extraction pass
   leaves the worksheet untagged and the student sorts it from the dashboard or
   the check screen with one click. See "Sorting into topics" below.
-- Rate limiting covers signup, sign-in, upload, explain, reports and
-  question-writes. Session-authenticated routes touching only the caller's own
-  rows are unbounded.
+- Rate limiting covers signup, sign-in, upload, and every session-authenticated
+  route that writes, spends money at a provider, or runs an expensive query.
+  Reads that a screen polls are deliberately left unbounded: the notification
+  bell, the browser-job queue Tier C drives, and page images.
 - Trial explanations are queued and require the GPU worker to be running. When
   it is not, the review screen says so before and after the ask rather than
   spinning.
-- AI-generated practice questions are not implemented.
+- Practice questions are written for Tier B only. Tier 0 has no synchronous
+  model: its work goes through the operator GPU as a queued job, and that path
+  is a worker stage this repository cannot exercise, since the worker runs
+  against the deployed app. Tier A has no model and Tier C cannot write prose.

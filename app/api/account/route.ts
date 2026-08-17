@@ -6,6 +6,7 @@ import { auth, signOut } from '@/auth'
 import { deleteAccount } from '@/lib/account/delete'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
+import { ACCOUNT_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 
 const schema = z.object({ email: z.string().min(1) })
 
@@ -19,6 +20,14 @@ export async function DELETE(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    ACCOUNT_LIMIT,
+    `user:${session.user.id}`,
+    'Too many attempts on this account. Try again shortly.',
+  )
+  if (limited) return limited
 
   const [account] = await db
     .select({ email: users.email })

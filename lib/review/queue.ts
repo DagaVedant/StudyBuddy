@@ -37,12 +37,19 @@ export function inReviewQueue(userId: string, now: Date = new Date()) {
       )`,
       lte(reviewCards.dueAt, now),
     ),
-    sql`exists (
-      select 1 from ${attempts}
-      where ${attempts.questionId} = ${reviewCards.questionId}
-        and ${attempts.userId} = ${userId}
-        and ${attempts.outcome} in ('wrong', 'unsure')
-    )`,
+    or(
+      sql`exists (
+        select 1 from ${attempts}
+        where ${attempts.questionId} = ${reviewCards.questionId}
+          and ${attempts.userId} = ${userId}
+          and ${attempts.outcome} in ('wrong', 'unsure')
+      )`,
+      sql`exists (
+        select 1 from ${questions}
+        where ${questions.id} = ${reviewCards.questionId}
+          and ${questions.origin} = 'generated'
+      )`,
+    ),
   )
 }
 

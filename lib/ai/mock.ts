@@ -4,6 +4,7 @@ import {
   type ExplainInput,
   type LessonInput,
   type PageInput,
+  type PracticeInput,
   type RawAIProvider,
   type TopicCandidate,
 } from './types'
@@ -138,6 +139,29 @@ Mock lesson for ${input.topicPath}.`,
     }
   }
 
+  async writePractice(input: PracticeInput): Promise<unknown> {
+    const wanted = Math.max(1, Math.min(input.count, 10))
+
+    return {
+      questions: Array.from({ length: wanted }, (_, index) => {
+        const first = index + 2
+        const second = index + 3
+
+        return {
+          prompt_text: `A shelf holds ${first} boxes and each box holds ${second} pens. How many pens are on the shelf?`,
+          choices: [
+            { label: 'A', text: String(first * second) },
+            { label: 'B', text: String(first + second) },
+            { label: 'C', text: String(first * second - first) },
+            { label: 'D', text: String(first * second + second) },
+          ],
+          correct_label: 'A',
+          working: `Multiply the number of boxes by the pens in each box: ${first} x ${second} = ${first * second}.`,
+        }
+      }),
+    }
+  }
+
   async explain(input: ExplainInput): Promise<unknown> {
     const chosen = input.studentAnswer
     const correct = input.correctAnswer ?? 'not recorded'
@@ -174,6 +198,10 @@ export class NullProvider implements RawAIProvider {
   }
 
   async teachTopic(_input: LessonInput): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async writePractice(_input: PracticeInput): Promise<unknown> {
     throw new ProviderUnavailable()
   }
 

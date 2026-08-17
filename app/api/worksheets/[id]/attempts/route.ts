@@ -10,6 +10,7 @@ import {
   reviewCards,
   reviewLogs,
 } from '@/lib/db/schema'
+import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { correctMarkupAttempt } from '@/lib/review/correct-mark'
 import { scheduleFromOutcome, type StoredCard } from '@/lib/review/fsrs'
 import { guardWorksheet } from '@/lib/upload/guard'
@@ -50,6 +51,14 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
+  const limited = await guardRateLimit(
+    db,
+    WORKSHEET_WRITE_LIMIT,
+    `user:${guard.userId}`,
+    'Too many changes to your worksheets. Try again shortly.',
+  )
+  if (limited) return limited
+
   const result = await correctMarkupAttempt(db, guard.userId, worksheetId, parsed.data)
 
   if (!result.ok) {
@@ -79,6 +88,14 @@ export async function POST(request: Request, { params }: Params) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    WORKSHEET_WRITE_LIMIT,
+    `user:${guard.userId}`,
+    'Too many changes to your worksheets. Try again shortly.',
+  )
+  if (limited) return limited
 
   const { marks } = parsed.data
   const questionIds = marks.map((mark) => mark.questionId)

@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { db } from '@/lib/db'
 import { unverifyQuestions, verifyRemaining } from '@/lib/questions/verify-all'
+import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { guardWorksheet } from '@/lib/upload/guard'
 
 type Params = { params: Promise<{ id: string }> }
@@ -23,6 +24,14 @@ export async function POST(request: Request, { params }: Params) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    WORKSHEET_WRITE_LIMIT,
+    `user:${guard.userId}`,
+    'Too many changes to your worksheets. Try again shortly.',
+  )
+  if (limited) return limited
 
   const updated = await verifyRemaining(db, worksheetId, parsed.data.exclude ?? [])
 
@@ -45,6 +54,14 @@ export async function DELETE(request: Request, { params }: Params) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    WORKSHEET_WRITE_LIMIT,
+    `user:${guard.userId}`,
+    'Too many changes to your worksheets. Try again shortly.',
+  )
+  if (limited) return limited
 
   const updated = await unverifyQuestions(db, worksheetId, parsed.data.ids)
 

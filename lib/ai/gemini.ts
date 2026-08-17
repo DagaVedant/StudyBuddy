@@ -15,12 +15,16 @@ import {
   LESSON_JSON_SCHEMA,
   LESSON_SYSTEM,
   lessonUserText,
+  PRACTICE_JSON_SCHEMA,
+  PRACTICE_SYSTEM,
+  practiceUserText,
 } from './prompts'
 import {
   type AnswerInput,
   type ExplainInput,
   type LessonInput,
   type PageInput,
+  type PracticeInput,
   type RawAIProvider,
   type TopicCandidate,
 } from './types'
@@ -147,6 +151,14 @@ export class GeminiProvider implements RawAIProvider {
       LESSON_SYSTEM,
       [{ text: lessonUserText(input) }],
       LESSON_JSON_SCHEMA as unknown as Record<string, unknown>,
+    )
+  }
+
+  async writePractice(input: PracticeInput): Promise<unknown> {
+    return this.generate(
+      PRACTICE_SYSTEM,
+      [{ text: practiceUserText(input) }],
+      PRACTICE_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
   }
 

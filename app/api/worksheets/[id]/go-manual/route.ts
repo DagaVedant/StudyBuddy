@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { processingJobs } from '@/lib/db/schema'
+import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { guardWorksheet } from '@/lib/upload/guard'
 import { claimWorksheetForManualFallback } from '@/lib/upload/claim'
 import { applyPermanentFailure } from '@/lib/worker/fail'
@@ -16,6 +17,14 @@ export async function POST(_request: Request, { params }: Params) {
   if (!guard.ok) {
     return NextResponse.json({ error: 'Not found' }, { status: guard.status })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    WORKSHEET_WRITE_LIMIT,
+    `user:${guard.userId}`,
+    'Too many changes to your worksheets. Try again shortly.',
+  )
+  if (limited) return limited
 
   const won = await claimWorksheetForManualFallback(db, worksheetId)
   if (!won) {

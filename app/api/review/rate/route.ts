@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { attempts, reviewCards, reviewLogs } from '@/lib/db/schema'
+import { REVIEW_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { scheduleFromReview, type StoredCard } from '@/lib/review/fsrs'
 
 const rateSchema = z.object({
@@ -25,6 +26,14 @@ export async function POST(request: Request) {
 
   const { cardId, rating } = parsed.data
   const userId = session.user.id
+
+  const limited = await guardRateLimit(
+    db,
+    REVIEW_LIMIT,
+    `user:${userId}`,
+    'That is a lot of reviewing in one hour. Take a break and come back.',
+  )
+  if (limited) return limited
 
   const [card] = await db
     .select()

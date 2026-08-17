@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { worksheetPages, worksheets } from '@/lib/db/schema'
+import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { storage } from '@/lib/storage'
 
 type Params = { params: Promise<{ id: string }> }
@@ -28,6 +29,14 @@ export async function PATCH(request: Request, { params }: Params) {
       { status: 400 },
     )
   }
+
+  const limited = await guardRateLimit(
+    db,
+    WORKSHEET_WRITE_LIMIT,
+    `user:${session.user.id}`,
+    'Too many changes to your worksheets. Try again shortly.',
+  )
+  if (limited) return limited
 
   const [updated] = await db
     .update(worksheets)
@@ -59,6 +68,14 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (!worksheet || worksheet.userId !== session.user.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    WORKSHEET_WRITE_LIMIT,
+    `user:${session.user.id}`,
+    'Too many changes to your worksheets. Try again shortly.',
+  )
+  if (limited) return limited
 
   const pageKeys = await db
     .select({ imageKey: worksheetPages.imageKey })

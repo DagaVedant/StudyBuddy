@@ -15,12 +15,16 @@ import {
   LESSON_JSON_SCHEMA,
   LESSON_SYSTEM,
   lessonUserText,
+  PRACTICE_JSON_SCHEMA,
+  PRACTICE_SYSTEM,
+  practiceUserText,
 } from './prompts'
 import {
   type AnswerInput,
   type ExplainInput,
   type LessonInput,
   type PageInput,
+  type PracticeInput,
   type RawAIProvider,
   type TopicCandidate,
 } from './types'
@@ -157,6 +161,15 @@ export class OpenAIProvider implements RawAIProvider {
       lessonUserText(input),
       'lesson',
       LESSON_JSON_SCHEMA as unknown as Record<string, unknown>,
+    )
+  }
+
+  async writePractice(input: PracticeInput): Promise<unknown> {
+    return this.chat(
+      PRACTICE_SYSTEM,
+      practiceUserText(input),
+      'practice',
+      PRACTICE_JSON_SCHEMA as unknown as Record<string, unknown>,
     )
   }
 

@@ -21,6 +21,8 @@ import { getLesson } from '@/lib/topics/lesson'
 import Prose from '@/components/prose'
 import RevisitQuestion from '@/components/revisit-question'
 import GenerateLessonButton from '@/components/generate-lesson-button'
+import GeneratePracticeButton from '@/components/generate-practice-button'
+import { countGenerated } from '@/lib/practice/generate'
 
 export const metadata = { title: 'Topic · StudyBuddy' }
 export const dynamic = 'force-dynamic'
@@ -41,6 +43,7 @@ export default async function TopicPage({
 
   const path = pathBySlug().get(topic.slug) ?? topic.name
   const lesson = await getLesson(db, topicId, userId)
+  const generated = await countGenerated(db, userId, topicId)
 
   const [tally] = await db
     .select({
@@ -50,7 +53,14 @@ export default async function TopicPage({
     })
     .from(attempts)
     .innerJoin(questionTopics, eq(questionTopics.questionId, attempts.questionId))
-    .where(and(eq(attempts.userId, userId), eq(questionTopics.topicId, topicId)))
+    .innerJoin(questions, eq(questions.id, attempts.questionId))
+    .where(
+      and(
+        eq(attempts.userId, userId),
+        eq(questionTopics.topicId, topicId),
+        eq(questions.origin, 'extracted'),
+      ),
+    )
 
   const stats = summarize({
     topicId,
@@ -229,11 +239,25 @@ export default async function TopicPage({
           )}
 
           <p className="hint mt-6 text-pretty">
-            Written by {lesson.model ?? 'a model'}, not by a teacher. The questions
-            below are your own.
+            Written by {lesson.model ?? 'a model'}, not by a teacher. Each question
+            below says which paper it came from.
           </p>
         </section>
       )}
+
+      <section aria-labelledby="practice-heading" className="card mt-6 p-4">
+        <h2 id="practice-heading" className="text-sm font-medium">
+          Practice questions
+        </h2>
+        <p className="hint mt-1 text-pretty">
+          {generated === 0
+            ? 'Every question above came off a paper you uploaded. This writes new ones on the same topic so there is something to practise on once you have worked through your own.'
+            : `${generated} written for you so far. They sit in your review queue alongside the questions you missed, and they are kept out of your accuracy, because a model wrote the answer key.`}
+        </p>
+        <div className="mt-3">
+          <GeneratePracticeButton topicId={topicId} />
+        </div>
+      </section>
 
       <section aria-labelledby="vault-heading" className="mt-6">
         <h2 id="vault-heading" className="text-sm font-medium">

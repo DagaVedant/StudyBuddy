@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { pushSubscriptions } from '@/lib/db/schema'
 import { pushConfigured } from '@/lib/notifications'
+import { NOTIFICATION_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 
 const subscribeSchema = z.object({
   endpoint: z.string().url().max(1000),
@@ -35,6 +36,14 @@ export async function POST(request: Request) {
 
   const { endpoint, keys } = parsed.data
 
+  const limited = await guardRateLimit(
+    db,
+    NOTIFICATION_WRITE_LIMIT,
+    `user:${session.user.id}`,
+    'Too many requests. Try again shortly.',
+  )
+  if (limited) return limited
+
   await db
     .insert(pushSubscriptions)
     .values({
@@ -61,6 +70,14 @@ export async function DELETE(request: Request) {
   if (!endpoint) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    NOTIFICATION_WRITE_LIMIT,
+    `user:${session.user.id}`,
+    'Too many requests. Try again shortly.',
+  )
+  if (limited) return limited
 
   await db
     .delete(pushSubscriptions)

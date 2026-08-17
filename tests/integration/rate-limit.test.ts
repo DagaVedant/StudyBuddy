@@ -2,14 +2,24 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { Db } from '@/lib/db/types'
 import {
+  ACCOUNT_LIMIT,
+  CREDENTIAL_LIMIT,
   EXPLAIN_LIMIT,
+  EXPORT_LIMIT,
+  LESSON_LIMIT,
+  NOTIFICATION_WRITE_LIMIT,
+  PRACTICE_LIMIT,
+  REVIEW_LIMIT,
   SIGNIN_EMAIL_LIMIT,
   SIGNIN_IP_LIMIT,
   SIGNUP_LIMIT,
   UPLOAD_LIMIT,
+  WORKSHEET_WRITE_LIMIT,
   callerIp,
   consumeRateLimit,
+  guardRateLimit,
   limitKey,
+  limitedResponse,
   type LimitRule,
 } from '@/lib/rate-limit'
 
@@ -181,6 +191,89 @@ describe('the sign-in limits', () => {
 
   it('keeps the two rules in separate buckets', () => {
     expect(limitKey(SIGNIN_IP_LIMIT, 'x')).not.toBe(limitKey(SIGNIN_EMAIL_LIMIT, 'x'))
+  })
+})
+
+const SESSION_RULES: [string, LimitRule][] = [
+  ['lesson', LESSON_LIMIT],
+  ['practice', PRACTICE_LIMIT],
+  ['account', ACCOUNT_LIMIT],
+  ['credential', CREDENTIAL_LIMIT],
+  ['export', EXPORT_LIMIT],
+  ['review', REVIEW_LIMIT],
+  ['worksheet-write', WORKSHEET_WRITE_LIMIT],
+  ['notification-write', NOTIFICATION_WRITE_LIMIT],
+]
+
+describe('the session-authenticated rules', () => {
+  it('all sit in their own bucket', () => {
+    const keys = SESSION_RULES.map(([, rule]) => limitKey(rule, 'user:u-1'))
+
+    expect(new Set(keys).size).toBe(SESSION_RULES.length)
+  })
+
+  it.each(SESSION_RULES)('%s stops a caller past its limit', async (name, rule) => {
+    const subject = `user:past-${name}`
+
+    for (let n = 0; n < rule.limit; n += 1) {
+      const decision = await consumeRateLimit(client(), rule, subject)
+      expect(decision.ok, `attempt ${n}`).toBe(true)
+    }
+
+    expect((await consumeRateLimit(client(), rule, subject)).ok).toBe(false)
+  })
+
+  it.each(SESSION_RULES)('%s lets a caller through when the counter breaks', async (_name, rule) => {
+    const broken = {
+      execute: async () => {
+        throw new Error('relation "rate_limits" does not exist')
+      },
+    } as unknown as Db
+
+    expect((await consumeRateLimit(broken, rule, 'user:u-1')).ok).toBe(true)
+  })
+
+  it('caps generation to a day rather than an hour', () => {
+    expect(PRACTICE_LIMIT.windowSeconds).toBe(86_400)
+  })
+
+  it('leaves room for a long review session before it bites', () => {
+    expect(REVIEW_LIMIT.limit).toBeGreaterThan(UPLOAD_LIMIT.limit)
+  })
+})
+
+describe('guardRateLimit', () => {
+  it('returns nothing while the caller is inside the limit', async () => {
+    expect(await guardRateLimit(client(), PRACTICE_LIMIT, 'user:guard-ok', 'no')).toBe(null)
+  })
+
+  it('answers 429 with a Retry-After once the limit is spent', async () => {
+    const subject = 'user:guard-spent'
+
+    for (let n = 0; n < ACCOUNT_LIMIT.limit; n += 1) {
+      await consumeRateLimit(client(), ACCOUNT_LIMIT, subject)
+    }
+
+    const response = await guardRateLimit(
+      client(),
+      ACCOUNT_LIMIT,
+      subject,
+      'Slow down.',
+    )
+
+    expect(response?.status).toBe(429)
+    expect(Number(response?.headers.get('Retry-After'))).toBeGreaterThan(0)
+    expect(await response?.json()).toEqual({ error: 'Slow down.' })
+  })
+
+  it('carries the message the route chose', async () => {
+    const response = limitedResponse(
+      { ok: false, remaining: 0, retryAfter: 42, reason: 'limited' },
+      'Try tomorrow.',
+    )
+
+    expect(response.headers.get('Retry-After')).toBe('42')
+    expect(await response.json()).toEqual({ error: 'Try tomorrow.' })
   })
 })
 
