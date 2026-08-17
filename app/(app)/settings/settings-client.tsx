@@ -79,9 +79,15 @@ export default function SettingsClient({
   const [notice, setNotice] = useState<string | null>(null)
   const [probe, setProbe] = useState<ProbeResult | null>(null)
 
-  const cloud = credentials.find((row) =>
-    (CLOUD_PROVIDERS as readonly string[]).includes(row.provider),
-  )
+  // What the write itself told us, which is the truth as soon as it returns. The
+  // refresh below still runs so the rest of the page catches up, but the key panel
+  // no longer depends on that payload arriving: a dropped refresh used to leave the
+  // student looking at the empty form right after a save that worked.
+  const [justSaved, setJustSaved] = useState<Credential | null>(null)
+
+  const cloud =
+    justSaved ??
+    credentials.find((row) => (CLOUD_PROVIDERS as readonly string[]).includes(row.provider))
   const ollama = credentials.find((row) => row.provider === 'ollama')
 
   async function save(body: unknown) {
@@ -95,11 +101,21 @@ export default function SettingsClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const result = (await response.json()) as { error?: string }
+      const result = (await response.json()) as { error?: string; last4?: string }
       if (!response.ok) throw new Error(result.error ?? 'Could not save that.')
 
       setApiKey('')
       setNotice('Saved.')
+
+      if (result.last4) {
+        setJustSaved({
+          provider,
+          keyLast4: result.last4,
+          ollamaBaseUrl: null,
+          visionModelName: model || null,
+        })
+      }
+
       router.refresh()
     } catch (cause) {
       setError((cause as Error).message)
@@ -112,6 +128,7 @@ export default function SettingsClient({
     setBusy(true)
     setError(null)
     await fetchJson(`/api/settings/credentials?provider=${target}`, { method: 'DELETE' })
+    setJustSaved(null)
     setNotice('Removed.')
     setBusy(false)
     router.refresh()

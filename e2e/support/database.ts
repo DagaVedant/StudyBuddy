@@ -69,9 +69,49 @@ export async function startDatabase(): Promise<void> {
 
   server = new PGLiteSocketServer({ db, port: E2E_PORT, host: '127.0.0.1' })
   await server.start()
+
+  if (process.env.E2E_DB_DEBUG) attachDiagnostics(server)
+}
+
+let heartbeat: NodeJS.Timeout | null = null
+
+function attachDiagnostics(socketServer: PGLiteSocketServer): void {
+  const stamp = () => new Date().toISOString().slice(11, 23)
+
+  socketServer.addEventListener('connection', (event) => {
+    const detail = (event as CustomEvent).detail as Record<string, unknown>
+    console.log(`[e2e-db ${stamp()}] connection from`, detail, socketServer.getStats())
+  })
+
+  socketServer.addEventListener('error', (event) => {
+    console.log(`[e2e-db ${stamp()}] error`, (event as CustomEvent).detail)
+  })
+
+  socketServer.addEventListener('close', () => {
+    console.log(`[e2e-db ${stamp()}] server close`)
+  })
+
+  let previous = ''
+
+  heartbeat = setInterval(() => {
+    const stats = socketServer.getStats()
+    const line = JSON.stringify(stats)
+
+    // Only speak up when something changed, or when queries are piling up, so a
+    // long run leaves a readable trail rather than a wall of identical lines.
+    if (line === previous && stats.queuedQueries === 0) return
+    previous = line
+
+    console.log(`[e2e-db ${stamp()}] ${line}`)
+  }, 1_000)
+
+  heartbeat.unref()
 }
 
 export async function stopDatabase(): Promise<void> {
+  if (heartbeat) clearInterval(heartbeat)
+  heartbeat = null
+
   await server?.stop()
   await db?.close()
 

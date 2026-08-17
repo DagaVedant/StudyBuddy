@@ -1,8 +1,11 @@
 import { expect, test, type APIResponse, type Page } from '@playwright/test'
 
 import { registerAndSignIn } from './support/helpers'
+import { resetDatabase } from './support/reset'
 
 test.describe.configure({ mode: 'serial' })
+
+test.beforeAll(resetDatabase)
 
 let page: Page
 let worksheetId: string

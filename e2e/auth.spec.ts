@@ -10,6 +10,9 @@ import {
   signInAsAdmin,
   uniqueEmail,
 } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 const UNCLAIMED_ADMIN_EMAIL = 'unclaimed@studybuddy.test'
 

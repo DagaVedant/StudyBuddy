@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import { connectCloudKey, registerAndSignIn, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 const TOPIC = 'sat-math.problem-solving-and-data-analysis.percentages'
 const TOPIC_NAME = 'Percentages'

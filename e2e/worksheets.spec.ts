@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import { createWorksheet, registerAndSignIn, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 const card = (page: Page, title: string) =>
   visible(page).getByRole('link', { name: title, exact: true })

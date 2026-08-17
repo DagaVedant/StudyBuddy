@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
 
 import { registerAndSignIn, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 test('saves a name and username, and shows them after a reload', async ({ page }) => {
   await registerAndSignIn(page)

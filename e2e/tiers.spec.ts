@@ -9,6 +9,9 @@ import {
   uploadWorksheet,
   visible,
 } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 test('a fresh account queues its upload for the GPU worker', async ({ page }) => {
   await registerAndSignIn(page)

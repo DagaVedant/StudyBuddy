@@ -1,6 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import { signInAsAdmin, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 async function fillAndClose(input: Locator, value: string) {
   await input.fill(value)

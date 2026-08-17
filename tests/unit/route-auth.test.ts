@@ -77,6 +77,7 @@ const rate = await import('@/app/api/review/rate/route')
 const retire = await import('@/app/api/review/retire/route')
 const credentials = await import('@/app/api/settings/credentials/route')
 const adminAccount = await import('@/app/api/test/admin-account/route')
+const resetDb = await import('@/app/api/test/reset/route')
 const trialUsed = await import('@/app/api/test/trial-worksheets-used/route')
 const workerClaim = await import('@/app/api/worker/claim/route')
 const workerClassify = await import('@/app/api/worker/classify/[worksheetId]/route')
@@ -113,6 +114,7 @@ const UNGATED_BY_DESIGN = new Set([
   '/api/auth/[...nextauth]',
   '/api/cron/drain-server-queue',
   '/api/test/admin-account',
+  '/api/test/reset',
   '/api/test/topic-lesson',
   '/api/test/trial-worksheets-used',
 ])
@@ -298,6 +300,12 @@ const TEST_ROUTES: [string, Handler, string, never][] = [
   [
     'POST /api/test/admin-account',
     adminAccount.POST as Handler,
+    'POST',
+    undefined as never,
+  ],
+  [
+    'POST /api/test/reset',
+    resetDb.POST as Handler,
     'POST',
     undefined as never,
   ],

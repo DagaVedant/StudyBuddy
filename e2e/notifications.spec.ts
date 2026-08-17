@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
 
 import { registerAndSignIn, uploadWorksheet, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 test('a finished worksheet turns up in the bell', async ({ page }) => {
   await registerAndSignIn(page)

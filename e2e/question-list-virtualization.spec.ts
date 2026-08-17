@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
 
 import { registerAndSignIn, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 const QUESTION_COUNT = 60
 const ONE_PIXEL_PNG = Buffer.from(
@@ -36,7 +39,13 @@ test('a long question list virtualizes without losing an in-progress edit off-sc
     visible(page).getByRole('heading', { name: `${QUESTION_COUNT} questions found` }),
   ).toBeVisible()
 
-  const renderedCards = await visible(page).getByRole('button', { name: 'Fix' }).count()
+  // The virtualizer measures its container before it knows which rows to render, so
+  // the first paint carries no cards at all. count() takes one snapshot and does not
+  // retry, so wait for a card to exist before counting them.
+  const cards = visible(page).getByRole('button', { name: 'Fix' })
+  await expect(cards.first()).toBeVisible()
+
+  const renderedCards = await cards.count()
   expect(renderedCards).toBeGreaterThan(0)
   expect(renderedCards).toBeLessThan(QUESTION_COUNT / 2)
 

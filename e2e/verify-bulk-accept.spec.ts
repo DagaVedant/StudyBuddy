@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import { createWorksheet, registerAndSignIn, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 async function seedWorksheet(page: Page, count: number): Promise<string> {
   const id = await createWorksheet(page, 'Bulk Accept Fixture')

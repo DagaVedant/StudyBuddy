@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
 
 import { registerAndSignIn } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 test('the toggle switches theme, persists it, and survives reload', async ({ page }) => {
   await registerAndSignIn(page)

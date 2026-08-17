@@ -1,8 +1,11 @@
 import { expect, test } from '@playwright/test'
 
 import { registerAndSignIn, uniqueEmail, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
 
 test.describe.configure({ mode: 'serial' })
+
+test.beforeAll(resetDatabase)
 
 test('an off-site next is ignored and sign-in lands on the dashboard', async ({
   browser,

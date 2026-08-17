@@ -1,10 +1,11 @@
 import { defineConfig, devices } from '@playwright/test'
 
+import { E2E_APP_PORT, E2E_BASE_URL } from './e2e/support/app-url'
 import { E2E_DATABASE_URL } from './e2e/support/database'
 import { TEST_SECRETS } from './e2e/support/test-secrets'
 
-const PORT = 3100
-const BASE_URL = `http://localhost:${PORT}`
+const PORT = E2E_APP_PORT
+const BASE_URL = E2E_BASE_URL
 
 export default defineConfig({
   testDir: './e2e',

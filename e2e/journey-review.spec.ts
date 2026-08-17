@@ -1,8 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import { registerAndSignIn, seedReviewableWorksheet, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
 
 test.describe.configure({ mode: 'serial' })
+
+test.beforeAll(resetDatabase)
 
 let page: Page
 let worksheetId: string

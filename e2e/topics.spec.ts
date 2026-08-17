@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import { registerAndSignIn, visible } from './support/helpers'
+import { resetDatabase } from './support/reset'
+
+test.beforeAll(resetDatabase)
 
 const TAUGHT = 'sat-math.algebra.linear-equations-in-one-variable'
 const TAUGHT_NAME = 'Linear equations in one variable'

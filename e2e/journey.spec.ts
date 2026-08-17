@@ -8,8 +8,11 @@ import {
   setTrialWorksheetsUsed,
   uploadWorksheet,
 } from './support/helpers'
+import { resetDatabase } from './support/reset'
 
 test.describe.configure({ mode: 'serial' })
+
+test.beforeAll(resetDatabase)
 
 let page: Page
 
@@ -48,21 +51,26 @@ test('a PDF is rasterized in the browser and its text layer extracted', async ()
 })
 
 test('hit testing survives a client navigation', async () => {
-  const inert = await page.evaluate(() => ({
-    atTopbar: document.elementFromPoint(100, 28)?.tagName ?? 'null',
-    depth: document.elementsFromPoint(100, 28).length,
-    stuck: document
-      .getAnimations()
-      .filter((animation) => animation.playState === 'running')
-      .map((animation) => {
-        const effect = animation.effect as KeyframeEffect | null
-        return effect?.pseudoElement ?? 'element'
-      }),
-  }))
+  // The claim is that nothing is left *stuck* over the page. A view transition
+  // still playing is not stuck, and one snapshot of elementFromPoint can land
+  // inside that window, so give the transition a moment to finish and settle.
+  await expect(async () => {
+    const inert = await page.evaluate(() => ({
+      atTopbar: document.elementFromPoint(100, 28)?.tagName ?? 'null',
+      depth: document.elementsFromPoint(100, 28).length,
+      stuck: document
+        .getAnimations()
+        .filter((animation) => animation.playState === 'running')
+        .map((animation) => {
+          const effect = animation.effect as KeyframeEffect | null
+          return effect?.pseudoElement ?? 'element'
+        }),
+    }))
 
-  expect(inert.atTopbar).not.toBe('HTML')
-  expect(inert.depth).toBeGreaterThan(1)
-  expect(inert.stuck).toEqual([])
+    expect(inert.atTopbar).not.toBe('HTML')
+    expect(inert.depth).toBeGreaterThan(1)
+    expect(inert.stuck).toEqual([])
+  }).toPass({ timeout: 15_000 })
 })
 
 test('dragging a region creates a question with its text filled in', async () => {
