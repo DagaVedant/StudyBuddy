@@ -318,6 +318,7 @@ and a script with no terminal aborts rather than hanging.
 | `repair/reclassify-worksheet.ts <id>` | Drops topic tags and re-runs classification |
 | `repair/requeue-worksheet.ts [id\|--all]` | Re-enqueues processing |
 | `repair/remap-topics.ts [--apply]` | Moves tags and lessons onto the current taxonomy, then deletes what nothing points at |
+| `repair/sort-untagged.ts [--apply] [--limit=N]` | Tags whatever is still untagged, embedding and picking against the local Ollama |
 | `repair/reset-trial.ts <email>` | Resets an account's trial counters |
 | `benchmark/try-prompt.ts <prefix> [page]` | Runs a page through Ollama directly |
 | `benchmark/extraction.ts` | Scores a model against the benchmark corpus |
