@@ -83,7 +83,7 @@ and a connection test.
 |---|---|
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
-| `npm run check` | Typecheck, lint and tests |
+| `npm run check` | Typecheck, lint, tests, and the figures quoted in this file |
 | `npm test` | Vitest suite against PGlite |
 | `npm run test:e2e` | Playwright against a production build |
 | `npm run worker` | Operator GPU pull-worker |
