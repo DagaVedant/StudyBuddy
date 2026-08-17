@@ -146,6 +146,12 @@ that can be computed anywhere.
   the case on serverless. `POST /api/worksheets/:id/classify` takes the vectors,
   shortlists against them and spends the student's own key on the pick. The key
   never leaves the server.
+- Tier B also queues the worksheet for the operator GPU when the server cannot
+  embed, so a student who never opens the dashboard still gets topics. Whichever
+  runs first wins: an already-tagged question is not offered to the other.
+  Embedding cannot happen where the question text is not, so that route reads
+  the worksheet on the operator machine, and the notice on the worksheet says
+  so. Sorting in the browser keeps it on the student's own machine.
 - Tier C embeds in the student's browser and picks there too, against their own
   Ollama. The server only ever runs the pgvector shortlist, so no key is needed
   and no question text leaves the machine for a provider.
@@ -158,9 +164,9 @@ offered again, so closing the tab costs only the batch in flight.
 
 ## GPU worker
 
-The worker powers Tier 0. It dials out only: no inbound port and nothing
-listening on the host network. When it is not running, uploads queue rather than
-fail.
+The worker powers Tier 0, and sorts the Tier B worksheets the server could not
+embed. It dials out only: no inbound port and nothing listening on the host
+network. When it is not running, uploads queue rather than fail.
 
 ```bash
 ollama pull qwen2.5vl:7b
@@ -268,10 +274,11 @@ and a script with no terminal aborts rather than hanging.
 
 ## Limitations
 
-- Tier B classification is not automatic on serverless. The embedding model
+- Tier B classification does not finish on the server. The embedding model
   requires a native runtime the host does not have, so the extraction pass
-  leaves the worksheet untagged and the student sorts it from the dashboard or
-  the check screen with one click. See "Sorting into topics" below.
+  leaves the worksheet untagged, queues it for the operator GPU, and offers the
+  student a one-click sort from the dashboard or the check screen. If the worker
+  is not running, the browser is the only route. See "Sorting into topics".
 - Rate limiting covers signup, sign-in, upload, and every session-authenticated
   route that writes, spends money at a provider, or runs an expensive query.
   Reads that a screen polls are deliberately left unbounded: the notification

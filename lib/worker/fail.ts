@@ -4,11 +4,12 @@ import { refundTrial } from '@/lib/ai/quota'
 import { notifyWorksheet } from '@/lib/notifications/worksheet'
 import { worksheets } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
-import type { StoredJobStage } from '@/lib/queue'
+import type { JobStage } from '@/lib/queue'
 import { transitionWorksheet } from '@/lib/upload/claim'
+import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/untagged'
 
 export interface FailedJob {
-  stage: StoredJobStage
+  stage: JobStage
   userId: string
   worksheetId: string
 }
@@ -22,8 +23,15 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
     case 'answer_key':
       return
 
-    case 'extract':
-    case 'classify': {
+    // The worksheet itself is already delivered: only the topics are missing,
+    // so nothing about it failed. Point the student back at the sorter in
+    // their browser rather than leave a notice promising a machine that has
+    // now given up three times.
+    case 'classify':
+      await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
+      return
+
+    case 'extract': {
       const [worksheet] = await db
         .select({ tierUsed: worksheets.tierUsed })
         .from(worksheets)

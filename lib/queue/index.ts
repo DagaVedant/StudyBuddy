@@ -7,9 +7,7 @@ import { transitionWorksheet } from '@/lib/upload/claim'
 
 export type JobExecutor = 'server' | 'browser' | 'operator_gpu'
 
-export type JobStage = 'extract' | 'explain' | 'answer_key'
-
-export type StoredJobStage = JobStage | 'classify'
+export type JobStage = 'extract' | 'explain' | 'answer_key' | 'classify'
 
 export type JobPriority = 'high' | 'normal' | 'low'
 
@@ -90,7 +88,7 @@ export interface ClaimedJob {
   id: string
   worksheetId: string
   userId: string
-  stage: StoredJobStage
+  stage: JobStage
   attemptCount: number
   checkpoint: Record<string, unknown> | null
 }
@@ -149,7 +147,7 @@ export async function claimJob(
     id: string
     worksheet_id: string
     user_id: string
-    stage: StoredJobStage
+    stage: JobStage
     attempt_count: number
     checkpoint: Record<string, unknown> | null
   }>(result)
@@ -233,7 +231,7 @@ export async function failJob(
 
 export interface AbandonedJob {
   id: string
-  stage: StoredJobStage
+  stage: JobStage
   userId: string
   worksheetId: string
 }
@@ -375,7 +373,7 @@ export interface ActionableJob {
   worksheetId: string
   userId: string
   userEmail: string | null
-  stage: StoredJobStage
+  stage: JobStage
   executor: JobExecutor
   status: (typeof processingJobs.$inferSelect)['status']
   attemptCount: number

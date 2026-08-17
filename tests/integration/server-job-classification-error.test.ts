@@ -1,13 +1,14 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { MockProvider } from '@/lib/ai/mock'
 import { validated } from '@/lib/ai/validated'
 import type { ResolvedProvider } from '@/lib/ai/resolve'
 import type { Db } from '@/lib/db/types'
-import { worksheetPages, worksheets } from '@/lib/db/schema'
+import { processingJobs, worksheetPages, worksheets } from '@/lib/db/schema'
 import { enqueueJob } from '@/lib/queue'
 import { storage } from '@/lib/storage'
+import { applyPermanentFailure } from '@/lib/worker/fail'
 import { drainServerQueue } from '@/lib/worker/server-job'
 import { UNTAGGED_REASON } from '@/lib/worker/untagged'
 
@@ -96,6 +97,64 @@ describe('drainServerQueue records a classification failure the student can see'
     // Still reaches the student. Extraction and the repair passes are real
     // work regardless of what classification could do, and failing the whole
     // job over it would take that away for nothing.
+    expect(worksheet.status).toBe('awaiting_review')
+    expect(worksheet.classificationError).toBe(UNTAGGED_REASON.workerQueued)
+  })
+
+  it('hands the sorting to the operator GPU, which has the runtime for it', async () => {
+    const { userId, worksheetId } = await setup()
+    await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'server',
+    })
+
+    await drainServerQueue(db as Db, 10, asServer)
+
+    const queued = await db
+      .select({
+        stage: processingJobs.stage,
+        executor: processingJobs.executor,
+        status: processingJobs.status,
+      })
+      .from(processingJobs)
+      .where(
+        and(
+          eq(processingJobs.worksheetId, worksheetId),
+          eq(processingJobs.stage, 'classify'),
+        ),
+      )
+
+    expect(queued).toHaveLength(1)
+    expect(queued[0]).toMatchObject({ executor: 'operator_gpu', status: 'pending' })
+  })
+
+  it('sends the student back to their browser when the machine gives up', async () => {
+    const { userId, worksheetId } = await setup()
+    await enqueueJob(db as Db, {
+      worksheetId,
+      userId,
+      stage: 'extract',
+      executor: 'server',
+    })
+
+    await drainServerQueue(db as Db, 10, asServer)
+
+    await applyPermanentFailure(db as Db, {
+      stage: 'classify',
+      userId,
+      worksheetId,
+    })
+
+    const [worksheet] = await db
+      .select({
+        status: worksheets.status,
+        classificationError: worksheets.classificationError,
+      })
+      .from(worksheets)
+      .where(eq(worksheets.id, worksheetId))
+
     expect(worksheet.status).toBe('awaiting_review')
     expect(worksheet.classificationError).toBe(UNTAGGED_REASON.browserPending)
   })

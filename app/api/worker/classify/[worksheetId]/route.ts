@@ -8,6 +8,7 @@ import { pendingQuestions } from '@/lib/classify/pending'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
+import { clearUntagged } from '@/lib/worker/untagged'
 
 type Params = { params: Promise<{ worksheetId: string }> }
 
@@ -107,5 +108,16 @@ export async function POST(request: Request, { params }: Params) {
     } catch {}
   }
 
-  return NextResponse.json({ ok: true, applied, coarse })
+  const remaining = await pendingQuestions(db, worksheetId, 1)
+
+  if (remaining.length === 0) {
+    await clearUntagged(db, worksheetId)
+  }
+
+  return NextResponse.json({
+    ok: true,
+    applied,
+    coarse,
+    done: remaining.length === 0,
+  })
 }

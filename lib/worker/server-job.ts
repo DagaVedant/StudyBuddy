@@ -102,21 +102,18 @@ async function runOneServerJob(
           `${failed > 0 ? `, ${failed} failed` : ''}`,
       )
     } catch (error) {
-      await recordUntagged(
-        db,
-        job.worksheetId,
-        error instanceof EmbeddingUnavailableError
-          ? UNTAGGED_REASON.browserPending
-          : UNTAGGED_REASON.classifierFailed,
-      )
-
       if (error instanceof EmbeddingUnavailableError) {
+        await handOverClassification(db, job)
+
         console.error(
           `[server-job] the embedding model will not load on this host: ${error.message}. ` +
             `Worksheet ${job.worksheetId} is extracted but untagged, and so is every ` +
-            `other one until it loads. Sorting falls to the student's browser.`,
+            `other one until it loads. Sorting is queued for the operator GPU, and ` +
+            `the student can still do it in their browser.`,
         )
       } else {
+        await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.classifierFailed)
+
         console.error(
           `[server-job] classification failed on ${job.worksheetId}:`,
           (error as Error).message,
@@ -152,6 +149,28 @@ async function runOneServerJob(
       })
     }
   }
+}
+
+/**
+ * The embedding model needs a native runtime the serverless host does not have,
+ * and the operator GPU already runs one for Tier 0. Embedding cannot happen
+ * anywhere the question text is not, so a worksheet sorted this way is read on
+ * the operator machine, and the notice says so: sorting in the browser keeps it
+ * on the student's own.
+ */
+async function handOverClassification(
+  db: Db,
+  job: { worksheetId: string; userId: string },
+): Promise<void> {
+  await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.workerQueued)
+
+  await enqueueJob(db, {
+    worksheetId: job.worksheetId,
+    userId: job.userId,
+    stage: 'classify',
+    executor: 'operator_gpu',
+    priority: 'low',
+  })
 }
 
 async function runSolvingJob(

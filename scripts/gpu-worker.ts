@@ -668,7 +668,25 @@ async function processJob(claim: ClaimResponse): Promise<void> {
 
   if (job.stage === 'answer_key') return processAnswerKeyJob(job)
   if (job.stage === 'explain') return processExplainStageJob(job)
+  if (job.stage === 'classify') return processClassifyStageJob(job)
   return processExtractionJob(job, pages)
+}
+
+/**
+ * Sorting on its own, with no pages to read. This is a worksheet another tier
+ * already extracted: the serverless host cannot load the embedding model, so
+ * the vectors are computed here instead.
+ */
+async function processClassifyStageJob(job: ClaimedJob): Promise<void> {
+  log(`claimed ${job.id}: sorting into topics (attempt ${job.attemptCount})`)
+  try {
+    await classifyWorksheet(job.worksheetId)
+    await postJob(job.id, { action: 'complete' })
+  } catch (error) {
+    const message = (error as Error).message
+    log(`failed ${job.id}: ${message}`)
+    await postJob(job.id, { action: 'fail', message }).catch(() => {})
+  }
 }
 
 async function processAnswerKeyJob(job: ClaimedJob): Promise<void> {
