@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
     "/api/worksheets/[id]/complete": ["./models/**/*"],
   },
 
+  // Nodemailer opens a raw TLS socket and loads its transports by path.
+  // Bundling it breaks both.
+  serverExternalPackages: ["nodemailer"],
+
   experimental: {
     viewTransition: true,
   },

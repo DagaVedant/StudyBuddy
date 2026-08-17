@@ -53,7 +53,7 @@ The app runs at http://localhost:3000.
 | `CRON_SECRET` | production | Authorizes the scheduled queue drain |
 | `BLOB_READ_WRITE_TOKEN` | production | Page image storage. Without it images are written to local disk and lost on serverless |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google sign-in | OAuth client credentials |
-| `MAIL_FROM` and `BREVO_API_KEY` | password reset | Sender address and Brevo key. Unset disables reset cleanly |
+| `MAIL_FROM` and `SMTP_PASSWORD` | password reset | Sender address and SMTP password, a Gmail app password by default. Unset disables reset cleanly |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and VAPID keys | web push | From `npm run gen:vapid`. Unset disables push cleanly |
 | `OLLAMA_VISION_MODEL` | GPU worker | Extraction model, `qwen2.5vl:7b` |
 | `OLLAMA_REVIEW_MODEL` | optional | Second-pass reviewer, `gpt-oss:20b` |
@@ -130,15 +130,24 @@ https://your-project.vercel.app/api/auth/callback/google
 
 ## Password reset
 
-Set `MAIL_FROM` to an address you can receive at and `BREVO_API_KEY` to a
-[Brevo](https://www.brevo.com) key. Brevo verifies a single sender address
-rather than a whole domain, which is what makes reset possible without owning
-one; its free tier sends 300 a day. Verify the address under Senders, generate
-an API key, and set both.
+Mail goes out over plain SMTP, so there is no provider to sign up with, no
+domain to own and no sender address to get verified by anybody. A Gmail app
+password is enough:
 
-Leave either unset and the reset screen says the deployment cannot send email,
-rather than promising a link that will never arrive. Google sign-in still works,
-and so does every account that has a password already.
+1. Turn on 2-step verification on the Google account.
+2. Generate an app password at https://myaccount.google.com/apppasswords.
+3. Set `MAIL_FROM` to that Gmail address and `SMTP_PASSWORD` to the 16
+   characters it gave you.
+
+`SMTP_HOST` and `SMTP_PORT` default to `smtp.gmail.com` and 465, and `SMTP_USER`
+defaults to `MAIL_FROM`, so any other host takes the same four variables. Port
+465 connects over TLS immediately; every other port must offer STARTTLS or the
+send is refused rather than sent in the clear.
+
+Leave `MAIL_FROM` or `SMTP_PASSWORD` unset and the reset screen says the
+deployment cannot send email, rather than promising a link that will never
+arrive. Google sign-in still works, and so does every account that has a
+password already.
 
 A link is a 32-byte token, stored only as a SHA-256 hash, good for one hour and
 one use. Spending one deletes every other outstanding link for that account, and
