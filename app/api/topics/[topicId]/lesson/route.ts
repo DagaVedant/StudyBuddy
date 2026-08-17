@@ -6,6 +6,7 @@ import { resolveProvider } from '@/lib/ai/resolve'
 import { ProviderRefused, ProviderUnavailable } from '@/lib/ai/types'
 import { db } from '@/lib/db'
 import { topics } from '@/lib/db/schema'
+import { LESSON_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { generateLesson, getLesson, type StoredLesson } from '@/lib/topics/lesson'
 
 type Params = { params: Promise<{ topicId: string }> }
@@ -43,6 +44,14 @@ export async function POST(_request: Request, { params }: Params) {
   if (existing) {
     return NextResponse.json({ lesson: serialize(existing) })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    LESSON_LIMIT,
+    `user:${userId}`,
+    'You have asked for a lot of lessons. Try again shortly.',
+  )
+  if (limited) return limited
 
   const { provider, executor } = await resolveProvider(db, userId)
 

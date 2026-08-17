@@ -97,6 +97,16 @@ export async function createWorksheet(page: Page, title: string): Promise<string
   return worksheetId
 }
 
+export async function connectCloudKey(page: Page): Promise<void> {
+  const response = await page.request.post('/api/settings/credentials', {
+    data: { provider: 'anthropic', apiKey: 'sk-ant-e2e-not-a-real-key' },
+  })
+
+  if (!response.ok()) {
+    throw new Error(`Could not connect a cloud key: ${await response.text()}`)
+  }
+}
+
 export async function setTrialWorksheetsUsed(
   page: Page,
   email: string,

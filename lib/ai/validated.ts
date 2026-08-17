@@ -4,6 +4,7 @@ import {
   parseExplanation,
   parseExtraction,
   parseLesson,
+  parsePractice,
   parseSolution,
   parseReview,
   type AIProvider,
@@ -54,6 +55,10 @@ export function validated<T extends RawAIProvider>(
 
     async teachTopic(input) {
       return parseLesson(await provider.teachTopic(input))
+    },
+
+    async writePractice(input) {
+      return parsePractice(await provider.writePractice(input))
     },
 
     async explain(input) {

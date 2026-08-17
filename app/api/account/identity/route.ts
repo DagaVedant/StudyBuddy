@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { saveIdentity } from '@/lib/auth/identity'
+import { ACCOUNT_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 
 const bodySchema = z.object({
   name: z.string().trim().max(80).nullable(),
@@ -20,6 +21,14 @@ export async function PATCH(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    ACCOUNT_LIMIT,
+    `user:${session.user.id}`,
+    'Too many changes to this account. Try again shortly.',
+  )
+  if (limited) return limited
 
   const result = await saveIdentity(db, session.user.id, parsed.data)
 

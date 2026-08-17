@@ -205,6 +205,37 @@ export function parseLesson(raw: unknown): Lesson {
   return lessonSchema.parse(raw)
 }
 
+export const generatedQuestionSchema = z.object({
+  prompt_text: z.string().trim().min(1).max(4000),
+  choices: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(2000).transform(normalizeChoiceLabel),
+        text: z.string().trim().min(1).max(600),
+      }),
+    )
+    .max(8)
+    .default([]),
+  correct_label: z.string().min(1).max(2000).transform(normalizeChoiceLabel),
+  working: z.string().trim().max(4000).default(''),
+})
+
+export type GeneratedQuestion = z.infer<typeof generatedQuestionSchema>
+
+export function parsePractice(raw: unknown): GeneratedQuestion[] {
+  const outer = z.object({ questions: z.array(z.unknown()).max(40) }).safeParse(raw)
+  if (!outer.success) return []
+
+  const kept: GeneratedQuestion[] = []
+
+  for (const item of outer.data.questions) {
+    const parsed = generatedQuestionSchema.safeParse(item)
+    if (parsed.success) kept.push(parsed.data)
+  }
+
+  return kept
+}
+
 export interface ReviewCandidate {
   number: number
   prompt_text: string
@@ -272,6 +303,13 @@ export interface LessonInput {
   samples: string[]
 }
 
+export interface PracticeInput {
+  topicName: string
+  topicPath: string
+  owned: string[]
+  count: number
+}
+
 export interface ExplainInput {
   promptText: string
   choices: { label: string; text: string }[]
@@ -299,6 +337,8 @@ export interface RawAIProvider extends ProviderIdentity {
   answerQuestion(input: AnswerInput): Promise<unknown>
 
   teachTopic(input: LessonInput): Promise<unknown>
+
+  writePractice(input: PracticeInput): Promise<unknown>
 }
 
 export interface AIProvider extends ProviderIdentity {
@@ -307,6 +347,7 @@ export interface AIProvider extends ProviderIdentity {
   explain(input: ExplainInput): Promise<Explanation>
   answerQuestion(input: AnswerInput): Promise<Solution>
   teachTopic(input: LessonInput): Promise<Lesson>
+  writePractice(input: PracticeInput): Promise<GeneratedQuestion[]>
 }
 
 export interface RawQuestionReviewer {

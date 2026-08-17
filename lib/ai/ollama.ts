@@ -14,6 +14,9 @@ import {
   LESSON_JSON_SCHEMA,
   LESSON_SYSTEM,
   lessonUserText,
+  PRACTICE_JSON_SCHEMA,
+  PRACTICE_SYSTEM,
+  practiceUserText,
   REVIEW_JSON_SCHEMA,
   REVIEW_SYSTEM,
   reviewUserText,
@@ -25,6 +28,7 @@ import {
   type ExplainInput,
   type LessonInput,
   type PageInput,
+  type PracticeInput,
   type RawAIProvider,
   type RawQuestionReviewer,
   type ReviewCandidate,
@@ -281,6 +285,17 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       lessonUserText(input),
       undefined,
       LESSON_JSON_SCHEMA as unknown as Record<string, unknown>,
+      LESSON_CONTEXT_TOKENS,
+    )
+  }
+
+  async writePractice(input: PracticeInput): Promise<unknown> {
+    return this.chat(
+      this.answerModel,
+      PRACTICE_SYSTEM,
+      practiceUserText(input),
+      undefined,
+      PRACTICE_JSON_SCHEMA as unknown as Record<string, unknown>,
       LESSON_CONTEXT_TOKENS,
     )
   }

@@ -48,7 +48,10 @@ export const sourceType = pgEnum('source_type', [
   'pdf_scanned',
   'photo',
   'image',
+  'generated',
 ])
+
+export const contentOrigin = pgEnum('content_origin', ['extracted', 'generated'])
 
 export const worksheetStatus = pgEnum('worksheet_status', [
   'uploading',
@@ -120,6 +123,7 @@ export const usageKind = pgEnum('usage_kind', [
   'answer_derive',
   'classify',
   'explain',
+  'generate_practice',
 ])
 
 export const users = pgTable('users', {
@@ -225,6 +229,7 @@ export const worksheets = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     sourceType: sourceType('source_type').notNull(),
+    origin: contentOrigin('origin').default('extracted').notNull(),
     pageCount: integer('page_count').default(0).notNull(),
 
     subjectHint: text('subject_hint'),
@@ -238,7 +243,12 @@ export const worksheets = pgTable(
 
     createdAt: createdAt(),
   },
-  (t) => [index('worksheets_user_created_idx').on(t.userId, t.createdAt)],
+  (t) => [
+    index('worksheets_user_created_idx').on(t.userId, t.createdAt),
+    uniqueIndex('worksheets_user_generated')
+      .on(t.userId)
+      .where(sql`${t.origin} = 'generated'`),
+  ],
 )
 
 export const worksheetPages = pgTable(
@@ -279,6 +289,8 @@ export const questions = pgTable(
     promptText: text('prompt_text').notNull(),
     questionType: questionType('question_type').notNull(),
 
+    origin: contentOrigin('origin').default('extracted').notNull(),
+
     bbox: jsonb('bbox').$type<BBox | null>(),
 
     correctAnswer: text('correct_answer'),
@@ -298,6 +310,7 @@ export const questions = pgTable(
     index('questions_worksheet_idx').on(t.worksheetId),
     index('questions_page_idx').on(t.pageId),
     index('questions_content_hash_idx').on(t.userId, t.contentHash),
+    index('questions_user_origin_idx').on(t.userId, t.origin),
     index('questions_embedding_idx').using(
       'hnsw',
       t.embedding.op('vector_cosine_ops'),

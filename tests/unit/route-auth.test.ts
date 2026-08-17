@@ -96,6 +96,7 @@ const browserClaim = await import('@/app/api/browser-jobs/claim/route')
 const browserJob = await import('@/app/api/browser-jobs/[jobId]/route')
 const identity = await import('@/app/api/account/identity/route')
 const lesson = await import('@/app/api/topics/[topicId]/lesson/route')
+const practice = await import('@/app/api/topics/[topicId]/practice/route')
 const goManual = await import('@/app/api/worksheets/[id]/go-manual/route')
 const worksheets = await import('@/app/api/worksheets/route')
 const worksheet = await import('@/app/api/worksheets/[id]/route')
@@ -156,6 +157,12 @@ const ROUTES: [string, Handler, string, never][] = [
   [
     'POST /api/topics/[topicId]/lesson',
     lesson.POST as Handler,
+    'POST',
+    id({ topicId: 't-1' }),
+  ],
+  [
+    'POST /api/topics/[topicId]/practice',
+    practice.POST as Handler,
     'POST',
     id({ topicId: 't-1' }),
   ],

@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, lte, sql } from 'drizzle-orm'
 
 import { unwrapDriverRows as rows } from '@/lib/db/rows'
-import { IS_QUESTION } from '@/lib/questions/sql'
+import { COUNTS_TOWARDS_ACCURACY, IS_QUESTION } from '@/lib/questions/sql'
 import { inReviewQueue } from '@/lib/review/queue'
 import {
   attempts,
@@ -43,7 +43,7 @@ export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[
         join ${questionTopics}
           on ${questionTopics.questionId} = ${attempts.questionId}
           and ${questionTopics.isPrimary} = true
-        where ${attempts.userId} = ${userId}
+        where ${attempts.userId} = ${userId} and ${COUNTS_TOWARDS_ACCURACY}
       )
       select
         t.id as topic_id,
@@ -108,9 +108,12 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
     await db.execute(sql`
       select
         (select count(*) from ${questions}
-          where ${questions.userId} = ${userId} and ${IS_QUESTION})::int
+          where ${questions.userId} = ${userId}
+            and ${questions.origin} = 'extracted' and ${IS_QUESTION})::int
           as questions_tracked,
-        (select count(*) from ${worksheets} where ${worksheets.userId} = ${userId})::int
+        (select count(*) from ${worksheets}
+          where ${worksheets.userId} = ${userId}
+            and ${worksheets.origin} = 'extracted')::int
           as worksheets_uploaded,
         (select count(*) from ${attempts} where ${attempts.userId} = ${userId})::int
           as attempts_logged
@@ -247,6 +250,10 @@ export async function getAccuracyTrend(
       left join ${attempts} a
         on a.user_id = ${userId}
         and date_trunc('week', a.created_at) = week.start
+        and exists (
+          select 1 from ${questions} scored
+          where scored.id = a.question_id and scored.origin = 'extracted'
+        )
       group by week.start
       order by week.start
     `),
@@ -284,6 +291,7 @@ export async function getAccuracyTrendBySubject(
           a.outcome,
           date_trunc('week', a.created_at) as week_start
         from ${attempts} a
+        join ${questions} q on q.id = a.question_id and q.origin = 'extracted'
         join ${questionTopics} qt
           on qt.question_id = a.question_id and qt.is_primary = true
         join ${topics} t on t.id = qt.topic_id
@@ -365,7 +373,7 @@ export async function getRecentWorksheets(
     .from(worksheets)
     .leftJoin(questions, eq(questions.worksheetId, worksheets.id))
     .leftJoin(attempts, eq(attempts.questionId, questions.id))
-    .where(eq(worksheets.userId, userId))
+    .where(and(eq(worksheets.userId, userId), eq(worksheets.origin, 'extracted')))
     .groupBy(
       worksheets.id,
       worksheets.title,
@@ -444,7 +452,7 @@ export async function getDistractorPatterns(
         count(*)::int   as "timesChosen"
       from attempts a
       join answer_choices c on c.id = a.selected_choice_id
-      join questions q on q.id = a.question_id
+      join questions q on q.id = a.question_id and q.origin = 'extracted'
       where a.user_id = ${userId} and a.outcome = 'wrong'
       group by q.id, q.prompt_text, c.label, c.text
       having count(*) > 1
@@ -468,7 +476,7 @@ export async function getAccountAccuracy(db: Db, userId: string): Promise<Accoun
         count(*) filter (where ${attempts.outcome} = 'correct')::int as correct,
         count(*)::int as total
       from ${attempts}
-      where ${attempts.userId} = ${userId}
+      where ${attempts.userId} = ${userId} and ${COUNTS_TOWARDS_ACCURACY}
     `),
   )
 

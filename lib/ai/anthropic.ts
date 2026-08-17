@@ -17,6 +17,9 @@ import {
   LESSON_JSON_SCHEMA,
   LESSON_SYSTEM,
   lessonUserText,
+  PRACTICE_JSON_SCHEMA,
+  PRACTICE_SYSTEM,
+  practiceUserText,
 } from './prompts'
 import {
   ProviderRefused,
@@ -24,6 +27,7 @@ import {
   type ExplainInput,
   type LessonInput,
   type PageInput,
+  type PracticeInput,
   type RawAIProvider,
   type TopicCandidate,
 } from './types'
@@ -134,6 +138,15 @@ export class AnthropicProvider implements RawAIProvider {
       LESSON_SYSTEM,
       [{ type: 'text', text: lessonUserText(input) }],
       LESSON_JSON_SCHEMA as unknown as Record<string, unknown>,
+      8000,
+    )
+  }
+
+  async writePractice(input: PracticeInput): Promise<unknown> {
+    return this.complete(
+      PRACTICE_SYSTEM,
+      [{ type: 'text', text: practiceUserText(input) }],
+      PRACTICE_JSON_SCHEMA as unknown as Record<string, unknown>,
       8000,
     )
   }

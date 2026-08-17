@@ -54,6 +54,38 @@ export const QUESTION_WRITE_LIMIT: LimitRule = {
   windowSeconds: 3600,
 }
 
+export const LESSON_LIMIT: LimitRule = { action: 'lesson', limit: 30, windowSeconds: 3600 }
+
+export const PRACTICE_LIMIT: LimitRule = {
+  action: 'practice',
+  limit: 12,
+  windowSeconds: 86400,
+}
+
+export const ACCOUNT_LIMIT: LimitRule = { action: 'account', limit: 20, windowSeconds: 3600 }
+
+export const CREDENTIAL_LIMIT: LimitRule = {
+  action: 'credential',
+  limit: 20,
+  windowSeconds: 3600,
+}
+
+export const EXPORT_LIMIT: LimitRule = { action: 'export', limit: 60, windowSeconds: 3600 }
+
+export const REVIEW_LIMIT: LimitRule = { action: 'review', limit: 600, windowSeconds: 3600 }
+
+export const WORKSHEET_WRITE_LIMIT: LimitRule = {
+  action: 'worksheet-write',
+  limit: 200,
+  windowSeconds: 3600,
+}
+
+export const NOTIFICATION_WRITE_LIMIT: LimitRule = {
+  action: 'notification-write',
+  limit: 200,
+  windowSeconds: 3600,
+}
+
 export function limitKey(rule: LimitRule, subject: string): string {
   return `${rule.action}:${subject.slice(0, 180)}`
 }
@@ -144,6 +176,23 @@ function decide(rows: unknown, rule: LimitRule, now: Date): LimitDecision {
   }
 
   return { ok: true, remaining: Math.max(0, rule.limit - count), retryAfter: 0 }
+}
+
+export function limitedResponse(decision: LimitDecision, message: string): Response {
+  return Response.json(
+    { error: message },
+    { status: 429, headers: { 'Retry-After': String(decision.retryAfter) } },
+  )
+}
+
+export async function guardRateLimit(
+  db: Db,
+  rule: LimitRule,
+  subject: string,
+  message: string,
+): Promise<Response | null> {
+  const decision = await consumeRateLimit(db, rule, subject)
+  return decision.ok ? null : limitedResponse(decision, message)
 }
 
 export { callerIp } from '@/lib/http/client-ip'

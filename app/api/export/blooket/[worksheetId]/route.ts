@@ -5,6 +5,7 @@ import { blooketDownload } from '@/lib/blooket/download'
 import { getMissedQuestions } from '@/lib/blooket/missed'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
+import { EXPORT_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { guardWorksheet } from '@/lib/upload/guard'
 
 export async function GET(
@@ -19,6 +20,14 @@ export async function GET(
       status: guard.status,
     })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    EXPORT_LIMIT,
+    `user:${guard.userId}`,
+    'Too many exports. Try again shortly.',
+  )
+  if (limited) return limited
 
   const [worksheet] = await db
     .select({ title: worksheets.title })

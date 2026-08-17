@@ -20,6 +20,7 @@ function everMissed(userId: string) {
 function missedBy(userId: string, worksheetId?: string) {
   return and(
     eq(questions.userId, userId),
+    eq(questions.origin, 'extracted'),
     worksheetId ? eq(questions.worksheetId, worksheetId) : undefined,
     everMissed(userId),
   )

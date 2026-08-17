@@ -7,6 +7,7 @@ import { verifyCloudKey } from '@/lib/ai/verify-key'
 import { CLOUD_PROVIDERS, deleteCredential, getCredentialSummary } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { userAiCredentials } from '@/lib/db/schema'
+import { CREDENTIAL_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 
 const cloudSchema = z.object({
   provider: z.enum(CLOUD_PROVIDERS),
@@ -47,6 +48,14 @@ export async function POST(request: Request) {
 
   const userId = session.user.id
   const input = parsed.data
+
+  const limited = await guardRateLimit(
+    db,
+    CREDENTIAL_LIMIT,
+    `user:${userId}`,
+    'Too many credential changes. Try again shortly.',
+  )
+  if (limited) return limited
 
   if (input.provider === 'ollama') {
     if (!isAllowedOllamaUrl(input.baseUrl)) {
@@ -143,6 +152,14 @@ export async function DELETE(request: Request) {
   if (!deletable.success) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
+
+  const limited = await guardRateLimit(
+    db,
+    CREDENTIAL_LIMIT,
+    `user:${session.user.id}`,
+    'Too many credential changes. Try again shortly.',
+  )
+  if (limited) return limited
 
   await deleteCredential(db, session.user.id, deletable.data)
 
