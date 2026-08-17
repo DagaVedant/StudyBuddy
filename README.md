@@ -104,6 +104,16 @@ Migrations do not run from the build: `prebuild` skips them on Vercel so that a
 preview deployment cannot migrate production. Run `npm run db:migrate` against
 production before deploying.
 
+Because the build will not do it for you, pushing `main` with an unapplied
+migration serves code against a schema that cannot answer it. A `pre-push` hook
+refuses that push. It runs only for `main`, it reads the database and never
+writes, and it stays out of the way otherwise: a push to any other branch skips
+it, and so does a database it cannot reach, since an unreachable database is no
+evidence of a problem. `SKIP_MIGRATION_CHECK=1 git push` overrides it.
+
+The hook lives in `.githooks/` and `npm install` points `core.hooksPath` there.
+Run `npm run prepare` to wire it up without a full install.
+
 `vercel.json` registers a daily cron on `/api/cron/drain-server-queue`, which
 drains worksheets processed against a student's own cloud key. The schedule is
 daily because the Hobby plan permits no finer interval.
@@ -238,6 +248,7 @@ and a script with no terminal aborts rather than hanging.
 | `inspect/diagnose-worksheet.ts` | Recent worksheets with page, text and question counts |
 | `inspect/tally-questions.ts <prefix>` | Question counts per matching worksheet |
 | `inspect/peek-page.ts <prefix> [page]` | Dumps a page's stored OCR text |
+| `inspect/check-migrations.ts` | Migrations on disk that the database has not applied |
 | `inspect/topic-gaps.ts` | Tagging coverage and classifier reach |
 | `inspect/check-account.ts` | Roles, verification state and trial usage |
 | `inspect/check-worksheet-attempts.ts <title>` | Attempts recorded against a worksheet |

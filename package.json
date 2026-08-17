@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prepare": "node scripts/install-hooks.mjs",
     "postinstall": "node scripts/copy-pdf-worker.mjs",
     "predev": "node scripts/copy-pdf-worker.mjs",
     "prebuild": "node scripts/copy-pdf-worker.mjs && node scripts/fetch-embedding-model.mjs && npm run db:migrate:deploy",
