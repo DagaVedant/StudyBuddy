@@ -42,7 +42,7 @@ const WEAKEST = [
 ] as const
 
 export const SUBJECTS = [
-  { name: 'High School Math', correct: 28, attempts: 32 },
+  { name: 'Competition Math', correct: 28, attempts: 32 },
   { name: 'SAT Math', correct: 71, attempts: 104 },
   { name: 'SAT Reading and Writing', correct: 65, attempts: 82 },
 ] as const

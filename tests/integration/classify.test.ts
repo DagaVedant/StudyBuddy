@@ -28,12 +28,12 @@ const client = () => asDb(db)
 
 const CANDIDATES: TopicCandidate[] = [
   {
-    slug: 'high-school-math.geometry.circles.central-and-inscribed-angles',
+    slug: 'competition-math.geometry.circles',
     name: 'Central and inscribed angles',
     path: 'High School Math › Geometry › Circles › Central and inscribed angles',
   },
   {
-    slug: 'high-school-math.geometry.circles.arcs-and-chords',
+    slug: 'competition-math.geometry.area-and-perimeter',
     name: 'Arcs and chords',
     path: 'High School Math › Geometry › Circles › Arcs and chords',
   },
@@ -114,7 +114,7 @@ describe('applyClassification', () => {
     const q = await question()
 
     const outcome = await applyClassification(client(), q, CANDIDATES, {
-      topic_slug: 'high-school-math.geometry.circles.made-this-up',
+      topic_slug: 'competition-math.geometry.circles.made-this-up',
       confidence: 1,
       abstain: false,
       suggested_name: null,
@@ -154,8 +154,8 @@ describe('applyClassification', () => {
 })
 
 describe('the subject hint', () => {
-  const ALGEBRA = 'high-school-math.algebra-1.foundations.order-of-operations'
-  const GEOMETRY = 'high-school-math.geometry.foundations.points-lines-and-planes'
+  const ALGEBRA = 'competition-math.algebra.linear-equations'
+  const GEOMETRY = 'competition-math.geometry.angles-lines-and-segments'
 
   beforeAll(async () => {
     const vector = new Array(EMBEDDING_DIMENSIONS).fill(0)
@@ -177,14 +177,14 @@ describe('the subject hint', () => {
   }
 
   it('keeps the sub-subject the student actually chose', async () => {
-    const slugs = await shortlist('high-school-math.algebra-1')
+    const slugs = await shortlist('competition-math.algebra')
 
     expect(slugs).toContain(ALGEBRA)
     expect(slugs).not.toContain(GEOMETRY)
   })
 
   it('still takes a whole subject when that is what was chosen', async () => {
-    const slugs = await shortlist('high-school-math')
+    const slugs = await shortlist('competition-math')
 
     expect(slugs).toContain(ALGEBRA)
     expect(slugs).toContain(GEOMETRY)
@@ -205,7 +205,7 @@ describe('the subject hint', () => {
   })
 
   it('does not treat a wildcard in the hint as a wildcard', async () => {
-    expect(await shortlist('high-school-math.%')).toEqual(
+    expect(await shortlist('competition-math.%')).toEqual(
       expect.arrayContaining([ALGEBRA, GEOMETRY]),
     )
   })

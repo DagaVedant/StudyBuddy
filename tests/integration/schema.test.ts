@@ -100,10 +100,8 @@ describe('taxonomy seeding', () => {
     const child = await db
       .select()
       .from(topics)
-      .where(eq(topics.slug, 'high-school-math.geometry.triangles.triangle-angle-sum'))
-    expect(child[0]?.parentId).toBe(
-      idBySlug.get('high-school-math.geometry.triangles'),
-    )
+      .where(eq(topics.slug, 'competition-math.geometry.triangles'))
+    expect(child[0]?.parentId).toBe(idBySlug.get('competition-math.geometry'))
   })
 })
 

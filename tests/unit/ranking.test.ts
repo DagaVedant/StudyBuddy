@@ -15,7 +15,7 @@ function stats(partial: Partial<TopicStats> & { topicId: string }): TopicStats {
   return {
     topicName: partial.topicId,
     topicPath: partial.topicId,
-    subjectRoot: 'high-school-math',
+    subjectRoot: 'competition-math',
     correct: 0,
     unsure: 0,
     wrong: 0,
@@ -139,7 +139,7 @@ describe('rollUp', () => {
 })
 
 describe('buildTopicTree', () => {
-  const TRIANGLES = 'high-school-math.geometry.triangles.triangle-angle-sum'
+  const TRIANGLES = 'competition-math.geometry.triangles'
 
   function subject(tree: ReturnType<typeof buildTopicTree>, slug: string) {
     const walk = (nodes: ReturnType<typeof buildTopicTree>): unknown => {
@@ -160,9 +160,9 @@ describe('buildTopicTree', () => {
     ])
 
     for (const slug of [
-      'high-school-math',
-      'high-school-math.geometry',
-      'high-school-math.geometry.triangles',
+      'competition-math',
+      'competition-math.geometry',
+      'competition-math.geometry.triangles',
       TRIANGLES,
     ]) {
       expect(subject(tree, slug)).toMatchObject({ attempts: 4, correct: 3, wrong: 1 })
@@ -205,8 +205,8 @@ describe('buildTopicTree', () => {
 
     
     expect(tree).toHaveLength(1)
-    expect(tree[0].slug).toBe('high-school-math')
-    expect(subject(tree, 'high-school-math.algebra-1')).toBeNull()
+    expect(tree[0].slug).toBe('competition-math')
+    expect(subject(tree, 'competition-math.algebra')).toBeNull()
     expect(subject(tree, TRIANGLES)).not.toBeNull()
   })
 })

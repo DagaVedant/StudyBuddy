@@ -32,7 +32,7 @@ let db: TestDb
 let close: () => Promise<void>
 let topicIds: Map<string, string>
 
-const SLOPE = 'high-school-math.algebra-1.linear-functions-and-graphing.slope'
+const SLOPE = 'competition-math.algebra.slope-intercepts-and-linear-graphs'
 
 const client = () => db as unknown as Db
 

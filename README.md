@@ -36,7 +36,7 @@ The app runs at http://localhost:3000.
 | Command | Effect |
 |---|---|
 | `db:migrate` | Enables pgvector and creates 26 tables |
-| `db:seed` | Loads 341 topics, 276 of them classifiable leaves |
+| `db:seed` | Loads 106 topics, 87 of them classifiable leaves |
 | `db:embed` | Computes topic embeddings, required for auto-classification |
 
 ## Environment
@@ -158,6 +158,20 @@ one use. Spending one deletes every other outstanding link for that account, and
 sets `email_verified`, since reading the mail proves the address. Requests are
 limited per address and per connection, and the reply is the same sentence
 whether or not the address has an account.
+
+## Topics
+
+The tree covers what actually gets uploaded here: SAT Math, SAT Reading and
+Writing, and competition maths, meaning AMC 8 and 10, MATHCOUNTS and the SHSAT
+maths section. 106 nodes, 87 of them classifiable leaves.
+
+Competition maths is grouped the way contest solutions talk about themselves,
+by technique rather than by the school year a topic is taught in, because a
+student working through a paper is looking for the method.
+
+The general school-maths spine and the ELA tree were removed once it was clear
+nothing was arriving for them. `lib/taxonomy/remap.ts` records where every
+topic that carried data went, and `scripts/repair/remap-topics.ts` applies it.
 
 ## Sorting into topics
 
@@ -303,6 +317,7 @@ and a script with no terminal aborts rather than hanging.
 | `repair/reextract-worksheet.ts <id>` | Deletes extracted questions and re-reads the pages |
 | `repair/reclassify-worksheet.ts <id>` | Drops topic tags and re-runs classification |
 | `repair/requeue-worksheet.ts [id\|--all]` | Re-enqueues processing |
+| `repair/remap-topics.ts [--apply]` | Moves tags and lessons onto the current taxonomy, then deletes what nothing points at |
 | `repair/reset-trial.ts <email>` | Resets an account's trial counters |
 | `benchmark/try-prompt.ts <prefix> [page]` | Runs a page through Ollama directly |
 | `benchmark/extraction.ts` | Scores a model against the benchmark corpus |

@@ -20,7 +20,7 @@ let db: TestDb
 let close: () => Promise<void>
 let topicIds: Map<string, string>
 
-const TRIANGLES = 'high-school-math.geometry.triangles.triangle-angle-sum'
+const TRIANGLES = 'competition-math.geometry.triangles'
 
 beforeAll(async () => {
   const harness = await createTestDb()
@@ -140,7 +140,7 @@ describe('getDueCards', () => {
 
     expect(item.lastChoiceId).toBe(question.choiceIds.B)
     expect(item.lastOutcome).toBe('wrong')
-    expect(item.topicName).toBe('Triangle angle sum')
+    expect(item.topicName).toBe('Triangles')
     expect(item.choices).toHaveLength(2)
     expect(item.choices.find((choice) => choice.isCorrect)?.label).toBe('A')
   })
@@ -315,7 +315,7 @@ describe('the review queue', () => {
 })
 
 describe('the queue narrowed to one topic', () => {
-  const SLOPE = 'high-school-math.algebra-1.linear-functions-and-graphing.slope'
+  const SLOPE = 'competition-math.algebra.slope-intercepts-and-linear-graphs'
 
   async function twoTopicsOneEach() {
     const userId = await makeUser(db)
@@ -371,7 +371,7 @@ describe('the queue narrowed to one topic', () => {
 
   it('comes back empty for a topic the student has nothing in', async () => {
     const { userId } = await twoTopicsOneEach()
-    const elsewhere = topicIds.get('high-school-math.precalculus')!
+    const elsewhere = topicIds.get('competition-math.number-theory.primes-and-divisibility')!
 
     expect(await getDueCards(db as Db, userId, 20, new Date(), elsewhere)).toHaveLength(0)
   })

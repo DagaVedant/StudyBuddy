@@ -30,8 +30,8 @@ let db: TestDb
 let close: () => Promise<void>
 let topicIds: Map<string, string>
 
-const TRIANGLES = 'high-school-math.geometry.triangles.triangle-angle-sum'
-const SLOPE = 'high-school-math.algebra-1.linear-functions-and-graphing.slope'
+const TRIANGLES = 'competition-math.geometry.triangles'
+const SLOPE = 'competition-math.algebra.slope-intercepts-and-linear-graphs'
 
 beforeAll(async () => {
   const harness = await createTestDb()
@@ -463,7 +463,7 @@ describe('the panels that were missing', () => {
 
       expect(sheet).toMatchObject({ markedCount: 2, correctCount: 1, wrongCount: 1 })
       expect(sheet.topics.map((topic) => topic.topicName).sort()).toEqual(
-        ['Slope', 'Triangle angle sum'].sort(),
+        ['Slope, intercepts and linear graphs', 'Triangles'].sort(),
       )
     })
   })

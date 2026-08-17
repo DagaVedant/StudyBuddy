@@ -4,9 +4,9 @@ import styles from './hero.module.css'
 
 export const TOPICS = [
   { name: 'Ratios and rates', count: 6 },
-  { name: 'Multi-step equations', count: 5 },
-  { name: 'Inference', count: 8 },
-  { name: 'Vocabulary in context', count: 5 },
+  { name: 'Linear equations', count: 5 },
+  { name: 'Inferences', count: 8 },
+  { name: 'Words in context', count: 5 },
 ] as const
 
 const TOTAL = TOPICS.reduce((sum, topic) => sum + topic.count, 0)

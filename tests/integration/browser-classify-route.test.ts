@@ -57,7 +57,7 @@ async function embedTopics(): Promise<void> {
     .select({ id: topics.id, name: topics.name })
     .from(topics)
     .where(eq(topics.isLeaf, true))
-    .limit(60)
+    .limit(200)
 
   for (const leaf of leaves) {
     await db

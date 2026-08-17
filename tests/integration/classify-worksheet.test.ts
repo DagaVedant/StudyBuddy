@@ -18,9 +18,9 @@ let close: () => Promise<void>
 let slugs: Map<string, string>
 
 const EMBEDDED = [
-  'high-school-math.geometry.circles.central-and-inscribed-angles',
-  'high-school-math.geometry.circles.arcs-and-chords',
-  'high-school-math.algebra-1.foundations.order-of-operations',
+  'competition-math.geometry.circles',
+  'competition-math.geometry.area-and-perimeter',
+  'competition-math.arithmetic-and-number-sense.order-of-operations',
 ]
 
 beforeAll(async () => {
@@ -47,7 +47,7 @@ afterAll(async () => {
 
 const client = () => asDb(db)
 
-const LEAF = 'high-school-math.geometry.circles.central-and-inscribed-angles'
+const LEAF = 'competition-math.geometry.circles'
 
 function provider(
   answer: (promptText: string) => unknown,
@@ -239,7 +239,7 @@ describe('classifyWorksheet', () => {
       client(),
       provider(picks, asked),
       worksheetId,
-      'high-school-math.algebra-1',
+      'competition-math.algebra',
     )
 
     const [tag] = await db
@@ -253,7 +253,7 @@ describe('classifyWorksheet', () => {
         .select({ slug: topics.slug })
         .from(topics)
         .where(eq(topics.id, tag.topicId))
-      expect(topic.slug.startsWith('high-school-math.algebra-1')).toBe(true)
+      expect(topic.slug.startsWith('competition-math.algebra')).toBe(true)
     } else {
       expect(tag).toBeUndefined()
     }

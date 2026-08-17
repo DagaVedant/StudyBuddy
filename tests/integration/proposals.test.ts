@@ -32,7 +32,7 @@ async function makeParent(slug: string, isLeaf = true) {
       slug,
       name: 'Geometry',
       depth: 1,
-      subjectRoot: 'high-school-math',
+      subjectRoot: 'competition-math',
       isCanonical: true,
       isLeaf,
     })
@@ -70,7 +70,7 @@ function axis(index: number): number[] {
 
 describe('losing the race for a slug', () => {
   it('retries when someone takes the slug mid-transaction', async () => {
-    const parentId = await makeParent('high-school-math.vectors')
+    const parentId = await makeParent('competition-math.vectors')
     const proposalId = await makeProposal({
       proposedName: 'Dot product',
       suggestedParentId: parentId,
@@ -94,12 +94,12 @@ describe('losing the race for a slug', () => {
     const accepted = await acceptTopicProposal(flaky, proposalId)
 
     if (!accepted.ok) throw new Error(`expected acceptance, got ${accepted.reason}`)
-    expect(accepted.slug).toBe('high-school-math.vectors.dot-product')
+    expect(accepted.slug).toBe('competition-math.vectors.dot-product')
     expect(failures).toBe(0)
   })
 
   it('gives up rather than looping when the collision never clears', async () => {
-    const parentId = await makeParent('high-school-math.matrices')
+    const parentId = await makeParent('competition-math.matrices')
     const proposalId = await makeProposal({
       proposedName: 'Determinants',
       suggestedParentId: parentId,
@@ -125,7 +125,7 @@ describe('losing the race for a slug', () => {
   })
 
   it('does not swallow a failure that is not a collision', async () => {
-    const parentId = await makeParent('high-school-math.complex-numbers')
+    const parentId = await makeParent('competition-math.complex-numbers')
     const proposalId = await makeProposal({
       proposedName: 'Argand diagrams',
       suggestedParentId: parentId,
@@ -155,7 +155,7 @@ describe('losing the race for a slug', () => {
 
 describe('acceptTopicProposal', () => {
   it('adds the topic under its suggested parent', async () => {
-    const parentId = await makeParent('high-school-math.geometry')
+    const parentId = await makeParent('competition-math.geometry')
     const proposalId = await makeProposal({
       proposedName: 'Circle theorems',
       suggestedParentId: parentId,
@@ -167,18 +167,18 @@ describe('acceptTopicProposal', () => {
 
     const [created] = await db.select().from(topics).where(eq(topics.id, outcome.topicId))
 
-    expect(created.slug).toBe('high-school-math.geometry.circle-theorems')
+    expect(created.slug).toBe('competition-math.geometry.circle-theorems')
     expect(created.name).toBe('Circle theorems')
     expect(created.parentId).toBe(parentId)
     expect(created.depth).toBe(2)
-    expect(created.subjectRoot).toBe('high-school-math')
+    expect(created.subjectRoot).toBe('competition-math')
     expect(created.isLeaf).toBe(true)
     // It did not come from the seeded taxonomy, and a re-seed needs to know.
     expect(created.isCanonical).toBe(false)
   })
 
   it('records the proposal as accepted and points it at the new topic', async () => {
-    const parentId = await makeParent('high-school-math.algebra')
+    const parentId = await makeParent('competition-math.algebra')
     const proposalId = await makeProposal({
       proposedName: 'Rational exponents',
       suggestedParentId: parentId,
@@ -197,7 +197,7 @@ describe('acceptTopicProposal', () => {
   })
 
   it('stops the parent being a leaf, since questions cannot land on it now', async () => {
-    const parentId = await makeParent('high-school-math.stats', true)
+    const parentId = await makeParent('competition-math.stats', true)
     const proposalId = await makeProposal({
       proposedName: 'Box plots',
       suggestedParentId: parentId,
@@ -214,7 +214,7 @@ describe('acceptTopicProposal', () => {
     const worksheetId = await makeWorksheet(db, userId)
     const question = await makeQuestion(db, userId, worksheetId)
 
-    const parentId = await makeParent('high-school-math.number-sense')
+    const parentId = await makeParent('competition-math.arithmetic-and-number-sense')
     const proposalId = await makeProposal({
       proposedName: 'Scientific notation',
       suggestedParentId: parentId,
@@ -250,7 +250,7 @@ describe('acceptTopicProposal', () => {
   })
 
   it('refuses to accept the same proposal twice', async () => {
-    const parentId = await makeParent('high-school-math.trig')
+    const parentId = await makeParent('competition-math.trig')
     const proposalId = await makeProposal({
       proposedName: 'Unit circle',
       suggestedParentId: parentId,
@@ -263,7 +263,7 @@ describe('acceptTopicProposal', () => {
   })
 
   it('does not collide when two proposals share a name under one parent', async () => {
-    const parentId = await makeParent('high-school-math.functions')
+    const parentId = await makeParent('competition-math.functions')
 
     const first = await acceptTopicProposal(
       client(),
@@ -275,8 +275,8 @@ describe('acceptTopicProposal', () => {
     )
 
     if (!first.ok || !second.ok) throw new Error('expected both to be accepted')
-    expect(first.slug).toBe('high-school-math.functions.inverses')
-    expect(second.slug).toBe('high-school-math.functions.inverses-2')
+    expect(first.slug).toBe('competition-math.functions.inverses')
+    expect(second.slug).toBe('competition-math.functions.inverses-2')
   })
 
   it('reports a proposal that is not there', async () => {
@@ -298,7 +298,7 @@ describe('mergeTopicProposal', () => {
     const worksheetId = await makeWorksheet(db, userId)
     const question = await makeQuestion(db, userId, worksheetId)
 
-    const target = await makeParent('high-school-math.geometry.circles')
+    const target = await makeParent('competition-math.geometry.circles')
     const proposalId = await makeProposal({
       proposedName: 'Circles',
       sourceQuestionId: question.id,
@@ -319,7 +319,7 @@ describe('mergeTopicProposal', () => {
   })
 
   it('records the proposal as merged and points it at the existing topic', async () => {
-    const target = await makeParent('high-school-math.geometry.triangles')
+    const target = await makeParent('competition-math.geometry.triangles')
     const proposalId = await makeProposal({ proposedName: 'Triangles' })
 
     await mergeTopicProposal(client(), proposalId, target)
@@ -334,7 +334,7 @@ describe('mergeTopicProposal', () => {
   })
 
   it('does not create a topic, unlike accept', async () => {
-    const target = await makeParent('high-school-math.geometry.polygons')
+    const target = await makeParent('competition-math.geometry.polygons')
     const proposalId = await makeProposal({ proposedName: 'Polygons' })
 
     const before = (await db.select().from(topics)).length
@@ -345,7 +345,7 @@ describe('mergeTopicProposal', () => {
   })
 
   it('refuses a target that is not a leaf', async () => {
-    const target = await makeParent('high-school-math.geometry.shelf', false)
+    const target = await makeParent('competition-math.geometry.shelf', false)
     const proposalId = await makeProposal({ proposedName: 'Shelf child' })
 
     const outcome = await mergeTopicProposal(client(), proposalId, target)
@@ -368,7 +368,7 @@ describe('mergeTopicProposal', () => {
   })
 
   it('refuses a proposal that is not pending', async () => {
-    const target = await makeParent('high-school-math.geometry.quadrilaterals')
+    const target = await makeParent('competition-math.geometry.quadrilaterals')
     const proposalId = await makeProposal({ proposedName: 'Quads' })
 
     expect((await mergeTopicProposal(client(), proposalId, target)).ok).toBe(true)
@@ -378,7 +378,7 @@ describe('mergeTopicProposal', () => {
   })
 
   it('reports a proposal that is not there', async () => {
-    const target = await makeParent('high-school-math.geometry.rhombi')
+    const target = await makeParent('competition-math.geometry.rhombi')
 
     expect(await mergeTopicProposal(client(), 'nope', target)).toEqual({
       ok: false,
@@ -387,7 +387,7 @@ describe('mergeTopicProposal', () => {
   })
 
   it('merges a proposal that raised no source question, without tagging anything', async () => {
-    const target = await makeParent('high-school-math.geometry.trapezoids')
+    const target = await makeParent('competition-math.geometry.trapezoids')
     const proposalId = await makeProposal({ proposedName: 'Trapezoids', sourceQuestionId: null })
 
     const outcome = await mergeTopicProposal(client(), proposalId, target)
@@ -403,15 +403,15 @@ describe('mergeTopicProposal', () => {
 // and the next question that did not fit raised the same proposal again.
 describe('an accepted proposal is classifiable', () => {
   it('shortlists the new topic for a vector near the one it was proposed with', async () => {
-    const parentId = await makeParent('high-school-math.number-theory')
+    const parentId = await makeParent('competition-math.number-theory')
 
     // Somewhere else in the space, so a shortlist that ignored the query
     // vector would still pass and this would prove nothing.
     await db.insert(topics).values({
-      slug: 'high-school-math.number-theory.parity',
+      slug: 'competition-math.number-theory.parity',
       name: 'Parity',
       depth: 2,
-      subjectRoot: 'high-school-math',
+      subjectRoot: 'competition-math',
       isCanonical: true,
       isLeaf: true,
       embedding: axis(300),
@@ -435,7 +435,7 @@ describe('an accepted proposal is classifiable', () => {
   })
 
   it('drops the parent from the shortlist once it has a child', async () => {
-    const parentId = await makeParent('high-school-math.sequences')
+    const parentId = await makeParent('competition-math.sequences')
 
     await db.update(topics).set({ embedding: axis(11) }).where(eq(topics.id, parentId))
 
@@ -455,14 +455,14 @@ describe('an accepted proposal is classifiable', () => {
     )
 
     expect(slugs).toContain(accepted.slug)
-    expect(slugs).not.toContain('high-school-math.sequences')
+    expect(slugs).not.toContain('competition-math.sequences')
   })
 
   // What `npm run db:seed` used to undo. The taxonomy file has never heard of
   // an accepted topic, so the seed wrote its parent back as a leaf and the
   // parent returned to the shortlist alongside the child it now has.
   it('keeps a parent demoted after the seed writes the taxonomy back over it', async () => {
-    const parentId = await makeParent('high-school-math.probability')
+    const parentId = await makeParent('competition-math.probability')
 
     const accepted = await acceptTopicProposal(
       client(),
@@ -479,7 +479,7 @@ describe('an accepted proposal is classifiable', () => {
     await db.update(topics).set({ isLeaf: true }).where(eq(topics.id, parentId))
 
     expect(await demoteParentsWithChildren(client())).toContain(
-      'high-school-math.probability',
+      'competition-math.probability',
     )
 
     const [parent] = await db
@@ -491,10 +491,10 @@ describe('an accepted proposal is classifiable', () => {
   })
 
   it('leaves a real leaf alone', async () => {
-    const id = await makeParent('high-school-math.logarithms')
+    const id = await makeParent('competition-math.logarithms')
 
     expect(await demoteParentsWithChildren(client())).not.toContain(
-      'high-school-math.logarithms',
+      'competition-math.logarithms',
     )
 
     const [row] = await db

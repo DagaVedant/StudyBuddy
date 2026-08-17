@@ -22,12 +22,12 @@ import {
 
 const CANDIDATES: TopicCandidate[] = [
   {
-    slug: 'high-school-math.geometry.triangles.triangle-angle-sum',
+    slug: 'competition-math.geometry.triangles',
     name: 'Triangle angle sum',
     path: 'Geometry › Triangles › Triangle angle sum',
   },
   {
-    slug: 'high-school-math.algebra-1.factoring.difference-of-squares',
+    slug: 'competition-math.algebra.quadratics-and-factoring',
     name: 'Difference of squares',
     path: 'Algebra 1 › Factoring › Difference of squares',
   },

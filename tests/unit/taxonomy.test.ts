@@ -22,43 +22,37 @@ describe('flattenTaxonomy', () => {
     expect(() => flattenTaxonomy(colliding)).toThrow(/Duplicate topic slug/)
   })
 
-  it('covers the arithmetic the rest of the tree assumed', () => {
+  it('covers the arithmetic a contest paper leans on', () => {
     const leaves = new Set(flat.filter((t) => t.isLeaf).map((t) => t.name))
 
     for (const name of [
-      'Fraction operations',
-      'Mixed numbers',
-      'Ordering rational numbers',
-      'Least common multiple',
-      'Remainders and repeating patterns',
+      'Fraction and decimal operations',
+      'Repeating decimals',
+      'Greatest common divisor and least common multiple',
+      'Remainders and modular arithmetic',
       'Successive percent change',
-      'Cubes and cube roots',
+      'Squares, cubes and roots',
       'Fundamental counting principle',
+      'Permutations and combinations',
     ]) {
       expect(leaves, name).toContain(name)
     }
   })
 
-  it('has somewhere to put a poetry question', () => {
-    const poetry = flat.filter((t) => t.slug.startsWith('ela.poetry.'))
-    expect(poetry.length).toBeGreaterThan(3)
-    expect(poetry.map((t) => t.name)).toContain('Stanza and line structure')
-  })
-
-  it('does not leave percent work stranded under one exam', () => {
+  it('keeps percent work out of the exam-specific branches too', () => {
     const percent = flat.filter(
-      (t) => t.isLeaf && t.slug.startsWith('high-school-math.') && /percent/i.test(t.name),
+      (t) => t.isLeaf && t.slug.startsWith('competition-math.') && /percent/i.test(t.name),
     )
     expect(percent.length).toBeGreaterThan(0)
   })
 
   it('nests slugs under their parent', () => {
-    const leaf = flat.find((topic) => topic.name === 'Triangle angle sum')
+    const leaf = flat.find((topic) => topic.name === 'Triangles')
     expect(leaf).toBeDefined()
-    expect(leaf!.slug).toBe('high-school-math.geometry.triangles.triangle-angle-sum')
-    expect(leaf!.parentSlug).toBe('high-school-math.geometry.triangles')
-    expect(leaf!.subjectRoot).toBe('high-school-math')
-    expect(leaf!.depth).toBe(3)
+    expect(leaf!.slug).toBe('competition-math.geometry.triangles')
+    expect(leaf!.parentSlug).toBe('competition-math.geometry')
+    expect(leaf!.subjectRoot).toBe('competition-math')
+    expect(leaf!.depth).toBe(2)
     expect(leaf!.isLeaf).toBe(true)
   })
 
@@ -78,26 +72,21 @@ describe('flattenTaxonomy', () => {
     }
   })
 
-  it('seeds all four v1 subjects with a usable number of leaves', () => {
+  it('seeds the three subjects this app is for, with a usable number of leaves', () => {
     const roots = flat.filter((topic) => topic.depth === 0).map((topic) => topic.slug)
-    expect(roots).toEqual([
-      'sat-math',
-      'sat-reading-and-writing',
-      'high-school-math',
-      'ela',
-    ])
-    expect(flat.filter((topic) => topic.isLeaf).length).toBeGreaterThan(200)
+    expect(roots).toEqual(['sat-math', 'sat-reading-and-writing', 'competition-math'])
+    expect(flat.filter((topic) => topic.isLeaf).length).toBeGreaterThan(80)
   })
 
   it('builds a human-readable path for the dashboard', () => {
-    const leaf = flat.find((topic) => topic.name === 'Law of cosines')
+    const leaf = flat.find((topic) => topic.name === 'Permutations and combinations')
     expect(leaf?.path).toBe(
-      'High School Math › Geometry › Right triangles and trigonometry › Law of cosines',
+      'Competition Math › Counting and Probability › Permutations and combinations',
     )
   })
 
   it('exposes the taxonomy roots', () => {
-    expect(TAXONOMY).toHaveLength(4)
+    expect(TAXONOMY).toHaveLength(3)
   })
 })
 
@@ -123,10 +112,10 @@ describe('the flattened tree is built once', () => {
   })
 
   it('agrees with the tree it was built from', () => {
-    const leaf = flattenTaxonomy().find((topic) => topic.name === 'Law of cosines')!
+    const leaf = flattenTaxonomy().find((topic) => topic.name === 'Expected value')!
 
     expect(pathBySlug().get(leaf.slug)).toBe(leaf.path)
-    expect(nameBySlug().get(leaf.slug)).toBe('Law of cosines')
+    expect(nameBySlug().get(leaf.slug)).toBe('Expected value')
   })
 })
 
