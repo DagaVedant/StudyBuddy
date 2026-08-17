@@ -7,7 +7,7 @@ import { openDatabase } from '../db'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-const USAGE = 'Usage: npx tsx scripts/reextract-worksheet.ts <worksheet-id> [--yes]'
+const USAGE = 'Usage: npx tsx scripts/repair/reextract-worksheet.ts <worksheet-id> [--yes]'
 
 interface Preflight {
   id: string

@@ -7,7 +7,7 @@ config({ path: '.env.local' })
 async function main() {
   const prefix = process.argv[2]
   if (!prefix) {
-    throw new Error('Usage: npx tsx scripts/tally-questions.ts <title prefix>')
+    throw new Error('Usage: npx tsx scripts/inspect/tally-questions.ts <title prefix>')
   }
 
   const sql = openDatabase()

@@ -7,7 +7,7 @@ import { openDatabase } from '../db'
 async function main() {
   const [prefix, ...pages] = process.argv.slice(2)
   if (!prefix || pages.length === 0) {
-    throw new Error('Usage: npx tsx scripts/peek-page.ts <title prefix> <page>...')
+    throw new Error('Usage: npx tsx scripts/inspect/peek-page.ts <title prefix> <page>...')
   }
 
   const sql = openDatabase()

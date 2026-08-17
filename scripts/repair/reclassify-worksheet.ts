@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 async function main() {
   const target = process.argv.slice(2).find((arg) => !arg.startsWith('--'))
   if (!target) {
-    throw new Error('Usage: npx tsx scripts/reclassify-worksheet.ts <worksheet-id> [--yes]')
+    throw new Error('Usage: npx tsx scripts/repair/reclassify-worksheet.ts <worksheet-id> [--yes]')
   }
 
   if (!UUID.test(target)) {

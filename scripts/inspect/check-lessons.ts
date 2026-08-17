@@ -68,7 +68,9 @@ async function main(): Promise<void> {
 
   console.log(
     `\n${rows.length} lesson(s), ${fixed} repaired, ${bad} needing a rewrite.` +
-      (bad > 0 ? '\nRegenerate with: npx tsx scripts/generate-lessons.ts --limit N --force' : '') +
+      (bad > 0
+        ? '\nRegenerate with: npx tsx scripts/repair/generate-lessons.ts --limit N --force'
+        : '') +
       (!fix && bad > 0 ? '\nOr repair in place with --fix (no GPU).' : ''),
   )
 
