@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 import { OllamaProvider } from '@/lib/ai/ollama'
 import { validated } from '@/lib/ai/validated'
@@ -48,7 +47,6 @@ type Phase =
 
 export default function BrowserDerivedRunner() {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
-  const router = useRouter()
 
   const busy = useRef(false)
   const cancelled = useRef(false)
@@ -180,13 +178,12 @@ export default function BrowserDerivedRunner() {
 
       await post(job.id, { action: 'complete' })
       setPhase({ kind: 'idle' })
-      router.refresh()
     } catch (error) {
       const message = (error as Error).message
       setPhase({ kind: 'error', message })
       await post(job.id, { action: 'fail', message }).catch(() => {})
     }
-  }, [explain, post, router, solve])
+  }, [explain, post, solve])
 
   useEffect(() => {
     cancelled.current = false
