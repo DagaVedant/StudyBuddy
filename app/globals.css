@@ -20,6 +20,14 @@
   --tint-peach: oklch(92% 0.055 55);
   --tint-lavender: oklch(93% 0.035 300);
   --tint-butter: oklch(93% 0.06 95);
+
+  /* Google's, not ours. Their sign-in button is specified down to the hex in
+     both themes, and a button that recolours itself to match a host app stops
+     being the one people recognise. */
+  --google-bg: #ffffff;
+  --google-bg-hover: #f2f2f2;
+  --google-border: #747775;
+  --google-fg: #1f1f1f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +50,11 @@
     --tint-peach: oklch(27% 0.05 55);
     --tint-lavender: oklch(27% 0.035 300);
     --tint-butter: oklch(27% 0.05 95);
+
+    --google-bg: #131314;
+    --google-bg-hover: #1e1f20;
+    --google-border: #8e918f;
+    --google-fg: #e3e3e3;
   }
 }
 
@@ -64,6 +77,11 @@
   --tint-peach: oklch(27% 0.05 55);
   --tint-lavender: oklch(27% 0.035 300);
   --tint-butter: oklch(27% 0.05 95);
+
+  --google-bg: #131314;
+  --google-bg-hover: #1e1f20;
+  --google-border: #8e918f;
+  --google-fg: #e3e3e3;
 }
 
 @theme inline {
@@ -143,6 +161,22 @@ body {
 
   .btn-danger {
     @apply bg-danger text-white hover:opacity-90;
+  }
+
+  .btn-google {
+    @apply gap-3 text-sm;
+
+    background: var(--google-bg);
+    border: 1px solid var(--google-border);
+    color: var(--google-fg);
+  }
+
+  .btn-google:hover {
+    background: var(--google-bg-hover);
+  }
+
+  .btn-google[aria-busy='true'] {
+    opacity: 0.6;
   }
 
   .label {

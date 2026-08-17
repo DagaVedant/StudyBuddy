@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useActionState } from 'react'
 
+import GoogleButton from '@/components/google-button'
 import { signInWithCredentials, signInWithGoogle } from '@/lib/auth/actions'
 import type { FormState } from '@/lib/auth/actions'
 import { safeNextPath } from '@/lib/auth/redirect'
@@ -36,9 +37,7 @@ function SignInForm() {
       )}
 
       <form action={signInWithGoogle} className="mt-6">
-        <button type="submit" className="btn btn-primary">
-          Continue with Google
-        </button>
+        <GoogleButton label="Sign in with Google" />
       </form>
 
       <div className="my-6 flex items-center gap-3 text-sm text-muted">

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useActionState } from 'react'
 
+import GoogleButton from '@/components/google-button'
 import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/limits'
 import { signInWithGoogle, signUp } from '@/lib/auth/actions'
 import type { FormState } from '@/lib/auth/actions'
@@ -32,9 +33,7 @@ export default function SignUpPage() {
       )}
 
       <form action={signInWithGoogle} className="mt-6">
-        <button type="submit" className="btn btn-primary">
-          Continue with Google
-        </button>
+        <GoogleButton label="Sign up with Google" />
       </form>
 
       <div className="my-6 flex items-center gap-3 text-sm text-muted">
