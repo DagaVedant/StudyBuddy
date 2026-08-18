@@ -54,7 +54,7 @@ The app runs at http://localhost:3000.
 | `BLOB_READ_WRITE_TOKEN` | production | Page image storage. Without it images are written to local disk and lost on serverless |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google sign-in | OAuth client credentials |
 | `MAIL_FROM` and `SMTP_PASSWORD` | password reset | Sender address and SMTP password, a Gmail app password by default. Unset disables reset cleanly |
-| `CONTACT_EMAIL` | public launch | Address printed on the privacy and terms pages. Falls back to the first `ADMIN_EMAILS` entry |
+| `CONTACT_EMAIL` | public launch | Address printed on the privacy and terms pages. Unset, they say no address is set rather than publishing one nobody chose |
 | `TRIAL_DAILY_WORKSHEETS` | optional | Trial extractions allowed per rolling day across everybody. Default 25, `0` closes the trial, `unlimited` removes the ceiling |
 | `SIGNUP_INVITE_CODE` | optional | Set it and sign-ups ask for it. Unset, sign-ups are open |
 | `ERROR_WEBHOOK_URL` | optional | Server errors are posted here as `{text}`, which Slack and Discord both accept |

@@ -6,6 +6,8 @@ export const metadata = { title: 'Terms · StudyBuddy' }
 
 export default function TermsPage() {
   const contact = contactEmail()
+  const noContact =
+    'No contact address is set on this deployment. Whoever runs it should set CONTACT_EMAIL.'
 
   return (
     <main className="prose-page mx-auto w-full max-w-2xl px-6 py-12">
@@ -82,7 +84,7 @@ export default function TermsPage() {
         </p>
 
         <h2 className="pt-4 text-base font-medium">Contact</h2>
-        <p>{contact}</p>
+        <p>{contact ?? noContact}</p>
       </section>
 
       <p className="hint mt-10">
