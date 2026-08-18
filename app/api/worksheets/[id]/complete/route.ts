@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { after, NextResponse } from 'next/server'
 
-import { consumeTrial } from '@/lib/ai/quota'
+import { trialDailyCeiling } from '@/lib/ai/limits'
+import { consumeTrial, trialExtractionsToday } from '@/lib/ai/quota'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
@@ -95,6 +96,29 @@ export async function POST(_request: Request, { params }: Params) {
           'against your trial: add its questions here, or come back once the first finishes.',
         next: `/worksheets/${worksheetId}/edit`,
       })
+    }
+
+    // The whole-service ceiling, checked before the trial is charged, so a
+    // student turned away today still has their credits tomorrow.
+    if (guard.role !== 'admin') {
+      const ceiling = trialDailyCeiling()
+
+      if ((await trialExtractionsToday(db)) >= ceiling) {
+        if (!(await claimForCompletion(worksheetId, 'awaiting_review', 'free'))) {
+          return alreadyCompleted(worksheetId)
+        }
+
+        return NextResponse.json({
+          ok: true,
+          tier: 'free',
+          mode: 'manual',
+          message:
+            'The free trial has hit its limit for today, so this one was not counted ' +
+            'against yours. Add its questions here, come back tomorrow, or connect ' +
+            'your own AI in settings.',
+          next: `/worksheets/${worksheetId}/edit`,
+        })
+      }
     }
 
     if (!(await claimForCompletion(worksheetId, 'queued', 'trial'))) {

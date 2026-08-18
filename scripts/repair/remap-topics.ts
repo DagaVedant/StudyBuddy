@@ -132,14 +132,25 @@ async function main() {
     )
   `
 
-  const deleted = await sql`
-    delete from topics t
-    where t.slug not in ${sql(canonical.size ? [...canonical] : [''])}
-      and not exists (select 1 from question_topics qt where qt.topic_id = t.id)
-      and not exists (select 1 from topic_lessons l where l.topic_id = t.id)
-      and not exists (select 1 from topics child where child.parent_id = t.id)
-    returning slug
-  `
+  // Deleting is bottom-up: a branch is only removable once its children are
+  // gone, so one pass takes the leaves and leaves every parent standing. Repeat
+  // until a pass removes nothing.
+  const deleted: string[] = []
+
+  for (;;) {
+    const pass = await sql<{ slug: string }[]>`
+      delete from topics t
+      where t.slug not in ${sql(canonical.size ? [...canonical] : [''])}
+        and not exists (select 1 from question_topics qt where qt.topic_id = t.id)
+        and not exists (select 1 from topic_lessons l where l.topic_id = t.id)
+        and not exists (select 1 from topics child where child.parent_id = t.id)
+      returning slug
+    `
+
+    if (pass.length === 0) break
+
+    deleted.push(...pass.map((row) => row.slug))
+  }
 
   await sql.end()
 

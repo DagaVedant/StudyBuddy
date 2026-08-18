@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
-import { usageEvents, users } from '@/lib/db/schema'
+import { processingJobs, usageEvents, users, worksheets } from '@/lib/db/schema'
 
 import { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT } from './limits'
 
@@ -156,4 +156,33 @@ export async function refundTrial(
       .set({ refunded: true })
       .where(inArray(usageEvents.id, refunding))
   }
+}
+
+const DAY_MS = 24 * 3600_000
+
+/**
+ * Trial worksheets sent to the operator GPU in the last rolling day, counted
+ * from the queue rather than from the usage table, because the queue is what
+ * the hardware actually has to work through.
+ */
+export async function trialExtractionsToday(
+  db: Db,
+  now: Date = new Date(),
+): Promise<number> {
+  const since = new Date(now.getTime() - DAY_MS)
+
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(processingJobs)
+    .innerJoin(worksheets, eq(worksheets.id, processingJobs.worksheetId))
+    .where(
+      and(
+        eq(processingJobs.stage, 'extract'),
+        eq(processingJobs.executor, 'operator_gpu'),
+        eq(worksheets.tierUsed, 'trial'),
+        gte(processingJobs.createdAt, since),
+      ),
+    )
+
+  return Number(row?.value ?? 0)
 }

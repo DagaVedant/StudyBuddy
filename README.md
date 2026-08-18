@@ -54,6 +54,10 @@ The app runs at http://localhost:3000.
 | `BLOB_READ_WRITE_TOKEN` | production | Page image storage. Without it images are written to local disk and lost on serverless |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google sign-in | OAuth client credentials |
 | `MAIL_FROM` and `SMTP_PASSWORD` | password reset | Sender address and SMTP password, a Gmail app password by default. Unset disables reset cleanly |
+| `CONTACT_EMAIL` | public launch | Address printed on the privacy and terms pages. Falls back to the first `ADMIN_EMAILS` entry |
+| `TRIAL_DAILY_WORKSHEETS` | optional | Trial extractions allowed per rolling day across everybody. Default 25, `0` closes the trial, `unlimited` removes the ceiling |
+| `SIGNUP_INVITE_CODE` | optional | Set it and sign-ups ask for it. Unset, sign-ups are open |
+| `ERROR_WEBHOOK_URL` | optional | Server errors are posted here as `{text}`, which Slack and Discord both accept |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and VAPID keys | web push | From `npm run gen:vapid`. Unset disables push cleanly |
 | `OLLAMA_VISION_MODEL` | GPU worker | Extraction model, `qwen2.5vl:7b` |
 | `OLLAMA_REVIEW_MODEL` | optional | Second-pass reviewer, `gpt-oss:20b` |
@@ -127,6 +131,28 @@ URIs:
 http://localhost:3000/api/auth/callback/google
 https://your-project.vercel.app/api/auth/callback/google
 ```
+
+## Costs, and who can spend them
+
+Trial worksheets are read on hardware the operator pays for and stored in a
+blob store the operator pays for, so there are two ceilings rather than one.
+Each account gets 3 trial worksheets, and `TRIAL_DAILY_WORKSHEETS` caps how many
+the whole service will start in a rolling day. Past that ceiling an upload is
+not refused: it falls through to the manual editor, and the student's own trial
+credits are left unspent, so they lose nothing but the automation.
+
+`SIGNUP_INVITE_CODE` closes sign-ups when set. Together the two settings cover a
+quiet launch: invite-only while you watch it, then open with a ceiling.
+
+The upload screen says when the trial reader is offline, and how many papers are
+queued ahead, rather than letting a student watch a spinner and guess.
+
+## Errors
+
+`instrumentation.ts` catches server errors and logs one line per error. Set
+`ERROR_WEBHOOK_URL` and the same line is posted to a webhook, so somebody hears
+about a 500 without reading platform logs. Reporting never throws: a failure to
+report is logged and swallowed.
 
 ## Password reset
 

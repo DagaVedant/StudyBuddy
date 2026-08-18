@@ -20,7 +20,7 @@ test('an off-site next is ignored and sign-in lands on the dashboard', async ({
   await page.goto('/signin?next=https://example.com/steal')
   await visible(page).getByLabel('Email').fill(email)
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
-  await visible(page).getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByRole('button', { name: 'Sign in', exact: true }).click()
 
   await page.waitForURL('**/dashboard')
   expect(new URL(page.url()).origin).toBe(new URL(page.url()).origin)

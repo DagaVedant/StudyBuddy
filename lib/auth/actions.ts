@@ -21,6 +21,7 @@ import {
 } from '@/lib/rate-limit'
 
 import { isDisposableEmail } from './disposable'
+import { inviteAccepted, inviteRequired } from './invite'
 import { isAdminEmail, validateDob } from './policy'
 import { safeNextPath } from './redirect'
 import { consumeResetToken, findResetTarget, issueResetToken, resetLink } from './reset'
@@ -64,6 +65,10 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
           ? 'Sign-ups are briefly unavailable while we sort something out. Please try again in a minute.'
           : `Too many sign-up attempts from this connection. Try again in ${waitFor(attempt.retryAfter)}.`,
     }
+  }
+
+  if (inviteRequired() && !inviteAccepted(String(formData.get('invite') ?? ''))) {
+    return { error: 'That invite code is not right. Ask whoever sent you here.' }
   }
 
   const parsed = signupSchema.safeParse({

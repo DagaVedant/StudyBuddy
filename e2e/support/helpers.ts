@@ -40,14 +40,14 @@ export async function registerAndSignIn(
   await visible(page).getByLabel('Email').fill(email)
   await visible(page).getByLabel('Password').fill(PASSWORD)
   await visible(page).getByLabel('Date of birth').fill(adultDob())
-  await visible(page).getByRole('button', { name: 'Create account' }).click()
+  await visible(page).getByRole('button', { name: 'Create account', exact: true }).click()
 
   await expect(statusBox(page)).toBeVisible()
 
   await page.goto('/signin')
   await visible(page).getByLabel('Email').fill(email)
   await visible(page).getByLabel('Password').fill(PASSWORD)
-  await visible(page).getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByRole('button', { name: 'Sign in', exact: true }).click()
 
   await page.waitForURL('**/dashboard')
   return email
@@ -62,7 +62,7 @@ export async function signInAsAdmin(page: Page, email: string): Promise<void> {
   await page.goto('/signin')
   await visible(page).getByLabel('Email').fill(email)
   await visible(page).getByLabel('Password').fill(PASSWORD)
-  await visible(page).getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByRole('button', { name: 'Sign in', exact: true }).click()
 
   await page.waitForURL('**/dashboard')
 }

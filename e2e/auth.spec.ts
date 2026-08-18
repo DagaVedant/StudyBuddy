@@ -30,7 +30,7 @@ test('the 13+ gate is enforced on the server, not just the date input', async ({
   await visible(page).getByLabel('Email').fill(uniqueEmail('minor'))
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
   await visible(page).getByLabel('Date of birth').fill(minorDob())
-  await visible(page).getByRole('button', { name: 'Create account' }).click()
+  await visible(page).getByRole('button', { name: 'Create account', exact: true }).click()
 
   await expect(alertBox(page)).toContainText('at least 13')
 })
@@ -45,7 +45,7 @@ test('signup does not reveal whether an email is already registered', async ({
     await visible(page).getByLabel('Email').fill(email)
     await visible(page).getByLabel('Password').fill('correct-horse-battery')
     await visible(page).getByLabel('Date of birth').fill(adultDob())
-    await visible(page).getByRole('button', { name: 'Create account' }).click()
+    await visible(page).getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(statusBox(page)).toBeVisible()
     return statusBox(page).textContent()
   }
@@ -63,13 +63,13 @@ test('a new password account can sign in straight away', async ({ page }) => {
   await visible(page).getByLabel('Email').fill(email)
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
   await visible(page).getByLabel('Date of birth').fill(adultDob())
-  await visible(page).getByRole('button', { name: 'Create account' }).click()
+  await visible(page).getByRole('button', { name: 'Create account', exact: true }).click()
   await expect(statusBox(page)).toBeVisible()
 
   await page.goto('/signin')
   await visible(page).getByLabel('Email').fill(email)
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
-  await visible(page).getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByRole('button', { name: 'Sign in', exact: true }).click()
 
   await page.waitForURL(/\/dashboard/)
 })
@@ -82,7 +82,7 @@ test('a wrong password is rejected', async ({ page }) => {
 
   await visible(page).getByLabel('Email').fill(email)
   await visible(page).getByLabel('Password').fill('not-the-password')
-  await visible(page).getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByRole('button', { name: 'Sign in', exact: true }).click()
 
   await expect(alertBox(page)).toBeVisible()
 })
@@ -118,14 +118,14 @@ test('a password signup cannot take an admin address', async ({ page }) => {
   await visible(page).getByLabel('Email').fill(UNCLAIMED_ADMIN_EMAIL)
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
   await visible(page).getByLabel('Date of birth').fill(adultDob())
-  await visible(page).getByRole('button', { name: 'Create account' }).click()
+  await visible(page).getByRole('button', { name: 'Create account', exact: true }).click()
 
   await expect(statusBox(page)).toBeVisible()
 
   await page.goto('/signin')
   await visible(page).getByLabel('Email').fill(UNCLAIMED_ADMIN_EMAIL)
   await visible(page).getByLabel('Password').fill('correct-horse-battery')
-  await visible(page).getByRole('button', { name: 'Sign in' }).click()
+  await visible(page).getByRole('button', { name: 'Sign in', exact: true }).click()
 
   await expect(alertBox(page)).toBeVisible()
   await expect(page).toHaveURL(/\/signin/)
@@ -167,4 +167,16 @@ test('the pitch offers a signed-in reader the dashboard', async ({ page }) => {
   await expect(
     visible(page).getByRole('link', { name: 'Get started' }),
   ).toHaveCount(0)
+})
+
+test('the policy pages are reachable without an account', async ({ page }) => {
+  await page.goto('/signin')
+
+  await page.getByRole('link', { name: 'Privacy' }).click()
+  await page.waitForURL(/\/privacy/)
+  await expect(visible(page).getByRole('heading', { name: 'Privacy' })).toBeVisible()
+  await expect(visible(page).getByText(/13 or older/).first()).toBeVisible()
+
+  await page.goto('/terms')
+  await expect(visible(page).getByRole('heading', { name: 'Terms of use' })).toBeVisible()
 })

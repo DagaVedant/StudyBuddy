@@ -98,7 +98,7 @@ test('dragging a region creates a question with its text filled in', async () =>
 })
 
 test('a topic can be assigned from the canonical tree', async () => {
-  await visible(page).getByRole('combobox', { name: 'Topic' }).fill('triangle angle')
+  await visible(page).getByRole('combobox', { name: 'Topic' }).fill('triangles')
 
   const option = page
     .getByRole('listbox', { name: 'Topics' })
@@ -111,7 +111,7 @@ test('a topic can be assigned from the canonical tree', async () => {
   await option.click()
   await saved
 
-  await expect(visible(page).getByText(/Triangle angle sum/).first()).toBeVisible()
+  await expect(visible(page).getByText(/Triangles/).first()).toBeVisible()
 })
 
 test('answer choices can be added and one marked correct', async () => {
