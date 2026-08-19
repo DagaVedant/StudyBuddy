@@ -121,7 +121,12 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     this.answeringModel = this.answerModel
     this.reviewModel = options.reviewModel ?? options.textModel
     this.executionSite = options.executionSite ?? 'browser'
-    this.fetchImpl = options.fetchImpl ?? fetch
+    // Bound, not bare. In a browser `fetch` is a method of the window, and
+    // storing it on an instance means every call site becomes
+    // `this.fetchImpl(...)`, which hands the provider over as the receiver and
+    // throws "Illegal invocation". Node's fetch does not check, so this only
+    // ever failed in the browser, which is exactly where Tier C runs.
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis)
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
 
     this.onStats = options.onStats
