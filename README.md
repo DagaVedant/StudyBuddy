@@ -1,62 +1,141 @@
 # StudyBuddy
 
-Upload the practice worksheets you have already done. StudyBuddy extracts every
-question, tracks which ones you got wrong, and schedules what to study next on a
-spaced-repetition plan.
+Turn the worksheets you have already done into a record of what you actually
+know: every question pulled off the page, every miss tracked, and a revision
+schedule built from the ones you got wrong.
 
-Built with Next.js 16, React 19, Postgres with pgvector, Drizzle ORM and
-Auth.js v5.
+![StudyBuddy](https://trystudybuddy.vercel.app/opengraph-image)
 
-**Live at [trystudybuddy.vercel.app](https://trystudybuddy.vercel.app).**
+**[Try it at trystudybuddy.vercel.app](https://trystudybuddy.vercel.app)**
 
-## Try it
+## Quick start
 
-Sign in with Google, or make an account with an email and a password. Then:
+Open the link. Sign in with Google or an email and a password, then:
 
-1. **Upload a worksheet** you have already done, as a PDF or a photo of the
-   pages. The free trial reads three of them for you on a GPU we run.
-2. **Check what it read**, page image beside each question, and fix anything it
-   got wrong.
-3. **Mark which ones you missed.** That is the only input the rest of the app
-   needs.
-4. **Look at the dashboard**: accuracy by topic, a weakness ranking that will
-   not promote a topic on two attempts, and a review queue scheduled by FSRS.
+1. **Upload a worksheet** you have already done, as a PDF or photos of the
+   pages. The free trial reads three of them on a GPU we run.
+2. **Check what it read.** Each question sits beside the page image it came
+   from, so a misread is one click to fix.
+3. **Mark what you missed.** That is the only input the rest of the app needs.
+4. **Open the dashboard** for accuracy by topic, a weakness ranking, and a
+   review queue that schedules itself.
 
-No card, no setup. Bringing your own AI key or your own Ollama unlocks the same
-pipeline without the trial limit, and Tier C runs the models on your machine so
-nothing leaves it.
+No card and no setup. Bringing your own AI key or your own Ollama removes the
+trial limit, and the Ollama route runs every model on your machine.
 
-## Requirements
+## Features
 
-- Node.js 20 or later
-- Postgres with the `pgvector` extension ([Neon](https://neon.tech) works on its
-  free tier; use the pooled connection string)
+- **Reads a worksheet you photographed.** PDFs are rasterized in your browser
+  and never uploaded; the page images are, and a vision model pulls out each
+  question, its options and its answer key.
+- **Four ways to run the models**, and the tier only changes where the work
+  happens: our GPU on the free trial, your cloud API key, your own Ollama, or
+  no model at all and you type the questions in yourself.
+- **Sorts questions into 87 topics** across SAT Math, SAT Reading and Writing,
+  and competition maths, using a 384d embedding and a pgvector shortlist.
+- **Schedules revision with FSRS**, the algorithm behind Anki's modern
+  scheduler, so a question you missed comes back before you forget it again.
+- **Ranks your weakest topics by confidence, not percentage**, using a Wilson
+  lower bound, so two unlucky answers cannot fake a weakness.
+- **Writes practice questions on a topic you are weak at**, sifted before
+  anything is stored: no missing answer, no four options that are not A to D,
+  no stem that gives the answer away.
+- **Exports to Blooket** so the questions you missed become a game you can play
+  against somebody.
 
-## Quickstart
+## How it works
+
+**The models run wherever the student's data should be.** The interesting
+constraint is that a student with their own GPU should never send their
+homework to us, and a student with nothing should still get something. So the
+same pipeline has four execution sites, and the tier picks one: an operator GPU
+pulling jobs from a Postgres queue, a server-side call against the student's own
+API key, a browser-side call against their own `localhost:11434`, or a manual
+editor. Extraction is checkpointed per page and the answer pass asks the server
+what is still unsolved, so closing the tab costs the page in flight rather than
+the paper.
+
+**Tagging splits into the part that needs a model and the part that does not.**
+Sorting a question into a topic takes a 384d MiniLM embedding and one small
+model call to choose from the nearest leaves. Only the embedding needs a model,
+and the shortlist is a pgvector query, so the vector can be computed anywhere:
+in the worker process, in the browser under WebAssembly, or on the server. That
+is what lets a student with no API key still get topic tagging, and what keeps
+question text on their machine when they have Ollama.
+
+**Nothing a model wrote is trusted on the way in.** Every provider response is
+parsed against a Zod schema before it reaches the database, generated practice
+is sifted by a validator that refuses thirteen specific failure modes, and
+prompts are fixed with page text interpolated as data rather than instructions.
+Generated questions are kept out of the measured record entirely, because
+letting a model-written answer key push a topic up the weakness ranking would
+close a loop between the ranking and the questions it generates.
+
+**The queue is Postgres, not a broker.** `FOR UPDATE SKIP LOCKED` with a claim
+TTL, per-stage jobs, and a reaper for workers that stop answering. It is less
+machinery than a queue service and it survives the thing a hobby project
+actually hits, which is the worker being switched off for a day.
+
+## Running it locally
+
+Node 20 or later, and Postgres with the `pgvector` extension. [Neon](https://neon.tech)
+works on its free tier; use the pooled connection string.
 
 ```bash
 cp .env.example .env.local
-npm install
-npm run gen:secrets
+npm install && npm run gen:secrets
 ```
 
-Put the generated secrets and your `DATABASE_URL` into `.env.local`, then set up
-the database and start the app:
+Put the generated secrets and your `DATABASE_URL` into `.env.local`, then:
 
 ```bash
-npm run db:migrate
-npm run db:seed
-npm run db:embed
+npm run db:migrate && npm run db:seed && npm run db:embed
 npm run dev
 ```
 
-The app runs at http://localhost:3000.
+The app runs at http://localhost:3000. Set `ENABLE_MOCK_AI="true"` and every
+tier is clickable end to end with no key, no GPU and no worker running.
 
 | Command | Effect |
 |---|---|
 | `db:migrate` | Enables pgvector and creates 26 tables |
 | `db:seed` | Loads 106 topics, 87 of them classifiable leaves |
 | `db:embed` | Computes topic embeddings, required for auto-classification |
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm run check` | Typecheck, lint, tests, and the figures quoted in this file |
+| `npm test` | Vitest suite against PGlite |
+| `npm run test:e2e` | Playwright against a production build |
+| `npm run worker` | Operator GPU pull-worker |
+| `npm run benchmark:ollama` | Benchmark the local vision model |
+| `npm run gen:secrets` | Generate server secrets |
+| `npm run gen:vapid` | Generate the web push keypair |
+| `npm run db:studio` | Browse the database |
+
+Tests run against PGlite, Postgres compiled to WASM, so migrations and queries
+are exercised without Docker or a live database.
+
+## Built with
+
+[Next.js 16](https://nextjs.org) and React 19, [Drizzle ORM](https://orm.drizzle.team)
+over Postgres with [pgvector](https://github.com/pgvector/pgvector),
+[Auth.js v5](https://authjs.dev), [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs)
+for scheduling, [transformers.js](https://huggingface.co/docs/transformers.js)
+running MiniLM in the browser, [tesseract.js](https://tesseract.projectnaptha.com)
+for browser OCR, [pdf.js](https://mozilla.github.io/pdf.js/) for rasterizing
+PDFs, [Ollama](https://ollama.com) with `qwen2.5vl:7b` on the operator GPU, and
+[sharp](https://sharp.pixelplumbing.com) for page images.
+
+The taxonomy follows the College Board's published SAT domains and the topic
+lists AMC 8 and MATHCOUNTS problems are usually indexed by.
+
+---
+
+The rest of this file is operator detail: configuration, the tiers in full, how
+sorting and the worker actually behave, and the scripts for running it.
 
 ## Environment
 
