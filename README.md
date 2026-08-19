@@ -7,6 +7,25 @@ spaced-repetition plan.
 Built with Next.js 16, React 19, Postgres with pgvector, Drizzle ORM and
 Auth.js v5.
 
+**Live at [trystudybuddy.vercel.app](https://trystudybuddy.vercel.app).**
+
+## Try it
+
+Sign in with Google, or make an account with an email and a password. Then:
+
+1. **Upload a worksheet** you have already done, as a PDF or a photo of the
+   pages. The free trial reads three of them for you on a GPU we run.
+2. **Check what it read**, page image beside each question, and fix anything it
+   got wrong.
+3. **Mark which ones you missed.** That is the only input the rest of the app
+   needs.
+4. **Look at the dashboard**: accuracy by topic, a weakness ranking that will
+   not promote a topic on two attempts, and a review queue scheduled by FSRS.
+
+No card, no setup. Bringing your own AI key or your own Ollama unlocks the same
+pipeline without the trial limit, and Tier C runs the models on your machine so
+nothing leaves it.
+
 ## Requirements
 
 - Node.js 20 or later
