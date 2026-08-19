@@ -40,42 +40,22 @@ next-env.d.ts
 /public/pdf.worker.min.mjs
 /public/pdf.min.mjs
 
-# benchmark inputs and outputs (large PDFs, run artifacts). The whole directory,
-# not just input/ and results/. Nothing under it is meant to be tracked, and a
-# file written straight to benchmark/ was slipping past the two narrower rules.
 /benchmark/
 
-# Claude Code's per-machine overrides. .claude/launch.json IS committed (it is
-# the shared dev-server config); settings.local.json holds local permissions and
-# env and is personal to whoever cloned this.
 /.claude/settings.local.json
 
-# local audit write-ups: kept on disk, deliberately not published. Emptied once
-# every finding in them was closed; the reasoning worth keeping went into code
-# comments and commit messages instead, which is where it survives a delete.
 /fixes/
 
-# Agent instructions, kept on disk and out of the repo. AGENTS.md is the real
-# file and CLAUDE.md is one line pointing at it. They describe how to work in
-# this codebase rather than how it works, so they are personal to whoever is
-# working in it: README.md is the published answer to that, and the only one,
-# since spec.md was deleted once the product it specified existed.
 /AGENTS.md
 /CLAUDE.md
 
-# throwaway one-off scripts. Written to answer a single question against the
-# live database and abandoned; three of them were sitting untracked at once,
-# one `git add -A` away from the history. Both prefixes, because the rule was
-# `_tmp-` only and a `tmp-probe.ts` went in on exactly that `git add -A`.
 /scripts/_tmp-*
 /scripts/tmp-*
 
-# eslint's incremental cache (scripts/check.mjs)
 /.eslintcache
 
-# devlogs are written here and posted elsewhere; they are not part of the repo
 /devlog/
 
-# Embedding weights, fetched by scripts/fetch-embedding-model.mjs at build
-# time. 23MB of quantised ONNX that npm does not ship and git should not carry.
 /models
+
+/backup.json
