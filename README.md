@@ -57,6 +57,7 @@ The app runs at http://localhost:3000.
 | `CONTACT_EMAIL` | public launch | Address printed on the privacy and terms pages. Unset, they say no address is set rather than publishing one nobody chose |
 | `TRIAL_DAILY_WORKSHEETS` | optional | Trial extractions allowed per rolling day across everybody. Default 25, `0` closes the trial, `unlimited` removes the ceiling |
 | `SIGNUP_INVITE_CODE` | optional | Set it and sign-ups ask for it. Unset, sign-ups are open |
+| `ALERT_EMAIL` | optional | Server errors are emailed here, over the mail already configured for password reset |
 | `ERROR_WEBHOOK_URL` | optional | Server errors are posted here as `{text}`, which Slack and Discord both accept |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and VAPID keys | web push | From `npm run gen:vapid`. Unset disables push cleanly |
 | `OLLAMA_VISION_MODEL` | GPU worker | Extraction model, `qwen2.5vl:7b` |
@@ -150,9 +151,16 @@ queued ahead, rather than letting a student watch a spinner and guess.
 ## Errors
 
 `instrumentation.ts` catches server errors and logs one line per error. Set
-`ERROR_WEBHOOK_URL` and the same line is posted to a webhook, so somebody hears
-about a 500 without reading platform logs. Reporting never throws: a failure to
-report is logged and swallowed.
+`ALERT_EMAIL`, `ERROR_WEBHOOK_URL`, or both, and the same line is sent on, so
+somebody hears about a 500 without reading platform logs. Email needs no new
+account: it goes out over the SMTP already configured for password reset.
+
+Alerts are throttled, because a channel that floods is a channel nobody reads:
+the same message repeats at most once every ten minutes, and no more than a
+dozen leave per hour. The counters are per server instance, so on serverless the
+hourly ceiling is per instance rather than global.
+
+Reporting never throws. A failure to report is logged and swallowed.
 
 ## Password reset
 
