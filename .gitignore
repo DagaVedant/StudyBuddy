@@ -59,3 +59,8 @@ next-env.d.ts
 /models
 
 /backup.json
+# demo recordings. 17MB of mp4 that belongs on the project page, not in the
+# history: git keeps every version of it forever, and nobody clones a repo for
+# the screencast.
+*.mp4
+*.mov
