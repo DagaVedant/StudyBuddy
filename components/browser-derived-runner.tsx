@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { OllamaProvider } from '@/lib/ai/ollama'
 import { validated } from '@/lib/ai/validated'
 import type { AIProvider } from '@/lib/ai/types'
+import { explainOllamaFailure } from '@/lib/client/ollama-error'
 import { fetchPageImage } from '@/lib/client/page-image'
 
 const IDLE_POLL_MS = 5_000
@@ -179,7 +180,7 @@ export default function BrowserDerivedRunner() {
       await post(job.id, { action: 'complete' })
       setPhase({ kind: 'idle' })
     } catch (error) {
-      const message = (error as Error).message
+      const message = explainOllamaFailure(error, ollama.baseUrl)
       setPhase({ kind: 'error', message })
       await post(job.id, { action: 'fail', message }).catch(() => {})
     }

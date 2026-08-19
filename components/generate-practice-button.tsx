@@ -7,6 +7,7 @@ import { OllamaProvider } from '@/lib/ai/ollama'
 import type { PracticeInput } from '@/lib/ai/types'
 import { validated } from '@/lib/ai/validated'
 import { fetchJson } from '@/lib/client/fetch-json'
+import { explainOllamaFailure } from '@/lib/client/ollama-error'
 
 interface PracticeResponse {
   error?: string
@@ -36,7 +37,11 @@ export default function GeneratePracticeButton({ topicId }: { topicId: string })
       }),
     )
 
-    const questions = await provider.writePractice(input)
+    const questions = await provider
+      .writePractice(input)
+      .catch((cause: unknown) => {
+        throw new Error(explainOllamaFailure(cause, ollama.baseUrl))
+      })
 
     const stored = await fetchJson(`/api/topics/${topicId}/practice`, {
       method: 'PUT',

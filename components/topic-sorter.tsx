@@ -7,6 +7,7 @@ import { OllamaProvider } from '@/lib/ai/ollama'
 import type { AIProvider, TopicCandidate } from '@/lib/ai/types'
 import { validated } from '@/lib/ai/validated'
 import { embedInBrowser } from '@/lib/client/embeddings'
+import { explainOllamaFailure } from '@/lib/client/ollama-error'
 
 export interface SortableWorksheet {
   id: string
@@ -89,6 +90,7 @@ export default function TopicSorter({
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const running = useRef(false)
+  const ollamaBaseUrl = useRef('http://localhost:11434')
   const router = useRouter()
 
   const run = useCallback(async () => {
@@ -103,6 +105,7 @@ export default function TopicSorter({
 
       executor = first.executor
       ollama = first.ollama
+      if (first.ollama) ollamaBaseUrl.current = first.ollama.baseUrl
       total += first.remaining
     }
 
@@ -175,7 +178,10 @@ export default function TopicSorter({
 
     void run()
       .catch((error: unknown) => {
-        setPhase({ kind: 'error', message: (error as Error).message })
+        setPhase({
+          kind: 'error',
+          message: explainOllamaFailure(error, ollamaBaseUrl.current),
+        })
       })
       .finally(() => {
         running.current = false
