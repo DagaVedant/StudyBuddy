@@ -30,7 +30,6 @@ import StudyCalendar from '@/components/study-calendar'
 import { Underline } from '@/components/hand'
 import {
   Callout,
-  Contents,
   MarginNote,
   Note,
   PageFoot,
@@ -230,33 +229,6 @@ export default async function DashboardPage() {
   
   const hasTrend = weekTotals.some((total) => total > 0)
 
-  const contents = [
-    {
-      no: '01',
-      id: 'costing',
-      title: 'What is costing you marks',
-      figure: weakest[0] ? PERCENT.format(weakest[0].accuracy) : undefined,
-    },
-    { no: '02', id: 'subject', title: 'Subject by subject' },
-    {
-      no: '03',
-      id: 'guessed',
-      title: 'Right but guessed',
-      figure: fragile.length > 0 ? `${fragile.length}` : undefined,
-    },
-    { no: '04', id: 'better', title: 'Are you getting better?' },
-    ...(distractors.length > 0
-      ? [
-          {
-            no: '05',
-            id: 'reaching',
-            title: 'Answers you keep reaching for',
-            figure: `${distractors.length}`,
-          },
-        ]
-      : []),
-  ]
-
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
@@ -286,13 +258,10 @@ export default async function DashboardPage() {
 
       <div className="mt-8 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <div className="min-w-0">
-          {hasData && <Contents entries={contents} />}
-
           {hasData && (
             <div className="space-y-6">
-              <Note colour="yellow" labelledBy="costing">
+              <Note labelledBy="costing">
                 <SectionHead
-                  no="01"
                   id="costing"
                   title="What is costing you marks"
                 />
@@ -391,9 +360,8 @@ export default async function DashboardPage() {
 
               </Note>
 
-              <Note colour="blue" labelledBy="subject">
+              <Note labelledBy="subject">
                 <SectionHead
-                  no="02"
                   id="subject"
                   title="Subject by subject"
                 />
@@ -416,9 +384,8 @@ export default async function DashboardPage() {
 
               </Note>
 
-              <Note colour="pink" labelledBy="guessed">
+              <Note labelledBy="guessed">
                 <SectionHead
-                  no="03"
                   id="guessed"
                   title="Right but guessed"
                 />
@@ -441,9 +408,8 @@ export default async function DashboardPage() {
 
               </Note>
 
-              <Note colour="green" labelledBy="better">
+              <Note labelledBy="better">
                 <SectionHead
-                  no="04"
                   id="better"
                   title="Are you getting better?"
                 />
@@ -456,9 +422,8 @@ export default async function DashboardPage() {
               </Note>
 
               {distractors.length > 0 && (
-                <Note colour="orange" labelledBy="reaching">
+                <Note labelledBy="reaching">
                   <SectionHead
-                    no="05"
                     id="reaching"
                     title="Answers you keep reaching for"
                   />
@@ -482,12 +447,8 @@ export default async function DashboardPage() {
             </div>
           )}
 
-          <Note colour="yellow" labelledBy="lately" className={hasData ? 'mt-6' : ''}>
-            <SectionHead
-              id="lately"
-              title="Lately"
-              tone="quiet"
-            />
+          <Note labelledBy="lately" className={hasData ? 'mt-6' : ''}>
+            <SectionHead id="lately" title="Lately" />
             {recent.length === 0 ? (
               <Empty>Nothing uploaded yet.</Empty>
             ) : (
@@ -532,7 +493,7 @@ export default async function DashboardPage() {
         </div>
 
         <aside className="space-y-4">
-          <MarginNote label="At a glance" colour="blue">
+          <MarginNote label="At a glance">
             <dl className="space-y-1.5">
               <Figure
                 label="Due today"
@@ -554,7 +515,7 @@ export default async function DashboardPage() {
             </dl>
           </MarginNote>
 
-          <MarginNote label="AI status" colour="pink">
+          <MarginNote label="AI status">
             <Link
               href={aiStatus.href}
               className="text-sm text-accent underline underline-offset-4"
@@ -564,14 +525,14 @@ export default async function DashboardPage() {
           </MarginNote>
 
           {hasData && (
-            <MarginNote label="The record" colour="green">
+            <MarginNote label="The record">
               <StudyCalendar days={calendar} streak={streak} weeks={17} />
 
             </MarginNote>
           )}
 
           {hasData && (
-            <MarginNote label="Coming back to you" colour="yellow">
+            <MarginNote label="Coming back to you">
               {forecast.length === 0 ? (
                 <Empty>Nothing due in the next seven days.</Empty>
               ) : (
@@ -619,7 +580,7 @@ export default async function DashboardPage() {
         </aside>
       </div>
 
-      <PageFoot running="StudyBuddy · Dashboard" entries={contents} />
+      <PageFoot running="StudyBuddy · Dashboard" />
     </main>
   )
 }

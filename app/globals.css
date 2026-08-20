@@ -18,11 +18,6 @@
   --marker: oklch(91% 0.165 103);
   --marker-soft: oklch(94% 0.09 103);
   --marker-ink: oklch(21% 0.014 62);
-  --note-yellow: oklch(92% 0.115 100);
-  --note-pink: oklch(89% 0.075 8);
-  --note-blue: oklch(90% 0.055 235);
-  --note-green: oklch(91% 0.085 145);
-  --note-orange: oklch(89% 0.095 62);
   --tint-mint: oklch(92% 0.04 158);
   --tint-peach: oklch(92% 0.045 62);
   --tint-lavender: oklch(92% 0.032 250);
@@ -59,11 +54,6 @@
   --color-marker-soft: var(--marker-soft);
   --color-rule: var(--rule);
   --color-rule-heavy: var(--rule-heavy);
-  --color-note-yellow: var(--note-yellow);
-  --color-note-pink: var(--note-pink);
-  --color-note-blue: var(--note-blue);
-  --color-note-green: var(--note-green);
-  --color-note-orange: var(--note-orange);
   --color-tint-mint: var(--tint-mint);
   --color-tint-peach: var(--tint-peach);
   --color-tint-lavender: var(--tint-lavender);
@@ -170,9 +160,6 @@ h3 {
   .eyebrow {
     @apply font-mono text-[0.6875rem] font-normal uppercase tracking-[0.16em] text-muted;
     word-spacing: 0.28em;
-  }
-  .section-no {
-    @apply font-mono text-[0.6875rem] tabular-nums text-muted;
   }
 
   .field {
