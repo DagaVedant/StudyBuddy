@@ -40,13 +40,16 @@
    * same job by stepping the surface instead of drawing on it, so a block of
    * content is set apart by what it is sitting on rather than by being fenced.
    *
-   * `--surface` is a clean sheet laid on the page and reads lighter than it.
+   * `--surface` is a clean white sheet laid on the cream page. It is close to
+   * pure white on purpose: it is the only thing marking the edge of a panel
+   * now that nothing is bordered, so the step from the paper has to be big
+   * enough to be an edge by itself.
    * `--wash` is a recess, and is what a control that used to have an outline
    * now uses to say it is a control: inputs, secondary buttons, empty states.
    * The step between each is small on purpose; it only has to be enough to
    * see an edge, and any more turns back into a box.
    */
-  --surface: oklch(98.4% 0.007 86);
+  --surface: oklch(99.5% 0.004 88);
   --wash: oklch(88.6% 0.022 80);
   --wash-strong: oklch(84.5% 0.025 78);
 

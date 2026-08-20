@@ -59,10 +59,14 @@ const WHEN = new Intl.DateTimeFormat(undefined, {
 /*
  * A section of the page.
  *
- * No card, no tone, no box. The dashboard is laid out as one broadsheet now,
- * and a newspaper page does not put a panel round each story; it separates
- * them with space, a heading and a change of measure. Nine surface-toned
- * rectangles was the last of the card-everywhere grid still standing.
+ * Each section sits on a white sheet, laid on the cream page. The boxes are
+ * white rather than toned and have no border: the step from paper to sheet is
+ * the whole boundary, which is why `--surface` is close to pure white.
+ *
+ * The broadsheet composition underneath is unchanged. Boxing the sections
+ * does not turn this back into a grid of tiles, because the spans are still
+ * unequal, the rows still alternate which side is wide, and the lead is still
+ * set several sizes larger than everything around it.
  *
  * `lead` is the front-page treatment. Exactly one section on the page gets it
  * and it is the one that answers the question the page exists to answer;
@@ -92,7 +96,10 @@ function Panel({
 }) {
   const id = title.toLowerCase().replace(/\W+/g, '-')
   return (
-    <section aria-labelledby={id}>
+    <section
+      aria-labelledby={id}
+      className={`card h-full ${lead ? 'p-6 sm:p-7' : 'p-5'}`}
+    >
       <div className="flex items-baseline gap-2.5">
         {no && (
           <span aria-hidden="true" className="section-no">
@@ -165,8 +172,10 @@ function Verdict({
   return <>Nothing is due today, and nothing looks shaky.</>
 }
 
+/* `py-1`, not `py-4`: the Panel already puts space under the hint, and the
+   two together left a visible hole above every empty section. */
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="py-4 text-sm text-muted">{children}</p>
+  return <p className="py-1 text-sm text-muted">{children}</p>
 }
 
 /*
@@ -384,15 +393,14 @@ export default async function DashboardPage() {
         is what makes it read as a composed page.
 
         The right-hand items are dropped by `lg:mt-9` so the rows do not all
-        start on one line. Nothing is boxed, so without that stagger the
-        sections would align into columns and the boxes would be back in
-        spirit if not in pixels.
+        start on one line, which is what keeps a page of boxes from settling
+        back into a tidy grid.
 
         Auto-placement, not explicit tracks: two of these sections only appear
         when there is something in them, and a fixed template would leave a
         hole where they are not.
       */}
-      <div className="mt-12 grid items-start gap-x-10 gap-y-14 lg:grid-cols-12">
+      <div className="mt-10 grid items-start gap-x-8 gap-y-8 lg:grid-cols-12">
         {hasData && (
           <>
             <div className="lg:col-span-7">
@@ -511,7 +519,7 @@ export default async function DashboardPage() {
 
             {/* The rail. The record and the fragile list are both glanceable
                 rather than read, so they stack in the narrow column. */}
-            <div className="flex flex-col gap-12 lg:col-span-5 lg:mt-9">
+            <div className="flex flex-col gap-8 lg:col-span-5 lg:mt-9">
               <Panel
               title="The record"
               hint="Every day you have answered something, for the last half year."
