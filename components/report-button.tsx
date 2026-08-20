@@ -78,7 +78,7 @@ export default function ReportButton({
           placeholder={placeholder}
           onChange={(event) => setMessage(event.target.value)}
           maxLength={2000}
-          className="w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="w-full rounded-xl bg-transparent px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         />
       </label>
 
@@ -87,7 +87,7 @@ export default function ReportButton({
           type="button"
           disabled={sending}
           onClick={() => void send()}
-          className="rounded-xl border border-border px-3 py-1.5 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+          className="rounded-xl px-3 py-1.5 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
         >
           {sending ? 'Sending…' : 'Send report'}
         </button>

@@ -101,11 +101,11 @@ export default function DashboardPreview() {
             of the app, so it has to be restyled in step with it: a mock that
             has drifted from the screen it depicts is worse than no mock.
           */}
-          <dl className="mt-5 grid grid-cols-2 border border-border sm:grid-cols-[1.3fr_1.3fr_1fr_1fr]">
+          <dl className="mt-5 grid grid-cols-2 sm:grid-cols-[1.3fr_1.3fr_1fr_1fr]">
             {STATS.map((stat) => (
               <div
                 key={stat.label}
-                className="-mb-px -mr-px border-b border-r border-border px-4 py-3"
+                className="py-3 pr-6"
               >
                 <dt className="eyebrow flex items-center gap-1.5">
                   {'pin' in stat && <span className={styles.pin}>{stat.pin}</span>}
@@ -138,7 +138,7 @@ export default function DashboardPreview() {
               raw percentage. A topic needs {MIN_ATTEMPTS} attempts before it
               appears here.
             </p>
-            <ul className="divide-y divide-border">
+            <ul className="">
               {WEAKEST.map((topic) => {
                 const attempts = topic.correct + topic.unsure + topic.wrong
                 const accuracy = topic.correct / attempts

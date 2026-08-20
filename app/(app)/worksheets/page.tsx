@@ -180,7 +180,7 @@ export default async function WorksheetsPage({
       </form>
 
       {rows.length === 0 && query ? (
-        <p className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted">
+        <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">
           Nothing matches “{query}”.{' '}
           <Link href="/worksheets" className="text-accent underline underline-offset-2">
             Show all worksheets
@@ -190,7 +190,7 @@ export default async function WorksheetsPage({
       ) : rows.length === 0 && cursor ? (
         // Reachable by following "Show older" as the last page empties, or from
         // a stale link. Not "nothing uploaded yet", which would be false.
-        <p className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted">
+        <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">
           Nothing older to show.{' '}
           <Link href="/worksheets" className="text-accent underline underline-offset-2">
             Back to the newest
@@ -198,7 +198,7 @@ export default async function WorksheetsPage({
           .
         </p>
       ) : rows.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted">
+        <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">
           Nothing uploaded yet. Your worksheets will appear here once you add one.
         </p>
       ) : (
@@ -215,7 +215,7 @@ export default async function WorksheetsPage({
                   href={href}
                   className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  <div className="aspect-4/3 overflow-hidden border-b border-border bg-bg">
+                  <div className="aspect-4/3 overflow-hidden bg-bg">
                     {thumbnailFor.get(sheet.id) ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
@@ -286,7 +286,7 @@ export default async function WorksheetsPage({
                     </a>
                   )}
 
-                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
+                  <div className="mt-3 flex items-center justify-between gap-2 pt-3">
                     <span
                       className={`text-xs font-medium ${STATUS_STYLE[sheet.status] ?? 'text-muted'}`}
                     >

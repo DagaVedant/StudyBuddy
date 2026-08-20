@@ -88,7 +88,7 @@ export default function DeleteAccount({ email }: { email: string }) {
         {error && (
           <p
             role="alert"
-            className="mt-4 rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
+            className="mt-4 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger"
           >
             {error}
           </p>

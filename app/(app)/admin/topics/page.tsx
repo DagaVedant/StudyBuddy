@@ -143,11 +143,11 @@ export default async function AdminTopicsPage() {
         </p>
 
         {proposals.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
+          <p className="rounded-2xl card-sunk px-3 py-8 text-center text-sm text-muted">
             Nothing pending.
           </p>
         ) : (
-          <ul className="card divide-y divide-border overflow-hidden">
+          <ul className="card overflow-hidden">
             {proposals.map((proposal) => (
               <li key={proposal.id} className="p-3">
                 <div className="flex items-start justify-between gap-3">
@@ -171,7 +171,7 @@ export default async function AdminTopicsPage() {
                       <input type="hidden" name="action" value="accept" />
                       <button
                         type="submit"
-                        className="rounded-xl border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        className="rounded-xl px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       >
                         Accept
                       </button>
@@ -181,7 +181,7 @@ export default async function AdminTopicsPage() {
                       <input type="hidden" name="action" value="reject" />
                       <button
                         type="submit"
-                        className="rounded-xl border border-border px-2 py-1 text-sm text-muted hover:border-danger hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        className="rounded-xl px-2 py-1 text-sm text-muted hover:border-danger hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       >
                         Reject
                       </button>
@@ -201,11 +201,11 @@ export default async function AdminTopicsPage() {
                     list="leaf-topics"
                     placeholder="merge into existing leaf…"
                     autoComplete="off"
-                    className="min-w-0 flex-1 rounded-xl border border-border bg-transparent px-2 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="min-w-0 flex-1 rounded-xl bg-transparent px-2 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   />
                   <button
                     type="submit"
-                    className="btn-compact shrink-0 rounded-xl border border-border px-2 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="btn-compact shrink-0 rounded-xl px-2 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     Merge
                   </button>

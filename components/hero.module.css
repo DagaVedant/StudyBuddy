@@ -556,6 +556,8 @@
  * into looking like placeholder.
  */
 .stem {
+  position: relative;
+  z-index: 1;
   margin: 0;
   /* Big enough to actually read; the point of using real questions here is
      credibility, and text you have to squint at is still a wireframe. */
@@ -573,10 +575,16 @@
  * touching opacity would fight during the second one's delay, because
  * fill-mode `both` makes it assert its start value before it runs.
  */
+/*
+ * A highlighter pass over each question as the reader finds it, not a box
+ * drawn round it. The outline was the last border in the interface, and the
+ * fill says the same thing better: this is an app about marking worksheets,
+ * and a marked question is highlighted, not boxed.
+ */
 .qbox {
   position: absolute;
   inset: 0;
-  border: 1.5px solid var(--accent);
+  background: color-mix(in oklch, var(--marker) 62%, transparent);
   border-radius: var(--radius);
   opacity: 0;
   animation: qbox 1.4s linear both;

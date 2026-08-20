@@ -80,7 +80,7 @@ export default function CorrectionsClient({
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
+          className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           {error}
         </p>
@@ -115,7 +115,7 @@ export default function CorrectionsClient({
                         className={
                           isCurrent
                             ? 'min-h-11 rounded-xl border border-accent bg-accent/10 px-2 py-2 text-sm font-medium touch-manipulation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
-                            : 'min-h-11 rounded-xl border border-border px-2 py-2 text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60'
+                            : 'min-h-11 rounded-xl  px-2 py-2 text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60'
                         }
                         onClick={() =>
                           void correct(question.id, {

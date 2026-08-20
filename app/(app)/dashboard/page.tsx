@@ -77,8 +77,8 @@ function Panel({
 }) {
   const id = title.toLowerCase().replace(/\W+/g, '-')
   return (
-    <section aria-labelledby={id} className="card h-full p-4 pt-3.5">
-      <div className="flex items-baseline gap-2.5 border-b border-border pb-2">
+    <section aria-labelledby={id} className="card h-full p-5">
+      <div className="flex items-baseline gap-2.5">
         <span aria-hidden="true" className="section-no">
           {no}
         </span>
@@ -99,11 +99,10 @@ function Empty({ children }: { children: React.ReactNode }) {
 /*
  * One cell of the ledger strip.
  *
- * The dividers are drawn with negative margins on the cell rather than with
- * `divide-x`, because the strip reflows from five columns to three to two and
- * `divide-x` would keep drawing a rule down the left of whichever cell
- * happens to start a row. A right-hand border on every cell, clipped by the
- * strip's own border, wraps correctly at every breakpoint.
+ * The cells used to be divided by rules. They are separated by their own
+ * right-hand padding now, which survives the strip reflowing from five
+ * columns to three to two without any of the wrapping problems a rule has:
+ * there is no line to end up on the wrong edge of a row.
  */
 function Figure({
   label,
@@ -130,7 +129,7 @@ function Figure({
   )
 
   return (
-    <div className="-mb-px -mr-px border-b border-r border-border px-4 py-3">
+    <div className="py-3 pr-6">
       <dt className="eyebrow">{label}</dt>
       <dd
         className={`mt-1 font-display font-semibold tabular-nums ${
@@ -223,11 +222,11 @@ export default async function DashboardPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       {/*
-        A masthead. The rule under it is ink-weight and the standfirst sits on
-        it in mono, so the top of the page reads as the top of a document
-        rather than as a heading that happens to be first.
+        A masthead. The standfirst in mono over a large serif title is what
+        makes the top of the page read as the top of a document; it used to
+        be an ink rule underneath doing that job.
       */}
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-rule-strong pb-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">Your record so far</p>
           <h1 className="mt-1 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -243,13 +242,12 @@ export default async function DashboardPage() {
         The ledger strip.
 
         This was four tinted tiles of equal size, which gave the same weight to
-        the number you act on and the number you glance at. Here it is one
-        ruled band, divided the way a printed table is divided, and the two
-        counts that are actually due get the wide columns and the display face.
-        The rest are set small. Nothing is tinted: the hierarchy is size and
-        position, which is what hierarchy is supposed to be made of.
+        the number you act on and the number you glance at. Here the two counts
+        that are actually due get the wide columns and the display face and the
+        rest are set small, with nothing boxed or tinted: the hierarchy is size
+        and position, which is what hierarchy is supposed to be made of.
       */}
-      <dl className="mt-6 grid grid-cols-2 border border-border sm:grid-cols-3 lg:grid-cols-[1.3fr_1.3fr_1fr_1fr_1fr]">
+      <dl className="mt-8 grid grid-cols-2 gap-y-4 sm:grid-cols-3 lg:grid-cols-[1.3fr_1.3fr_1fr_1fr_1fr]">
         <Figure
           label="Due today"
           value={overview.dueNow}
@@ -284,14 +282,14 @@ export default async function DashboardPage() {
       {shouldOfferAiSetup(aiStatus) && <AiSetupPrompt />}
 
       {!hasData && (
-        <p className="mt-6 rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+        <p className="mt-6 rounded-2xl card-sunk px-4 py-8 text-center text-sm text-muted">
           Nothing tracked yet. Upload a worksheet you have already done and mark
           which questions you missed. Everything here fills in from that.
         </p>
       )}
 
       {hasData && (
-        <div className="mt-6 grid items-start gap-4 lg:grid-cols-12">
+        <div className="mt-10 grid items-start gap-x-8 gap-y-10 lg:grid-cols-12">
           <div className="lg:col-span-12">
             <Panel
               no="01"
@@ -339,7 +337,7 @@ export default async function DashboardPage() {
                   )}
                 </Empty>
               ) : (
-                <ul className="divide-y divide-border">
+                <ul className="">
                   {weakest.map((topic) => (
                     <li key={topic.topicId}>
                       <Link
@@ -492,7 +490,7 @@ export default async function DashboardPage() {
                 title="Answers you keep reaching for"
                 hint="The same wrong choice, more than once."
               >
-                <ul className="divide-y divide-border">
+                <ul className="">
                   {distractors.map((row) => (
                     <li key={`${row.questionId}-${row.choiceLabel}`} className="py-2">
                       <p className="truncate text-sm">{row.promptText}</p>
@@ -536,12 +534,12 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="mt-4">
+      <div className="mt-10">
         <Panel no="09" title="Recent worksheets">
           {recent.length === 0 ? (
             <Empty>Nothing uploaded yet.</Empty>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="">
               {recent.map((sheet) => (
                 <li key={sheet.id} className="py-2.5">
                   <div className="flex items-baseline gap-3">

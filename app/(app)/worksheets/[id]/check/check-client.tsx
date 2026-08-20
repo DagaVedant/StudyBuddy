@@ -219,7 +219,7 @@ export function CheckClient({
           Back to the worksheet
         </Link>
 
-        <div className="mt-4 border-t border-border pt-4">
+        <div className="mt-4 pt-4">
           <ReportButton
             target={{ kind: 'worksheet', worksheetId }}
             label="Something is wrong with this whole worksheet"
@@ -244,7 +244,7 @@ export function CheckClient({
       </div>
 
       <div
-        className="h-1.5 w-full overflow-hidden bg-border"
+        className="h-1.5 w-full overflow-hidden bg-wash-strong"
         role="progressbar"
         aria-valuenow={done}
         aria-valuemin={0}
@@ -258,7 +258,7 @@ export function CheckClient({
       </div>
 
       {error && (
-        <p role="alert" className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger">
+        <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -314,7 +314,7 @@ export function CheckClient({
         )}
 
         {question.duplicateOf && (
-          <div className="rounded-xl border border-border px-3 py-2 text-sm">
+          <div className="rounded-xl px-3 py-2 text-sm">
             <p className="font-medium">
               {question.duplicateOf.exact
                 ? 'You already have this question'
@@ -404,7 +404,7 @@ export function CheckClient({
         </button>
       )}
 
-      <div className="border-t border-border pt-4">
+      <div className="pt-4">
         <ReportButton
           target={{ kind: 'worksheet', worksheetId }}
           label="Something is wrong with this whole worksheet"

@@ -217,7 +217,7 @@ export default function BrowserDerivedRunner() {
     return (
       <p
         role="status"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-danger/40 bg-bg px-4 py-2 text-center text-xs text-danger"
+        className="fixed inset-x-0 bottom-0 z-30 bg-danger/10 px-4 py-2 text-center text-xs text-danger"
       >
         {phase.message} Nothing is lost: whatever finished is saved, and this picks up
         again when you come back.
@@ -229,7 +229,7 @@ export default function BrowserDerivedRunner() {
     <p
       role="status"
       aria-live="polite"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg px-4 py-2 text-center text-xs text-muted"
+      className="fixed inset-x-0 bottom-0 z-30 bg-bg px-4 py-2 text-center text-xs text-muted"
     >
       {phase.kind === 'explaining'
         ? 'Ollama is writing an explanation on your machine. Keep this tab open.'

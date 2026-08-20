@@ -76,7 +76,7 @@ export default function GenerateLessonButton({ topicId }: { topicId: string }) {
         type="button"
         disabled={busy}
         onClick={() => void generate()}
-        className="rounded-xl border border-border px-3 py-1.5 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+        className="rounded-xl px-3 py-1.5 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
       >
         {busy ? 'Writing…' : 'Generate lesson overview'}
       </button>

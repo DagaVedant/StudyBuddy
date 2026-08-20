@@ -203,7 +203,7 @@ export default async function TopicPage({
               <h3 className="mt-6 text-sm font-semibold tracking-tight">Worked examples</h3>
               <ol className="mt-2 space-y-4">
                 {lesson.examples.map((example, index) => (
-                  <li key={index} className="rounded-xl border border-border p-3">
+                  <li key={index} className="rounded-xl p-3">
                     <p className="text-pretty text-sm font-medium">{example.question}</p>
                     <div className="mt-2">
                       <Prose markdown={example.working} />
@@ -268,7 +268,7 @@ export default async function TopicPage({
         </p>
 
         {vault.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
+          <p className="rounded-2xl card-sunk px-3 py-8 text-center text-sm text-muted">
             Nothing to revisit here. You have not missed a question in this topic.
           </p>
         ) : (

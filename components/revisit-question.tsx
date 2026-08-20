@@ -50,7 +50,7 @@ export default function RevisitQuestion({
         </p>
         <span
           className={`shrink-0 border px-2 py-0.5 text-xs ${
-            OUTCOME_STYLE[outcome] ?? 'border-border text-muted'
+            OUTCOME_STYLE[outcome] ?? 'text-muted'
           }`}
         >
           {OUTCOME_LABEL[outcome] ?? outcome}

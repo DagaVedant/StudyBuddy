@@ -31,7 +31,7 @@ function SignInForm() {
       <p className="hint">Pick up where you left off.</p>
 
       {message && (
-        <p role="alert" className="mt-6 rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger">
+        <p role="alert" className="mt-6 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
           {message}
         </p>
       )}
@@ -41,9 +41,9 @@ function SignInForm() {
       </form>
 
       <div className="my-6 flex items-center gap-3 text-sm text-muted">
-        <span className="h-px flex-1 bg-border" />
+        <span className="h-px flex-1 bg-wash-strong" />
         or use a password
-        <span className="h-px flex-1 bg-border" />
+        <span className="h-px flex-1 bg-wash-strong" />
       </div>
 
       <form action={action} className="space-y-4">

@@ -94,7 +94,7 @@ export default function PageCanvas({
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
-            className="min-h-11 rounded-xl border border-border px-3 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+            className="min-h-11 rounded-xl px-3 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
             disabled={!canGoBack}
             onClick={onBack}
           >
@@ -102,7 +102,7 @@ export default function PageCanvas({
           </button>
           <button
             type="button"
-            className="min-h-11 rounded-xl border border-border px-3 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+            className="min-h-11 rounded-xl px-3 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
             disabled={!canGoForward}
             onClick={onForward}
           >
@@ -169,6 +169,10 @@ export default function PageCanvas({
               width: pctX(draft[2] - draft[0]),
               height: pctY(draft[3] - draft[1]),
             }}
+            /* The one border left in the app, and deliberately so: this is
+               the marquee you are dragging, not chrome around content. A
+               selection rectangle has to show its exact bounds, and a fill
+               alone cannot show an edge you are placing to the pixel. */
             className="absolute rounded-sm border-2 border-dashed border-accent bg-accent/10"
           />
         )}
@@ -201,7 +205,7 @@ export default function PageCanvas({
           type="button"
           aria-pressed={drawing}
           disabled={!linesReady}
-          className="shrink-0 rounded-xl border border-border bg-surface px-3 py-1.5 text-sm shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+          className="shrink-0 rounded-xl bg-surface px-3 py-1.5 text-sm shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
           onClick={() => {
             setDrawing((on) => !on)
             endDrag()

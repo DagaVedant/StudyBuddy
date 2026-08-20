@@ -144,7 +144,7 @@ export default function NotificationBell() {
         aria-label={
           unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'
         }
-        className="relative flex min-h-11 items-center rounded-xl border border-border px-2.5 text-sm transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="relative flex min-h-11 items-center rounded-xl px-2.5 text-sm transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         onClick={() => void openPanel()}
       >
         <svg
@@ -174,7 +174,7 @@ export default function NotificationBell() {
       {open && (
         <div className="card absolute right-0 z-50 mt-2 max-h-96 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto p-2">
           {canPush && (
-            <div className="border-b border-border p-2">
+            <div className="p-2">
               <p className="text-sm text-pretty">
                 Get told when a worksheet finishes, even with this tab closed.
               </p>
@@ -194,7 +194,7 @@ export default function NotificationBell() {
               here.
             </p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="">
               {items.map((item) => (
                 <li key={item.id}>
                   <Link

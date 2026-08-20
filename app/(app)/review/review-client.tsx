@@ -421,7 +421,7 @@ export default function ReviewSession({
           aria-valuemin={0}
           aria-valuemax={items.length}
           aria-label="Review progress"
-          className="h-1 overflow-hidden bg-border"
+          className="h-1 overflow-hidden bg-wash-strong"
         >
           <div
             className="h-full bg-fg transition-[width] duration-200"
@@ -479,7 +479,7 @@ export default function ReviewSession({
                     ? 'border-success text-success'
                     : revealed && choice.id === item.lastChoiceId
                       ? 'border-danger text-danger'
-                      : 'border-border'
+                      : ''
                 }`}
               >
                 <span className="font-medium">{choice.label}.</span> {choice.text}
@@ -497,7 +497,7 @@ export default function ReviewSession({
             Show answer
           </button>
         ) : (
-          <div className="mt-5 space-y-4 border-t border-border pt-4">
+          <div className="mt-5 space-y-4 pt-4">
             <div>
               <h2 className="text-sm font-medium">Answer</h2>
               <p className="mt-1 text-sm">
@@ -507,7 +507,7 @@ export default function ReviewSession({
               </p>
 
               {item.answerSource === 'ai_derived' && (
-                <p className="mt-2 rounded-lg border border-border px-2 py-1 text-xs text-muted">
+                <p className="mt-2 rounded-lg px-2 py-1 text-xs text-muted">
                   AI-derived, not from an answer key. Double-check it.
                 </p>
               )}
@@ -541,7 +541,7 @@ export default function ReviewSession({
                 <div className="mt-1">
                   <button
                     type="button"
-                    className="rounded-xl border border-border px-3 py-1.5 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+                    className="rounded-xl px-3 py-1.5 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
                     disabled={explaining}
                     onClick={() => void explain(item)}
                   >
@@ -564,7 +564,7 @@ export default function ReviewSession({
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
+          className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           {error}
         </p>
@@ -580,7 +580,7 @@ export default function ReviewSession({
                 type="button"
                 disabled={busy}
                 onClick={() => void rate(rating.value)}
-                className="flex flex-col items-center rounded-xl border border-border px-2 py-2 text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+                className="flex flex-col items-center rounded-xl px-2 py-2 text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
               >
                 <span className="font-medium">{rating.label}</span>
                 <span className="text-xs text-muted">{rating.hint}</span>
@@ -594,7 +594,7 @@ export default function ReviewSession({
             Keys <kbd>1</kbd>–<kbd>4</kbd>, or <kbd>Space</kbd> to reveal
           </p>
 
-          <div className="mt-4 border-t border-border pt-3">
+          <div className="mt-4 pt-3">
             <button
               type="button"
               disabled={busy}
@@ -642,7 +642,7 @@ function Recap({
   const recalled = rated - tally.again
 
   return (
-    <div className="card framed p-6">
+    <div className="card p-6 sm:p-8">
       <p className="eyebrow">Sitting complete</p>
 
       <p className="mt-2 font-display text-4xl font-semibold tabular-nums">
@@ -658,7 +658,7 @@ function Recap({
           */}
           <div
             aria-hidden="true"
-            className="mt-5 flex h-2.5 w-full overflow-hidden border border-border"
+            className="mt-5 flex h-2.5 w-full overflow-hidden "
           >
             {RATINGS.filter((rating) => tally[rating.value] > 0).map(
               (rating) => (
@@ -690,7 +690,7 @@ function Recap({
         </>
       )}
 
-      <p className="mt-5 border-t border-border pt-4 text-sm text-pretty">
+      <p className="mt-5 pt-4 text-sm text-pretty">
         {recalled === rated && rated > 0 ? (
           <>You recalled every one of them.</>
         ) : (

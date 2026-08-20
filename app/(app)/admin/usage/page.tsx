@@ -47,14 +47,14 @@ export default async function AdminUsagePage() {
         </p>
 
         {summary.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
+          <p className="rounded-2xl card-sunk px-3 py-8 text-center text-sm text-muted">
             Nothing recorded.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-muted">
+                <tr className="text-left text-muted">
                   <th className="py-1 pr-3 font-medium">Kind</th>
                   <th className="py-1 pr-3 font-medium">Tier</th>
                   <th className="py-1 pr-3 text-right font-medium">Events</th>
@@ -63,7 +63,7 @@ export default async function AdminUsagePage() {
               </thead>
               <tbody>
                 {summary.map((row) => (
-                  <tr key={`${row.kind}-${row.tierUsed}`} className="border-b border-border/60">
+                  <tr key={`${row.kind}-${row.tierUsed}`} className="/60">
                     <td className="py-1.5 pr-3">{KIND_LABEL[row.kind] ?? row.kind}</td>
                     <td className="py-1.5 pr-3 text-muted">{row.tierUsed ?? '—'}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{row.events}</td>
@@ -88,11 +88,11 @@ export default async function AdminUsagePage() {
         </p>
 
         {leaders.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
+          <p className="rounded-2xl card-sunk px-3 py-8 text-center text-sm text-muted">
             No trial usage yet.
           </p>
         ) : (
-          <ul className="card divide-y divide-border overflow-hidden">
+          <ul className="card overflow-hidden">
             {leaders.map((row) => (
               <li key={row.userId} className="flex items-center justify-between gap-3 p-3">
                 <span className="min-w-0 truncate text-sm">{row.email}</span>

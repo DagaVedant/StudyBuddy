@@ -47,7 +47,7 @@ export function Meter({
   return (
     <div
       {...measured}
-      className="h-1.5 w-full overflow-hidden bg-border"
+      className="h-1.5 w-full overflow-hidden bg-wash-strong"
     >
       <div
         className={`h-full ${FILL[band(accuracy, ranked)]}`}

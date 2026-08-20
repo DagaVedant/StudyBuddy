@@ -219,8 +219,14 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           addFiles(event.dataTransfer.files)
         }}
         aria-labelledby="add-heading"
-        className={`rounded-2xl border border-dashed p-6 text-center ${
-          dragging ? 'border-accent bg-accent/5' : 'border-border'
+        /*
+          A recess, not a dashed outline. The target still has to read as
+          something you can drop onto, and with the outline gone the sunk
+          tone is what says so; dragging over it lifts to the accent wash so
+          the answer to "will it take this" is unambiguous.
+        */
+        className={`card-sunk p-6 text-center transition-colors ${
+          dragging ? 'bg-accent/10' : ''
         }`}
       >
         <h2 id="add-heading" className="text-pretty font-medium">
@@ -303,7 +309,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           <h2 id="selected-heading" className="text-sm font-medium">
             Selected files
           </h2>
-          <ul className="card mt-2 divide-y divide-border overflow-hidden">
+          <ul className="card mt-2 overflow-hidden">
             {files.map((file, index) => (
               <li
                 key={`${file.name}-${index}`}
@@ -456,7 +462,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
+          className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           {error}
         </p>
@@ -465,7 +471,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
       {notice && (
         <p
           role="status"
-          className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-muted"
+          className="rounded-xl bg-surface px-3 py-2 text-sm text-muted"
         >
           {notice}
         </p>
@@ -491,7 +497,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             aria-valuemin={0}
             aria-valuemax={100}
             aria-labelledby="progress-heading"
-            className="mt-3 h-1.5 overflow-hidden rounded bg-border"
+            className="mt-3 h-1.5 overflow-hidden rounded bg-wash-strong"
           >
             <div
               className="h-full bg-accent transition-[width] duration-300"

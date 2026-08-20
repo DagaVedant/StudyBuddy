@@ -189,9 +189,9 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
                         <label
                           key={choice.id}
                           className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm touch-manipulation has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
-                            active
+                active
                               ? 'border-accent bg-accent/10'
-                              : 'border-border hover:border-accent'
+                              : ' hover:border-accent'
                           }`}
                         >
                           <input
@@ -242,7 +242,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         {error && (
           <p
             role="alert"
-            className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
+            className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger"
           >
             {error}
           </p>
@@ -273,7 +273,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
   return (
     <div className="space-y-6">
       <div
-        className="inset-safe-top sticky top-0 z-10 -mx-6 border-b border-border bg-bg px-6 py-3"
+        className="inset-safe-top sticky top-0 z-10 -mx-6 bg-bg px-6 py-3"
       >
         <div className="flex items-baseline justify-between gap-3">
           <p className="text-sm font-medium">
@@ -290,7 +290,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
           aria-valuemin={0}
           aria-valuemax={questions.length}
           aria-label="Questions marked"
-          className="mt-2 h-1 overflow-hidden rounded bg-border"
+          className="mt-2 h-1 overflow-hidden rounded bg-wash-strong"
         >
           <div
             className="h-full bg-accent transition-[width] duration-200"
@@ -327,7 +327,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
                     key={outcome.value}
                     type="button"
                     title={outcome.hint}
-                    className="flex flex-col items-center rounded-xl border border-border px-2 py-3 text-center text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="flex flex-col items-center rounded-xl px-2 py-3 text-center text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     onClick={() => mark(currentQuestion.id, outcome.value, cursor)}
                   >
                     {outcome.label}
@@ -353,7 +353,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
+          className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           {error}
         </p>
@@ -366,7 +366,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
       {restored && (
         <div
           role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-3 py-2 text-sm"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm"
         >
           <span>Picked up where you left off on this device.</span>
           <button

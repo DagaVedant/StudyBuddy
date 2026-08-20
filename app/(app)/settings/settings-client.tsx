@@ -137,12 +137,12 @@ export default function SettingsClient({
   return (
     <div className="space-y-6">
       {error && (
-        <p role="alert" className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger">
+        <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
       {notice && (
-        <p role="status" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm">
+        <p role="status" className="rounded-xl bg-surface px-3 py-2 text-sm">
           {notice}
         </p>
       )}
@@ -193,7 +193,7 @@ export default function SettingsClient({
 
         {cloud ? (
           <div className="mt-3 flex items-center gap-3">
-            <span className="flex-1 truncate rounded-xl border border-border px-3 py-2 text-sm">
+            <span className="flex-1 truncate rounded-xl px-3 py-2 text-sm">
               {cloud.provider} · key ending {cloud.keyLast4}
             </span>
             <button
@@ -299,7 +299,7 @@ export default function SettingsClient({
 
         {ollama ? (
           <div className="mt-3 flex items-center gap-3">
-            <span className="min-w-0 flex-1 truncate rounded-xl border border-border px-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 truncate rounded-xl px-3 py-2 text-sm">
               {ollama.ollamaBaseUrl} · {ollama.visionModelName}
             </span>
             <button
@@ -337,7 +337,7 @@ export default function SettingsClient({
                 Set <code>OLLAMA_ORIGINS</code> to <code>{appUrl}</code> and restart
                 Ollama. On Windows:
               </p>
-              <pre className="mt-2 overflow-x-auto rounded-lg border border-border p-2 text-xs">
+              <pre className="mt-2 overflow-x-auto rounded-lg p-2 text-xs">
                 <code>{`setx OLLAMA_ORIGINS "${appUrl}"`}</code>
               </pre>
             </details>
@@ -347,8 +347,8 @@ export default function SettingsClient({
                 role="status"
                 className={
                   probe.ok
-                    ? 'rounded-xl border border-border bg-surface px-3 py-2 text-sm'
-                    : 'rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger'
+                    ? 'rounded-xl  bg-surface px-3 py-2 text-sm'
+                    : 'rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger'
                 }
               >
                 {probe.ok

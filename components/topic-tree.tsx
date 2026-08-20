@@ -82,7 +82,7 @@ function TopicRow({
         {label}
       </summary>
 
-      <div className="ml-3 border-l border-border pl-3">
+      <div className="ml-3 border-l pl-3">
         <TopicTree
           nodes={node.children}
           idBySlug={idBySlug}

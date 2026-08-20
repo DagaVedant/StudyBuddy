@@ -24,18 +24,31 @@
   color-scheme: light;
 
   /* Paper stock. Warm and slightly cream, so it reads as stock rather than as
-     an unpainted div. The old background was tinted 320 (violet), which is the
-     single most common tell of a generated palette. */
-  --bg: oklch(96.4% 0.012 82);
-  --surface: oklch(99.2% 0.006 88);
+     an unpainted div, and now deep enough that the rules on it have something
+     to sit in. The old background was tinted 320 (violet), which is the single
+     most common tell of a generated palette. */
+  --bg: oklch(94.2% 0.015 82);
   --fg: oklch(21% 0.014 62);
-  --muted: oklch(44% 0.016 62);
+  --muted: oklch(43% 0.016 62);
 
-  /* Two weights of rule. The hairline separates, the ink-weight one frames.
-     Having both is what keeps a square-cornered layout from turning into an
-     undifferentiated wireframe. */
-  --border: oklch(83% 0.018 74);
-  --rule-strong: oklch(21% 0.014 62);
+  /*
+   * Three tones, and no borders anywhere.
+   *
+   * Grouping used to be done with hairlines: a box around every panel, a rule
+   * under every heading, a divider between every row. That is the thing that
+   * makes an interface look assembled from a kit. These three tones do the
+   * same job by stepping the surface instead of drawing on it, so a block of
+   * content is set apart by what it is sitting on rather than by being fenced.
+   *
+   * `--surface` is a clean sheet laid on the page and reads lighter than it.
+   * `--wash` is a recess, and is what a control that used to have an outline
+   * now uses to say it is a control: inputs, secondary buttons, empty states.
+   * The step between each is small on purpose; it only has to be enough to
+   * see an edge, and any more turns back into a box.
+   */
+  --surface: oklch(98.4% 0.007 86);
+  --wash: oklch(88.6% 0.022 80);
+  --wash-strong: oklch(84.5% 0.025 78);
 
   /* Fountain-pen blue. Deliberately not a brand purple and not the orange it
      replaced: it has to sit next to red, green and amber without joining the
@@ -52,27 +65,26 @@
   --marker: oklch(91% 0.165 103);
   --marker-soft: oklch(94% 0.09 103);
 
-  /* The ink that goes on top of the highlighter, and the one colour that is
-     the same value in both themes. A marker is a bright yellow in either, so
-     what sits on it has to be dark in either; inheriting `--fg` would put
-     chalk-white text on yellow as soon as the page went dark. */
+  /* The ink that goes on top of the highlighter. A marker is a bright yellow,
+     so what sits on it has to be dark whatever the surface underneath is. */
   --marker-ink: oklch(21% 0.014 62);
-
-  /* Input boundaries. `--border` is a hairline for separating things, and at
-     roughly 1.5:1 it is correctly invisible for that job and far too light to
-     be the edge of a control, which WCAG 1.4.11 wants at 3:1. */
-  --field-border: oklch(55% 0.02 70);
 
   /* Retained under their old names so existing markup keeps working, but
      retuned from pastel fills to paper tints: these are stocks, not sweets. */
-  --tint-mint: oklch(94% 0.035 158);
-  --tint-peach: oklch(94% 0.04 62);
-  --tint-lavender: oklch(94% 0.028 250);
-  --tint-butter: oklch(95% 0.05 98);
+  --tint-mint: oklch(92% 0.04 158);
+  --tint-peach: oklch(92% 0.045 62);
+  --tint-lavender: oklch(92% 0.032 250);
+  --tint-butter: oklch(93% 0.055 98);
 
-  /* The ruled-paper texture. Kept as a token so the two themes can set their
-     own contrast for it rather than sharing one alpha that suits neither. */
-  --rule-ghost: oklch(21% 0.014 62 / 0.055);
+  /*
+   * The rules on the paper, and now the only line work in the interface.
+   *
+   * They were at 0.055 alpha, which was a texture you had to go looking for.
+   * With every border gone they are carrying the whole idea on their own, so
+   * they are printed properly: dark enough to read as ruling from across the
+   * room, light enough that body text still sits comfortably on top.
+   */
+  --rule-ghost: oklch(21% 0.014 62 / 0.14);
 
   --radius: 3px;
   --radius-lg: 4px;
@@ -89,8 +101,8 @@
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
-  --color-border: var(--border);
-  --color-rule-strong: var(--rule-strong);
+  --color-wash: var(--wash);
+  --color-wash-strong: var(--wash-strong);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
@@ -101,7 +113,6 @@
   --color-caution: var(--caution);
   --color-marker: var(--marker);
   --color-marker-soft: var(--marker-soft);
-  --color-field-border: var(--field-border);
   --color-tint-mint: var(--tint-mint);
   --color-tint-peach: var(--tint-peach);
   --color-tint-lavender: var(--tint-lavender);
@@ -139,14 +150,9 @@
 /*
  * The page is ruled like a pad.
  *
- * Two gradients: a 32px horizontal rhythm, and a single vertical line 3.5rem
- * in that is the exercise-book margin. Both are pinned to the top-left and
- * sized in absolute units so the rhythm does not rescale with the viewport,
- * which is what would give it away as a gradient rather than as stock.
- *
- * The vertical margin line is held back below 60rem: on a phone the content
- * already starts inside where the line would fall, so it would cut through
- * text instead of running beside it.
+ * A 32px horizontal rhythm, pinned to the top-left and sized in absolute
+ * units so it does not rescale with the viewport, which is what would give it
+ * away as a gradient rather than as stock.
  */
 body {
   background-color: var(--bg);
@@ -199,11 +205,26 @@ h3 {
   }
 
   .field {
-    @apply min-h-11 w-full border border-field-border bg-surface px-3 py-2.5
-      text-fg outline-none placeholder:text-muted focus-visible:border-accent
-      focus-visible:ring-2 focus-visible:ring-accent/25;
+    @apply min-h-11 w-full bg-wash px-3 py-2.5 text-fg outline-none
+      placeholder:text-muted;
 
+    border: 0;
     border-radius: var(--radius);
+    transition: background-color 150ms ease-out, box-shadow 150ms ease-out;
+  }
+
+  /*
+   * With the outline gone, focus has to be unmistakable, so it is a ring
+   * rather than a recolour: two solid pixels of accent sitting outside the
+   * field, drawn with box-shadow so it costs no layout.
+   */
+  .field:hover {
+    background: var(--wash-strong);
+  }
+
+  .field:focus-visible {
+    background: var(--surface);
+    box-shadow: 0 0 0 2px var(--accent);
   }
 
   .btn {
@@ -216,7 +237,7 @@ h3 {
   }
 
   .skeleton {
-    @apply animate-pulse bg-border;
+    @apply animate-pulse bg-wash-strong;
 
     border-radius: var(--radius);
   }
@@ -261,11 +282,11 @@ h3 {
   }
 
   .btn-secondary {
-    @apply border border-rule-strong bg-transparent text-fg;
+    @apply bg-wash text-fg;
   }
 
   .btn-secondary:hover {
-    background: color-mix(in oklch, var(--fg) 7%, transparent);
+    background: var(--wash-strong);
   }
 
   .btn-danger {
@@ -303,30 +324,26 @@ h3 {
   /*
    * A sheet of paper, and the one component that carries the whole idea.
    *
-   * Square corners and a real hairline border rather than a shadow. It is the
-   * border that does the separating here, so it stays a solid hairline and
-   * never a soft edge.
+   * No border, no shadow. It is set apart from the ruled page purely by being
+   * a lighter, cleaner tone, which is what a fresh sheet laid on a pad
+   * actually looks like. That one step of surface does everything the
+   * hairline used to do and does not fence the content in to do it.
    *
    * Kept under the name `.card` because roughly forty call sites use it, and
    * changing what a class looks like is a smaller change than renaming it
    * everywhere.
-   *
-   * The border is explicit rather than implied by the background, so it
-   * survives forced-colors mode, where background-color is discarded and
-   * everything is repainted from the user's own palette.
    */
   .card {
     position: relative;
-    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--surface);
   }
 
-  /* An ink-weight frame, for the one element on a screen that outranks the
-     sheets around it. Used sparingly; if everything is framed, nothing is. */
-  .framed {
-    border: 2px solid var(--rule-strong);
+  /* A recess rather than a raise, for the blocks that are secondary to what
+     is around them: empty states, notes, the odd aside. */
+  .card-sunk {
     border-radius: var(--radius-lg);
+    background: var(--wash);
   }
 
   /*
@@ -347,9 +364,17 @@ h3 {
   }
 }
 
+/*
+ * Forced-colors mode discards background-color and repaints everything from
+ * the user's own palette. Tone is the only thing separating a card from the
+ * page here, so the separation has to come back as a border in that mode
+ * specifically, or the whole app collapses into one undivided sheet.
+ */
 @media (forced-colors: active) {
-  .card {
-    border-color: CanvasText;
+  .card,
+  .card-sunk,
+  .field {
+    border: 1px solid CanvasText;
   }
 
   [role='meter'] > *,

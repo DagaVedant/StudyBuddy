@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
       {state.error && (
         <p
           role="alert"
-          className="mt-6 rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
+          className="mt-6 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           {state.error}
         </p>

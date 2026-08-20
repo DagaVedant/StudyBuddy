@@ -144,7 +144,7 @@ export default function StudyCalendar({
                     <span
                       key={key(date)}
                       title={describe(date, day)}
-                      className={`size-[12px] border border-border ${
+                      className={`size-[12px] ${
                         FILL[level(day?.total ?? 0)]
                       }`}
                     />
@@ -178,7 +178,7 @@ export default function StudyCalendar({
         {[0, 1, 2, 3, 4].map((step) => (
           <span
             key={step}
-            className={`size-[10px] border border-border ${FILL[step]}`}
+            className={`size-[10px] ${FILL[step]}`}
           />
         ))}
         <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">

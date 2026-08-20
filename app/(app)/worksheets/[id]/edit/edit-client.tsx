@@ -201,7 +201,7 @@ export default function EditClient({
         {editor.error && (
           <p
             role="alert"
-            className="rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger"
+            className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger"
           >
             {editor.error}
           </p>
@@ -216,7 +216,7 @@ export default function EditClient({
         {undoable && (
           <div
             role="status"
-            className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2 text-sm"
+            className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm"
           >
             <span>Removed {undoable.label}.</span>
             <button
@@ -236,7 +236,7 @@ export default function EditClient({
         )}
 
         {questions.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
+          <p className="rounded-2xl card-sunk px-3 py-8 text-center text-sm text-muted">
             Nothing was picked up from this page. Drag a box around a question to add
             it by hand.
           </p>
@@ -264,7 +264,7 @@ export default function EditClient({
           Add a question by hand
         </button>
 
-        <div className="inset-safe-bottom sticky bottom-0 -mx-1 border-t border-border bg-bg px-1 pt-3">
+        <div className="inset-safe-bottom sticky bottom-0 -mx-1 bg-bg px-1 pt-3">
           {untagged > 0 && (
             <p className="hint mb-2">
               <span className="tabular-nums">{untagged}</span> still have no topic. They

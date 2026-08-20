@@ -19,7 +19,7 @@ export default function QuestionCrop({
   const cropHeight = Math.min(image.height, y1 + padY) - top
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border">
+    <div className="overflow-hidden rounded-lg ">
       <div className="relative" style={{ aspectRatio: `${cropWidth} / ${cropHeight}` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

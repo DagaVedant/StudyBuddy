@@ -83,7 +83,7 @@ export default async function StatusPage({
 
       {failed ? (
         <>
-          <p className="mt-6 rounded-xl border border-danger/40 px-3 py-2 text-sm text-danger">
+          <p className="mt-6 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
             {job?.error ?? 'Processing failed.'} This worksheet was not counted
             against your trial.
           </p>
@@ -107,7 +107,7 @@ export default async function StatusPage({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label="Extraction progress"
-            className="mt-6 h-1.5 overflow-hidden rounded bg-border"
+            className="mt-6 h-1.5 overflow-hidden rounded bg-wash-strong"
           >
             <div
               className="h-full bg-accent transition-[width] duration-500"

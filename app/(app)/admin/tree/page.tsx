@@ -119,17 +119,17 @@ export default async function AdminTreePage() {
               placeholder="parent slug…"
               autoComplete="off"
               required
-              className="w-full rounded-xl border border-border bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="w-full rounded-xl bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
             <input
               name="name"
               placeholder="new topic name"
               required
-              className="w-full rounded-xl border border-border bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="w-full rounded-xl bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
             <button
               type="submit"
-              className="min-h-11 w-full rounded-xl border border-border px-2 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="min-h-11 w-full rounded-xl px-2 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               Add
             </button>
@@ -151,17 +151,17 @@ export default async function AdminTreePage() {
               placeholder="topic slug…"
               autoComplete="off"
               required
-              className="w-full rounded-xl border border-border bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="w-full rounded-xl bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
             <input
               name="name"
               placeholder="new name"
               required
-              className="w-full rounded-xl border border-border bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="w-full rounded-xl bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
             <button
               type="submit"
-              className="min-h-11 w-full rounded-xl border border-border px-2 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="min-h-11 w-full rounded-xl px-2 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               Rename
             </button>
@@ -185,7 +185,7 @@ export default async function AdminTreePage() {
               placeholder="leaf to move…"
               autoComplete="off"
               required
-              className="min-w-0 rounded-xl border border-border bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="min-w-0 rounded-xl bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
             <input
               name="parentSlug"
@@ -193,11 +193,11 @@ export default async function AdminTreePage() {
               placeholder="new parent slug…"
               autoComplete="off"
               required
-              className="min-w-0 rounded-xl border border-border bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="min-w-0 rounded-xl bg-transparent px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
             <button
               type="submit"
-              className="min-h-11 rounded-xl border border-border px-3 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="min-h-11 rounded-xl px-3 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               Move
             </button>

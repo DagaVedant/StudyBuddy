@@ -72,7 +72,7 @@ const QuestionCard = memo(function QuestionCard({
       style={style}
       data-index={dataIndex}
       className={`rounded-2xl border bg-surface shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] ${
-        selected ? 'border-accent' : 'border-transparent'
+          selected ? 'bg-accent/10' : ''
       }`}
     >
       <div className="p-3">
@@ -97,7 +97,7 @@ const QuestionCard = memo(function QuestionCard({
               <li
                 key={choice.id}
                 className={`flex gap-1.5 ${
-                  choice.isCorrect ? 'text-success' : 'text-muted'
+              choice.isCorrect ? 'text-success' : 'text-muted'
                 }`}
               >
                 <span className="shrink-0 font-medium">{choiceLabel(choice.label)}.</span>
@@ -133,7 +133,7 @@ const QuestionCard = memo(function QuestionCard({
       </div>
 
       {expanded && (
-        <div className="space-y-4 border-t border-border p-3">
+        <div className="space-y-4 p-3">
           <div>
             <label className="label" htmlFor={`prompt-${question.id}`}>
               Question text
@@ -230,7 +230,7 @@ const QuestionCard = memo(function QuestionCard({
               {question.choices.length < CHOICE_LABELS.length && (
                 <button
                   type="button"
-                  className="mt-2 rounded-xl border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="mt-2 rounded-xl px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   onClick={() =>
                     onUpdate(question.id, {
                       choices: [

@@ -41,7 +41,7 @@ export default async function TopicsPage() {
       </p>
 
       {rows.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted">
+        <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">
           No topics have been set up yet.
         </p>
       ) : (

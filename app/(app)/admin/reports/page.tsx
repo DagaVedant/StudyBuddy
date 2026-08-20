@@ -63,11 +63,11 @@ export default async function AdminReportsPage() {
       </p>
 
       {open.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted">
+        <p className="rounded-2xl card-sunk px-3 py-8 text-center text-sm text-muted">
           Nothing reported.
         </p>
       ) : (
-        <ul className="card divide-y divide-border overflow-hidden">
+        <ul className="card overflow-hidden">
           {open.map((report) => (
             <li key={report.id} className="p-3">
               <div className="flex items-start justify-between gap-3">
@@ -110,7 +110,7 @@ export default async function AdminReportsPage() {
                   <input type="hidden" name="id" value={report.id} />
                   <button
                     type="submit"
-                    className="rounded-xl border border-border px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="rounded-xl px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     Done
                   </button>

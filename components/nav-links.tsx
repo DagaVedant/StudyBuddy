@@ -18,7 +18,7 @@ export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <nav aria-label="Main" className="min-w-0 flex-1">
-      <ul className="flex h-14 items-end gap-1 overflow-x-auto text-sm md:justify-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <ul className="flex items-center gap-1 overflow-x-auto text-sm md:justify-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {items.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`)
@@ -29,19 +29,20 @@ export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 /*
-                 * Tabs on a filing divider, not tinted pills. The current
-                 * page is marked with a pen-weight underline sitting on the
-                 * masthead rule, so the indicator reads as a tab sticking
-                 * into the page rather than as a selected chip.
+                 * Plain text links. This was pills, then underlined tabs, and
+                 * both were the same mistake: a chrome element drawn around
+                 * every destination so the current one could be a different
+                 * chrome element. Weight and ink say it instead. The current
+                 * page is set in full-strength text at bold, the rest are
+                 * muted, and nothing is boxed.
                  *
-                 * The underline is a transparent border on every item, not
-                 * just the active one, so nothing shifts by 2px when the
-                 * marker moves between them.
+                 * Both states are the same weight class in the mono face, so
+                 * the row does not reflow as the marker moves between items.
                  */
-                className={`-mb-px block whitespace-nowrap border-b-2 px-3 py-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                className={`block whitespace-nowrap px-3 py-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                   active
-                    ? 'border-accent text-fg'
-                    : 'border-transparent text-muted hover:text-fg'
+                    ? 'font-bold text-fg'
+                    : 'font-bold text-muted hover:text-fg'
                 }`}
               >
                 {item.label}

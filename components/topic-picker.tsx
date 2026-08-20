@@ -91,7 +91,7 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
 
       {selected && !open ? (
         <div className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate rounded-xl border border-border bg-surface px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1 truncate rounded-xl bg-surface px-3 py-2 text-sm">
             {selected.path}
           </span>
           <button
@@ -148,7 +148,7 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
       )}
 
       {open && (
-        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl bg-surface shadow-lg">
           {results.length === 0 && (
             <p className="px-3 py-2 text-sm text-muted">
               No topic matches that. Try a broader word, or leave it unset.
@@ -182,7 +182,7 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
           </div>
 
           {selected && (
-            <div className="border-t border-border">
+            <div className="">
               <button
                 type="button"
                 className="block w-full px-3 py-2 text-left text-sm text-muted hover:text-danger"
