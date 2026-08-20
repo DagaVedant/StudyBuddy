@@ -44,7 +44,7 @@ export default function SignUpForm({ inviteRequired }: { inviteRequired: boolean
       <form action={action} className="space-y-4">
         <div>
           <label className="label" htmlFor="name">
-            Name <span className="font-normal text-muted">(optional)</span>
+            Name
           </label>
           <input id="name" name="name" type="text" autoComplete="name" className="field" />
         </div>

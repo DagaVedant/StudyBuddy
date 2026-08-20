@@ -93,7 +93,6 @@ export default async function UploadPage() {
 
       <UploadClient
         subjects={subjectGroups()}
-        isAdmin={session.user.role === 'admin'}
       />
     </main>
   )

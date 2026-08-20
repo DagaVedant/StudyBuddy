@@ -254,7 +254,7 @@ const QuestionCard = memo(function QuestionCard({
           {question.questionType !== 'multiple_choice' && (
             <div>
               <label className="label" htmlFor={`answer-${question.id}`}>
-                Correct answer <span className="font-normal text-muted">(optional)</span>
+                Correct answer
               </label>
               <input
                 id={`answer-${question.id}`}

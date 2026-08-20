@@ -44,13 +44,11 @@ export function SectionHead({
   no,
   id,
   title,
-  hint,
   tone = 'info',
 }: {
   no?: string
   id: string
   title: string
-  hint?: string
   tone?: Tone
 }) {
   return (
@@ -71,7 +69,6 @@ export function SectionHead({
           {title}
         </h2>
       </div>
-      {hint && <p className="hint max-w-[62ch] text-pretty">{hint}</p>}
     </div>
   )
 }

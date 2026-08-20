@@ -238,7 +238,7 @@ export default function SettingsClient({
 
             <div>
               <label className="label" htmlFor={modelId}>
-                Model <span className="font-normal text-muted">(optional)</span>
+                Model
               </label>
               <input
                 id={modelId}

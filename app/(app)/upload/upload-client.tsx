@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { ingestWorksheet, type IngestProgress } from '@/lib/client/ingest'
-import { MAX_PAGES_PER_UPLOAD } from '@/lib/upload/limits'
 import { parsePageRange, parseQuestionCount } from '@/lib/upload/page-range'
 
 export interface SubjectGroup {
@@ -14,7 +13,6 @@ export interface SubjectGroup {
 
 interface Props {
   subjects: SubjectGroup[]
-  isAdmin: boolean
 }
 
 const STAGE_LABEL: Record<IngestProgress['stage'], string> = {
@@ -40,7 +38,7 @@ function defaultTitle(files: File[]): string {
   return first.name.replace(/\.[^.]+$/, '').slice(0, 120)
 }
 
-export default function UploadClient({ subjects, isAdmin }: Props) {
+export default function UploadClient({ subjects }: Props) {
   const router = useRouter()
   const titleId = useId()
   const subjectId = useId()
@@ -202,13 +200,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         <h2 id="add-heading" className="text-pretty font-medium">
           Drop your pages here, or choose a file
         </h2>
-        <p className="hint mx-auto max-w-sm text-pretty">
-          PDFs, scans, or photos of the pages. The PDF is rendered here and is
-          never uploaded; the page images are, and on the free trial they are
-          read on hardware we operate, kept only while the job runs, and never
-          used for training.
-        </p>
-
         <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2 sm:flex-row">
           <div className="sm:flex-1">
             <input
@@ -254,9 +245,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           </div>
         </div>
 
-        <p className="hint">
-          {isAdmin ? 'No page limit on your account.' : `Up to ${MAX_PAGES_PER_UPLOAD} pages per upload.`}
-        </p>
       </section>
 
       {files.length > 0 && (
@@ -315,7 +303,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
 
         <div>
           <label className="label" htmlFor={subjectId}>
-            Subject <span className="font-normal text-muted">(optional)</span>
+            Subject
           </label>
           <select
             id={subjectId}
@@ -336,12 +324,11 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
               </optgroup>
             ))}
           </select>
-          <p className="hint">Helps sort the questions into the right topics later.</p>
         </div>
 
         <fieldset>
           <legend className="label">
-            Pages <span className="font-normal text-muted">(optional)</span>
+            Pages
           </legend>
 
           <div className="flex items-center gap-2">
@@ -376,18 +363,11 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             />
           </div>
 
-          <p className="hint text-pretty">
-            Leave blank for the whole file. Worth setting when a practice test
-            is followed by an answer key or explanations. Those pages aren&rsquo;t
-            questions, and skipping them means they are never rendered,
-            uploaded, or read.
-          </p>
         </fieldset>
 
         <div className="rounded-2xl bg-tint-butter p-4">
           <label className="label" htmlFor={countId}>
-            How many questions?{' '}
-            <span className="font-normal text-muted">(worth filling in)</span>
+            Questions
           </label>
           <input
             id={countId}
@@ -401,12 +381,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
             value={questionCount}
             onChange={(event) => setQuestionCount(event.target.value)}
           />
-          <p className="hint text-pretty">
-            Usually printed on the front of a practice test. StudyBuddy
-            compares it against what it actually pulled out, so a question it
-            skipped or grabbed twice gets caught and re-read before it reaches
-            you. Leave it blank and there is nothing to check against.
-          </p>
         </div>
       </section>
 

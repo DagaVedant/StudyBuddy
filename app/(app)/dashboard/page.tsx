@@ -37,7 +37,6 @@ import {
   SectionHead,
 } from '@/components/textbook'
 import {
-  MIN_ATTEMPTS,
   rankFragile,
   rankWeaknesses,
   summarize,
@@ -296,7 +295,6 @@ export default async function DashboardPage() {
                   no="01"
                   id="costing"
                   title="What is costing you marks"
-                  hint={`Ranked by how confident we can be that the misses are real, not by raw percentage. A topic needs ${MIN_ATTEMPTS} attempts before it appears here.`}
                 />
                 {weakest.length === 0 ? (
                   <Empty>
@@ -398,7 +396,6 @@ export default async function DashboardPage() {
                   no="02"
                   id="subject"
                   title="Subject by subject"
-                  hint="Rolled up from every question you have marked. Open a row to go deeper."
                 />
                 {subjectTree.length === 0 ? (
                   <Empty>No subjects yet.</Empty>
@@ -424,7 +421,6 @@ export default async function DashboardPage() {
                   no="03"
                   id="guessed"
                   title="Right but guessed"
-                  hint="High accuracy with a high unsure rate is fragile, not strong."
                 />
                 {fragile.length === 0 ? (
                   <Empty>Nothing looks shaky right now.</Empty>
@@ -450,7 +446,6 @@ export default async function DashboardPage() {
                   no="04"
                   id="better"
                   title="Are you getting better?"
-                  hint="Attempts per week."
                 />
                 {!hasTrend ? (
                   <Empty>Not enough history yet.</Empty>
@@ -466,7 +461,6 @@ export default async function DashboardPage() {
                     no="05"
                     id="reaching"
                     title="Answers you keep reaching for"
-                    hint="The same wrong choice, more than once."
                   />
                   <ul className="">
                     {distractors.map((row) => (
@@ -493,7 +487,6 @@ export default async function DashboardPage() {
               id="lately"
               title="Lately"
               tone="quiet"
-              hint="The worksheets you have uploaded most recently."
             />
             {recent.length === 0 ? (
               <Empty>Nothing uploaded yet.</Empty>
