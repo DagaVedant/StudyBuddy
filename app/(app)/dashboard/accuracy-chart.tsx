@@ -43,7 +43,10 @@ export default function AccuracyChart({
           </label>
           <select
             id={selectId}
-            className="field sm:max-w-xs"
+            /* White rather than the recess tone: this control now sits on a
+               coloured sticky note, and `.field`'s beige read as a smudge on
+               it. A control on a note should look like a control. */
+            className="field bg-surface sm:max-w-xs"
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
           >

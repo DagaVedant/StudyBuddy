@@ -51,9 +51,12 @@ function level(total: number): 0 | 1 | 2 | 3 | 4 {
  * empty square. When the borders came out the whole grid disappeared and only
  * the days you had studied were left, floating with no calendar behind them.
  * The base tone puts the sheet of squares back.
+ *
+ * An alpha of the foreground rather than a fixed tone, because the grid sits
+ * on a coloured sticky note and a fixed beige would only suit one of them.
  */
 const FILL: Record<number, string> = {
-  0: 'bg-wash',
+  0: 'bg-fg/10',
   1: 'bg-marker/30',
   2: 'bg-marker/55',
   3: 'bg-marker/80',

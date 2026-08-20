@@ -34,6 +34,7 @@ import {
   Callout,
   Contents,
   MarginNote,
+  Note,
   PageFoot,
   SectionHead,
 } from '@/components/textbook'
@@ -330,8 +331,8 @@ export default async function DashboardPage() {
           {hasData && <Contents entries={contents} />}
 
           {hasData && (
-            <div className="space-y-12">
-              <section aria-labelledby="costing">
+            <div className="space-y-6">
+              <Note colour="yellow" labelledBy="costing">
                 <SectionHead
                   no="01"
                   id="costing"
@@ -443,9 +444,9 @@ export default async function DashboardPage() {
                   </ul>
                 )}
 
-              </section>
+              </Note>
 
-              <section aria-labelledby="subject">
+              <Note colour="blue" labelledBy="subject">
                 <SectionHead
                   no="02"
                   id="subject"
@@ -469,9 +470,9 @@ export default async function DashboardPage() {
                   </>
                 )}
 
-              </section>
+              </Note>
 
-              <section aria-labelledby="guessed">
+              <Note colour="pink" labelledBy="guessed">
                 <SectionHead
                   no="03"
                   id="guessed"
@@ -495,9 +496,9 @@ export default async function DashboardPage() {
                   </ul>
                 )}
 
-              </section>
+              </Note>
 
-              <section aria-labelledby="better">
+              <Note colour="green" labelledBy="better">
                 <SectionHead
                   no="04"
                   id="better"
@@ -510,10 +511,10 @@ export default async function DashboardPage() {
                   <AccuracyChart overall={trend} bySubject={trendBySubject} />
                 )}
 
-              </section>
+              </Note>
 
               {distractors.length > 0 && (
-                <section aria-labelledby="reaching">
+                <Note colour="orange" labelledBy="reaching">
                   <SectionHead
                     no="05"
                     id="reaching"
@@ -535,12 +536,12 @@ export default async function DashboardPage() {
                     ))}
                   </ul>
 
-                </section>
+                </Note>
               )}
             </div>
           )}
 
-          <section aria-labelledby="lately" className={hasData ? 'mt-12' : ''}>
+          <Note colour="yellow" labelledBy="lately" className={hasData ? 'mt-6' : ''}>
             <SectionHead
               id="lately"
               title="Lately"
@@ -587,12 +588,12 @@ export default async function DashboardPage() {
               </ul>
             )}
 
-          </section>
+          </Note>
         </div>
 
         {/* The margin. */}
-        <aside className="space-y-5 lg:sticky lg:top-20 lg:self-start">
-          <MarginNote label="At a glance">
+        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          <MarginNote label="At a glance" colour="blue">
             <dl className="space-y-1.5">
               <Figure
                 label="Due today"
@@ -614,7 +615,7 @@ export default async function DashboardPage() {
             </dl>
           </MarginNote>
 
-          <MarginNote label="AI status">
+          <MarginNote label="AI status" colour="pink">
             <Link
               href={aiStatus.href}
               className="text-sm text-accent underline underline-offset-4"
@@ -624,14 +625,14 @@ export default async function DashboardPage() {
           </MarginNote>
 
           {hasData && (
-            <MarginNote label="The record">
+            <MarginNote label="The record" colour="green">
               <StudyCalendar days={calendar} streak={streak} weeks={17} />
 
             </MarginNote>
           )}
 
           {hasData && (
-            <MarginNote label="Coming back to you">
+            <MarginNote label="Coming back to you" colour="yellow">
               {forecast.length === 0 ? (
                 <Empty>Nothing due in the next seven days.</Empty>
               ) : (

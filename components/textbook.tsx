@@ -1,7 +1,5 @@
 import Link from 'next/link'
 
-import { PencilFrame } from './hand'
-
 /*
  * The furniture of a textbook page.
  *
@@ -28,15 +26,57 @@ import { PencilFrame } from './hand'
 
 export type Tone = 'info' | 'action' | 'quiet'
 
+export type NoteColour = 'yellow' | 'pink' | 'blue' | 'green' | 'orange'
+
+const NOTE: Record<NoteColour, string> = {
+  yellow: 'bg-note-yellow',
+  pink: 'bg-note-pink',
+  blue: 'bg-note-blue',
+  green: 'bg-note-green',
+  orange: 'bg-note-orange',
+}
+
+/*
+ * A sticky note.
+ *
+ * A square of coloured paper with padding on it, and nothing else. No shadow,
+ * no gradient, no rotation, no curled corner, no drawn outline. Every one of
+ * those is available and every one of them is the thing that would make this
+ * look like an effect rather than a note, so the whole component is one div
+ * and a background colour.
+ *
+ * Square corners for the same reason: a sticky note is cut, not rounded.
+ */
+export function Note({
+  colour,
+  labelledBy,
+  className = '',
+  children,
+}: {
+  colour: NoteColour
+  labelledBy?: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section
+      aria-labelledby={labelledBy}
+      className={`rounded-none p-5 ${NOTE[colour]} ${className}`}
+    >
+      {children}
+    </section>
+  )
+}
+
 /*
  * Fill and ink per note level, kept in one place so a tone cannot drift into
  * meaning something different in two components. The fills are deliberately
  * weak: a callout has to read as a panel on the page, not as a highlight.
  */
-const TONE: Record<Tone, { fill: string; ink: string }> = {
-  info: { fill: 'bg-accent/8', ink: 'text-accent' },
-  action: { fill: 'bg-marker/25', ink: 'text-fg' },
-  quiet: { fill: 'bg-wash', ink: 'text-muted' },
+const TONE: Record<Tone, string> = {
+  info: 'text-accent',
+  action: 'text-fg',
+  quiet: 'text-muted',
 }
 
 /*
@@ -61,11 +101,11 @@ export function SectionHead({
 }) {
   return (
     <div className="mb-4">
-      <div className="flex items-baseline gap-3 border-b border-rule pb-2">
+      <div className="flex items-baseline gap-3 border-b border-fg/20 pb-2">
         {no && (
           <span
             aria-hidden="true"
-            className={`font-mono text-[0.6875rem] tabular-nums ${TONE[tone].ink}`}
+            className={`font-mono text-[0.6875rem] tabular-nums ${TONE[tone]}`}
           >
             §{no}
           </span>
@@ -87,42 +127,41 @@ export function SectionHead({
 
 /*
  * A pulled-out panel: the "Did you know" box of a textbook, used here for the
- * two things on the page that are an instruction rather than a reading.
- *
- * Bordered in pencil rather than printed, because a callout is the thing a
- * reader would ring round, and it keeps the drawn layer doing one job.
+ * one thing on the page that is an instruction rather than a reading. It is a
+ * sticky note like everything else; only the label marks it out.
  */
 export function Callout({
   label,
-  tone = 'action',
+  colour = 'orange',
   children,
 }: {
   label: string
-  tone?: Tone
+  colour?: NoteColour
   children: React.ReactNode
 }) {
   return (
-    <aside className={`relative p-4 ${TONE[tone].fill}`}>
-      <PencilFrame />
+    <Note colour={colour}>
       <p className="eyebrow">{label}</p>
       <div className="mt-2">{children}</div>
-    </aside>
+    </Note>
   )
 }
 
-/* One entry in the margin: a label, and the thing it labels. */
+/* One entry in the margin, on its own note. */
 export function MarginNote({
   label,
+  colour,
   children,
 }: {
   label: string
+  colour: NoteColour
   children: React.ReactNode
 }) {
   return (
-    <section className="border-b border-rule pb-5">
+    <Note colour={colour}>
       <h2 className="eyebrow">{label}</h2>
       <div className="mt-2">{children}</div>
-    </section>
+    </Note>
   )
 }
 

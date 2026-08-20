@@ -72,6 +72,21 @@
      so what sits on it has to be dark whatever the surface underneath is. */
   --marker-ink: oklch(21% 0.014 62);
 
+  /*
+   * Sticky notes. Flat, plain, obvious. No gradient, no shadow, no rotation:
+   * a sticky note is a square of coloured paper and anything added to that is
+   * the thing that starts to look designed.
+   *
+   * All five sit around 89-92% lightness so ink reads on every one of them at
+   * roughly the same contrast, and so no single note shouts louder than the
+   * others just because of its hue.
+   */
+  --note-yellow: oklch(92% 0.115 100);
+  --note-pink: oklch(89% 0.075 8);
+  --note-blue: oklch(90% 0.055 235);
+  --note-green: oklch(91% 0.085 145);
+  --note-orange: oklch(89% 0.095 62);
+
   /* Retained under their old names so existing markup keeps working, but
      retuned from pastel fills to paper tints: these are stocks, not sweets. */
   --tint-mint: oklch(92% 0.04 158);
@@ -148,6 +163,11 @@
   --color-pencil: var(--pencil);
   --color-rule: var(--rule);
   --color-rule-heavy: var(--rule-heavy);
+  --color-note-yellow: var(--note-yellow);
+  --color-note-pink: var(--note-pink);
+  --color-note-blue: var(--note-blue);
+  --color-note-green: var(--note-green);
+  --color-note-orange: var(--note-orange);
   --color-tint-mint: var(--tint-mint);
   --color-tint-peach: var(--tint-peach);
   --color-tint-lavender: var(--tint-lavender);

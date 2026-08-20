@@ -51,7 +51,11 @@ export function Meter({
   return (
     <div
       {...measured}
-      className={`w-full overflow-hidden bg-wash-strong ${thick ? 'h-3' : 'h-1.5'}`}
+      /* Ink at low alpha rather than a fixed tone: the track sits on sticky
+         notes of five different colours now, and a beige bar on a green note
+         reads as a mistake. An alpha of the foreground darkens whatever it is
+         on and is right on all of them. */
+      className={`w-full overflow-hidden bg-fg/15 ${thick ? 'h-3' : 'h-1.5'}`}
     >
       <div
         className={`h-full ${FILL[band(accuracy, ranked)]}`}
