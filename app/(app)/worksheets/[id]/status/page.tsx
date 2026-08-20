@@ -76,7 +76,7 @@ export default async function StatusPage({
   return (
     <main className="mx-auto w-full max-w-xl px-6 py-16">
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        {failed ? 'Something Went Wrong' : 'Working on It'}
+        {failed ? 'Something went wrong' : 'Working on it'}
       </h1>
 
       <p className="hint text-pretty">{worksheet.title}</p>

@@ -100,7 +100,7 @@ export default async function MarkupPage({
         </nav>
 
         <h1 className="text-balance text-2xl font-semibold tracking-tight">
-          What You Recorded
+          What you recorded
         </h1>
         <p className="hint mb-8 text-pretty">
           {worksheet.title}. The ones you missed are in your practice queue. If a
@@ -155,7 +155,7 @@ export default async function MarkupPage({
   if (markable.length === 0) {
     return (
       <main className="mx-auto w-full max-w-2xl px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Nothing to Mark</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Nothing to mark</h1>
         <p className="hint">
           This worksheet has no questions yet.{' '}
           <Link
@@ -182,7 +182,7 @@ export default async function MarkupPage({
       </nav>
 
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        How Did You Do?
+        How did you do?
       </h1>
       <p className="hint mb-8 text-pretty">
         {worksheet.title}. Mark each question, then tell us what you put for the

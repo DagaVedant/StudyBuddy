@@ -1,4 +1,5 @@
 'use client'
+import PageHead from '@/components/page-head'
 
 import { useId, useState } from 'react'
 
@@ -108,14 +109,18 @@ export default function ProfileClient({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
-      <h1 className="text-balance text-2xl font-semibold tracking-tight">Profile</h1>
+      <PageHead
+        title="Profile"
+        lede="Your display name, username and picture, and what you have got through."
+      />
 
-      <section aria-labelledby="identity-heading" className="card mt-6 p-4">
-        <h2 id="identity-heading" className="text-sm font-medium">
-          Identity
-        </h2>
-
-        <div className="mt-4 flex items-center gap-4">
+      {/*
+        No "Identity" heading here any more. It sat directly under an h1
+        reading "Profile" and named the same thing a second time; the section
+        is the page's main content, so the h1 is its label.
+      */}
+      <div className="card mt-6 p-4">
+        <div className="flex items-center gap-4">
           <Avatar name={nameValue} username={usernameValue} email={email} image={image} />
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">
@@ -183,7 +188,7 @@ export default function ProfileClient({
             {busy ? 'Saving…' : 'Save'}
           </button>
         </div>
-      </section>
+      </div>
 
       <section aria-labelledby="stats-heading" className="card mt-6 p-4">
         <h2 id="stats-heading" className="text-sm font-medium">

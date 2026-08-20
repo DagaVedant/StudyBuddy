@@ -9,12 +9,24 @@ export const size = { width: 1200, height: 630 }
 
 export const contentType = 'image/png'
 
-const BG = '#fbf4fc'
-const FG = '#301f34'
-const MUTED = '#67576a'
-const ACCENT = '#c23600'
+/*
+ * The card's palette, converted from the oklch tokens in globals.css. It was
+ * still on the violet-and-orange scheme the app left behind, so a link
+ * preview looked like a different product to the page it opened.
+ *
+ * The fonts are the exception and are knowingly stale: Satori needs real font
+ * binaries and only Archivo and Geist are vendored under assets/fonts. Adding
+ * Fraunces and Public Sans means adding two more files, which is a separate
+ * job from this one.
+ */
+const BG = '#f1ebe1'
+const FG = '#1d1712'
+const MUTED = '#59514a'
+const ACCENT = '#00489f'
+const PAPER_RED = 'rgba(184,54,38,0.5)'
+const RULE = 'rgba(29,23,18,0.14)'
 
-const CURVE = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+const CURVE = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" preserveAspectRatio="none">
   <g opacity="0.45">
     <path fill="${ACCENT}" opacity="0.09" d="M0,168 C97.3,336 162.2,392 227,399 L227,252 C308.1,406 373,462 454.1,469 L454.1,294 C567.6,448 648.6,490 745.9,497 L745.9,350 C891.9,476 1037.8,518 1200,532 L1200,630 L0,630 Z" />
     <path fill="none" stroke="${ACCENT}" stroke-width="2" stroke-linecap="round" d="M0,168 C97.3,336 162.2,392 227,399 L227,252 C308.1,406 373,462 454.1,469 L454.1,294 C567.6,448 648.6,490 745.9,497 L745.9,350 C891.9,476 1037.8,518 1200,532" />
@@ -29,31 +41,18 @@ const BLURB =
 
 const curveSrc = `data:image/svg+xml;base64,${Buffer.from(CURVE).toString('base64')}`
 
-function Mark({ unit }: { unit: number }) {
-  const square = unit * 7
-  const gutter = unit * 2
-  const radius = unit * 1.5
+/*
+ * The same tick as `components/mark.tsx`, and it has to be kept in step with
+ * it by hand. Satori will not render the component, and it does not stroke
+ * paths reliably either, so the path is handed to it as an <img> data URI the
+ * way the curve above already is.
+ */
+const MARK_PATH = 'M2.6 13.9C4.3 15.4 5.9 17.4 7.5 19.7 11.7 13.7 16.3 8.3 21.4 4.4'
 
-  const cell = (dim: boolean) => ({
-    width: square,
-    height: square,
-    borderRadius: radius,
-    backgroundColor: dim ? 'rgba(194, 54, 0, 0.35)' : ACCENT,
-  })
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: gutter }}>
-      <div style={{ display: 'flex', gap: gutter }}>
-        <div style={cell(false)} />
-        <div style={cell(true)} />
-      </div>
-      <div style={{ display: 'flex', gap: gutter }}>
-        <div style={cell(true)} />
-        <div style={cell(false)} />
-      </div>
-    </div>
-  )
-}
+const markSrc = (size: number) =>
+  `data:image/svg+xml;base64,${Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${ACCENT}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="${MARK_PATH}"/></svg>`,
+  ).toString('base64')}`
 
 export default async function Image() {
   const [archivo, geist] = await Promise.all([
@@ -68,26 +67,43 @@ export default async function Image() {
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'center',
           width: '100%',
           height: '100%',
+          paddingLeft: 110,
+          paddingRight: 90,
+          paddingBottom: 60,
           backgroundColor: BG,
           color: FG,
           fontFamily: 'Geist',
+          backgroundImage: `repeating-linear-gradient(to bottom, ${BG} 0px, ${BG} 31px, ${RULE} 31px, ${RULE} 32px)`,
         }}
       >
+        {/* A band along the bottom, which is what the hero does whenever it
+            has more width than height. Full bleed, the curve's review spikes
+            ran straight through the headline. */}
         {/* eslint-disable-next-line @next/next/no-img-element -- next/image
             has no meaning inside ImageResponse; Satori only renders <img>. */}
-        <img src={curveSrc} width={1200} height={630} alt="" style={{ position: 'absolute', top: 0, left: 0 }} />
+        <img src={curveSrc} width={1200} height={272} alt="" style={{ position: 'absolute', bottom: 0, left: 0 }} />
+
+        {/* The exercise-book margin, as two divs rather than another
+            background layer: Satori is dependable about absolutely
+            positioned boxes and much less so about stacked gradients. */}
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 56, width: 1, backgroundColor: PAPER_RED }} />
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 60, width: 1, backgroundColor: PAPER_RED }} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 21 }}>
-          <Mark unit={3} />
+          {/* eslint-disable-next-line @next/next/no-img-element -- Satori
+              only renders <img>; next/image has no meaning inside
+              ImageResponse. */}
+          <img src={markSrc(46)} width={46} height={46} alt="" />
           <div
             style={{
               fontFamily: 'Archivo',
-              fontSize: 40,
-              letterSpacing: -1.2 /* -0.03em, the site's display tracking */,
+              fontSize: 26,
+              textTransform: 'uppercase',
+              letterSpacing: 4 /* the masthead's mono tracking, approximated */,
             }}
           >
             StudyBuddy
@@ -101,12 +117,12 @@ export default async function Image() {
         <div
           style={{
             display: 'flex',
-            maxWidth: 860,
-            marginTop: 38,
-            fontSize: 54,
-            lineHeight: 1.35,
-            letterSpacing: -1.08 /* -0.02em, matching .blurb */,
-            textAlign: 'center',
+            maxWidth: 820,
+            marginTop: 30,
+            fontFamily: 'Archivo',
+            fontSize: 62,
+            lineHeight: 1.08,
+            letterSpacing: -1.9 /* -0.03em, matching .blurb */,
           }}
         >
           {BLURB}
@@ -117,9 +133,9 @@ export default async function Image() {
         <div
           style={{
             position: 'absolute',
-            left: 48,
-            right: 48,
-            bottom: 40,
+            left: 110,
+            right: 90,
+            bottom: 34,
             display: 'flex',
             justifyContent: 'space-between',
             fontSize: 20,

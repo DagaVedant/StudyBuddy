@@ -61,7 +61,7 @@ test('generated practice lands in the review queue and stays out of the library'
   await page.goto(`/review?topic=${id}`)
 
   await expect(
-    visible(page).getByRole('heading', { name: `Review: ${TOPIC_NAME}` }),
+    visible(page).getByRole('heading', { name: TOPIC_NAME, level: 1 }),
   ).toBeVisible()
   await expect(visible(page).getByText(/4 questions are due/)).toBeVisible()
 

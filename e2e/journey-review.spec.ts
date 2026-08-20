@@ -28,7 +28,7 @@ test('the verify flow shows a card and records a check', async () => {
 
   await page.goto(`/worksheets/${worksheetId}/check`)
 
-  await expect(visible(page).getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Check your questions' })).toBeVisible()
   await expect(visible(page).getByRole('progressbar', { name: 'Questions checked' })).toBeVisible()
   await expect(visible(page).getByText(/0 of \d+ checked/)).toBeVisible()
 
@@ -43,7 +43,7 @@ test('confirming moves the worksheet to markup', async () => {
   await visible(page).getByRole('button', { name: /Looks right, mark \d+ question/ }).click()
 
   await page.waitForURL(/\/worksheets\/[^/]+\/markup/, { timeout: 30_000 })
-  await expect(visible(page).getByRole('heading', { name: 'How Did You Do?' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'How did you do?' })).toBeVisible()
 })
 
 test('a mark survives a reload of the markup screen', async () => {
@@ -78,15 +78,15 @@ test('marking a miss prompts for the answer actually given', async () => {
 })
 
 test('the dashboard reflects the attempt', async () => {
-  await expect(visible(page).getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(visible(page).getByText('Dashboard', { exact: true })).toBeVisible()
 
   await expect(visible(page).getByText('Nothing tracked yet')).toHaveCount(0)
   await expect(visible(page).getByText('Questions tracked')).toBeVisible()
-  await expect(visible(page).getByText('Recent worksheets')).toBeVisible()
+  await expect(visible(page).getByText('Lately')).toBeVisible()
   await expect(visible(page).getByText('Unit 4 Practice')).toBeVisible()
 
   await expect(
-    visible(page).getByRole('heading', { name: 'Due for review' }),
+    visible(page).getByRole('heading', { name: 'Coming back to you' }),
   ).toBeVisible()
   await expect(visible(page).getByText('Nothing due in the next seven days')).toBeVisible()
 
@@ -114,14 +114,14 @@ test('rating a card completes the session', async () => {
   await visible(page).getByRole('button', { name: 'Good' }).click()
 
   await expect(
-    visible(page).getByRole('heading', { name: 'Session complete' }),
+    visible(page).getByRole('heading', { name: 'Sitting complete' }),
   ).toBeVisible({ timeout: 30_000 })
 })
 
 test('an unknown topic falls back to the whole queue rather than an empty screen', async () => {
   await page.goto('/review?topic=not-a-real-topic')
 
-  await expect(visible(page).getByRole('heading', { name: 'Review', exact: true })).toBeVisible()
+  await expect(visible(page).getByText('Review', { exact: true })).toBeVisible()
   await expect(visible(page).getByText('Only questions filed under this topic')).toHaveCount(0)
 })
 
@@ -129,7 +129,7 @@ test('a mis-tapped mark can be corrected on the worksheet it happened on', async
   await page.goto(`/worksheets/${worksheetId}/markup`)
 
   await expect(
-    visible(page).getByRole('heading', { name: 'What You Recorded' }),
+    visible(page).getByRole('heading', { name: 'What you recorded' }),
   ).toBeVisible()
 
   const missed = visible(page).getByRole('button', { name: 'Missed it' })

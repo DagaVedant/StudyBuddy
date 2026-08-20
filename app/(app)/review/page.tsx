@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import PageHead from '@/components/page-head'
 
 import { auth } from '@/auth'
 import { resolveProvider } from '@/lib/ai/resolve'
@@ -47,9 +48,22 @@ export default async function ReviewPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
-      <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        {topic ? `Review: ${topic.name}` : 'Review'}
-      </h1>
+      {/*
+        The heading is the sitting, not the word "Review". Filtered to a topic
+        the topic is the subject and "Review" drops to the eyebrow; unfiltered
+        the subject is how much is waiting, which is the only thing anyone
+        opens this page to find out.
+      */}
+      <PageHead
+        eyebrow="Review"
+        title={
+          topic
+            ? topic.name
+            : waiting > 0
+              ? `${waiting} ${waiting === 1 ? 'question' : 'questions'} due`
+              : 'Nothing due today'
+        }
+      />
 
       {/*
         A filtered queue has to say so, and has to offer the way out. Otherwise

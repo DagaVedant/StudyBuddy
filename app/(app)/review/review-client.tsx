@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import ReportButton from '@/components/report-button'
+import { Tick } from '@/components/hand'
 import QuestionCrop from '@/components/question-crop'
 import { reflowText } from '@/lib/questions/reflow'
 import type { ReviewItem } from '@/lib/review/queue'
@@ -472,17 +473,29 @@ export default function ReviewSession({
         {item.choices.length > 0 && (
           <ul className="mt-4 space-y-1.5">
             {item.choices.map((choice) => (
+              /*
+                Marked with a tint and a pen tick rather than a coloured
+                outline. The tick is the one hand-drawn thing in the review
+                loop and it goes exactly where a teacher would put it, beside
+                the right answer.
+              */
               <li
                 key={choice.id}
-                className={`rounded-xl border px-3 py-2 text-sm ${
+                className={`flex gap-2 rounded-xl px-3 py-2 text-sm ${
                   revealed && choice.isCorrect
-                    ? 'border-success text-success'
+                    ? 'bg-success/12 text-success'
                     : revealed && choice.id === item.lastChoiceId
-                      ? 'border-danger text-danger'
+                      ? 'bg-danger/12 text-danger'
                       : ''
                 }`}
               >
-                <span className="font-medium">{choice.label}.</span> {choice.text}
+                {revealed && choice.isCorrect && (
+                  <Tick className="mt-[0.15rem] size-4 shrink-0" />
+                )}
+                <span>
+                  <span className="font-medium">{choice.label}.</span>{' '}
+                  {choice.text}
+                </span>
               </li>
             ))}
           </ul>
@@ -499,7 +512,7 @@ export default function ReviewSession({
         ) : (
           <div className="mt-5 space-y-4 pt-4">
             <div>
-              <h2 className="text-sm font-medium">Answer</h2>
+              <h2 className="eyebrow">Answer</h2>
               <p className="mt-1 text-sm">
                 {correctChoice
                   ? `${correctChoice.label}. ${correctChoice.text}`
@@ -515,7 +528,7 @@ export default function ReviewSession({
 
             {(chosen || item.lastFreeText) && (
               <div>
-                <h2 className="text-sm font-medium">You put</h2>
+                <h2 className="eyebrow">You put</h2>
                 <p className="mt-1 text-sm text-muted">
                   {chosen ? `${chosen.label}. ${chosen.text}` : item.lastFreeText}
                 </p>
@@ -523,7 +536,7 @@ export default function ReviewSession({
             )}
 
             <div>
-              <h2 className="text-sm font-medium">Explanation</h2>
+              <h2 className="eyebrow">Explanation</h2>
               {explanationFor(item) ? (
                 <>
                   <p className="mt-1 whitespace-pre-line text-pretty text-sm">
@@ -643,7 +656,12 @@ function Recap({
 
   return (
     <div className="card p-6 sm:p-8">
-      <p className="eyebrow">Sitting complete</p>
+      {/*
+        A real heading. Turning this into a styled <p> quietly removed the
+        only landmark at the end of a sitting, for screen readers and for the
+        end-to-end suite alike.
+      */}
+      <h2 className="eyebrow">Sitting complete</h2>
 
       <p className="mt-2 font-display text-4xl font-semibold tabular-nums">
         {done} <span className="text-xl font-normal text-muted">reviewed</span>

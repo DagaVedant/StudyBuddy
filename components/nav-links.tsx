@@ -36,13 +36,15 @@ export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
                  * page is set in full-strength text at bold, the rest are
                  * muted, and nothing is boxed.
                  *
-                 * Both states are the same weight class in the mono face, so
-                 * the row does not reflow as the marker moves between items.
+                 * Weight as well as ink, because colour alone at 11px was not
+                 * carrying it. Space Mono is monospaced, so 400 and 700 have
+                 * the same advance width and the row does not reflow as the
+                 * marker moves between items.
                  */
                 className={`block whitespace-nowrap px-3 py-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                   active
                     ? 'font-bold text-fg'
-                    : 'font-bold text-muted hover:text-fg'
+                    : 'font-normal text-muted hover:text-fg'
                 }`}
               >
                 {item.label}

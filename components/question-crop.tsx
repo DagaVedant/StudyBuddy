@@ -18,8 +18,17 @@ export default function QuestionCrop({
   const cropWidth = Math.min(image.width, x1 + padX) - left
   const cropHeight = Math.min(image.height, y1 + padY) - top
 
+  /*
+   * Tilted a third of a degree.
+   *
+   * This is a scrap cut out of a photograph of a real worksheet, and a page
+   * fed through a phone camera is never square to the frame. Sitting it dead
+   * level is the thing that makes it look like a rendered component rather
+   * than the piece of paper it is. Small enough that the rotated box only
+   * overflows its row by a pixel or two, which the margin below absorbs.
+   */
   return (
-    <div className="overflow-hidden rounded-lg ">
+    <div className="my-0.5 overflow-hidden rounded-lg [rotate:0.35deg]">
       <div className="relative" style={{ aspectRatio: `${cropWidth} / ${cropHeight}` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

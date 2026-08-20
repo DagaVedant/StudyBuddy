@@ -230,7 +230,7 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         }`}
       >
         <h2 id="add-heading" className="text-pretty font-medium">
-          Add Your Worksheet
+          Drop your pages here, or choose a file
         </h2>
         {/*
           This used to end "everything is rendered and read on your device, the

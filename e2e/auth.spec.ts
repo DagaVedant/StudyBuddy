@@ -90,7 +90,7 @@ test('a wrong password is rejected', async ({ page }) => {
 test('verify and sign in reaches the dashboard', async ({ page }) => {
   await registerAndSignIn(page)
 
-  await expect(visible(page).getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(visible(page).getByText('Dashboard', { exact: true })).toBeVisible()
   await expect(visible(page).getByText('Nothing tracked yet')).toBeVisible()
 })
 

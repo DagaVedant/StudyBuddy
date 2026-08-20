@@ -46,7 +46,7 @@ test.afterAll(async () => {
 
 test('the split editor still opens and saves from the question list', async () => {
   await page.goto(`/worksheets/${worksheetId}/edit`)
-  await expect(visible(page).getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Add your questions' })).toBeVisible()
 
   await expect(visible(page).getByRole('heading', { name: '0 questions found' })).toBeVisible()
   await expect(
@@ -95,7 +95,7 @@ test('an edit survives navigating away inside the autosave debounce', async () =
   await prompt.fill(edited)
 
   await page.goto('/dashboard')
-  await expect(visible(page).getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(visible(page).getByText('Dashboard', { exact: true })).toBeVisible()
 
   await expect(async () => {
     const listed = await page.request.get(`/api/worksheets/${worksheetId}/questions`)
@@ -106,7 +106,7 @@ test('an edit survives navigating away inside the autosave debounce', async () =
 
 test('a whole worksheet can be reported from the verify screen', async () => {
   await page.goto(`/worksheets/${worksheetId}/check`)
-  await expect(visible(page).getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Check your questions' })).toBeVisible()
 
   const open = visible(page).getByRole('button', {
     name: 'Something is wrong with this whole worksheet',

@@ -18,7 +18,7 @@ test('a fresh account queues its upload for the GPU worker', async ({ page }) =>
   await uploadWorksheet(page, 'Queued Set')
 
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/status/)
-  await expect(visible(page).getByRole('heading', { name: 'Working on It' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Working on it' })).toBeVisible()
 
   await expect(
     visible(page).getByText('Queued. The processing machine is offline right now'),
@@ -38,7 +38,7 @@ test('an exhausted trial falls through to the manual editor, not a dead end', as
   await uploadWorksheet(page, 'After Trial')
 
   await expect(page).toHaveURL(/\/worksheets\/[^/]+\/edit/)
-  await expect(visible(page).getByRole('heading', { name: 'Add Your Questions' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Add your questions' })).toBeVisible()
 })
 
 test('settings offers both upgrade paths and states where trial work runs', async ({
@@ -47,7 +47,7 @@ test('settings offers both upgrade paths and states where trial work runs', asyn
   await registerAndSignIn(page)
   await page.goto('/settings')
 
-  await expect(visible(page).getByRole('heading', { name: 'How StudyBuddy Thinks' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'How StudyBuddy thinks' })).toBeVisible()
 
   await expect(visible(page).getByText(/hardware we operate/i)).toBeVisible()
   await expect(visible(page).getByText(/never used for training/i)).toBeVisible()

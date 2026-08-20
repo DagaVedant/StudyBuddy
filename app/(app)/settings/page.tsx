@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import PageHead from '@/components/page-head'
 
 import { auth } from '@/auth'
 import { getTrialState } from '@/lib/ai/quota'
@@ -25,14 +26,12 @@ export default async function SettingsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
-      <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        How StudyBuddy Thinks
-      </h1>
-      <p className="hint mb-8 text-pretty">
-        Review, spaced repetition, and your dashboard work on every option
-        below. This only changes how questions get pulled off the page and
-        whether you get explanations.
-      </p>
+      <div className="mb-8">
+        <PageHead
+          title="How StudyBuddy thinks"
+          lede="Review, spaced repetition, and your dashboard work on every option below. This only changes how questions get pulled off the page and whether you get explanations."
+        />
+      </div>
 
       <SettingsClient
         credentials={credentials.map((row) => ({

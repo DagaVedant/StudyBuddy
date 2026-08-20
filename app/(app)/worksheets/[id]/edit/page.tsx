@@ -157,7 +157,7 @@ export default async function EditPage({
       </nav>
 
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        {initialQuestions.length > 0 ? 'Edit What We Found' : 'Add Your Questions'}
+        {initialQuestions.length > 0 ? 'Edit what we found' : 'Add your questions'}
       </h1>
       <p className="hint mb-6 text-pretty">
         {initialQuestions.length > 0

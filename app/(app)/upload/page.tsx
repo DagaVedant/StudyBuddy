@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import PageHead from '@/components/page-head'
 
 import { auth } from '@/auth'
 import AiSetupPrompt from '@/components/ai-setup-prompt'
@@ -59,13 +60,12 @@ export default async function UploadPage() {
         </Link>
       </nav>
 
-      <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        Upload a worksheet
-      </h1>
-      <p className="hint mb-8 text-pretty">
-        Upload one you have already finished. You will mark which questions you
-        got wrong in the next step.
-      </p>
+      <div className="mb-8">
+        <PageHead
+          title="Upload a worksheet"
+          lede="Upload one you have already finished. You will mark which questions you got wrong in the next step."
+        />
+      </div>
 
       {waiting && (
         <div className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution">

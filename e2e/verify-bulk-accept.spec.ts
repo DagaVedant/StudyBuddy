@@ -31,7 +31,7 @@ test('accepting the remaining questions asks first, and can be undone', async ({
   const id = await seedWorksheet(page, 3)
 
   await page.goto(`/worksheets/${id}/check`)
-  await expect(visible(page).getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Check your questions' })).toBeVisible()
 
   const acceptLink = visible(page).getByRole('button', {
     name: /Accept the remaining \d+ as they are/,
@@ -49,7 +49,7 @@ test('accepting the remaining questions asks first, and can be undone', async ({
     .click()
 
   await expect(visible(page).getByText(/\d+ questions? accepted\./)).toBeVisible()
-  await expect(visible(page).getByRole('heading', { name: 'Check Your Questions' })).toBeVisible()
+  await expect(visible(page).getByRole('heading', { name: 'Check your questions' })).toBeVisible()
   await expect(visible(page).getByText(/All \d+ questions? checked/)).toBeVisible()
 
   await visible(page).getByRole('button', { name: 'Undo' }).click()

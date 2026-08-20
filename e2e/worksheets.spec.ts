@@ -119,5 +119,5 @@ test('the practice queue keeps the word review to itself', async ({ page }) => {
 
   await page.goto('/review')
   await expect(page).toHaveURL(/\/review$/)
-  await expect(visible(page).getByRole('heading', { name: 'Review' })).toBeVisible()
+  await expect(visible(page).getByText('Review', { exact: true })).toBeVisible()
 })

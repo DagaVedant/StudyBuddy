@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import PageHead from '@/components/page-head'
 
 import { auth } from '@/auth'
 import TopicTree from '@/components/topic-tree'
@@ -33,12 +34,12 @@ export default async function TopicsPage() {
         </Link>
       </nav>
 
-      <h1 className="text-balance text-2xl font-semibold tracking-tight">Topics</h1>
-      <p className="hint mb-6 text-pretty">
-        Everything StudyBuddy can sort a question into, with how you are doing on
-        each. Open one to see the questions you have missed there, or to have a
-        lesson written for it.
-      </p>
+      <div className="mb-6">
+        <PageHead
+          title="Topics"
+          lede="Everything StudyBuddy can sort a question into, with how you are doing on each. Open one to see the questions you have missed there, or to have a lesson written for it."
+        />
+      </div>
 
       {rows.length === 0 ? (
         <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">

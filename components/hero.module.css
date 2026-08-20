@@ -515,7 +515,16 @@
 
 /* ── the worksheet being read ──────────────────────────────── */
 
+/*
+ * The worksheet being read, set down slightly off square.
+ *
+ * Everything else in this panel is aligned to the pixel, which is what makes
+ * the panel read as a diagram. Nudging the one element that is supposed to be
+ * a physical object off by two thirds of a degree is what turns it back into
+ * a piece of paper somebody put there.
+ */
 .sheet {
+  rotate: -0.65deg;
   position: relative;
   display: flex;
   flex-direction: column;

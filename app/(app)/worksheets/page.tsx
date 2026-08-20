@@ -1,6 +1,7 @@
 import { and, desc, eq, ilike, inArray, lt, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import PageHead from '@/components/page-head'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
@@ -139,17 +140,14 @@ export default async function WorksheetsPage({
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-balance text-2xl font-semibold tracking-tight">
-          Your Worksheets
-        </h1>
+      <PageHead
+        title="Your worksheets"
+        lede="Every file you have uploaded, with the pages we read from it."
+      >
         <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-4">
           Upload a worksheet
         </Link>
-      </div>
-      <p className="hint text-pretty">
-        Every file you have uploaded, with the pages we read from it.
-      </p>
+      </PageHead>
 
       {/*
         A plain GET form, which needs no JavaScript and leaves the search in the

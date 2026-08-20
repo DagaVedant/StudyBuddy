@@ -13,7 +13,7 @@ import { modalChoiceCount, validateQuestion, worthRereading } from '@/lib/questi
 
 import { CheckClient, type CheckableQuestion } from './check-client'
 
-export const metadata = { title: 'Check Your Questions · StudyBuddy' }
+export const metadata = { title: 'Check your questions · StudyBuddy' }
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -89,7 +89,7 @@ export default async function CheckPage({ params }: Params) {
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        Check Your Questions
+        Check your questions
       </h1>
       <p className="hint mb-6 text-pretty">
         {worksheet.title}. Compare each one against the page it came from and say

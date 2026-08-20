@@ -29,6 +29,7 @@ import {
   getTopicStats,
 } from '@/lib/dashboard/queries'
 import StudyCalendar from '@/components/study-calendar'
+import { Underline } from '@/components/hand'
 import {
   MIN_ATTEMPTS,
   rankFragile,
@@ -58,10 +59,15 @@ const WHEN = new Intl.DateTimeFormat(undefined, {
 /*
  * A section of the paper, not a card in a grid.
  *
- * The number in the margin is what does most of the work: it turns eight
- * equally-weighted tiles into a document with an order to it, and it gives
- * the eye somewhere to land other than the left edge of a heading. Purely
- * decorative, so it is hidden from the accessibility tree; the heading is
+ * The number in the margin turns a set of equally-weighted tiles into a
+ * document with an order to it. It is optional, and that is the point: it was
+ * originally on all nine sections, evenly, and a system applied without a
+ * single exception is itself a machine tell. Numbered now means "part of the
+ * argument the data is making", read in order. The rest, the record, the
+ * queue, the export, the log, are unnumbered because they are not steps in
+ * that argument, they are things to look at or act on.
+ *
+ * Decorative, so it is hidden from the accessibility tree; the heading is
  * still the thing that names the section.
  */
 function Panel({
@@ -70,7 +76,7 @@ function Panel({
   hint,
   children,
 }: {
-  no: string
+  no?: string
   title: string
   hint?: string
   children: React.ReactNode
@@ -79,9 +85,11 @@ function Panel({
   return (
     <section aria-labelledby={id} className="card h-full p-5">
       <div className="flex items-baseline gap-2.5">
-        <span aria-hidden="true" className="section-no">
-          {no}
-        </span>
+        {no && (
+          <span aria-hidden="true" className="section-no">
+            {no}
+          </span>
+        )}
         <h2 id={id} className="text-base font-semibold">
           {title}
         </h2>
@@ -90,6 +98,55 @@ function Panel({
       <div className={hint ? '' : 'mt-3'}>{children}</div>
     </section>
   )
+}
+
+/*
+ * What the dashboard says before you have read any of it.
+ *
+ * Three states, in the order they matter: there is work waiting, there is no
+ * work waiting but there is a weakness worth naming, or there is nothing here
+ * yet. Each is a whole sentence rather than a metric, because a sentence can
+ * be understood without first learning what the number means.
+ *
+ * The hand-drawn underline goes on the one phrase you are meant to act on and
+ * nowhere else.
+ */
+function Verdict({
+  dueNow,
+  weakest,
+  hasData,
+}: {
+  dueNow: number
+  weakest: { topicName: string } | undefined
+  hasData: boolean
+}) {
+  if (!hasData) return <>Nothing tracked yet</>
+
+  if (dueNow > 0) {
+    return (
+      <>
+        <span className="relative whitespace-nowrap text-accent">
+          {dueNow} {dueNow === 1 ? 'question' : 'questions'}
+          <Underline />
+        </span>{' '}
+        {dueNow === 1 ? 'is' : 'are'} due for review today.
+      </>
+    )
+  }
+
+  if (weakest) {
+    return (
+      <>
+        Nothing is due today.{' '}
+        <span className="relative whitespace-nowrap text-accent">
+          {weakest.topicName}
+        </span>{' '}
+        is your weakest topic right now.
+      </>
+    )
+  }
+
+  return <>Nothing is due today, and nothing looks shaky.</>
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
@@ -129,7 +186,7 @@ function Figure({
   )
 
   return (
-    <div className="py-3 pr-6">
+    <div className="py-1">
       <dt className="eyebrow">{label}</dt>
       <dd
         className={`mt-1 font-display font-semibold tabular-nums ${
@@ -222,16 +279,35 @@ export default async function DashboardPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       {/*
-        A masthead. The standfirst in mono over a large serif title is what
-        makes the top of the page read as the top of a document; it used to
-        be an ink rule underneath doing that job.
+        The verdict.
+
+        The page used to open with the word "Dashboard" set large, which is
+        the least informative thing it could possibly say: the nav already
+        names the page, and a heading that repeats the nav is a heading doing
+        no work. It opens with the answer instead, and the answer is different
+        depending on what is actually true, so this is the one part of the
+        page that cannot be mistaken for a template.
+
+        It is the h1 because it genuinely is what the page is about. The word
+        "Dashboard" survives as the eyebrow, which is the right size for a
+        label nobody needs to read.
       */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">Your record so far</p>
-          <h1 className="mt-1 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-            Dashboard
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+        <div className="max-w-2xl">
+          <p className="eyebrow">Dashboard</p>
+          <h1 className="mt-2 text-balance font-display text-3xl font-semibold leading-[1.08] tracking-tight sm:text-5xl">
+            <Verdict
+              dueNow={overview.dueNow}
+              weakest={weakest[0]}
+              hasData={hasData}
+            />
           </h1>
+          {!hasData && (
+            <p className="mt-3 text-pretty text-muted">
+              Upload a worksheet you have already done and mark which questions
+              you missed. Everything here fills in from that.
+            </p>
+          )}
         </div>
         <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-5">
           Upload a worksheet
@@ -247,7 +323,7 @@ export default async function DashboardPage() {
         rest are set small, with nothing boxed or tinted: the hierarchy is size
         and position, which is what hierarchy is supposed to be made of.
       */}
-      <dl className="mt-8 grid grid-cols-2 gap-y-4 sm:grid-cols-3 lg:grid-cols-[1.3fr_1.3fr_1fr_1fr_1fr]">
+      <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3 xl:grid-cols-[1.3fr_1.3fr_1fr_1fr_1fr]">
         <Figure
           label="Due today"
           value={overview.dueNow}
@@ -269,8 +345,8 @@ export default async function DashboardPage() {
         />
       </dl>
 
-      <p className="mt-2 text-right text-sm">
-        <span className="eyebrow">AI status</span>{' '}
+      <p className="mt-3 flex items-baseline justify-end gap-2 text-sm">
+        <span className="eyebrow">AI status</span>
         <Link
           href={aiStatus.href}
           className="text-accent underline underline-offset-4"
@@ -281,19 +357,12 @@ export default async function DashboardPage() {
 
       {shouldOfferAiSetup(aiStatus) && <AiSetupPrompt />}
 
-      {!hasData && (
-        <p className="mt-6 rounded-2xl card-sunk px-4 py-8 text-center text-sm text-muted">
-          Nothing tracked yet. Upload a worksheet you have already done and mark
-          which questions you missed. Everything here fills in from that.
-        </p>
-      )}
-
       {hasData && (
         <div className="mt-10 grid items-start gap-x-8 gap-y-10 lg:grid-cols-12">
           <div className="lg:col-span-12">
             <Panel
               no="01"
-              title="Weakest topics"
+              title="What is costing you marks"
               hint={`Ranked by how confident we can be that the misses are real, not by raw percentage. A topic needs ${MIN_ATTEMPTS} attempts before it appears here.`}
             >
               {weakest.length === 0 ? (
@@ -382,7 +451,7 @@ export default async function DashboardPage() {
           <div className="lg:col-span-7">
           <Panel
             no="02"
-            title="By subject"
+            title="Subject by subject"
             hint="Rolled up from every question you have marked. Open a row to go deeper."
           >
             {subjectTree.length === 0 ? (
@@ -406,7 +475,7 @@ export default async function DashboardPage() {
 
           <div className="lg:col-span-5">
           <Panel
-            no="04"
+            no="03"
             title="Right but guessed"
             hint="High accuracy with a high unsure rate is fragile, not strong."
           >
@@ -431,8 +500,7 @@ export default async function DashboardPage() {
 
           <div className="lg:col-span-5">
           <Panel
-            no="05"
-            title="Due for review"
+            title="Coming back to you"
             hint="What the scheduler has lined up, by topic."
           >
             {forecast.length === 0 ? (
@@ -459,7 +527,7 @@ export default async function DashboardPage() {
           </div>
 
           <div className="lg:col-span-7">
-            <Panel no="06" title="Accuracy over time" hint="Attempts per week.">
+            <Panel no="04" title="Are you getting better?" hint="Attempts per week.">
               {!hasTrend ? (
                 <Empty>Not enough history yet.</Empty>
               ) : (
@@ -475,7 +543,6 @@ export default async function DashboardPage() {
           */}
           <div className="lg:col-span-5">
             <Panel
-              no="03"
               title="The record"
               hint="Every day you have answered something, for the last half year."
             >
@@ -486,7 +553,7 @@ export default async function DashboardPage() {
           {distractors.length > 0 && (
             <div className="lg:col-span-12">
               <Panel
-                no="07"
+                no="05"
                 title="Answers you keep reaching for"
                 hint="The same wrong choice, more than once."
               >
@@ -511,7 +578,6 @@ export default async function DashboardPage() {
           {missed > 0 && (
             <div className="lg:col-span-12">
               <Panel
-                no="08"
                 title="Play these in Blooket"
                 hint="Every question you have got wrong, in Blooket's import format. In Blooket, choose Create a Set, then Import Questions, and upload the file."
               >
@@ -535,7 +601,7 @@ export default async function DashboardPage() {
       )}
 
       <div className="mt-10">
-        <Panel no="09" title="Recent worksheets">
+        <Panel title="Lately">
           {recent.length === 0 ? (
             <Empty>Nothing uploaded yet.</Empty>
           ) : (
