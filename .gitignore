@@ -27,9 +27,6 @@ yarn-error.log*
 
 /.uploads
 
-/test-results
-/playwright-report
-/blob-report
 /.cache
 
 .vercel
@@ -42,7 +39,7 @@ next-env.d.ts
 
 /benchmark/
 
-/.claude/settings.local.json
+/.claude
 
 /fixes/
 

@@ -106,17 +106,12 @@ tier is clickable end to end with no key, no GPU and no worker running.
 |---|---|
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
-| `npm run check` | Typecheck, lint, tests, and the figures quoted in this file |
-| `npm test` | Vitest suite against PGlite |
-| `npm run test:e2e` | Playwright against a production build |
+| `npm run check` | Typecheck, lint, and the figures quoted in this file |
 | `npm run worker` | Operator GPU pull-worker |
 | `npm run benchmark:ollama` | Benchmark the local vision model |
 | `npm run gen:secrets` | Generate server secrets |
 | `npm run gen:vapid` | Generate the web push keypair |
 | `npm run db:studio` | Browse the database |
-
-Tests run against PGlite, Postgres compiled to WASM, so migrations and queries
-are exercised without Docker or a live database.
 
 ## Built with
 
@@ -186,17 +181,12 @@ and a connection test.
 |---|---|
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
-| `npm run check` | Typecheck, lint, tests, and the figures quoted in this file |
-| `npm test` | Vitest suite against PGlite |
-| `npm run test:e2e` | Playwright against a production build |
+| `npm run check` | Typecheck, lint, and the figures quoted in this file |
 | `npm run worker` | Operator GPU pull-worker |
 | `npm run benchmark:ollama` | Benchmark the local vision model |
 | `npm run gen:secrets` | Generate server secrets |
 | `npm run gen:vapid` | Generate the web push keypair |
 | `npm run db:studio` | Browse the database |
-
-Tests run against PGlite, Postgres compiled to WASM, so migrations and queries
-are exercised without Docker or a live database.
 
 ## Deployment
 

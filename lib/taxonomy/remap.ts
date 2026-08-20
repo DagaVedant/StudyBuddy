@@ -8,8 +8,8 @@
  * entry: an unused topic can simply disappear. A slug mapped to null has no
  * honest home in the new tree and is untagged instead, to be sorted again.
  *
- * `tests/unit/topic-remap.test.ts` holds every target to the taxonomy, so a
- * renamed leaf cannot silently strand a mapping.
+ * Every target has to name a leaf that still exists in the taxonomy: renaming
+ * a leaf without changing its entry here silently strands the mapping.
  */
 export const TOPIC_REMAP: Record<string, string | null> = {
   // ELA. Two questions, both comprehension, and the SAT reading tree asks the
