@@ -40,11 +40,11 @@ export default function Hero({ children }: { children: React.ReactNode }) {
           like the one in the signed-in masthead, which is a link. It was a
           bare <p> here, so it invited a click and did nothing.
 
-          It points at /dashboard rather than at /, because / is the page it
-          is already on. Signed out, /dashboard redirects to /signin, so the
-          mark means "into the app" in both states.
+          Home, matching the masthead. On this page that is a self-link, which
+          is what a wordmark on a homepage normally is, and it keeps the mark
+          meaning one thing wherever it appears.
         */}
-        <Link href="/dashboard" className={styles.brand}>
+        <Link href="/" className={styles.brand}>
           <Mark className={styles.mark} />
           StudyBuddy
         </Link>
@@ -113,7 +113,6 @@ function Curve() {
         />
       </svg>
 
-      <div className={styles.wipe} />
       <div className={styles.sweep} />
 
       {REVIEWS.map((review) => (

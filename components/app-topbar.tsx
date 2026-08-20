@@ -18,8 +18,11 @@ export default async function AppTopbar() {
   return (
     <header className="inset-safe-top sticky top-0 z-50 bg-bg">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-4 sm:px-6">
+        {/* The wordmark goes home, the way a masthead does. Dashboard has its
+            own nav item a few pixels to the right, so pointing this there too
+            spent the most recognisable target on the page on a duplicate. */}
         <Link
-          href="/dashboard"
+          href="/"
           className="flex shrink-0 items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <Mark className="h-[18px] w-[18px] text-accent" />

@@ -76,6 +76,13 @@
   --tint-lavender: oklch(92% 0.032 250);
   --tint-butter: oklch(93% 0.055 98);
 
+  /* The margin red, and the shadow inside a punched hole. Both belong to the
+     paper texture, not to any component: nothing in the interface is allowed
+     to draw with them. */
+  --paper-red: oklch(58% 0.19 25 / 0.5);
+  --paper-hole: oklch(21% 0.014 62 / 0.17);
+  --paper-hole-rim: oklch(21% 0.014 62 / 0.07);
+
   /*
    * The rules on the paper, and now the only line work in the interface.
    *
@@ -148,7 +155,7 @@
 }
 
 /*
- * The page is ruled like a pad.
+ * The page is ruled like a pad, and then punched and filed.
  *
  * A 32px horizontal rhythm, pinned to the top-left and sized in absolute
  * units so it does not rescale with the viewport, which is what would give it
@@ -166,6 +173,81 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * The margin and the binder holes.
+ *
+ * Held back until 78rem because both live in the space to the left of the
+ * content, and that space only exists once the viewport is comfortably wider
+ * than the widest column in the app. Below that the content is where the
+ * holes would be, and paper decoration is not worth punching through a
+ * sentence for.
+ *
+ * The rules scroll and the holes do not. That is not an inconsistency: the
+ * rings of a binder stay where they are while the sheet moves against them,
+ * which is exactly what per-layer `background-attachment` buys here. The two
+ * red lines are vertical and uniform, so whether they scroll is unobservable;
+ * they are fixed with the holes to keep the margin as one object.
+ */
+@media (min-width: 78rem) {
+  body {
+    background-image:
+      radial-gradient(
+        circle at center,
+        var(--paper-hole) 0 0.4rem,
+        var(--paper-hole-rim) 0.4rem 0.48rem,
+        transparent 0.48rem
+      ),
+      radial-gradient(
+        circle at center,
+        var(--paper-hole) 0 0.4rem,
+        var(--paper-hole-rim) 0.4rem 0.48rem,
+        transparent 0.48rem
+      ),
+      radial-gradient(
+        circle at center,
+        var(--paper-hole) 0 0.4rem,
+        var(--paper-hole-rim) 0.4rem 0.48rem,
+        transparent 0.48rem
+      ),
+      linear-gradient(
+        to right,
+        transparent 3.5rem,
+        var(--paper-red) 3.5rem calc(3.5rem + 1px),
+        transparent calc(3.5rem + 1px)
+      ),
+      linear-gradient(
+        to right,
+        transparent 3.75rem,
+        var(--paper-red) 3.75rem calc(3.75rem + 1px),
+        transparent calc(3.75rem + 1px)
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 31px,
+        var(--rule-ghost) 31px,
+        var(--rule-ghost) 32px
+      );
+
+    background-attachment: fixed, fixed, fixed, fixed, fixed, scroll;
+    background-repeat: no-repeat, no-repeat, no-repeat, repeat, repeat, repeat;
+    background-size:
+      1.2rem 1.2rem,
+      1.2rem 1.2rem,
+      1.2rem 1.2rem,
+      auto,
+      auto,
+      auto;
+    background-position:
+      1.1rem 18%,
+      1.1rem 50%,
+      1.1rem 82%,
+      0 0,
+      0 0,
+      0 0;
+  }
 }
 
 /*

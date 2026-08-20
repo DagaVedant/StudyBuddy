@@ -31,21 +31,6 @@
   overflow: hidden;
   /* so the curve's negative z-index stays inside this section */
   isolation: isolate;
-  /*
-   * Opaque, and flat, which the rest of the app is not.
-   *
-   * The page carries a ruled-paper texture on `body`. `.wipe` below reveals
-   * the curve by retreating a shutter painted in `--bg`, and that trick only
-   * works while the shutter is an exact match for what is behind it: over the
-   * ruled background it would be a plain block sliding across the rules, and
-   * the moving seam is precisely what the shutter exists to hide. Repainting
-   * the hero flat gives the shutter something it can match exactly.
-   *
-   * Safe against the curve: `isolation: isolate` makes this a stacking
-   * context, so `.plot` at z-index -1 paints above this background rather
-   * than behind it.
-   */
-  background: var(--bg);
 }
 
 /*
@@ -208,32 +193,34 @@
 }
 
 /*
- * The line draws itself with a shutter, not with stroke-dashoffset.
+ * The line draws itself behind a moving clip, not behind a shutter.
  *
- * The obvious implementation fails here: `pathLength` normalisation does not
- * survive `vector-effect: non-scaling-stroke`; the dash is computed against
- * the rendered length instead of the declared 100, so a dasharray meant to
- * span the path tiles across it and the line appears in fragments. A shutter
- * the colour of the page, retreating to the right, reveals the same geometry
- * with no dash arithmetic to get wrong at any viewport size.
+ * This used to be a rectangle painted in `--bg`, retreating to the right. It
+ * worked only while the page behind it was one flat colour, and it forced the
+ * hero to repaint itself opaque to guarantee that, which meant the ruled
+ * paper, the margin and the binder holes all stopped at the top of the page.
+ * Clipping the artwork reveals exactly the same geometry, matches any
+ * background by construction because there is nothing to match, and lets the
+ * hero go transparent.
  *
- * It sits inside .plot, so the parent's opacity applies to shutter and line
- * alike and the covered part matches the page exactly.
+ * `stroke-dashoffset`, the obvious alternative, does not survive
+ * `vector-effect: non-scaling-stroke`: `pathLength` normalisation is computed
+ * against the rendered length rather than the declared 100, so a dasharray
+ * meant to span the path tiles across it and the line appears in fragments.
+ *
+ * On the svg rather than on `.plot`, so the review dots that pop in later are
+ * outside the clip and cannot be caught by it.
  */
-.wipe {
-  position: absolute;
-  inset: 0;
-  background: var(--bg);
-  transform-origin: right;
-  animation: wipe 2.4s cubic-bezier(0.32, 0, 0.28, 1) 300ms both;
+.plot svg {
+  animation: reveal 2.4s cubic-bezier(0.32, 0, 0.28, 1) 300ms both;
 }
 
-@keyframes wipe {
+@keyframes reveal {
   from {
-    transform: scaleX(1);
+    clip-path: inset(0 100% 0 0);
   }
   to {
-    transform: scaleX(0);
+    clip-path: inset(0 0 0 0);
   }
 }
 
