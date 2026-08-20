@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 
-import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/limits'
+import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/providers'
 
 export default function HomeCta() {
   const { data: session, status } = useSession()

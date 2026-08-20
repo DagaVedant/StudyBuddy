@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { OllamaProvider } from '@/lib/ai/ollama'
-import { validated } from '@/lib/ai/validated'
+import { validated } from '@/lib/ai/parse'
 import type { AIProvider } from '@/lib/ai/types'
 import { explainOllamaFailure } from '@/lib/client/ollama-error'
 import { fetchPageImage } from '@/lib/client/page-image'

@@ -11,12 +11,6 @@ export interface SmtpSettings {
   password: string
 }
 
-/**
- * SMTP rather than a transactional API, because every provider that has one
- * wants an account and a domain before it will send anything. Gmail asks for
- * neither: the account already exists, and an app password is a credential it
- * issues to itself. Any other SMTP host works from the same four settings.
- */
 export async function sendOverSmtp(
   settings: SmtpSettings,
   sender: MailSender,
@@ -26,8 +20,6 @@ export async function sendOverSmtp(
     host: settings.host,
     port: settings.port,
 
-    // 465 is TLS from the first byte. Everything else starts in the clear and
-    // upgrades, and must be refused if the upgrade is not on offer.
     secure: settings.port === 465,
     requireTLS: settings.port !== 465,
 

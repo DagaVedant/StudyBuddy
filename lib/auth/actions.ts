@@ -149,13 +149,6 @@ const SENT =
 const NO_MAIL =
   'This deployment cannot send email, so there is no password reset. Sign in with Google, or ask whoever runs it.'
 
-/**
- * The reply never changes: an address that has no account, an account that
- * only signs in with Google, and an account that was mailed a link all get
- * the same sentence, so the form cannot be used to find out who has signed up.
- * What does change is a deployment with no mail configured at all, which is
- * true of every account rather than any one of them.
- */
 export async function requestPasswordReset(
   _prev: FormState,
   formData: FormData,
@@ -182,9 +175,6 @@ export async function requestPasswordReset(
   const byEmail = await consumeRateLimit(db, RESET_REQUEST_EMAIL_LIMIT, `email:${email}`)
   if (!byEmail.ok) return { message: SENT }
 
-  // An account that only ever signed in with Google has no password, and is
-  // exactly the account that benefits from being sent one: the link reaches
-  // whoever holds the inbox, who could already sign in with Google anyway.
   const [user] = await db
     .select({ id: users.id })
     .from(users)

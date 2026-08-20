@@ -9,16 +9,6 @@ export const size = { width: 1200, height: 630 }
 
 export const contentType = 'image/png'
 
-/*
- * The card's palette, converted from the oklch tokens in globals.css. It was
- * still on the violet-and-orange scheme the app left behind, so a link
- * preview looked like a different product to the page it opened.
- *
- * The fonts are the exception and are knowingly stale: Satori needs real font
- * binaries and only Archivo and Geist are vendored under assets/fonts. Adding
- * Fraunces and Public Sans means adding two more files, which is a separate
- * job from this one.
- */
 const BG = '#f1ebe1'
 const FG = '#1d1712'
 const MUTED = '#59514a'
@@ -41,12 +31,6 @@ const BLURB =
 
 const curveSrc = `data:image/svg+xml;base64,${Buffer.from(CURVE).toString('base64')}`
 
-/*
- * The same tick as `components/mark.tsx`, and it has to be kept in step with
- * it by hand. Satori will not render the component, and it does not stroke
- * paths reliably either, so the path is handed to it as an <img> data URI the
- * way the curve above already is.
- */
 const MARK_PATH = 'M2.6 13.9C4.3 15.4 5.9 17.4 7.5 19.7 11.7 13.7 16.3 8.3 21.4 4.4'
 
 const markSrc = (size: number) =>
@@ -80,16 +64,10 @@ export default async function Image() {
           backgroundImage: `repeating-linear-gradient(to bottom, ${BG} 0px, ${BG} 31px, ${RULE} 31px, ${RULE} 32px)`,
         }}
       >
-        {/* A band along the bottom, which is what the hero does whenever it
-            has more width than height. Full bleed, the curve's review spikes
-            ran straight through the headline. */}
         {/* eslint-disable-next-line @next/next/no-img-element -- next/image
             has no meaning inside ImageResponse; Satori only renders <img>. */}
         <img src={curveSrc} width={1200} height={272} alt="" style={{ position: 'absolute', bottom: 0, left: 0 }} />
 
-        {/* The exercise-book margin, as two divs rather than another
-            background layer: Satori is dependable about absolutely
-            positioned boxes and much less so about stacked gradients. */}
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: 56, width: 1, backgroundColor: PAPER_RED }} />
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: 60, width: 1, backgroundColor: PAPER_RED }} />
 
@@ -110,10 +88,6 @@ export default async function Image() {
           </div>
         </div>
 
-        {/* The largest thing on the card for the same reason it is the
-            largest thing on the page. It sits straight on the curve with no
-            panel behind it, which is also what the hero does; the hero's
-            panel starts below the h1, not around it. */}
         <div
           style={{
             display: 'flex',
@@ -128,8 +102,6 @@ export default async function Image() {
           {BLURB}
         </div>
 
-        {/* The hero's axis labels, which are what make the shape behind the
-            text legible as thirty days of forgetting rather than decoration. */}
         <div
           style={{
             position: 'absolute',

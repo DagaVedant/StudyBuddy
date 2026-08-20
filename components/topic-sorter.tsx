@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import { OllamaProvider } from '@/lib/ai/ollama'
 import type { AIProvider, TopicCandidate } from '@/lib/ai/types'
-import { validated } from '@/lib/ai/validated'
+import { validated } from '@/lib/ai/parse'
 import { embedInBrowser } from '@/lib/client/embeddings'
 import { explainOllamaFailure } from '@/lib/client/ollama-error'
 

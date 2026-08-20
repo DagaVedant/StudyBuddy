@@ -46,3 +46,17 @@ export const PROVIDER_COPY: Record<CloudProvider, ProviderCopy> = {
     note: 'Gemini models. Has a free tier worth starting on.',
   },
 }
+
+export const TRIAL_WORKSHEET_LIMIT = 3
+
+export const TRIAL_EXPLANATION_LIMIT = 20
+
+export function trialDailyCeiling(): number {
+  const raw = process.env.TRIAL_DAILY_WORKSHEETS?.trim()
+  if (!raw) return 25
+  if (raw === 'unlimited') return Number.POSITIVE_INFINITY
+
+  const parsed = Number(raw)
+
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 25
+}

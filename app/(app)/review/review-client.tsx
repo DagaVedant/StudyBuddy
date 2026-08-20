@@ -24,15 +24,6 @@ type Tally = Record<Rating, number>
 
 const NO_TALLY: Tally = { again: 0, hard: 0, good: 0, easy: 0 }
 
-/*
- * The run.
- *
- * Only `again` breaks it. That is not leniency, it is what the scheduler
- * already believes: `again` is the single rating FSRS treats as a lapse, and
- * `hard` is a recall that took a while, not a failure. A run that broke on
- * `hard` would be telling the student the opposite of what the algorithm
- * behind the app is doing with the same button.
- */
 function extendsRun(rating: Rating): boolean {
   return rating !== 'again'
 }
@@ -110,21 +101,9 @@ export default function ReviewSession({
   const [generated, setGenerated] = useState<Record<string, string>>({})
   const [refreshing, setRefreshing] = useState(false)
 
-  /*
-   * Session bookkeeping for the run counter and the recap.
-   *
-   * Deliberately not persisted and deliberately not reset when the queue
-   * refills mid-sitting, which matches `done` beside it: one sitting is one
-   * visit to this page, however many batches of twenty it took. Leaving the
-   * page ends the session, which is the behaviour a student expects from
-   * something described as a run.
-   */
   const [tally, setTally] = useState<Tally>(NO_TALLY)
   const [run, setRun] = useState(0)
   const [bestRun, setBestRun] = useState(0)
-  /* Lazy initialiser rather than a ref: reading the clock is impure, and this
-     is the one place React will run it exactly once and never during a
-     re-render. */
   const [startedAt] = useState(() => Date.now())
 
   const explainAbort = useRef<AbortController | null>(null)
@@ -296,8 +275,6 @@ export default function ReviewSession({
         })
         if (!response.ok) throw new Error('Could not save that rating')
 
-        /* Counted only once the rating is saved, so a failed request cannot
-           inflate a run the server never recorded. */
         setTally((current) => ({
           ...current,
           [rating]: current[rating] + 1,
@@ -435,18 +412,6 @@ export default function ReviewSession({
             Question {index + 1} / {items.length}
           </p>
 
-          {/*
-            The run.
-
-            Held back until it is worth having: a counter that reads "1" after
-            every single answer is noise, and one that sits at zero while you
-            are getting things wrong is just a scold. From two upwards it is
-            something to keep going, which is the only reason it is here.
-
-            `aria-hidden`, because the live region at the foot of the page
-            already narrates progress and a number that changes on every
-            answer would interrupt it to say the same thing twice.
-          */}
           {run >= 2 && (
             <p aria-hidden="true" className="eyebrow text-fg">
               Run <span className="marked font-bold tabular-nums">{run}</span>
@@ -473,12 +438,6 @@ export default function ReviewSession({
         {item.choices.length > 0 && (
           <ul className="mt-4 space-y-1.5">
             {item.choices.map((choice) => (
-              /*
-                Marked with a tint and a pen tick rather than a coloured
-                outline. The tick is the one hand-drawn thing in the review
-                loop and it goes exactly where a teacher would put it, beside
-                the right answer.
-              */
               <li
                 key={choice.id}
                 className={`flex gap-2 rounded-xl px-3 py-2 text-sm ${
@@ -632,14 +591,6 @@ export default function ReviewSession({
   )
 }
 
-/*
- * The end of a sitting.
- *
- * This used to be one sentence and a button. A sitting is the thing the whole
- * app is arranged around, so it is worth printing properly: what the split
- * was, how long the best run got, and how long it took. The bar is the only
- * chart here because it is the only part that is easier to see than to read.
- */
 function Recap({
   done,
   bestRun,
@@ -656,11 +607,6 @@ function Recap({
 
   return (
     <div className="card p-6 sm:p-8">
-      {/*
-        A real heading. Turning this into a styled <p> quietly removed the
-        only landmark at the end of a sitting, for screen readers and for the
-        end-to-end suite alike.
-      */}
       <h2 className="eyebrow">Sitting complete</h2>
 
       <p className="mt-2 font-display text-4xl font-semibold tabular-nums">
@@ -669,11 +615,6 @@ function Recap({
 
       {rated > 0 && (
         <>
-          {/*
-            One bar, four segments, in the order the buttons are in. Segments
-            under 4% get a floor so a single `again` in a long sitting still
-            leaves a visible mark rather than rounding away to nothing.
-          */}
           <div
             aria-hidden="true"
             className="mt-5 flex h-2.5 w-full overflow-hidden "

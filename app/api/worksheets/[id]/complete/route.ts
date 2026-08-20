@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { after, NextResponse } from 'next/server'
 
-import { trialDailyCeiling } from '@/lib/ai/limits'
+import { trialDailyCeiling } from '@/lib/ai/providers'
 import { consumeTrial, trialExtractionsToday } from '@/lib/ai/quota'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
@@ -98,8 +98,6 @@ export async function POST(_request: Request, { params }: Params) {
       })
     }
 
-    // The whole-service ceiling, checked before the trial is charged, so a
-    // student turned away today still has their credits tomorrow.
     if (guard.role !== 'admin') {
       const ceiling = trialDailyCeiling()
 

@@ -35,15 +35,6 @@ export default function Hero({ children }: { children: React.ReactNode }) {
       <Curve />
 
       <div className={styles.stack}>
-        {/*
-          The wordmark is the top-left thing on the page and looks exactly
-          like the one in the signed-in masthead, which is a link. It was a
-          bare <p> here, so it invited a click and did nothing.
-
-          Home, matching the masthead. On this page that is a self-link, which
-          is what a wordmark on a homepage normally is, and it keeps the mark
-          meaning one thing wherever it appears.
-        */}
         <Link href="/" className={styles.brand}>
           <Mark className={styles.mark} />
           StudyBuddy
@@ -56,16 +47,6 @@ export default function Hero({ children }: { children: React.ReactNode }) {
 
         <div className={styles.panel}>
           <div>
-            {/*
-              Real text, not a CSS counter.
-
-              This used to be `content: counter(sb)` driven by an animated
-              custom property, with the actual sentence duplicated in a
-              visually-hidden span because generated content is not reliably
-              announced, selectable or translatable. With the count animation
-              gone the whole apparatus can go: one element, one sentence, and
-              nothing to keep in sync.
-            */}
             <p className={styles.count}>{TOTAL} questions</p>
             <p className="hint mt-1">
               found in one worksheet, pulled out, tagged and ready to mark

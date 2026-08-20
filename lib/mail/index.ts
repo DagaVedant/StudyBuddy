@@ -22,11 +22,6 @@ export function mailSender(): MailSender | null {
   return { address, name: process.env.MAIL_FROM_NAME?.trim() || 'StudyBuddy' }
 }
 
-/**
- * The user defaults to the sender address, which is what a Gmail app password
- * wants, so the whole configuration is two variables unless somebody points it
- * at a host that wants otherwise.
- */
 export function smtpSettings(): SmtpSettings | null {
   const password = process.env.SMTP_PASSWORD?.trim()
   const user = process.env.SMTP_USER?.trim() || mailSender()?.address
@@ -43,11 +38,6 @@ export function smtpSettings(): SmtpSettings | null {
   }
 }
 
-/**
- * Whether this deployment can send at all. A screen that offers to email
- * somebody checks first, because the alternative is telling a student a link
- * is on its way from a deployment that has no way to send one.
- */
 export function mailConfigured(): boolean {
   return Boolean(mailSender() && smtpSettings())
 }

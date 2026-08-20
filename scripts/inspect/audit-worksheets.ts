@@ -42,8 +42,6 @@ function runs(numbers: number[]): string {
 }
 
 async function main() {
-  // Skip the flags rather than taking argv[2] blind, so `--yes` on a scripted
-  // repair is not read as the id of a worksheet nobody owns.
   const target = process.argv.slice(2).find((arg) => !arg.startsWith('--'))
 
   if (FIX && !target) {
@@ -58,13 +56,7 @@ async function main() {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set. Copy .env.example to .env.local first.')
 
-  // TLS only when the database is elsewhere. A hardcoded `ssl: 'require'` could
-  // not reach a local Postgres at all, which is the only database the repair
-  // path will now write to. `prepare: false` is for the pooled connection
-  // string in .env.example, which cannot hold prepared statements.
   const sql = connect(url)
-  // renumberQuestions uses the query builder, so it needs a real Drizzle
-  // handle rather than the raw client the reporting queries use.
   const orm = drizzle(sql) as unknown as Db
 
   const sheets = target
@@ -101,7 +93,6 @@ async function main() {
     console.log(`${sheet.title}`)
     console.log(`  ${sheet.status} | ${sheet.page_count} pages | ${rows.length} rows | expected ${expected || '-'}`)
 
-    // Coverage against the numbers printed on the paper.
     if (expected > 0) {
       const missing: number[] = []
       for (let n = 1; n <= expected; n += 1) if (!distinct.has(n)) missing.push(n)
@@ -113,14 +104,11 @@ async function main() {
       if (over.length) { console.log(`  PAST THE END     ${over.join(', ')}`); problems += 1 }
     }
 
-    // A number appearing twice means one question was stored as two rows.
     const seen = new Map<number, number>()
     for (const n of printed) seen.set(n, (seen.get(n) ?? 0) + 1)
     const dupes = [...seen.entries()].filter(([, c]) => c > 1).map(([n, c]) => `${n}x${c}`)
     if (dupes.length) { console.log(`  DUPLICATED       ${dupes.join(', ')}`); problems += 1 }
 
-    // Ordinals should be 1..N with no repeats: the thing that broke when pages
-    // were read in parallel and rows raced for the same counter.
     const ordinals = rows.map((r) => r.ordinal)
     const ordDupes = ordinals.filter((n, i) => ordinals.indexOf(n) !== i)
     const contiguous = ordinals.every((n, i) => n === i + 1)
@@ -128,27 +116,23 @@ async function main() {
     else if (!contiguous) { console.log(`  ORDINALS NOT 1..N (first break at ${ordinals.findIndex((n, i) => n !== i + 1) + 1})`); problems += 1 }
     else console.log(`  ordinals         1..${rows.length}, clean`)
 
-    // Ordinal order should follow the paper, not the order pages came back.
     const outOfOrder = rows.filter((r, i) => {
       const next = rows[i + 1]
       return next && r.page !== null && next.page !== null && next.page < r.page
     })
     if (outOfOrder.length) { console.log(`  OUT OF PAGE ORDER at ordinal ${outOfOrder.map((r) => r.ordinal).slice(0, 6).join(', ')}`); problems += 1 }
 
-    // Markup the student would read as nonsense.
     const markup = rows.filter((r) => looksUnrendered(r.prompt))
     if (markup.length) {
       console.log(`  UNRENDERED MATH  ${markup.length} row(s), e.g. #${markup[0].printed}: ${markup[0].prompt.slice(0, 60)}`)
       problems += 1
     } else console.log(`  maths            clean`)
 
-    // Shape of what was captured.
     const empty = rows.filter((r) => r.prompt.trim().length < 10)
     const noChoices = rows.filter((r) => r.choices === 0)
     console.log(`  choices          ${rows.length - noChoices.length}/${rows.length} have options`)
     if (empty.length) { console.log(`  EMPTY STEMS      ${empty.length}`); problems += 1 }
 
-    // What the card in the worksheets list shows.
     console.log(`  COUNT SHOWN      ${rows.length}${expected ? ` (paper has ${expected})` : ''}`)
 
     if (FIX) {
@@ -161,10 +145,6 @@ async function main() {
         'Duplicate rows are deleted, except any an attempt or a review card points at.',
       ])
 
-      // Exactly what the job runs, because it is the job's function. This
-      // script used to keep its own copy of the pass list in its own order,
-      // which meant it repaired worksheets into a state no production path
-      // would ever produce.
       const fixed = await runRepairPasses(orm, String(sheet.id), { log: null })
       console.log(
         `  FIXED            rejoined ${fixed.joined} split(s), recovered options for ${fixed.recovered}, ` +

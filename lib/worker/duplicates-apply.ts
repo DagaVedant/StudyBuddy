@@ -93,17 +93,12 @@ export async function mergeDuplicateQuestions(
       }
     }
 
-    // The surviving row takes the number the phantom was occupying, which
-    // closes the gap the deletion would otherwise leave behind.
     if (plan.printedNumber !== null) {
       await db
         .update(questions)
         .set({ printedNumber: plan.printedNumber })
         .where(eq(questions.id, plan.keepId))
 
-      // Both rows' old numbers are freed and the survivor's new one is
-      // claimed, so a later plan sees this merge's result rather than the
-      // snapshot it was planned against.
       const keptOldNumber = holderOf.get(plan.keepId)
       if (typeof keptOldNumber === 'number') {
         rowsWithNumber.get(keptOldNumber)?.delete(plan.keepId)

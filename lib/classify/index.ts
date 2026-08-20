@@ -152,8 +152,6 @@ export async function applyClassification(
     abstain: boolean
     suggested_name: string | null
   },
-  // Only consulted when the result turns out coarse, which is the one branch
-  // that raises a proposal. Passed in by callers that cannot embed locally.
   proposalEmbedding?: number[],
 ): Promise<ClassifyOutcome> {
   if (candidates.length === 0) {

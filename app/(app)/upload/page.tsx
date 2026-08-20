@@ -38,9 +38,6 @@ export default async function UploadPage() {
     resolveProvider(db, session.user.id),
   ])
 
-  // Tier 0 is read on a machine somebody has to have switched on. Uploading is
-  // still the right thing to do, since the job waits rather than failing, but a
-  // student who is told nothing just watches a spinner and assumes it broke.
   const onOperatorGpu = resolved.executor === 'operator_gpu'
   const [worker, queue] = onOperatorGpu
     ? await Promise.all([workerStatus(db), queueDepth(db, 'operator_gpu')])

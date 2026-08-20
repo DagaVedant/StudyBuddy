@@ -23,10 +23,6 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
     case 'answer_key':
       return
 
-    // The worksheet itself is already delivered: only the topics are missing,
-    // so nothing about it failed. Point the student back at the sorter in
-    // their browser rather than leave a notice promising a machine that has
-    // now given up three times.
     case 'classify':
       await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
       return

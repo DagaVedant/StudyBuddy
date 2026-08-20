@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 
 import { OllamaProvider } from '../../lib/ai/ollama'
-import { validated } from '../../lib/ai/validated'
+import { validated } from '../../lib/ai/parse'
 import type { TopicCandidate } from '../../lib/ai/types'
 
 const WORKSHEET_SVG = `

@@ -48,12 +48,6 @@ export default async function ReviewPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
-      {/*
-        The heading is the sitting, not the word "Review". Filtered to a topic
-        the topic is the subject and "Review" drops to the eyebrow; unfiltered
-        the subject is how much is waiting, which is the only thing anyone
-        opens this page to find out.
-      */}
       <PageHead
         eyebrow="Review"
         title={
@@ -65,12 +59,6 @@ export default async function ReviewPage({
         }
       />
 
-      {/*
-        A filtered queue has to say so, and has to offer the way out. Otherwise
-        a student who followed "Review these now" from a topic and found three
-        questions has no way to tell that from having three questions due in
-        total, and no way back to the rest without editing the URL.
-      */}
       {topic && (
         <p className="hint text-pretty">
           Only questions filed under this topic.{' '}

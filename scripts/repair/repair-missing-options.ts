@@ -54,7 +54,6 @@ async function plan(db: Db, prefix: string): Promise<{ fixes: Fix[]; skips: Skip
       .where(eq(worksheetPages.worksheetId, sheet.id))
       .orderBy(asc(worksheetPages.pageNumber))
 
-    // Parsed once per page rather than once per question.
     const printedOn = new Map(
       pages.map((page) => [page.id, questionsOnPage(page.ocrText ?? '')]),
     )
@@ -87,10 +86,6 @@ async function plan(db: Db, prefix: string): Promise<{ fixes: Fix[]; skips: Skip
 
       const onPage = printedOn.get(row.pageId!) ?? []
 
-      // Matched on the number when there is one, and on the words when there
-      // is not. A number can appear on a page more than once, in a figure
-      // label or a wrapped line, so the stored prompt decides either way; all
-      // dropping the number filter does is widen the field it decides between.
       const matches = onPage
         .filter(
           (question) => row.printedNumber === null || question.number === row.printedNumber,
@@ -138,9 +133,6 @@ async function main() {
   const prefix = process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? ''
   const apply = process.argv.includes('--apply')
 
-  // The plan is read-only and useful against production. With no prefix the
-  // apply form writes to every account's worksheets, and it does more than
-  // insert: it rewrites questionType and then runs two repair passes.
   if (apply) requireLocalDb()
 
   const sql = connect(url)
@@ -149,8 +141,6 @@ async function main() {
   const { fixes, skips } = await plan(db, prefix)
 
   for (const fix of fixes) {
-    // A row with no number of its own says which one the page matched it to,
-    // because that is the more interesting fact: the number is recoverable too.
     const number =
       fix.printedNumber === null ? `(unnumbered, matched #${fix.matchedNumber})` : `#${fix.printedNumber}`
 
@@ -197,9 +187,6 @@ async function main() {
       .update(questions)
       .set({
         contentHash: hashQuestion(fix.promptText, fix.options),
-        // A question with no options was stored as free response, which was a
-        // fair reading of a row that had none. The review screen only offers
-        // options on a question that claims to have them.
         questionType: 'multiple_choice',
       })
       .where(eq(questions.id, fix.questionId))
@@ -207,10 +194,6 @@ async function main() {
 
   console.log(`\nRestored options for ${fixes.length} question(s).`)
 
-  // The last question on a page keeps only the options printed above the
-  // break, so some of these come back short. The carried pass goes and gets
-  // the rest off the next page; the answer pass then ticks the option the
-  // paper's key names, which it could not do while there were none to tick.
   for (const worksheetId of new Set(fixes.map((fix) => fix.worksheetId))) {
     const counts = await runRepairPasses(db, worksheetId, {
       only: ['carried', 'answers'],

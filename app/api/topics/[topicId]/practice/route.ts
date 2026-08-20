@@ -137,12 +137,6 @@ const writtenSchema = z.object({
   model: z.string().max(200).nullish(),
 })
 
-/**
- * Tier C writes on the student's own GPU, so the batch arrives here rather
- * than being generated here. It is sifted on the way in exactly as a batch the
- * server wrote: what a question has to clear to be stored is not something the
- * machine that wrote it gets to decide.
- */
 export async function PUT(request: Request, { params }: Params) {
   const { topicId } = await params
 

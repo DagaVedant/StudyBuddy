@@ -18,10 +18,6 @@ export function resetLink(token: string): string {
   return `${appBaseUrl()}/reset/${token}`
 }
 
-/**
- * Only the hash is stored. A leaked database row is then no more use than a
- * leaked password hash: it cannot be replayed as the link that was mailed.
- */
 export async function issueResetToken(
   db: Db,
   userId: string,
@@ -66,9 +62,6 @@ export async function findResetTarget(
 
   if (!row) return null
 
-  // The lookup above already matched on the hash, so this only guards against
-  // a comparison that leaks timing somewhere below the query. Cheap, and the
-  // shape is the one to copy if the lookup ever stops being an equality.
   const found = Buffer.from(row.tokenHash)
   const wanted = Buffer.from(hashResetToken(token))
 
@@ -77,11 +70,6 @@ export async function findResetTarget(
   return { tokenId: row.id, userId: row.userId }
 }
 
-/**
- * Spends the token and sets the password in one go. Every other outstanding
- * token for that account goes too: a student who asked three times, then read
- * the first mail, should not leave two live links behind in their inbox.
- */
 export async function consumeResetToken(
   db: Db,
   target: ResetTarget,

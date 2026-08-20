@@ -53,12 +53,6 @@ async function ask(model: string, row: Row, timeoutMs = 300_000): Promise<AskRes
         model,
         stream: false,
         format: ANSWER_JSON_SCHEMA,
-        /*
-         * Generous, because several of these are reasoning models and the
-         * thinking comes out of the same budget as the answer. qwen3.5:9b spent
-         * 1200 tokens on 3,626 characters of reasoning and emitted no content
-         * at all, which scored as a failure and looked like a broken schema.
-         */
         options: { temperature: 0, num_ctx: 8192, num_predict: 4096 },
         messages: [
           { role: 'system', content: ANSWER_SYSTEM },
@@ -96,7 +90,6 @@ async function ask(model: string, row: Row, timeoutMs = 300_000): Promise<AskRes
   }
 }
 
-/** The label the model settled on, normalised to compare with a stored key. */
 function label(answer: string | null, choices: Row['choices']): string | null {
   if (!answer) return null
 
@@ -118,7 +111,6 @@ async function main(): Promise<void> {
   mkdirSync(dirname(out), { recursive: true })
   writeFileSync(out, '')
 
-  /** Printed and appended. The append is the one that survives a kill. */
   const record = (line: string) => {
     console.log(line)
     appendFileSync(out, `${line}

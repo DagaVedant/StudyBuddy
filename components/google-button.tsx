@@ -2,11 +2,6 @@
 
 import { useFormStatus } from 'react-dom'
 
-/**
- * Google's own mark, inlined. It is fixed artwork with fixed colours: it does
- * not take the app's palette in either theme, and it does not scale with the
- * text, which is why the size is set here rather than in em.
- */
 function GoogleMark() {
   return (
     <svg

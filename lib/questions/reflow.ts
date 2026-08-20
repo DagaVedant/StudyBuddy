@@ -13,8 +13,6 @@ export function reflowText(input: string): string {
       return lines.reduce((joined, line) => {
         if (!joined) return line
         if (ITEM_START.test(line)) return `${joined}\n${line}`
-        // A word the typesetter split across the wrap: the hyphen belongs to
-        // the column width rather than to the word.
         if (/[a-z]-$/.test(joined) && /^[a-z]/.test(line)) {
           return `${joined.slice(0, -1)}${line}`
         }

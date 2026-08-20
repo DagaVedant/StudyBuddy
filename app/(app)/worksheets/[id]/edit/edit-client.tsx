@@ -84,23 +84,12 @@ export default function EditClient({
     else cardRefs.current.delete(id)
   }, [])
 
-  // The page comes in from the card rather than being looked up here. Finding
-  // it needed `questions`, so this was a new function on every keystroke, and
-  // `toggleExpanded` below it too: two of the nine props each card is handed
-  // changed identity on every edit, which is all it takes to defeat the memo on
-  // the other 113 cards. `pages` is a prop, so it holds for the life of the
-  // screen.
   const focusQuestion = useCallback(
     (id: string, pageId: string | null) => {
       setSelectedId(id)
       const index = pages.findIndex((p) => p.id === pageId)
       if (index >= 0) setPageIndex(index)
 
-      // Two mechanisms because the list may or may not be virtualized
-      // (question-list.tsx): a card that is currently rendered has a ref to
-      // scroll smoothly to directly; one that is not (windowed out, on a
-      // long enough worksheet) has no ref at all yet, and only the
-      // virtualizer's own index-based scroll can reach it.
       cardRefs.current.get(id)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
       questionListRef.current?.scrollToId(id)
     },
@@ -115,12 +104,6 @@ export default function EditClient({
     [focusQuestion],
   )
 
-  /**
-   * The question the undo offer is currently about, if any.
-   *
-   * Captured before the removal, because afterwards the card is out of the list
-   * and there is nothing left to read a label off.
-   */
   const [undoable, setUndoable] = useState<{ id: string; label: string } | null>(null)
 
   const remove = useCallback(
@@ -134,8 +117,6 @@ export default function EditClient({
     [removeQuestion],
   )
 
-  // The offer expires with the window the hook holds the row for, so the
-  // button cannot outlive the thing it would undo.
   useEffect(() => {
     if (!undoable) return
     const timer = setTimeout(() => setUndoable(null), UNDO_WINDOW_MS)
@@ -144,8 +125,6 @@ export default function EditClient({
 
   const page = pages[pageIndex]
 
-  // Null bbox for one added by hand: it is not anywhere on the page, and a
-  // zero-size box would claim it was at the top-left corner.
   const add = useCallback(
     async (bbox: BBox | null, promptText: string) => {
       if (!page) return
@@ -207,12 +186,6 @@ export default function EditClient({
           </p>
         )}
 
-        {/*
-          The undo the delete window exists for. Without a control the window
-          was invisible: deleting was merely deferred by eight seconds and
-          nobody could take it back, which is worse than deleting at once
-          because the caption said "Saved" while the request had not been sent.
-        */}
         {undoable && (
           <div
             role="status"
@@ -223,9 +196,6 @@ export default function EditClient({
               type="button"
               className="btn btn-secondary h-8 shrink-0 px-3 text-sm"
               onClick={() => {
-                // A false return means the window closed and the row is
-                // already gone, which is not an error, only too late. The
-                // offer goes either way.
                 editor.restoreQuestion(undoable.id)
                 setUndoable(null)
               }}

@@ -5,7 +5,7 @@ config({ path: '.env.local', quiet: true })
 import { drizzle } from 'drizzle-orm/postgres-js'
 
 import { OllamaProvider } from '../../lib/ai/ollama'
-import { validated } from '../../lib/ai/validated'
+import { validated } from '../../lib/ai/parse'
 import type { Db } from '../../lib/db/types'
 import * as schema from '../../lib/db/schema'
 import { generateLesson, topicsNeedingLessons } from '../../lib/topics/lesson'
@@ -67,8 +67,6 @@ async function main(): Promise<void> {
           `${lesson.commonErrors.length} error(s), ${seconds}s`,
       )
     } catch (error) {
-      // One topic failing is not a reason to stop: the rest are independent and
-      // the row is simply absent, so the next run picks it up again.
       console.log(`failed: ${(error as Error).message}`)
     }
   }

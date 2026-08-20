@@ -63,17 +63,6 @@ const WHEN = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
 })
 
-/*
- * What the dashboard says before you have read any of it.
- *
- * Three states, in the order they matter: there is work waiting, there is no
- * work waiting but there is a weakness worth naming, or there is nothing here
- * yet. Each is a whole sentence rather than a metric, because a sentence can
- * be understood without first learning what the number means.
- *
- * The hand-drawn underline goes on the one phrase you are meant to act on and
- * nowhere else.
- */
 function Verdict({
   dueNow,
   weakest,
@@ -112,20 +101,10 @@ function Verdict({
   return <>Nothing is due today, and nothing looks shaky.</>
 }
 
-/* `py-1`, not `py-4`: the Panel already puts space under the hint, and the
-   two together left a visible hole above every empty section. */
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-1 text-sm text-muted">{children}</p>
 }
 
-/*
- * One line of the margin's "at a glance" list.
- *
- * This was a cell of a horizontal ledger band and is now a row in a stacked
- * margin, so it reads label-left figure-right like an index entry rather than
- * a stat tile. The figure keeps the display face; it is still the number, it
- * is just no longer competing with the page for attention.
- */
 function Figure({
   label,
   value,
@@ -233,14 +212,6 @@ export default async function DashboardPage() {
   
   const hasTrend = weekTotals.some((total) => total > 0)
 
-  /*
-   * The contents list, and the same array feeds the foot of the page.
-   *
-   * Built from what is actually rendered rather than written out twice: the
-   * distractors section only exists when there is something in it, and a
-   * contents entry pointing at a section that is not there is worse than no
-   * contents at all.
-   */
   const contents = [
     {
       no: '01',
@@ -268,27 +239,8 @@ export default async function DashboardPage() {
       : []),
   ]
 
-  /*
-   * Wider than the rest of the app, because this page is two columns now and
-   * the main column has to stay a readable measure with a 19rem margin taken
-   * out of it. max-w-6xl matches the masthead above it.
-   */
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-      {/*
-        The verdict.
-
-        The page used to open with the word "Dashboard" set large, which is
-        the least informative thing it could possibly say: the nav already
-        names the page, and a heading that repeats the nav is a heading doing
-        no work. It opens with the answer instead, and the answer is different
-        depending on what is actually true, so this is the one part of the
-        page that cannot be mistaken for a template.
-
-        It is the h1 because it genuinely is what the page is about. The word
-        "Dashboard" survives as the eyebrow, which is the right size for a
-        label nobody needs to read.
-      */}
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
         <div className="max-w-2xl">
           <p className="eyebrow">Dashboard</p>
@@ -311,21 +263,10 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* The masthead rule. Heavy, because it is closing the running head
-          rather than dividing two sections of the same weight. */}
       <div className="mt-6 border-b-2 border-rule-heavy" />
 
 
       <div className="mt-8 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        {/*
-          The main column and the margin.
-
-          Roughly seventy-thirty, which is the split a textbook uses for the
-          same reason: it keeps the reading column near a comfortable measure
-          while giving counts, status and reference somewhere to live that is
-          not the middle of the page. The margin is a real column, not a
-          leftover.
-        */}
         <div className="min-w-0">
           {hasData && <Contents entries={contents} />}
 
@@ -379,12 +320,6 @@ export default async function DashboardPage() {
                     )}
                   </Empty>
                 ) : (
-                  /*
-                    The worst topic is set as a lead, not as the first row of a
-                    list. It is the single most useful fact the page holds, and
-                    ranking it first while drawing it identically to the seven
-                    below is a hierarchy you have to read to notice.
-                  */
                   <ul className="mt-1">
                     {weakest.map((topic, index) => (
                       <li key={topic.topicId}>
@@ -584,7 +519,6 @@ export default async function DashboardPage() {
           </Note>
         </div>
 
-        {/* The margin. */}
         <aside className="space-y-4">
           <MarginNote label="At a glance" colour="blue">
             <dl className="space-y-1.5">

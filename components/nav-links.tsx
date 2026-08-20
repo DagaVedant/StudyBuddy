@@ -28,19 +28,6 @@ export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
               <Link
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                /*
-                 * Plain text links. This was pills, then underlined tabs, and
-                 * both were the same mistake: a chrome element drawn around
-                 * every destination so the current one could be a different
-                 * chrome element. Weight and ink say it instead. The current
-                 * page is set in full-strength text at bold, the rest are
-                 * muted, and nothing is boxed.
-                 *
-                 * Weight as well as ink, because colour alone at 11px was not
-                 * carrying it. Space Mono is monospaced, so 400 and 700 have
-                 * the same advance width and the row does not reflow as the
-                 * marker moves between items.
-                 */
                 className={`block whitespace-nowrap px-3 py-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                   active
                     ? 'font-bold text-fg'

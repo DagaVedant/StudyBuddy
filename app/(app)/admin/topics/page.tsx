@@ -102,9 +102,6 @@ export default async function AdminTopicsPage() {
           <div>
             <dt className="text-muted">GPU worker</dt>
             <dd className="mt-0.5 font-medium">
-              {/* The count only where it says something a name does not: this
-                  is the fleet view, and one of two workers being up reads very
-                  differently from the only one being up. */}
               {worker.online
                 ? worker.onlineCount > 1
                   ? `online (${worker.onlineCount} workers)`

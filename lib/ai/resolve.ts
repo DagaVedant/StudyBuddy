@@ -1,23 +1,25 @@
 import { and, eq } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
-import { userAiCredentials, users } from '@/lib/db/schema'
+import { aiProvider, userAiCredentials, users } from '@/lib/db/schema'
 
-import { AnthropicProvider } from './anthropic'
+import {
+  AnthropicProvider,
+  GeminiProvider,
+  OpenAIProvider,
+  OpenRouterProvider,
+} from './cloud'
 import { openApiKey } from './crypto'
-import { GeminiProvider } from './gemini'
-import { TRIAL_WORKSHEET_LIMIT } from './limits'
+import { TRIAL_WORKSHEET_LIMIT } from './providers'
 import { MockProvider, NullProvider } from './mock'
-import { OpenAIProvider } from './openai'
-import { OpenRouterProvider } from './openrouter'
 import {
   CLOUD_PROVIDERS,
   DEFAULT_CLOUD_MODEL,
   isCloudProvider,
   type CloudProvider,
 } from './providers'
-import type { AIProvider, RawAIProvider } from './types'
-import { validated } from './validated'
+import type { AIProvider, ProviderName, RawAIProvider } from './types'
+import { validated } from './parse'
 
 export { CLOUD_PROVIDERS, DEFAULT_CLOUD_MODEL, type CloudProvider }
 
@@ -225,4 +227,14 @@ export async function deleteCredential(
         eq(userAiCredentials.provider, provider),
       ),
     )
+}
+
+export type StoredProvider = (typeof aiProvider.enumValues)[number]
+
+export function storedProvider(name: ProviderName): StoredProvider | null {
+  return isStored(name) ? name : null
+}
+
+function isStored(name: string): name is StoredProvider {
+  return (aiProvider.enumValues as readonly string[]).includes(name)
 }

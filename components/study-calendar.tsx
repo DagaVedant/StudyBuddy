@@ -1,27 +1,8 @@
 import type { StudyDay } from '@/lib/dashboard/queries'
 
-/*
- * The record: every day you have studied, printed as a grid.
- *
- * The dashboard already had a study streak, but a streak is a single number
- * with no shape. It cannot show that the run before this one was longer, or
- * that the gap in the middle was a fortnight, or that the last three weeks
- * have been four days on and three days off. The grid shows all of that at a
- * glance and the streak can be read straight off its right-hand edge.
- *
- * Filled with highlighter rather than the usual green ramp, in four steps.
- * Four is enough to rank a week against the ones beside it and few enough
- * that each step is actually distinguishable; the twelve-step ramps these
- * grids usually ship with are a gradient pretending to be a scale.
- *
- * Days are bucketed in UTC, matching `getStudyStreak`, so the grid and the
- * streak beside it can never disagree about where a day ends.
- */
 
 const DAY_MS = 86_400_000
 
-/* Mondays first: the run of five is easier to read as a block than a week
-   split across the top and bottom of the column. */
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 
 const MONTHS = [
@@ -33,9 +14,6 @@ function key(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-/* Thresholds, not a continuous scale: a day is a light session, a normal one,
-   or a long one, and the steps say which without implying precision the eye
-   cannot read off a 12px square anyway. */
 function level(total: number): 0 | 1 | 2 | 3 | 4 {
   if (total === 0) return 0
   if (total < 5) return 1
@@ -44,17 +22,6 @@ function level(total: number): 0 | 1 | 2 | 3 | 4 {
   return 4
 }
 
-/*
- * Level 0 is a recess, not nothing.
- *
- * Every cell used to carry a hairline border, so an empty day was a visible
- * empty square. When the borders came out the whole grid disappeared and only
- * the days you had studied were left, floating with no calendar behind them.
- * The base tone puts the sheet of squares back.
- *
- * An alpha of the foreground rather than a fixed tone, because the grid sits
- * on a coloured sticky note and a fixed beige would only suit one of them.
- */
 const FILL: Record<number, string> = {
   0: 'bg-fg/10',
   1: 'bg-marker/30',
@@ -70,16 +37,11 @@ export default function StudyCalendar({
 }: {
   days: StudyDay[]
   streak: number
-  /* How many columns to draw. Half a year fills the page nicely and overruns
-     a 19rem margin, so the margin asks for a shorter window rather than
-     scrolling a grid that then looks cut off. */
   weeks?: number
 }) {
   const WEEKS = weeks
   const byDay = new Map(days.map((day) => [day.day, day]))
 
-  /* Wind back to the Monday on or before the start of the window, so every
-     column is a whole week and the weekday rows line up. */
   const today = new Date()
   const end = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
@@ -99,7 +61,6 @@ export default function StudyCalendar({
     columns[columns.length - 1]?.push({ date, day: byDay.get(key(date)) })
   }
 
-  /* Walks with the column loop below; see the note on the label guard. */
   let lastLabelAt = -99
 
   const studied = days.length
@@ -114,11 +75,6 @@ export default function StudyCalendar({
         <Figure label="Days studied" value={studied} unit={`of ${WEEKS * 7}`} />
       </dl>
 
-      {/*
-        Scrolls on its own rather than squashing: 26 columns of 12px does not
-        fit a phone, and shrinking the squares to make it fit is what turns a
-        readable grid into a texture.
-      */}
       <div className="-mx-1 overflow-x-auto px-1 pb-1">
         <div className="flex min-w-max gap-1.5">
           <div
@@ -137,12 +93,6 @@ export default function StudyCalendar({
 
           <div>
             <div className="flex gap-[3px]">
-              {/*
-                A label every month overran its neighbour: each sits in a
-                12px column and "Feb" is three times that. Labels are held
-                back unless there are three clear columns since the last one,
-                which drops the odd cramped pair and leaves the row readable.
-              */}
               {columns.map((week, index) => {
                 const first = week[0]?.date
                 const previous = columns[index - 1]?.[0]?.date
@@ -184,11 +134,6 @@ export default function StudyCalendar({
         </div>
       </div>
 
-      {/*
-        A square grid with a title attribute on each cell is unreadable to a
-        screen reader and unreachable by keyboard, so the whole thing is
-        hidden from the tree and this sentence is what gets announced instead.
-      */}
       <p className="sr-only">
         You have studied on {studied} of the last {WEEKS * 7} days, {total}{' '}
         questions in total. Your current run is {streak}{' '}
@@ -243,13 +188,6 @@ function describe(date: Date, day: StudyDay | undefined): string {
   return `${when}: ${day.total} answered, ${day.correct} right, ${day.wrong} missed`
 }
 
-/*
- * Longest consecutive run inside the window.
- *
- * `days` arrives sorted and already contains only the days with attempts, so
- * a run is broken exactly where two neighbours are more than a day apart and
- * there is no need to walk the empty days to find out.
- */
 function bestRun(days: StudyDay[]): number {
   let best = 0
   let run = 0

@@ -359,10 +359,6 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         </p>
       )}
 
-      {/* Said out loud rather than silently reinstated. Coming back to a
-          half-marked paper and finding marks you do not remember making is
-          worse than starting again, so the screen names what happened and
-          offers the way out. */}
       {restored && (
         <div
           role="status"

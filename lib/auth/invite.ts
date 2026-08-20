@@ -1,10 +1,5 @@
 import { timingSafeEqual } from 'node:crypto'
 
-/*
- * A closed launch without building a waitlist: set SIGNUP_INVITE_CODE and the
- * form asks for it. Unset, sign-ups are open, which is the default and what
- * every existing deployment does.
- */
 export function inviteRequired(): boolean {
   return Boolean(process.env.SIGNUP_INVITE_CODE?.trim())
 }

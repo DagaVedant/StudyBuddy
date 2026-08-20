@@ -1,7 +1,7 @@
 import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 
 import type { Tier } from '@/lib/ai/resolve'
-import { storedProvider } from '@/lib/ai/stored-provider'
+import { storedProvider } from '@/lib/ai/resolve'
 import type {
   AIProvider,
   GeneratedQuestion,
@@ -150,11 +150,6 @@ export async function practiceInput(
   }
 }
 
-/**
- * Everything after the model call: sifting, then storing what survives. Split
- * out because Tier C makes the call in the student's browser, and what a batch
- * has to clear before it is stored cannot live there.
- */
 export async function acceptPractice(
   db: Db,
   author: PracticeAuthor,

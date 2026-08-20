@@ -101,23 +101,12 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
     setFiles((current) => current.filter((_, i) => i !== index))
   }
 
-  /**
-   * Clears the screen on the click rather than waiting for the in-flight step
-   * to unwind. Rasterizing a page or recognizing text can take seconds, and
-   * leaving a progress bar creeping forward after someone pressed Cancel reads
-   * as the button not having worked.
-   */
   function cancel() {
     runningRef.current = false
     abortRef.current?.abort()
     abortRef.current = null
     setProgress(null)
 
-    // "Nothing was saved" was false the moment Cancel became reachable: the
-    // worksheet row is created before the first page goes up, and every page
-    // uploaded before the click is already in blob storage. So it is deleted
-    // rather than described. The row cascades to its pages and the route sweeps
-    // the stored images with it.
     const started = worksheetRef.current
     worksheetRef.current = null
 
@@ -128,10 +117,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
 
     setNotice('Upload cancelled. Removing what had already gone up…')
 
-    // Deliberately not awaited and deliberately not `fetchJson`: the student
-    // has already left this behind, and a failed cleanup must not put a sign-in
-    // redirect or an error in front of them. The hourly sweep of stale
-    // `uploading` rows is the backstop.
     fetch(`/api/worksheets/${started}`, { method: 'DELETE' })
       .then(() => setNotice('Upload cancelled. Nothing was kept.'))
       .catch(() => setNotice('Upload cancelled.'))
@@ -143,10 +128,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
     setError(null)
     setNotice(null)
 
-    // Validated before the ref is claimed, not after. This return used to jump
-    // over the `finally` that clears it, so one mistyped page range latched
-    // `runningRef` on and every later press of Start did nothing at all. The
-    // button looked fine, the form looked fine, and only a reload fixed it.
     const parsed = parsePageRange(pageFrom, pageTo)
     if (!parsed.ok) {
       setError(parsed.message)
@@ -173,8 +154,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         pageRange: parsed.range,
         expectedQuestionCount: expected.count,
         onProgress: (next) => {
-          // A cancelled run can still emit one last progress event as it
-          // unwinds; ignoring those keeps the bar from flickering back.
           if (controller.signal.aborted) return
           setProgress(next)
         },
@@ -183,12 +162,9 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         },
         signal: controller.signal,
       })
-      // Finished, so there is nothing for Cancel to clean up any more.
       worksheetRef.current = null
       router.push(result.next)
     } catch (cause) {
-      // Covers our own CancelledError and the DOMException fetch throws on
-      // abort. Either way the user asked for this, so it is not an error.
       if (controller.signal.aborted) return
 
       setProgress(null)
@@ -219,12 +195,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           addFiles(event.dataTransfer.files)
         }}
         aria-labelledby="add-heading"
-        /*
-          A recess, not a dashed outline. The target still has to read as
-          something you can drop onto, and with the outline gone the sunk
-          tone is what says so; dragging over it lifts to the accent wash so
-          the answer to "will it take this" is unambiguous.
-        */
         className={`card-sunk p-6 text-center transition-colors ${
           dragging ? 'bg-accent/10' : ''
         }`}
@@ -232,19 +202,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         <h2 id="add-heading" className="text-pretty font-medium">
           Drop your pages here, or choose a file
         </h2>
-        {/*
-          This used to end "everything is rendered and read on your device, the
-          file itself never leaves your browser", which is true of the PDF and
-          false of everything that matters. The PDF is rasterized here and is
-          not uploaded, but the page images it produces are, and on the trial
-          they are read by a vision model on hardware the operator runs. A
-          reader deciding whether to upload their homework was being told the
-          opposite of what happens to it.
-
-          A Tier 0 privacy disclosure belongs at the point of upload, and this
-          was the one place it was missing. The wording is the settings
-          screen's, deliberately, so the two agree.
-        */}
         <p className="hint mx-auto max-w-sm text-pretty">
           PDFs, scans, or photos of the pages. The PDF is rendered here and is
           never uploaded; the page images are, and on the free trial they are
@@ -253,8 +210,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
         </p>
 
         <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2 sm:flex-row">
-          {/* Input precedes its label so `peer-*` can surface focus on the
-              visible control; an sr-only input's own focus ring is invisible. */}
           <div className="sm:flex-1">
             <input
               id={cameraId}
@@ -429,10 +384,6 @@ export default function UploadClient({ subjects, isAdmin }: Props) {
           </p>
         </fieldset>
 
-        {/* Given its own tinted panel rather than sitting last in the column
-            as another greyed-out "(optional)": this is the only thing that
-            tells the checker what to aim for, and left blank it cannot tell a
-            question it missed from one it counted twice. */}
         <div className="rounded-2xl bg-tint-butter p-4">
           <label className="label" htmlFor={countId}>
             How many questions?{' '}

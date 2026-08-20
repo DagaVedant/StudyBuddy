@@ -95,12 +95,6 @@ export default function DashboardPreview() {
             <span className={styles.cta}>Upload a worksheet</span>
           </div>
 
-          {/*
-            The same ledger strip the real dashboard prints, down to the
-            unequal columns. This section's whole claim is that it is a still
-            of the app, so it has to be restyled in step with it: a mock that
-            has drifted from the screen it depicts is worse than no mock.
-          */}
           <dl className="mt-5 grid grid-cols-2 sm:grid-cols-[1.3fr_1.3fr_1fr_1fr]">
             {STATS.map((stat) => (
               <div

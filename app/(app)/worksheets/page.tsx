@@ -75,11 +75,6 @@ export default async function WorksheetsPage({
       pageCount: worksheets.pageCount,
       sourceType: worksheets.sourceType,
       createdAt: worksheets.createdAt,
-      // Counts questions, not everything stored: see `IS_QUESTION`. Both counts
-      // below share it deliberately, and so does the dashboard now. Filtering
-      // one and not the other put "Questions 25" beside "Unchecked 26" on the
-      // same card, and filtering this page and not the dashboard put 25 and 26
-      // on two screens describing the same paper.
       questionCount: sql<number>`count(distinct ${questions.id}) filter (where ${IS_QUESTION})::int`,
       uncheckedCount: sql<number>`(count(distinct ${questions.id}) filter (
         where ${questions.userVerified} = false and ${IS_QUESTION}))::int`,
@@ -118,8 +113,6 @@ export default async function WorksheetsPage({
 
   const olderThan = rows.at(-1)?.createdAt
 
-  // One row per worksheet, for the thumbnails, over only the worksheets that
-  // are actually on screen.
   const thumbnails = rows.length
     ? await db
         .select({
@@ -149,11 +142,6 @@ export default async function WorksheetsPage({
         </Link>
       </PageHead>
 
-      {/*
-        A plain GET form, which needs no JavaScript and leaves the search in the
-        URL where it can be bookmarked and shared. Submitting drops any cursor,
-        because a position in the old ordering means nothing in the new one.
-      */}
       <form method="get" role="search" className="mb-6 mt-4 flex gap-2">
         <label className="sr-only" htmlFor="worksheet-search">
           Search your worksheets by title
@@ -186,8 +174,6 @@ export default async function WorksheetsPage({
           .
         </p>
       ) : rows.length === 0 && cursor ? (
-        // Reachable by following "Show older" as the last page empties, or from
-        // a stale link. Not "nothing uploaded yet", which would be false.
         <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">
           Nothing older to show.{' '}
           <Link href="/worksheets" className="text-accent underline underline-offset-2">
@@ -220,15 +206,6 @@ export default async function WorksheetsPage({
                         src={`/api/files/${thumbnailFor.get(sheet.id)}`}
                         alt={`First page of ${sheet.title}`}
                         loading="lazy"
-                        /*
-                          The 4:3 of the box, not the page's own ratio. These
-                          exist so the browser can reserve the right space
-                          before the bytes arrive, and what it renders is
-                          `object-cover` inside `aspect-4/3` regardless of the
-                          shape of the paper, so the real page dimensions
-                          would describe something that never appears. The
-                          numbers are a ratio; the class sizes it.
-                        */
                         width={400}
                         height={300}
                         className="size-full object-cover object-top"
@@ -312,12 +289,6 @@ export default async function WorksheetsPage({
           aria-label="More worksheets"
           className="mt-6 flex flex-wrap items-center justify-between gap-3"
         >
-          {/*
-            Back to the newest rather than a previous-page link. A cursor knows
-            where it is and not where it came from, and threading a stack of
-            them through the URL to offer one button is a poor trade against
-            the search box directly above.
-          */}
           {cursor ? (
             <Link
               href={query ? `/worksheets?q=${encodeURIComponent(query)}` : '/worksheets'}

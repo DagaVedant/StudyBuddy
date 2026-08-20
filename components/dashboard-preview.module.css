@@ -1,30 +1,8 @@
-/*
- * Homepage section two: "the object".
- *
- * The hero argues; this section produces the evidence. It is a composed still
- * of the real dashboard, and the three claims that used to sit here as tinted
- * feature tiles are numbered notes pinned to the places on that still where
- * each one is visible.
- *
- * It used to tilt back under a perspective and lie down flat as you scrolled
- * it into view, driven by a `view()` scroll timeline. That is gone with the
- * rest of the choreography: scroll-linked motion is the most advanced thing
- * a page can do and the least like something a person put together, and it
- * made the page move in a way scrolling should not.
- */
-
-/* 66rem, so the panel inside lands within a few pixels of the real
-   dashboard's own max-w-5xl content width. A mock wider than the screen it
-   is a mock of stops looking like that screen. */
 .section {
   max-width: 66rem;
   margin: 0 auto;
   padding: 4rem 1.5rem 7rem;
 }
-
-/* No character cap: uncapped it sets on one line on a desktop and breaks at
-   its own comma on a phone, which is the only break in the sentence that
-   does not split a phrase. */
 .title {
   margin: 0.375rem 0 0;
   font-size: clamp(1.75rem, 3.6vw, 2.5rem);
@@ -39,25 +17,15 @@
   margin: 0.875rem 0 0;
 }
 
-/* ── the object ────────────────────────────────────────────── */
-
 .stage {
   margin-top: 2.5rem;
 }
 
 .mock {
-  /*
-   * A still of the app, not the app. It contains a picture of the primary
-   * button, so it has to refuse the pointer outright; otherwise it is a
-   * target that looks live, invites a click and does nothing. Nothing inside
-   * is focusable, so this closes the last way in.
-   */
   pointer-events: none;
   padding: 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  /* Matches the real dashboard's ground: the cards inside are --surface and
-     have to lift off something darker, exactly as they do in the app. */
   background: var(--bg);
   box-shadow: 0 32px 64px -40px oklch(0% 0 0 / 0.45);
 }
@@ -67,11 +35,6 @@
     padding: 1.5rem;
   }
 }
-
-/* ── the dashboard's own chrome ────────────────────────────── */
-
-/* Deliberately nowrap: wrapped, the button drops to its own line at full
-   text width and starts competing with the hero's real call to action. */
 .bar {
   display: flex;
   align-items: baseline;
@@ -84,8 +47,6 @@
   font-weight: 800;
   letter-spacing: -0.025em;
 }
-
-/* A picture of `.btn.btn-primary`, not the button itself. */
 .cta {
   padding: 0.4375rem 0.875rem;
   border-radius: var(--radius);
@@ -106,10 +67,6 @@
     font-size: 0.9375rem;
   }
 }
-
-/* The narrow column of the bottom row. Below the breakpoint the still is
-   already tall enough, and this panel is the one idea the notes do not
-   depend on. */
 .aside {
   display: none;
 }
@@ -119,8 +76,6 @@
     display: block;
   }
 }
-
-/* ── the notes ─────────────────────────────────────────────── */
 
 .pin {
   display: inline-flex;
@@ -159,8 +114,6 @@
   align-items: flex-start;
   gap: 0.625rem;
 }
-
-/* The pin's optical centre against the first line of the note. */
 .note .pin {
   margin-top: 0.1875rem;
 }

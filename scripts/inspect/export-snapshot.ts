@@ -7,15 +7,6 @@ import { openDatabase } from '../db'
 
 config({ path: '.env.local' })
 
-/*
- * A restore path that does not depend on the database plan. Neon's own
- * point-in-time restore is better when it is available, but "better when
- * available" is not something to find out after losing a term of work, and
- * nothing here needs pg_dump on the PATH.
- *
- * Read-only. Writes one JSON file of the tables that hold work a student did
- * and could not reproduce by hand.
- */
 const TABLES = [
   'users',
   'worksheets',

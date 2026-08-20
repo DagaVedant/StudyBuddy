@@ -200,9 +200,6 @@ export async function persistQuestions(
   for (const [index, raw] of extracted.entries()) {
     const question = {
       ...raw,
-      // Reflowed after the maths, never before: the recovery of an eaten
-      // command reads a line break followed by letters, and joining the lines
-      // first would leave it nothing to find.
       prompt_text: reflowText(normalizeMath(raw.prompt_text)),
       choices: raw.choices.map((choice) => ({
         ...choice,

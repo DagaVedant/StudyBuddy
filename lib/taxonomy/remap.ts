@@ -1,33 +1,14 @@
-/*
- * Where every topic that carried data went when the taxonomy narrowed to SAT
- * and competition maths. The general school-maths spine and the ELA tree were
- * removed; 341 of the 375 tagged questions were sitting under the first of
- * them, so they are moved rather than dropped.
- *
- * Only slugs that had a question, a lesson or a proposal attached need an
- * entry: an unused topic can simply disappear. A slug mapped to null has no
- * honest home in the new tree and is untagged instead, to be sorted again.
- *
- * Every target has to name a leaf that still exists in the taxonomy: renaming
- * a leaf without changing its entry here silently strands the mapping.
- */
 export const TOPIC_REMAP: Record<string, string | null> = {
-  // ELA. Two questions, both comprehension, and the SAT reading tree asks the
-  // same two things under its own names.
   'ela.reading-comprehension.inference':
     'sat-reading-and-writing.information-and-ideas.inferences',
   'ela.reading-comprehension.summarizing':
     'sat-reading-and-writing.information-and-ideas.central-ideas-and-details',
 
-  // Branch-level tags. A question tagged to a branch rather than a leaf is one
-  // the classifier could not place, so it is untagged and sorted again rather
-  // than given a leaf nobody chose. Seventeen questions across the four.
   'high-school-math.number-sense': null,
   'high-school-math.number-sense.number-theory': null,
   'high-school-math.number-sense.percent-and-proportional-reasoning': null,
   'high-school-math.number-sense.counting-and-chance': null,
 
-  // Number sense
   'high-school-math.number-sense.fractions-and-decimals':
     'competition-math.arithmetic-and-number-sense.fraction-and-decimal-operations',
   'high-school-math.number-sense.fractions-and-decimals.fraction-operations':
@@ -55,7 +36,6 @@ export const TOPIC_REMAP: Record<string, string | null> = {
   'high-school-math.number-sense.powers-and-roots.order-of-magnitude-and-scientific-notation':
     'competition-math.arithmetic-and-number-sense.scientific-notation-and-estimation',
 
-  // Number theory
   'high-school-math.number-sense.number-theory.primes-and-divisibility':
     'competition-math.number-theory.primes-and-divisibility',
   'high-school-math.number-sense.number-theory.factors-and-multiples':
@@ -65,7 +45,6 @@ export const TOPIC_REMAP: Record<string, string | null> = {
   'high-school-math.number-sense.number-theory.remainders-and-repeating-patterns':
     'competition-math.number-theory.remainders-and-modular-arithmetic',
 
-  // Percent and proportion
   'high-school-math.number-sense.percent-and-proportional-reasoning.ratios-and-rates':
     'competition-math.ratio-proportion-and-percent.ratios-and-rates',
   'high-school-math.number-sense.percent-and-proportional-reasoning.percent-of-a-number':
@@ -81,7 +60,6 @@ export const TOPIC_REMAP: Record<string, string | null> = {
   'high-school-math.number-sense.percent-and-proportional-reasoning.unit-conversion':
     'competition-math.ratio-proportion-and-percent.unit-conversion',
 
-  // Counting and chance
   'high-school-math.number-sense.counting-and-chance.fundamental-counting-principle':
     'competition-math.counting-and-probability.fundamental-counting-principle',
   'high-school-math.number-sense.counting-and-chance.probability-without-replacement':
@@ -91,7 +69,6 @@ export const TOPIC_REMAP: Record<string, string | null> = {
   'high-school-math.algebra-2.probability-and-statistics.probability-rules':
     'competition-math.counting-and-probability.probability-of-an-event',
 
-  // Algebra
   'high-school-math.algebra-1.linear-equations-and-inequalities.one-and-two-step-equations':
     'competition-math.algebra.linear-equations',
   'high-school-math.algebra-1.linear-equations-and-inequalities.literal-equations':
@@ -145,7 +122,6 @@ export const TOPIC_REMAP: Record<string, string | null> = {
   'high-school-math.algebra-2.sequences-and-series.series-and-summation':
     'competition-math.algebra.sequences-and-series',
 
-  // Geometry
   'high-school-math.geometry.foundations': 'competition-math.geometry.angles-lines-and-segments',
   'high-school-math.geometry.foundations.points-lines-and-planes':
     'competition-math.geometry.angles-lines-and-segments',
@@ -214,7 +190,6 @@ export const TOPIC_REMAP: Record<string, string | null> = {
   'high-school-math.geometry.reasoning-and-proof.two-column-proofs':
     'competition-math.problem-solving-strategies.logical-reasoning-and-proof',
 
-  // Statistics
   'high-school-math.algebra-1.data-and-statistics.measures-of-center-and-spread':
     'competition-math.statistics-and-data.mean-median-mode-and-range',
   'high-school-math.algebra-1.data-and-statistics.box-plots-and-histograms':

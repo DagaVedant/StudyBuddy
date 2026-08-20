@@ -151,13 +151,6 @@ async function runOneServerJob(
   }
 }
 
-/**
- * The embedding model needs a native runtime the serverless host does not have,
- * and the operator GPU already runs one for Tier 0. Embedding cannot happen
- * anywhere the question text is not, so a worksheet sorted this way is read on
- * the operator machine, and the notice says so: sorting in the browser keeps it
- * on the student's own.
- */
 async function handOverClassification(
   db: Db,
   job: { worksheetId: string; userId: string },

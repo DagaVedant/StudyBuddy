@@ -6,7 +6,7 @@ import sharp from 'sharp'
 
 import { OllamaProvider } from '../lib/ai/ollama'
 import type { ExtractedQuestion } from '../lib/ai/types'
-import { validated } from '../lib/ai/validated'
+import { validated } from '../lib/ai/parse'
 import { embed } from '../lib/embeddings'
 import { isAnswerPage } from '../lib/questions/answer-key'
 import { seamAround } from '../lib/questions/page-text'
@@ -73,23 +73,11 @@ function log(message: string): void {
   console.log(`[${new Date().toISOString()}] ${message}`)
 }
 
-/**
- * How long any single call to the server may take before it is abandoned.
- *
- * Generous, because a page image is megabytes and the claim endpoint does real
- * work, but finite. Without a timeout a call that never answers, which is what
- * a dropped connection on a home broadband line looks like, hangs the loop
- * forever: this worker takes one job at a time, so a stalled fetch also stops
- * the heartbeat. The dashboard then reports the worker offline while it is
- * still holding a claimed job, and the job sits until its claim expires.
- */
 const API_TIMEOUT_MS = 120_000
 
 async function api(path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`${API}${path}`, {
     ...init,
-    // Only when the caller has not brought its own. The shutdown path passes a
-    // signal of its own and must keep it.
     signal: init.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${TOKEN}`,
@@ -109,8 +97,6 @@ async function postJob(jobId: string, body: unknown): Promise<Response> {
     throw new Error(`Job update failed (${response.status}): ${await response.text()}`)
   }
 
-  // Returned so a caller that cares what the server did with the update can
-  // read it; most do not, and ignoring it stays valid.
   return response
 }
 
@@ -136,15 +122,6 @@ interface TopicCandidate {
   path: string
 }
 
-/**
- * Second look at questions that arrived but may not have arrived whole.
- *
- * The audit before this only sees the printed numbering, so a page that
- * produced a question for every number it should have looks perfect to it even
- * when those questions are cut off, missing options, or carrying someone
- * else's answers. Cheap checks find most of that; the review model is asked
- * about the rest.
- */
 async function reviewExtractedQuestions(
   job: { id: string; worksheetId: string },
   pages: WorkerPage[],
@@ -156,8 +133,6 @@ async function reviewExtractedQuestions(
   if (questions.length === 0) return
 
   const plan = await planReview(questions, async (candidates) =>
-    // Optional on the contract: a provider that cannot review is not a failure,
-    // and no opinion is the same answer as an unreadable one.
     (await provider.reviewQuestions?.(candidates)) ?? [],
   )
 
@@ -184,9 +159,6 @@ async function reviewExtractedQuestions(
     const page = byNumber.get(target.pageNumber)
     if (!page) continue
 
-    // Only reachable on a worksheet extracted before key pages were skipped,
-    // whose phantom rows are still stored and still look damaged. Re-reading
-    // the page cannot help: the server will not store what comes back.
     if (isAnswerPage(page.ocrText ?? '')) continue
 
     const replace = plan.suspects
@@ -210,10 +182,6 @@ async function reviewExtractedQuestions(
         width: page.width ?? 0,
         height: page.height ?? 0,
         pageNumber: page.pageNumber,
-        // The pages either side, so a question that ran over the fold can be
-        // read whole. Indexed against the full list rather than this loop's
-        // subset: the page it continued onto is the one next to it in the
-        // document, not the next one this pass happens to be reading.
         ...seamAround(pages, pages.indexOf(page)),
         expect: target.expect,
       })
@@ -235,8 +203,6 @@ async function reviewExtractedQuestions(
           `replaced ${outcome?.replaced ?? 0}, kept ${outcome?.kept ?? 0} as-is`,
       )
     } catch (error) {
-      // The questions are already saved and the student can edit them. A
-      // failed second look is not a failed worksheet.
       log(`  review: page ${page.pageNumber} could not be re-read: ${(error as Error).message}`)
     }
   }
@@ -253,14 +219,8 @@ async function recoverMissingQuestions(
     pages: { pageNumber: number; printed: number[]; expectsQuestions?: boolean }[]
   }
 
-  // The count came with the job. It is a column on the worksheet that is
-  // written once at upload and never changes, so fetching it again here was
-  // a second read of the same row for the same answer.
   const audit = auditExtraction(coverage.pages, job.expectedQuestionCount ?? null)
 
-  // Worth saying out loud even though nothing is deleted over it: more
-  // questions than the paper has means a misread number or a double-count,
-  // and the student is about to see one too many on the review screen.
   if (audit.extra.length > 0) {
     log(
       `  audit: ${audit.found} found but only ${audit.expected} expected: ` +
@@ -268,9 +228,6 @@ async function recoverMissingQuestions(
     )
   }
 
-  // Said before the recall line, because it is the more serious finding and it
-  // is the one a complete-looking count used to hide. A page that prints
-  // questions and returned none is a failure whatever the numbering says.
   if (audit.silent.length > 0) {
     log(
       `  audit: FAILED page(s) ${audit.silent.join(', ')}: ` +
@@ -289,11 +246,6 @@ async function recoverMissingQuestions(
 
   const byNumber = new Map(pages.map((page) => [page.pageNumber, page]))
 
-  // The same cap the review path applies, for the same reason: a re-read costs
-  // about what the first read cost, so a paper where most pages look wrong must
-  // not quietly double the job. This loop had no cap at all, so a badly scanned
-  // 75 page worksheet could re-read all 75. Past this point the problem is the
-  // extraction as a whole and the student is better served seeing it.
   const rereadCap = Math.max(1, Math.floor(pages.length * MAX_REREAD_SHARE))
   const retrying = audit.retry.slice(0, rereadCap)
 
@@ -310,9 +262,6 @@ async function recoverMissingQuestions(
     const page = byNumber.get(target.pageNumber)
     if (!page) continue
 
-    // A key page returns nothing by design, and the server refuses to store
-    // anything read off one. Re-reading it would only spend a model call to
-    // be told the same thing twice.
     if (isAnswerPage(page.ocrText ?? '')) continue
 
     try {
@@ -332,10 +281,6 @@ async function recoverMissingQuestions(
         width: page.width ?? 0,
         height: page.height ?? 0,
         pageNumber: page.pageNumber,
-        // The pages either side, so a question that ran over the fold can be
-        // read whole. Indexed against the full list rather than this loop's
-        // subset: the page it continued onto is the one next to it in the
-        // document, not the next one this pass happens to be reading.
         ...seamAround(pages, pages.indexOf(page)),
         expect: target.expect,
       })
@@ -355,19 +300,7 @@ async function recoverMissingQuestions(
   }
 }
 
-/**
- * Embedding happens here rather than on the server, because this machine has
- * the native runtime the model needs and a serverless host does not. The
- * server keeps the part that is only ever SQL: turning a vector into a
- * shortlist of nearby topics.
- */
 async function classifyWorksheet(worksheetId: string): Promise<void> {
-  // The server hands back one page of still-untagged questions at a time, so a
-  // paper longer than a page needs more than one ask. What ends the loop is not
-  // an empty page: a question the model declines to tag raises a proposal and
-  // is left untagged on purpose, so it is still untagged next time and would be
-  // handed over again forever. Tracking what has already been tried is the
-  // termination condition, and it also means no question is classified twice.
   const tried = new Set<string>()
   let applied = 0
   let coarse = 0
@@ -402,13 +335,6 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
   }
 }
 
-/**
- * One page of questions, from embedding to posting the results back.
- *
- * Returns null when the server refused a step, which is not something another
- * page will fix, so the caller stops rather than working through the paper
- * failing every time.
- */
 async function classifyBatch(
   worksheetId: string,
   pending: PendingQuestion[],
@@ -423,8 +349,6 @@ async function classifyBatch(
     }
   }
 
-  // Nothing embedded, but the caller has already marked these as tried, so the
-  // next page is different questions rather than these again.
   if (items.length === 0) return { applied: 0, coarse: 0 }
 
   const shortlistResponse = await api(`/api/worker/classify/${worksheetId}/shortlist`, {
@@ -453,9 +377,6 @@ async function classifyBatch(
     try {
       const classification = await provider.classifyTopic(promptText, entry.candidates)
 
-      // The server raises a topic proposal when the match comes back coarse,
-      // and dedupes proposals by embedding, another vector it cannot compute
-      // itself, so it is sent along.
       const proposedName = classification.suggested_name ?? promptText.slice(0, 80)
 
       results.push({
@@ -465,11 +386,6 @@ async function classifyBatch(
         proposalEmbedding: await embed(proposedName),
       })
     } catch (error) {
-      // The question id, not the question. Student worksheet text stays out of
-      // operator logs, and this line was putting the first 40
-      // characters of it on the console of a machine the student has never
-      // heard of. The id is enough to find the row when one of these needs
-      // chasing, and it is already all over the rest of this file.
       log(`  classify: question ${entry.questionId} failed: ${(error as Error).message}`)
     }
   }
@@ -489,21 +405,6 @@ async function classifyBatch(
   return (await post.json()) as { applied: number; coarse: number }
 }
 
-/**
- * Works out every question on one worksheet, one at a time.
- *
- * Asks the server for what is still unsolved rather than being handed a list,
- * so a restart resumes: whatever has already been posted back is absent from
- * the next answer. On a 114-question paper that is the difference between a
- * retry costing minutes and costing the better part of an hour.
- *
- * Each solution is posted as it is produced rather than batched at the end. The
- * job is long enough that the process will sometimes not survive it, and a
- * batch lost at question 113 is 113 questions of GPU time thrown away.
- *
- * A question that fails is skipped rather than failing the job. Its row is
- * simply absent, so the next run over this worksheet picks it up again.
- */
 async function processAnswerJob(job: { id: string; worksheetId: string }): Promise<void> {
   const response = await api(`/api/worker/solutions/${job.worksheetId}`)
   if (!response.ok) {
@@ -530,7 +431,6 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
   let solved = 0
   let declined = 0
   let failed = 0
-  /** Answered only after being shown the page. */
   let looked = 0
 
   for (const [index, question] of pending.entries()) {
@@ -545,20 +445,6 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
         choices: question.choices,
       })
 
-      /*
-       * Asked again with the page, when the text was not enough.
-       *
-       * A third of a competition paper turns on a graph, a net or a shaded
-       * diagram, and the prompt tells the model to decline rather than guess at
-       * one it cannot see. It does, correctly: on three AMC 8 papers that was
-       * twenty questions refused with the answer sitting in a page image
-       * nobody had looked at.
-       *
-       * Only on a refusal, and only once. The vision model is slower than the
-       * one that just declined and most questions never reach here, so making
-       * this the first attempt would pay that cost on every question to help
-       * the few that need it. A second refusal is taken at face value.
-       */
       if (solution.answer === null && question.pageId) {
         const page = await api(`/api/worker/pages/${question.pageId}`)
 
@@ -597,10 +483,6 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
       log(`  question ${question.printedNumber ?? '?'} failed: ${(error as Error).message}`)
     }
 
-    // Deliberately no progress post. The `phase` action is not a progress
-    // report: it runs the repair passes, which is right once at the end of an
-    // extraction and catastrophic once per question here. Answer progress
-    // needs its own action before it can be reported, and nothing shows it yet.
     if ((index + 1) % 10 === 0) {
       log(`  ${index + 1}/${pending.length}`)
     }
@@ -612,13 +494,6 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
   )
 }
 
-/**
- * Explains one question for an account whose only model is this GPU.
- *
- * The server cannot reach here (the worker dials out and nothing listens)
- * so a trial explanation has to be collected rather than requested, the same
- * way extraction is.
- */
 async function processExplainJob(job: { id: string }): Promise<void> {
   const response = await api(`/api/worker/explain/${job.id}`)
   if (!response.ok) {
@@ -654,14 +529,6 @@ async function processExplainJob(job: { id: string }): Promise<void> {
   log(`explained ${input.questionId}`)
 }
 
-/**
- * Claiming is shared across three unrelated pipelines, and the stage decides
- * which one a job actually means. Split into one function per stage rather
- * than kept as one function with three branches, because that is what let the
- * extraction branch alone grow past 120 lines without anyone noticing the
- * other two were still short: the length was never evenly spread, so neither
- * was the difficulty of reviewing it.
- */
 async function processJob(claim: ClaimResponse): Promise<void> {
   const job = claim.job!
   const pages = claim.pages ?? []
@@ -672,11 +539,6 @@ async function processJob(claim: ClaimResponse): Promise<void> {
   return processExtractionJob(job, pages)
 }
 
-/**
- * Sorting on its own, with no pages to read. This is a worksheet another tier
- * already extracted: the serverless host cannot load the embedding model, so
- * the vectors are computed here instead.
- */
 async function processClassifyStageJob(job: ClaimedJob): Promise<void> {
   log(`claimed ${job.id}: sorting into topics (attempt ${job.attemptCount})`)
   try {
@@ -712,22 +574,13 @@ async function processExplainStageJob(job: ClaimedJob): Promise<void> {
   }
 }
 
-/** What one pass over a job's pages found, for the caller to judge. */
 interface PageReadResult {
   attempted: number
   pageFailures: number
   lastError: string
-  /** True when a shutdown cut the pass short before every page was tried. */
   interrupted: boolean
 }
 
-/**
- * Reads every page still owed on this job, posting each result as it goes.
- *
- * Counts rather than throws on a single page's failure, because one bad page
- * in seventy-five is not the job failing; `processExtractionJob` is the one
- * that decides what the counts mean.
- */
 async function readJobPages(
   job: ClaimedJob,
   pages: WorkerPage[],
@@ -744,11 +597,6 @@ async function readJobPages(
       return { attempted, pageFailures, lastError, interrupted: true }
     }
 
-    // The paper's answer key and worked solutions are not questions, and the
-    // model reads them as questions regardless of what the system prompt
-    // says. The server drops anything read off one; skipping here saves the
-    // call. Sixteen phantom rows in the last run came off these pages, and
-    // they carried real question numbers, which is what blinded the audit.
     if (isAnswerPage(page.ocrText ?? '')) {
       await postJob(job.id, {
         action: 'page_result',
@@ -786,10 +634,6 @@ async function readJobPages(
         width: page.width ?? 0,
         height: page.height ?? 0,
         pageNumber: page.pageNumber,
-        // The pages either side, so a question that ran over the fold can be
-        // read whole. Indexed against the full list rather than this loop's
-        // subset: the page it continued onto is the one next to it in the
-        // document, not the next one this pass happens to be reading.
         ...seamAround(pages, pages.indexOf(page)),
       })
     } catch (error) {
@@ -817,28 +661,12 @@ async function readJobPages(
   return { attempted, pageFailures, lastError, interrupted: false }
 }
 
-/**
- * Everything that runs once every page has been read: the repair passes,
- * classification, and marking the job complete.
- */
 async function finishExtraction(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
   await postJob(job.id, { action: 'phase', phase: 'verifying' })
   await recoverMissingQuestions(job, pages)
 
-  // Again, because the audit just added rows that have never been through
-  // the repair passes. A question recovered by the re-read arrives in the
-  // shape a page break leaves: the stem and option A on one page, B, C and D
-  // at the top of the next. The review below would see the short option list,
-  // call it damaged and spend a second vision call re-reading the page, when
-  // the missing options are already sitting in the stored text and the
-  // carried-options pass takes them for nothing. It ran before the audit and
-  // would not run again until classifying, one step too late to save the
-  // call. Repeating it is safe; a second run with nothing to do finds
-  // nothing.
   await postJob(job.id, { action: 'phase', phase: 'verifying' })
 
-  // After the numbering is repaired, so the review judges the questions the
-  // student will actually see rather than ones about to be replaced.
   await reviewExtractedQuestions(job, pages)
 
   await postJob(job.id, { action: 'phase', phase: 'classifying' })
@@ -848,9 +676,6 @@ async function finishExtraction(job: ClaimedJob, pages: WorkerPage[]): Promise<v
 }
 
 async function processExtractionJob(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
-  // A set, not a high-water mark. Pages finish out of order once more than
-  // one is in flight, so "everything up to N is done" stops being true, and
-  // a crash would silently skip whatever was still running below N.
   const done = new Set<number>(job.checkpoint?.donePages ?? [])
   const legacyHighWater = job.checkpoint?.lastPageNumber ?? 0
 
@@ -901,9 +726,6 @@ async function main(): Promise<void> {
   log(`  api:    ${API}`)
   log(`  ollama: ${OLLAMA_URL} (${VISION_MODEL})`)
 
-  // "Is it running?" is the wrong question when the answer is that it is
-  // running and wedged, which is what a timeout here means and what used to
-  // hang this line forever instead of reporting anything.
   const models = await ollama.listModels().catch((error: unknown) => {
     const timedOut = error instanceof Error && error.name === 'TimeoutError'
     throw new Error(

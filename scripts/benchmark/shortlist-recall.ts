@@ -1,23 +1,3 @@
-/**
- * Measures whether the topic shortlist contains the right answer at all.
- *
- * Classification has two halves and only one of them is the model's. The
- * shortlist picks the leaf topics the model is allowed to choose between; if
- * the right one is not in there, no prompt, no larger model and no confidence
- * threshold can help, and what comes back is a confident wrong tag. The stored
- * Edison run has "in how many ways can 6 people be seated around a circular
- * table" filed under Geometry and Trigonometry at 0.95, because "circular
- * table" embeds towards circles.
- *
- * So this measures the half that is measurable, against
- * scripts/benchmark/topic-labels.ts, before anyone touches the prompt.
- *
- *   npx tsx scripts/benchmark/shortlist-recall.ts
- *   npx tsx scripts/benchmark/shortlist-recall.ts --limit 50
- *
- * Needs the topics table seeded and embedded (`npm run db:seed`, `npm run
- * db:embed`) and the embedding model available locally.
- */
 import { config } from 'dotenv'
 
 config({ path: '.env.local' })

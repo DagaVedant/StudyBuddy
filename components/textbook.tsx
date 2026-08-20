@@ -1,27 +1,5 @@
 import Link from 'next/link'
 
-/*
- * The furniture of a textbook page.
- *
- * Four ideas, and they are load-bearing rather than decorative:
- *
- *   Rules divide. A printed hairline under a section head and a heavy one at
- *   the masthead and the foot, which is what a page of a book actually uses
- *   to group things.
- *
- *   Sections are numbered and indexed. A textbook does not ask you to scan
- *   nine equal tiles to find out what is in it; it prints a contents list
- *   with the figures on it, and then repeats the number beside each section
- *   so you can find your way back.
- *
- *   Colour categorises. Three note levels, and each means something: `info`
- *   is the argument the data is making, `action` is something to go and do,
- *   `quiet` is reference you are not expected to read every visit. Nothing is
- *   tinted because it looked nice.
- *
- *   The margin is a real column. Metadata, counts and status live there so
- *   the main column can stay a comfortable measure for reading.
- */
 
 export type Tone = 'info' | 'action' | 'quiet'
 
@@ -35,17 +13,6 @@ const NOTE: Record<NoteColour, string> = {
   orange: 'bg-note-orange',
 }
 
-/*
- * A sticky note.
- *
- * A square of coloured paper with padding on it, and nothing else. No shadow,
- * no gradient, no rotation, no curled corner, no drawn outline. Every one of
- * those is available and every one of them is the thing that would make this
- * look like an effect rather than a note, so the whole component is one div
- * and a background colour.
- *
- * Square corners for the same reason: a sticky note is cut, not rounded.
- */
 export function Note({
   colour,
   labelledBy,
@@ -67,24 +34,12 @@ export function Note({
   )
 }
 
-/*
- * Fill and ink per note level, kept in one place so a tone cannot drift into
- * meaning something different in two components. The fills are deliberately
- * weak: a callout has to read as a panel on the page, not as a highlight.
- */
 const TONE: Record<Tone, string> = {
   info: 'text-accent',
   action: 'text-fg',
   quiet: 'text-muted',
 }
 
-/*
- * A numbered section head with its rule.
- *
- * The number is a link target as well as a label: the contents list and the
- * foot of the page both point at it, which is the whole reason a textbook
- * numbers its sections in the first place.
- */
 export function SectionHead({
   no,
   id,
@@ -116,19 +71,11 @@ export function SectionHead({
           {title}
         </h2>
       </div>
-      {/* Capped at a reading measure rather than the column width: the column
-          is wide enough to run past 75 characters, which is where a line stops
-          being comfortable. */}
       {hint && <p className="hint max-w-[62ch] text-pretty">{hint}</p>}
     </div>
   )
 }
 
-/*
- * A pulled-out panel: the "Did you know" box of a textbook, used here for the
- * one thing on the page that is an instruction rather than a reading. It is a
- * sticky note like everything else; only the label marks it out.
- */
 export function Callout({
   label,
   colour = 'orange',
@@ -146,7 +93,6 @@ export function Callout({
   )
 }
 
-/* One entry in the margin, on its own note. */
 export function MarginNote({
   label,
   colour,
@@ -164,14 +110,6 @@ export function MarginNote({
   )
 }
 
-/*
- * The contents list.
- *
- * This is the part that replaces a wall of equal tiles. A reader arriving at
- * a long page wants to know what is on it and what the number is, in one
- * place, before deciding where to go; that is what a contents page is for,
- * and a dashboard has exactly the same problem.
- */
 export function Contents({
   entries,
 }: {
@@ -209,14 +147,6 @@ export function Contents({
   )
 }
 
-/*
- * The foot of the page.
- *
- * A book puts its number and its running head at the bottom; this does the
- * same job for a page that scrolls, which is to say it tells you where the
- * end is and gives you a way back rather than leaving you at the bottom of an
- * infinite column.
- */
 export function PageFoot({
   running,
   entries,

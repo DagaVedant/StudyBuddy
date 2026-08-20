@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { consumeTrial } from '@/lib/ai/quota'
 import { resolveProvider } from '@/lib/ai/resolve'
-import { storedProvider } from '@/lib/ai/stored-provider'
+import { storedProvider } from '@/lib/ai/resolve'
 import { CHOICE_ORDER } from '@/lib/questions/sql'
 import { ProviderRefused, ProviderUnavailable } from '@/lib/ai/types'
 import { auth } from '@/auth'

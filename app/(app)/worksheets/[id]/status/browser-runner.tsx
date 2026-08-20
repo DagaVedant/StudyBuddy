@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { OllamaProvider } from '@/lib/ai/ollama'
-import { validated } from '@/lib/ai/validated'
+import { validated } from '@/lib/ai/parse'
 import { toPngBytes } from '@/lib/client/page-image'
 import { isAnswerPage } from '@/lib/questions/answer-key'
 import { seamAround } from '@/lib/questions/page-text'
@@ -64,8 +64,6 @@ export default function BrowserRunner({ worksheetId }: { worksheetId: string }) 
     })
 
     if (claimResponse.status === 409) {
-      // No Ollama configured. Nothing to say here: the page already explains
-      // the worksheet is queued, and settings is where this gets fixed.
       return
     }
 
@@ -75,8 +73,6 @@ export default function BrowserRunner({ worksheetId }: { worksheetId: string }) 
     const { job, pages, ollama } = claim
     if (!job || !pages || !ollama) return
 
-    // Only this worksheet's job. A student with two uploads in flight has one
-    // status page per worksheet, and each should drive its own.
     if (job.worksheetId !== worksheetId) return
 
     const provider = validated(
@@ -96,9 +92,6 @@ export default function BrowserRunner({ worksheetId }: { worksheetId: string }) 
     for (const page of todo) {
       if (cancelled.current) return
 
-      // The paper's own answer key is not questions, and the model reads it as
-      // questions regardless of the prompt. The server drops what comes off
-      // one; skipping saves the call, exactly as the operator's worker does.
       if (isAnswerPage(page.ocrText ?? '')) {
         await post(job.id, {
           action: 'page_result',
@@ -131,9 +124,6 @@ export default function BrowserRunner({ worksheetId }: { worksheetId: string }) 
           ...seamAround(pages, pages.indexOf(page)),
         })
       } catch (error) {
-        // One page failing is not the job failing. The audit downstream sees a
-        // gap in the printed numbering and can ask for it again; throwing here
-        // would abandon the pages already read.
         console.warn(`[tier-c] page ${page.pageNumber} failed:`, error)
       }
 
@@ -157,8 +147,6 @@ export default function BrowserRunner({ worksheetId }: { worksheetId: string }) 
     await post(job.id, { action: 'complete' })
     setPhase({ kind: 'done' })
 
-    // The worksheet has left `queued`, so the status page's own redirect now
-    // has somewhere to send them.
     router.refresh()
   }, [post, router, worksheetId])
 

@@ -54,17 +54,11 @@ export async function joinSplitQuestions(
       continue
     }
 
-    // The options move rather than being copied and re-inserted, so nothing
-    // that already points at them is disturbed and no ordering is invented.
     await db
       .update(answerChoices)
       .set({ questionId: plan.keepId })
       .where(eq(answerChoices.questionId, plan.dropId))
 
-    // Rehashed because the row is no longer the content it was hashed from.
-    // Left stale, the joined question would not match itself, and a later
-    // re-read of either page would sail past the duplicate check and store a
-    // second copy, the failure the review pass already caused once.
     const contentHash = hashQuestion(keep.promptText, drop.choices)
 
     await db

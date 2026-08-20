@@ -1,32 +1,4 @@
-/*
- * The two marks that are drawn rather than laid out.
- *
- * Every other shape in this interface is something a stylesheet can describe
- * exactly: a rectangle, a circle, a line at a right angle. That exactness is
- * most of what makes an interface read as generated, and no amount of good
- * spacing fixes it, because the eye is reacting to the absence of a hand
- * rather than to the arrangement.
- *
- * So these two are wobbly on purpose. The underline does not sit level, the
- * tick does not have equal arms, and neither is symmetrical. They are used
- * sparingly, twice in the whole app, because the effect depends entirely on
- * being rare: a hand-drawn flourish on every heading is just another system.
- *
- * There were two more, a pencil frame and a pencil rule, drawn round every
- * dashboard section. They went when the sections became sticky notes: a
- * sticky note does not have a pencil box ruled round it, and keeping both was
- * two ideas doing one job.
- */
 
-/*
- * A pen underline, for the one phrase on a page that carries the answer.
- *
- * `preserveAspectRatio="none"` lets it stretch to whatever it is underlining,
- * which does flatten the wobble on a long phrase, so the path is drawn with
- * more vertical travel than looks right at authoring size to survive it. It
- * is absolutely positioned and `aria-hidden`, so it never affects layout or
- * the reading order.
- */
 export function Underline({ className = '' }: { className?: string }) {
   return (
     <svg
@@ -46,14 +18,6 @@ export function Underline({ className = '' }: { className?: string }) {
   )
 }
 
-/*
- * A marking tick, for a correct answer.
- *
- * Rougher and less even than the wordmark in `mark.tsx`: the down-stroke is
- * short and steep, the up-stroke overshoots, and the whole thing leans. That
- * is the difference between a logo, which has to survive being shrunk to a
- * favicon, and a mark somebody made in a hurry with a red pen.
- */
 export function Tick({ className = '' }: { className?: string }) {
   return (
     <svg

@@ -1,24 +1,3 @@
-/*
- * Homepage hero.
- *
- * This used to be a five-second choreographed sequence: a clip drawing the
- * forgetting curve, a counter ticking up to twenty-four, a read-head sweeping
- * down the worksheet, topic rows sliding in one at a time, review dots
- * popping, a band of light crossing the chart, and a caption fading in at the
- * end of it.
- *
- * It is all gone, and the elements that only existed to be animated, the
- * sweep and the read-head, are gone with it rather than left sitting there
- * inert. Every part of it was doing the same job, which was demonstrating
- * that it could be done, and a landing page that performs for five seconds
- * before it will hold still is a reliable sign that nobody in particular made
- * it.
- *
- * What remains is the composition the sequence used to arrive at: the curve
- * behind, the panel on top, the worksheet beside the count. Same picture. It
- * just does not insist on being watched.
- */
-
 .hero {
   position: relative;
   display: flex;
@@ -28,21 +7,8 @@
   min-height: 100svh;
   padding: 5rem 1.5rem 6rem;
   overflow: hidden;
-  /* so the curve's negative z-index stays inside this section */
   isolation: isolate;
 }
-
-/*
- * One column, set left.
- *
- * It used to be centred, which is the arrangement every generated hero
- * arrives in. Ranging it left gives the type a single edge to line up on.
- *
- * The spacing is deliberately uneven rather than a single gap: the mark sits
- * close to the sentence it signs, the sentence stands well clear of the demo,
- * and the footnote about the curve is pushed far enough down to read as an
- * aside.
- */
 .stack {
   display: flex;
   flex-direction: column;
@@ -51,12 +17,6 @@
   max-width: 48rem;
   text-align: left;
 }
-
-/*
- * A link, so it carries a link's affordances: no underline at rest (a
- * wordmark with a rule under it reads as broken), a visible focus ring for
- * the keyboard, and a colour change on hover so the pointer gets an answer.
- */
 .brand {
   display: inline-flex;
   align-items: center;
@@ -85,11 +45,6 @@
   height: 1.125rem;
   color: var(--accent);
 }
-
-/*
- * The one piece of display type on the page, so it is set like a headline and
- * not like a large paragraph.
- */
 .blurb {
   max-width: 20ch;
   margin: 1.5rem 0 0;
@@ -112,32 +67,12 @@
   text-transform: uppercase;
   color: var(--muted);
 }
-
-/* ── the ground ────────────────────────────────────────────── */
-
-/*
- * Full bleed, so the decay genuinely passes behind the panel rather than
- * sitting under it as a separate band. Held well short of full strength: this
- * layer is the room, not the subject, and the call to action sits on it.
- */
 .plot {
   position: absolute;
   inset: 0;
   z-index: -1;
   opacity: 0.4;
 }
-
-/* Stretched into a tall viewport the curve degenerates into vertical streaks,
-   so where it would be tall it goes back to being a band along the bottom,
-   whose proportions still read as a curve.
-
-   Keyed on the shape of the box and not only on its width. Width was a proxy
-   that happened to hold for phones held upright and broke everywhere else: a
-   short wide phone in landscape got the band it does not need, and a tall
-   narrow window on a desktop, or a tablet in portrait at 800px, is wider than
-   48rem and got the streaks. `max-aspect-ratio: 4/3` names the thing that
-   actually degenerates. The width query stays alongside it so a genuinely
-   narrow viewport is covered whatever its height. */
 @media (max-width: 48rem), (max-aspect-ratio: 4 / 3) {
   .plot {
     top: auto;
@@ -155,17 +90,12 @@
   fill: var(--accent);
   opacity: 0.09;
 }
-
-/* Paired with vector-effect on the element, so this is 2 device pixels at
-   every viewport width rather than 2 stretched user units. */
 .curve {
   fill: none;
   stroke: var(--accent);
   stroke-width: 2;
   stroke-linecap: round;
 }
-
-/* The three points where a review lands. */
 .dot {
   position: absolute;
   width: 0.625rem;
@@ -175,8 +105,6 @@
   transform: translate(-50%, -50%);
 }
 
-/* ── the figure ────────────────────────────────────────────── */
-
 .panel {
   position: relative;
   display: grid;
@@ -184,12 +112,9 @@
   width: 100%;
   margin-top: 2.5rem;
   padding: 1.25rem;
-  /* the column is centred; its contents are not */
   text-align: left;
   border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
-  /* Load-bearing, not decorative: the panel sits on the curve and has to stay
-     legible where the line passes behind it. */
   background: color-mix(in oklch, var(--surface) 92%, transparent);
 }
 
@@ -221,15 +146,6 @@
   padding: 0;
   list-style: none;
 }
-
-/*
- * A ruled tally, not four filled pills.
- *
- * The pill version was the same shape and the same four pastels every
- * generated dashboard ships, and it made a list of four numbers look like a
- * set of buttons. As ruled rows with a swatch in the margin it reads as what
- * it is: the result of a count, printed.
- */
 .topic {
   display: flex;
   align-items: center;
@@ -242,8 +158,6 @@
 .topic:last-child {
   border-bottom: 0;
 }
-
-/* The swatch. Square, because a dot would put the roundness back. */
 .topic::before {
   content: '';
   width: 0.5rem;
@@ -271,17 +185,6 @@
 .topic:nth-child(4) {
   --swatch: var(--muted);
 }
-
-/* ── the worksheet being read ──────────────────────────────── */
-
-/*
- * The worksheet, set down slightly off square.
- *
- * Everything else in this panel is aligned to the pixel, which is what makes
- * the panel read as a diagram. Nudging the one element that is supposed to be
- * a physical object off by two thirds of a degree is what turns it back into
- * a piece of paper somebody put there.
- */
 .sheet {
   rotate: -0.65deg;
   position: relative;
@@ -302,12 +205,6 @@
   padding: 0.5rem;
   border-radius: var(--radius);
 }
-
-/*
- * Real question text, set small; the sheet is a document seen at a distance,
- * not a reading surface. `--fg` rather than `--muted`: worksheet ink is black,
- * and greying it would push the sheet back into looking like placeholder.
- */
 .stem {
   position: relative;
   z-index: 1;
@@ -317,15 +214,8 @@
   letter-spacing: -0.005em;
   color: var(--fg);
   text-wrap: pretty;
-  /* the math stems carry unbreakable runs like (3/5 − 1/2)x */
   overflow-wrap: break-word;
 }
-
-/*
- * A highlighter pass over each question the reader found, not a box drawn
- * round it. This is an app about marking worksheets, and a marked question is
- * highlighted rather than boxed.
- */
 .qbox {
   position: absolute;
   inset: 0;

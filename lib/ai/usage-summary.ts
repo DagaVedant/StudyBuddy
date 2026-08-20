@@ -3,7 +3,7 @@ import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import type { Db } from '@/lib/db/types'
 import { usageEvents, users } from '@/lib/db/schema'
 
-import { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT } from './limits'
+import { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT } from './providers'
 
 export interface UsageSummaryRow {
   kind: (typeof usageEvents.$inferSelect)['kind']

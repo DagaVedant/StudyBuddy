@@ -114,11 +114,6 @@ export default function ProfileClient({
         lede="Your display name, username and picture, and what you have got through."
       />
 
-      {/*
-        No "Identity" heading here any more. It sat directly under an h1
-        reading "Profile" and named the same thing a second time; the section
-        is the page's main content, so the h1 is its label.
-      */}
       <div className="card mt-6 p-4">
         <div className="flex items-center gap-4">
           <Avatar name={nameValue} username={usernameValue} email={email} image={image} />

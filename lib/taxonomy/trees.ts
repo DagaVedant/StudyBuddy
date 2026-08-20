@@ -71,12 +71,6 @@ const satReadingWriting = n(
   ),
 )
 
-/*
- * AMC 8 and 10, MATHCOUNTS and the SHSAT maths section, which is what actually
- * gets uploaded here. Grouped the way contest solutions talk about themselves
- * rather than the way a school year is ordered, because a student working
- * through a paper is looking for the technique, not the grade it was taught in.
- */
 const competitionMath = n(
   'Competition Math',
   n(

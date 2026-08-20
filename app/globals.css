@@ -1,61 +1,13 @@
 @import "tailwindcss";
 
-/*
- * StudyBuddy's visual language: "marked paper".
- *
- * The product's raw material is a printed worksheet that somebody has already
- * written on, so the interface is built from that vocabulary rather than from
- * the usual dashboard one. Paper stock instead of grey surfaces. Ink-weight
- * rules instead of soft shadows. Square corners, because nothing printed has
- * a 16px radius.
- *
- * Colour is rationed on purpose. The base is monochrome ink on paper and it
- * carries the whole design; a hue only appears where it means something.
- * Red is wrong, green is right, amber is unsure, and because those three are
- * spoken for, the interactive colour is a fountain-pen blue that cannot be
- * confused with any of them. The highlighter yellow is the one purely
- * decorative colour, and it never carries text.
- *
- * Light only. There is no dark theme and no toggle: the whole conceit is
- * paper, and a sheet of paper does not have a night mode.
- */
-
 :root {
   color-scheme: light;
-
-  /* Paper stock. Warm and slightly cream, so it reads as stock rather than as
-     an unpainted div, and now deep enough that the rules on it have something
-     to sit in. The old background was tinted 320 (violet), which is the single
-     most common tell of a generated palette. */
   --bg: oklch(94.2% 0.015 82);
   --fg: oklch(21% 0.014 62);
   --muted: oklch(43% 0.016 62);
-
-  /*
-   * Three tones, and no borders anywhere.
-   *
-   * Grouping used to be done with hairlines: a box around every panel, a rule
-   * under every heading, a divider between every row. That is the thing that
-   * makes an interface look assembled from a kit. These three tones do the
-   * same job by stepping the surface instead of drawing on it, so a block of
-   * content is set apart by what it is sitting on rather than by being fenced.
-   *
-   * `--surface` is a clean white sheet laid on the cream page. It is close to
-   * pure white on purpose: it is the only thing marking the edge of a panel
-   * now that nothing is bordered, so the step from the paper has to be big
-   * enough to be an edge by itself.
-   * `--wash` is a recess, and is what a control that used to have an outline
-   * now uses to say it is a control: inputs, secondary buttons, empty states.
-   * The step between each is small on purpose; it only has to be enough to
-   * see an edge, and any more turns back into a box.
-   */
   --surface: oklch(99.5% 0.004 88);
   --wash: oklch(88.6% 0.022 80);
   --wash-strong: oklch(84.5% 0.025 78);
-
-  /* Fountain-pen blue. Deliberately not a brand purple and not the orange it
-     replaced: it has to sit next to red, green and amber without joining the
-     marking vocabulary. */
   --accent: oklch(42% 0.155 258);
   --accent-fg: oklch(99% 0.004 88);
 
@@ -63,73 +15,27 @@
   --success: oklch(45% 0.125 152);
   --warning: oklch(56% 0.155 55);
   --caution: oklch(62% 0.13 88);
-
-  /* Highlighter. Never carries text; ink sits on top of it. */
   --marker: oklch(91% 0.165 103);
   --marker-soft: oklch(94% 0.09 103);
-
-  /* The ink that goes on top of the highlighter. A marker is a bright yellow,
-     so what sits on it has to be dark whatever the surface underneath is. */
   --marker-ink: oklch(21% 0.014 62);
-
-  /*
-   * Sticky notes. Flat, plain, obvious. No gradient, no shadow, no rotation:
-   * a sticky note is a square of coloured paper and anything added to that is
-   * the thing that starts to look designed.
-   *
-   * All five sit around 89-92% lightness so ink reads on every one of them at
-   * roughly the same contrast, and so no single note shouts louder than the
-   * others just because of its hue.
-   */
   --note-yellow: oklch(92% 0.115 100);
   --note-pink: oklch(89% 0.075 8);
   --note-blue: oklch(90% 0.055 235);
   --note-green: oklch(91% 0.085 145);
   --note-orange: oklch(89% 0.095 62);
-
-  /* Retained under their old names so existing markup keeps working, but
-     retuned from pastel fills to paper tints: these are stocks, not sweets. */
   --tint-mint: oklch(92% 0.04 158);
   --tint-peach: oklch(92% 0.045 62);
   --tint-lavender: oklch(92% 0.032 250);
   --tint-butter: oklch(93% 0.055 98);
-
-  /*
-   * Printed rules.
-   *
-   * These came out when the interface went borderless and are back on purpose:
-   * a textbook page is divided by rules rather than boxed.
-   *
-   * `--rule` divides, `--rule-heavy` is the masthead and the foot of the page,
-   * which are the only two places a rule should stop the eye rather than
-   * guide it.
-   */
   --rule: oklch(79% 0.02 74);
   --rule-heavy: oklch(30% 0.016 64);
-
-  /* The margin red, and the shadow inside a punched hole. Both belong to the
-     paper texture, not to any component: nothing in the interface is allowed
-     to draw with them. */
   --paper-red: oklch(58% 0.19 25 / 0.5);
   --paper-hole: oklch(21% 0.014 62 / 0.22);
   --paper-hole-rim: oklch(21% 0.014 62 / 0.09);
-
-  /*
-   * The rules on the paper, and now the only line work in the interface.
-   *
-   * They were at 0.055 alpha, which was a texture you had to go looking for.
-   * With every border gone they are carrying the whole idea on their own, so
-   * they are printed properly: dark enough to read as ruling from across the
-   * room, light enough that body text still sits comfortably on top.
-   */
   --rule-ghost: oklch(21% 0.014 62 / 0.14);
 
   --radius: 3px;
   --radius-lg: 4px;
-
-  /* Google's, not ours. Their sign-in button is specified down to the hex in
-     both themes, and a button that recolours itself to match a host app stops
-     being the one people recognise. */
   --google-bg: #ffffff;
   --google-bg-hover: #f2f2f2;
   --google-border: #747775;
@@ -162,22 +68,6 @@
   --color-tint-peach: var(--tint-peach);
   --color-tint-lavender: var(--tint-lavender);
   --color-tint-butter: var(--tint-butter);
-
-  /*
-   * Three families, each with one job.
-   *
-   * Fraunces sets anything meant to be read as a headline or a figure. It is
-   * a variable serif with a soft, slightly irregular colour that keeps big
-   * numbers from looking like a stock metric tile.
-   *
-   * Public Sans is the body. It was drawn for government forms, which is
-   * exactly the register a worksheet app wants: plain, legible, unbranded,
-   * and specifically not one of the grotesques every generated site ships
-   * with.
-   *
-   * Space Mono is for labels, eyebrows and metadata only. At small sizes and
-   * in caps it does the job the rubber stamp does on a paper form.
-   */
   --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-display: var(--font-fraunces), ui-serif, Georgia, "Times New Roman",
@@ -191,26 +81,6 @@
   --radius-xl: var(--radius-lg);
   --radius-2xl: var(--radius-lg);
 }
-
-/*
- * The page is ruled like a pad, and then punched and filed.
- *
- * A 32px horizontal rhythm, pinned to the top-left and sized in absolute
- * units so it does not rescale with the viewport, which is what would give it
- * away as a gradient rather than as stock.
- *
- * Under the ruling, grain. Everything else here is geometry a machine would
- * produce exactly, and exactness is the tell: real stock has fibre in it. The
- * tile is a fractal-noise filter desaturated to grey, and the strength was
- * picked by rasterising it over the paper colour and measuring rather than by
- * eye. At 0.09 the luminance varies by about 2.7% and the paper darkens by
- * less than one value, which is the point at which it stops looking flat and
- * has not started looking dirty.
- *
- * The rules are deliberately still even. Uneven ruling was the obvious next
- * move and it is wrong: paper is machine-ruled, so jitter would not read as
- * handmade, only as a rendering fault.
- */
 body {
   background-color: var(--bg);
   background-image:
@@ -226,23 +96,6 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
-
-/*
- * The margin and the binder holes.
- *
- * Held back until 90rem, and that number is arithmetic rather than taste.
- * The widest column in the app is the question editor at max-w-7xl, which is
- * 80rem, so at 90rem it has 5rem of gutter on each side. The margin rule sits
- * at 3.75rem and the holes reach about 1.7rem, so both clear it. At the 78rem
- * this used to be, the editor filled the window and the red rule ran straight
- * down through the heading, which is what the guard existed to prevent.
- *
- * The rules scroll and the holes do not. That is not an inconsistency: the
- * rings of a binder stay where they are while the sheet moves against them,
- * which is exactly what per-layer `background-attachment` buys here. The two
- * red lines are vertical and uniform, so whether they scroll is unobservable;
- * they are fixed with the holes to keep the margin as one object.
- */
 @media (min-width: 90rem) {
   body {
     background-image:
@@ -306,12 +159,6 @@ body {
       0 0;
   }
 }
-
-/*
- * Display type. Fraunces has optical-size, SOFT and WONK axes; set together
- * they are what stop a large heading from looking like body text that has
- * been scaled up.
- */
 h1,
 h2,
 h3 {
@@ -319,31 +166,11 @@ h3 {
   font-variation-settings: 'SOFT' 30, 'WONK' 1;
   letter-spacing: -0.015em;
 }
-
-/*
- * `@apply` in Tailwind 4 only expands real utilities, so these classes are
- * composed at the call site (`class="btn btn-primary"`) rather than by
- * @apply-ing one another.
- */
 @layer components {
-  /*
-   * Eyebrows are the stamped labels on a form. Mono, caps, wide, and small.
-   * This is the single most repeated piece of the new vocabulary, so it does
-   * a lot of the work of making a page look set rather than assembled.
-   */
   .eyebrow {
     @apply font-mono text-[0.6875rem] font-normal uppercase tracking-[0.16em] text-muted;
-
-    /* 0.16em of letter-spacing puts almost as much air between two letters as
-       a word space does, so "THE RECORD" read as one word. The word space has
-       to grow with the tracking to stay a word space. */
     word-spacing: 0.28em;
   }
-
-  /*
-   * A section number, as printed on an exam paper. Pair it with a heading and
-   * the panel stops being a card and starts being a section of a document.
-   */
   .section-no {
     @apply font-mono text-[0.6875rem] tabular-nums text-muted;
   }
@@ -356,12 +183,6 @@ h3 {
     border-radius: var(--radius);
     transition: background-color 150ms ease-out, box-shadow 150ms ease-out;
   }
-
-  /*
-   * With the outline gone, focus has to be unmistakable, so it is a ring
-   * rather than a recolour: two solid pixels of accent sitting outside the
-   * field, drawn with box-shadow so it costs no layout.
-   */
   .field:hover {
     background: var(--wash-strong);
   }
@@ -397,18 +218,6 @@ h3 {
   .btn-compact {
     @apply -my-2 inline-flex min-h-11 items-center py-2;
   }
-
-  /*
-   * The primary action is a solid block of ink, not a coloured pill. It is
-   * the highest-contrast thing on the page, which is what a primary action
-   * should be, and it is the clearest single break from the tinted-button
-   * house style this replaced.
-   *
-   * The hard offset shadow is the press: it sits 2px down-right at rest and
-   * collapses under the pointer as the button moves into it, so the block
-   * reads as being pushed against the paper. `translate` and `box-shadow`
-   * only, so nothing reflows.
-   */
   .btn-primary {
     background: var(--fg);
     color: var(--bg);
@@ -464,37 +273,15 @@ h3 {
   .hint {
     @apply mt-1.5 text-sm text-muted;
   }
-
-  /*
-   * A sheet of paper, and the one component that carries the whole idea.
-   *
-   * No border, no shadow. It is set apart from the ruled page purely by being
-   * a lighter, cleaner tone, which is what a fresh sheet laid on a pad
-   * actually looks like. That one step of surface does everything the
-   * hairline used to do and does not fence the content in to do it.
-   *
-   * Kept under the name `.card` because roughly forty call sites use it, and
-   * changing what a class looks like is a smaller change than renaming it
-   * everywhere.
-   */
   .card {
     position: relative;
     border-radius: var(--radius-lg);
     background: var(--surface);
   }
-
-  /* A recess rather than a raise, for the blocks that are secondary to what
-     is around them: empty states, notes, the odd aside. */
   .card-sunk {
     border-radius: var(--radius-lg);
     background: var(--wash);
   }
-
-  /*
-   * A highlighter swipe. Drawn as a background gradient sized to the text and
-   * pinned to its baseline, so it sits behind the glyphs and stops short of
-   * the cap height the way a real marker does.
-   */
   .marked {
     color: var(--marker-ink);
     background-image: linear-gradient(
@@ -507,13 +294,6 @@ h3 {
     padding-inline: 0.15em;
   }
 }
-
-/*
- * Forced-colors mode discards background-color and repaints everything from
- * the user's own palette. Tone is the only thing separating a card from the
- * page here, so the separation has to come back as a border in that mode
- * specifically, or the whole app collapses into one undivided sheet.
- */
 @media (forced-colors: active) {
   .card,
   .card-sunk,

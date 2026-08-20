@@ -150,21 +150,6 @@ export default function PageCanvas({
         }}
         onPointerCancel={endDrag}
       >
-        {/*
-          `draggable={false}` is load-bearing, not tidiness.
-
-          An <img> is draggable by default, so pressing on this one and moving
-          made the browser start a native image drag: it fired `dragstart`,
-          took the pointer away with `lostpointercapture`, and swallowed every
-          pointermove and pointerup after it. The marquee below never saw the
-          end of the gesture, so dragging a box around a question did nothing
-          at all with a mouse. Touch was unaffected, which is why it survived:
-          that path goes through the "Draw a Box" button and touch does not
-          start an image drag.
-
-          The `-webkit-user-drag` property is the same instruction for older
-          WebKit, which ignores the attribute.
-        */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={imageRef}
@@ -185,10 +170,6 @@ export default function PageCanvas({
               width: pctX(draft[2] - draft[0]),
               height: pctY(draft[3] - draft[1]),
             }}
-            /* The one border left in the app, and deliberately so: this is
-               the marquee you are dragging, not chrome around content. A
-               selection rectangle has to show its exact bounds, and a fill
-               alone cannot show an edge you are placing to the pixel. */
             className="absolute rounded-sm border-2 border-dashed border-accent bg-accent/10"
           />
         )}
@@ -200,22 +181,6 @@ export default function PageCanvas({
           : 'Loading this page’s text…'}
       </p>
 
-      {/* Only where there is a touch screen to gate. `any-pointer-coarse`
-          rather than a width breakpoint: a laptop with a touch screen has the
-          same problem as a phone and a wide window, and a mouse-only desktop
-          should not be shown a button it never needs.
-
-          Sticky, because the button has to be reachable from wherever the
-          student has scrolled to. A page image is several screens tall, and the
-          question they want to box is rarely the one next to the heading. */}
-      {/* `inset-safe-bottom` rather than the fixed `bottom-2` offset it
-          replaced: that was a guess at clearing the home indicator that
-          happened to be close, and on a device that actually reports one,
-          env(safe-area-inset-bottom) is what makes the guess correct instead
-          of coincidental. The class is padding on a background-less wrapper
-          sized to its own button, so it reads the same as the offset it
-          replaced: empty space below the button, not a bar extending to the
-          edge with its own fill. */}
       <div className="inset-safe-bottom mt-1.5 hidden items-center gap-2 any-pointer-coarse:flex">
         <button
           type="button"

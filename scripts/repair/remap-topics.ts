@@ -7,15 +7,6 @@ import { flattenTaxonomy } from '../../lib/taxonomy/trees'
 import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
 import { openDatabase } from '../db'
 
-/*
- * Moves everything that was tagged, taught or proposed against the old
- * taxonomy onto the tree in lib/taxonomy/trees.ts, then removes the topics
- * nothing points at any more.
- *
- * Run `npm run db:seed` first: every target has to exist before anything can
- * be moved onto it. Run `npm run db:embed` afterwards, because a new leaf with
- * no embedding is invisible to the classifier.
- */
 async function main() {
   const apply = process.argv.includes('--apply')
 
@@ -99,9 +90,6 @@ async function main() {
 
     const toId = idBySlug.get(move.to)!
 
-    // A question can hold tags on two old topics that share one new home. The
-    // primary key is (question_id, topic_id), so the second move would collide:
-    // it is dropped rather than duplicated.
     const updated = await sql`
       update question_topics qt
       set topic_id = ${toId}
@@ -132,9 +120,6 @@ async function main() {
     )
   `
 
-  // Deleting is bottom-up: a branch is only removable once its children are
-  // gone, so one pass takes the leaves and leaves every parent standing. Repeat
-  // until a pass removes nothing.
   const deleted: string[] = []
 
   for (;;) {

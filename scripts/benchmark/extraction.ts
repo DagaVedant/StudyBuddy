@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 
 import { OllamaProvider, type OllamaCallStats } from '../../lib/ai/ollama'
-import { validated } from '../../lib/ai/validated'
+import { validated } from '../../lib/ai/parse'
 import { rasterizePdfPages, type RasterizedPage } from './rasterize-pdf'
 import { scoreRun, type ModelScore, type PageRun } from './score'
 
@@ -130,14 +130,6 @@ async function runModel(
   return runs
 }
 
-/**
- * Scores kept from earlier batches.
- *
- * The report is rewritten from scratch on every model, so a run limited to the
- * offloaded models would otherwise erase the small ones, and comparing them is
- * the entire point of the exercise. Re-running a model replaces its old score
- * rather than showing it twice.
- */
 async function previousScores(rerunning: Set<string>): Promise<ModelScore[]> {
   const files = await readdir(OUT).catch(() => [] as string[])
   const kept: ModelScore[] = []
@@ -234,8 +226,6 @@ async function main() {
 
   const discovered = await visionModels()
 
-  // Lets the models that fit run as one batch now and the offloaded ones go
-  // separately later, without either waiting on the other.
   const only = process.env.BENCH_ONLY ?? 'all'
   const matching = discovered.filter((c) =>
     only === 'fits' ? !c.offloaded : only === 'offloaded' ? c.offloaded : true,
@@ -246,9 +236,6 @@ async function main() {
     throw new Error(`No vision models matched BENCH_ONLY=${only}.`)
   }
 
-  // An offloaded model can take hours, so a run that dies partway (the machine
-  // sleeping is enough) must not throw away the ones already measured. Set
-  // BENCH_FORCE=1 to score a model again anyway.
   const finished = await previousScores(new Set())
   const finishedNames = new Set(finished.map((s) => s.model))
   const force = process.env.BENCH_FORCE === '1'
@@ -309,7 +296,6 @@ async function main() {
         `${score.tokensPerSec.toFixed(1)} tok/s\n`,
     )
 
-    // Written after every model so a long run is readable before it ends.
     const baseline = scores.find((s) => s.model.startsWith('qwen2.5vl'))
     await writeFile(join(OUT, 'report.md'), report(scores, baseline))
   }

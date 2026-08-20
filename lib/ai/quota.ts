@@ -3,7 +3,7 @@ import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm'
 import type { Db } from '@/lib/db/types'
 import { processingJobs, usageEvents, users, worksheets } from '@/lib/db/schema'
 
-import { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT } from './limits'
+import { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT } from './providers'
 
 export { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT }
 
@@ -160,11 +160,6 @@ export async function refundTrial(
 
 const DAY_MS = 24 * 3600_000
 
-/**
- * Trial worksheets sent to the operator GPU in the last rolling day, counted
- * from the queue rather than from the usage table, because the queue is what
- * the hardware actually has to work through.
- */
 export async function trialExtractionsToday(
   db: Db,
   now: Date = new Date(),

@@ -6,7 +6,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { and, eq, notExists, sql } from 'drizzle-orm'
 
 import { OllamaProvider } from '../../lib/ai/ollama'
-import { validated } from '../../lib/ai/validated'
+import { validated } from '../../lib/ai/parse'
 import { classifyQuestion } from '../../lib/classify'
 import * as schema from '../../lib/db/schema'
 import { questionTopics, questions, topics, worksheets } from '../../lib/db/schema'
@@ -14,14 +14,6 @@ import type { Db } from '../../lib/db/types'
 import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
 import { connect } from '../db'
 
-/*
- * Sorts whatever is left untagged, on this machine.
- *
- * The student-facing route is the browser sorter, and the queued route is the
- * operator GPU. Both need something running that is not always running. This
- * is the same three steps, embed, shortlist, pick, in one process against the
- * local Ollama, for the operator who is already at a terminal.
- */
 async function main() {
   const apply = process.argv.includes('--apply')
   const limit = Number(

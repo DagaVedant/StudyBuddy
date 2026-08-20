@@ -120,10 +120,6 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
     `),
   )
 
-  // Both counts are over the review queue, which is the same set the review tab
-  // draws from, so the tiles and the tab cannot disagree. A card for a question
-  // the student got right is not in either: markup writes one for every
-  // question on the paper and those were never what this screen is about.
   const [dueNow] = await db
     .select({ value: sql<number>`count(*)::int` })
     .from(reviewCards)
@@ -370,8 +366,6 @@ export async function getRecentWorksheets(
       status: worksheets.status,
       pageCount: worksheets.pageCount,
       createdAt: worksheets.createdAt,
-      // The same predicate the worksheets page counts with. These two numbers
-      // describe the same paper on two screens, and they disagreed.
       questionCount: sql<number>`count(distinct ${questions.id}) filter (where ${IS_QUESTION})::int`,
       wrongCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.outcome} = 'wrong')::int`,
       markedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.source} = 'markup')::int`,
@@ -536,23 +530,6 @@ export type StudyDay = {
   wrong: number
 }
 
-/*
- * The daily tally behind the study streak.
- *
- * `getStudyStreak` answers "how many days in a row", which is a single number
- * with no shape to it: it cannot show that the run before this one was longer,
- * or that the gap was a fortnight. This returns the raw per-day counts so the
- * dashboard can print the whole record and let the streak be read off it.
- *
- * Days with no attempts are omitted rather than returned as zeroes. The grid
- * that renders this has to generate its own full run of dates anyway, because
- * it needs them in the viewer's timezone and a query cannot know that, so
- * padding here would only be work thrown away twice.
- *
- * The window is expressed in SQL rather than passed as a parameter: this
- * driver takes ISO strings and not Date objects, and the interval keeps the
- * conversion out of the call entirely.
- */
 export async function getStudyCalendar(
   db: Db,
   userId: string,

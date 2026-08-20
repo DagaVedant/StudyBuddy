@@ -32,8 +32,6 @@ export function Meter({
   accuracy: number
   ranked?: boolean
   label: string
-  /* The dashboard's lead story sets its meter heavier, so the one bar you are
-     meant to read first is not the same weight as the seven under it. */
   thick?: boolean
 }) {
   const pct = Math.round(accuracy * 100)
@@ -51,10 +49,6 @@ export function Meter({
   return (
     <div
       {...measured}
-      /* Ink at low alpha rather than a fixed tone: the track sits on sticky
-         notes of five different colours now, and a beige bar on a green note
-         reads as a mistake. An alpha of the foreground darkens whatever it is
-         on and is right on all of them. */
       className={`w-full overflow-hidden bg-fg/15 ${thick ? 'h-3' : 'h-1.5'}`}
     >
       <div

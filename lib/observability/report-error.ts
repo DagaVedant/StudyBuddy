@@ -16,16 +16,6 @@ const MAX_PER_HOUR = 12
 
 const HOUR_MS = 3600_000
 
-/*
- * Two things stop an alert channel from becoming a channel nobody reads: the
- * same error firing on every request, and a bad deploy firing a thousand
- * different ones. So a message repeats at most once per ten minutes, and no
- * more than a dozen leave per hour.
- *
- * The state is per server instance, which on serverless means the ceiling is
- * per instance rather than global. That is weaker than it looks on paper and
- * still the difference between a handful of emails and an inbox.
- */
 const lastSeen = new Map<string, number>()
 let windowStartedAt = 0
 let sentThisWindow = 0
@@ -47,7 +37,6 @@ function shouldSend(key: string, now: number): boolean {
   return true
 }
 
-/** Only for tests: the counters are process-wide by design. */
 export function resetAlertThrottle(): void {
   lastSeen.clear()
   windowStartedAt = 0
@@ -62,15 +51,6 @@ function describe(report: ErrorReport): string {
   }`
 }
 
-/*
- * Errors already reach the platform log. What a log cannot do is tell
- * somebody. ERROR_WEBHOOK_URL takes anything accepting `{text}`, which Slack
- * and Discord both do; ALERT_EMAIL uses the mail the app already sends reset
- * links with, so alerting costs no new account.
- *
- * It never throws. An error while reporting an error is the one thing that
- * must not take a request down with it.
- */
 export async function reportError(
   report: ErrorReport,
   now: number = Date.now(),
