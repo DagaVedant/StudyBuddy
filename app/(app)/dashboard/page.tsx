@@ -29,7 +29,7 @@ import {
   getTopicStats,
 } from '@/lib/dashboard/queries'
 import StudyCalendar from '@/components/study-calendar'
-import { Underline } from '@/components/hand'
+import { PencilFrame, PencilRule, Underline } from '@/components/hand'
 import {
   MIN_ATTEMPTS,
   rankFragile,
@@ -59,9 +59,15 @@ const WHEN = new Intl.DateTimeFormat(undefined, {
 /*
  * A section of the page.
  *
- * Each section sits on a white sheet, laid on the cream page. The boxes are
- * white rather than toned and have no border: the step from paper to sheet is
- * the whole boundary, which is why `--surface` is close to pure white.
+ * Each section sits on a white sheet, laid on the cream page and ruled round
+ * in pencil. The frame is drawn rather than bordered: four separate strokes
+ * that wobble and overshoot their corners, which is what makes the page read
+ * as something worked through by hand rather than rendered. The heading gets
+ * a pencil rule under it for the same reason.
+ *
+ * The white is still doing the structural work. Pencil is thin, warm and low
+ * contrast on purpose, so if it fails to paint the sections are still legibly
+ * separate; it is the annotation on top, not the boundary.
  *
  * The broadsheet composition underneath is unchanged. Boxing the sections
  * does not turn this back into a grid of tiles, because the spans are still
@@ -100,6 +106,8 @@ function Panel({
       aria-labelledby={id}
       className={`card h-full ${lead ? 'p-6 sm:p-7' : 'p-5'}`}
     >
+      <PencilFrame />
+
       <div className="flex items-baseline gap-2.5">
         {no && (
           <span aria-hidden="true" className="section-no">
@@ -117,6 +125,10 @@ function Panel({
           {title}
         </h2>
       </div>
+      <div className={lead ? 'mt-2 max-w-[16rem]' : 'mt-1.5 max-w-[11rem]'}>
+        <PencilRule />
+      </div>
+
       {hint && <p className="hint max-w-prose text-pretty">{hint}</p>}
       <div className={hint ? 'mt-4' : 'mt-3'}>{children}</div>
     </section>

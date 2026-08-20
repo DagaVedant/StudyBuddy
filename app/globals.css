@@ -79,6 +79,12 @@
   --tint-lavender: oklch(92% 0.032 250);
   --tint-butter: oklch(93% 0.055 98);
 
+  /* Graphite. Everything drawn in pencil uses this and nothing else does, so
+     the hand-drawn layer stays one material rather than becoming a second
+     palette. Warm rather than blue-grey: a soft pencil on cream paper reads
+     brown, not cold. */
+  --pencil: oklch(56% 0.012 68);
+
   /* The margin red, and the shadow inside a punched hole. Both belong to the
      paper texture, not to any component: nothing in the interface is allowed
      to draw with them. */
@@ -123,6 +129,7 @@
   --color-caution: var(--caution);
   --color-marker: var(--marker);
   --color-marker-soft: var(--marker-soft);
+  --color-pencil: var(--pencil);
   --color-tint-mint: var(--tint-mint);
   --color-tint-peach: var(--tint-peach);
   --color-tint-lavender: var(--tint-lavender);
