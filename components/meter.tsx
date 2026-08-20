@@ -27,10 +27,14 @@ export function Meter({
   accuracy,
   ranked = true,
   label,
+  thick = false,
 }: {
   accuracy: number
   ranked?: boolean
   label: string
+  /* The dashboard's lead story sets its meter heavier, so the one bar you are
+     meant to read first is not the same weight as the seven under it. */
+  thick?: boolean
 }) {
   const pct = Math.round(accuracy * 100)
 
@@ -47,7 +51,7 @@ export function Meter({
   return (
     <div
       {...measured}
-      className="h-1.5 w-full overflow-hidden bg-wash-strong"
+      className={`w-full overflow-hidden bg-wash-strong ${thick ? 'h-3' : 'h-1.5'}`}
     >
       <div
         className={`h-full ${FILL[band(accuracy, ranked)]}`}

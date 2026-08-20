@@ -45,8 +45,16 @@ function level(total: number): 0 | 1 | 2 | 3 | 4 {
   return 4
 }
 
+/*
+ * Level 0 is a recess, not nothing.
+ *
+ * Every cell used to carry a hairline border, so an empty day was a visible
+ * empty square. When the borders came out the whole grid disappeared and only
+ * the days you had studied were left, floating with no calendar behind them.
+ * The base tone puts the sheet of squares back.
+ */
 const FILL: Record<number, string> = {
-  0: 'bg-transparent',
+  0: 'bg-wash',
   1: 'bg-marker/30',
   2: 'bg-marker/55',
   3: 'bg-marker/80',
@@ -83,6 +91,9 @@ export default function StudyCalendar({
     columns[columns.length - 1]?.push({ date, day: byDay.get(key(date)) })
   }
 
+  /* Walks with the column loop below; see the note on the label guard. */
+  let lastLabelAt = -99
+
   const studied = days.length
   const total = days.reduce((sum, day) => sum + day.total, 0)
   const best = bestRun(days)
@@ -118,12 +129,21 @@ export default function StudyCalendar({
 
           <div>
             <div className="flex gap-[3px]">
+              {/*
+                A label every month overran its neighbour: each sits in a
+                12px column and "Feb" is three times that. Labels are held
+                back unless there are three clear columns since the last one,
+                which drops the odd cramped pair and leaves the row readable.
+              */}
               {columns.map((week, index) => {
                 const first = week[0]?.date
                 const previous = columns[index - 1]?.[0]?.date
                 const isNewMonth =
                   first &&
                   (!previous || previous.getUTCMonth() !== first.getUTCMonth())
+                const roomSinceLast = index - lastLabelAt >= 3
+                const showLabel = isNewMonth && roomSinceLast
+                if (showLabel) lastLabelAt = index
 
                 return (
                   <span
@@ -131,7 +151,7 @@ export default function StudyCalendar({
                     aria-hidden="true"
                     className="w-[12px] font-mono text-[9px] leading-[12px] text-muted"
                   >
-                    {isNewMonth ? MONTHS[first.getUTCMonth()] : ''}
+                    {showLabel ? MONTHS[first.getUTCMonth()] : ''}
                   </span>
                 )
               })}

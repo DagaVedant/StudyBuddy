@@ -57,15 +57,22 @@ const WHEN = new Intl.DateTimeFormat(undefined, {
 })
 
 /*
- * A section of the paper, not a card in a grid.
+ * A section of the page.
  *
- * The number in the margin turns a set of equally-weighted tiles into a
- * document with an order to it. It is optional, and that is the point: it was
+ * No card, no tone, no box. The dashboard is laid out as one broadsheet now,
+ * and a newspaper page does not put a panel round each story; it separates
+ * them with space, a heading and a change of measure. Nine surface-toned
+ * rectangles was the last of the card-everywhere grid still standing.
+ *
+ * `lead` is the front-page treatment. Exactly one section on the page gets it
+ * and it is the one that answers the question the page exists to answer;
+ * everything else is set smaller so that it can be.
+ *
+ * The number in the margin is optional, and that is the point: it was
  * originally on all nine sections, evenly, and a system applied without a
- * single exception is itself a machine tell. Numbered now means "part of the
- * argument the data is making", read in order. The rest, the record, the
- * queue, the export, the log, are unnumbered because they are not steps in
- * that argument, they are things to look at or act on.
+ * single exception is itself a machine tell. Numbered means "part of the
+ * argument the data is making", read in order. The record, the queue, the
+ * export and the log are unnumbered because they are not steps in it.
  *
  * Decorative, so it is hidden from the accessibility tree; the heading is
  * still the thing that names the section.
@@ -74,28 +81,37 @@ function Panel({
   no,
   title,
   hint,
+  lead = false,
   children,
 }: {
   no?: string
   title: string
   hint?: string
+  lead?: boolean
   children: React.ReactNode
 }) {
   const id = title.toLowerCase().replace(/\W+/g, '-')
   return (
-    <section aria-labelledby={id} className="card h-full p-5">
+    <section aria-labelledby={id}>
       <div className="flex items-baseline gap-2.5">
         {no && (
           <span aria-hidden="true" className="section-no">
             {no}
           </span>
         )}
-        <h2 id={id} className="text-base font-semibold">
+        <h2
+          id={id}
+          className={
+            lead
+              ? 'text-balance font-display text-2xl font-semibold leading-tight tracking-tight sm:text-3xl'
+              : 'font-display text-lg font-semibold tracking-tight'
+          }
+        >
           {title}
         </h2>
       </div>
-      {hint && <p className="hint mb-3 text-pretty">{hint}</p>}
-      <div className={hint ? '' : 'mt-3'}>{children}</div>
+      {hint && <p className="hint max-w-prose text-pretty">{hint}</p>}
+      <div className={hint ? 'mt-4' : 'mt-3'}>{children}</div>
     </section>
   )
 }
@@ -357,10 +373,31 @@ export default async function DashboardPage() {
 
       {shouldOfferAiSetup(aiStatus) && <AiSetupPrompt />}
 
-      {hasData && (
-        <div className="mt-10 grid items-start gap-x-8 gap-y-10 lg:grid-cols-12">
-          <div className="lg:col-span-12">
-            <Panel
+      {/*
+        The spread.
+
+        Laid out as a broadsheet rather than as a grid of equal panels: one
+        lead story running seven columns, a five-column rail beside it, and
+        then rows that alternate which side is wide. The alternation is the
+        whole trick. A page where every row is split the same way reads as a
+        grid however unequal the halves are; swapping the wide side each row
+        is what makes it read as a composed page.
+
+        The right-hand items are dropped by `lg:mt-9` so the rows do not all
+        start on one line. Nothing is boxed, so without that stagger the
+        sections would align into columns and the boxes would be back in
+        spirit if not in pixels.
+
+        Auto-placement, not explicit tracks: two of these sections only appear
+        when there is something in them, and a fixed template would leave a
+        hole where they are not.
+      */}
+      <div className="mt-12 grid items-start gap-x-10 gap-y-14 lg:grid-cols-12">
+        {hasData && (
+          <>
+            <div className="lg:col-span-7">
+              <Panel
+              lead
               no="01"
               title="What is costing you marks"
               hint={`Ranked by how confident we can be that the misses are real, not by raw percentage. A topic needs ${MIN_ATTEMPTS} attempts before it appears here.`}
@@ -406,12 +443,20 @@ export default async function DashboardPage() {
                   )}
                 </Empty>
               ) : (
-                <ul className="">
-                  {weakest.map((topic) => (
+                /*
+                  The worst topic is set as a lead, not as the first row of a
+                  list. It is the single most useful fact the page holds, and
+                  ranking it first while drawing it identically to the seven
+                  below is a hierarchy you have to read to notice.
+                */
+                <ul className="mt-1">
+                  {weakest.map((topic, index) => (
                     <li key={topic.topicId}>
                       <Link
                         href={`/topics/${topic.topicId}`}
-                        className="block py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        className={`block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                          index === 0 ? 'pb-5 pt-1' : 'py-2.5'
+                        }`}
                       >
                         <div className="flex items-baseline justify-between gap-3">
                           <ViewTransition
@@ -419,22 +464,38 @@ export default async function DashboardPage() {
                             share="topic-title"
                             default="none"
                           >
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                            <span
+                              className={
+                                index === 0
+                                  ? 'min-w-0 flex-1 font-display text-xl font-semibold leading-tight tracking-tight sm:text-2xl'
+                                  : 'min-w-0 flex-1 truncate text-sm font-medium'
+                              }
+                            >
                               {topic.topicName}
                             </span>
                           </ViewTransition>
                           <span className="flex shrink-0 items-baseline gap-1.5">
-                            <AccuracyLabel
-                              accuracy={topic.accuracy}
-                              ranked
-                              attempts={topic.attempts}
-                            />
+                            {index === 0 ? (
+                              <span className="font-display text-3xl font-semibold tabular-nums sm:text-4xl">
+                                {PERCENT.format(topic.accuracy)}
+                              </span>
+                            ) : (
+                              <AccuracyLabel
+                                accuracy={topic.accuracy}
+                                ranked
+                                attempts={topic.attempts}
+                              />
+                            )}
                             <TrendArrow trend={topic.trend} />
                           </span>
                         </div>
                         <p className="truncate text-xs text-muted">{topic.topicPath}</p>
-                        <div className="mt-2">
-                          <Meter accuracy={topic.accuracy} label={topic.topicName} />
+                        <div className={index === 0 ? 'mt-3' : 'mt-2'}>
+                          <Meter
+                            accuracy={topic.accuracy}
+                            label={topic.topicName}
+                            thick={index === 0}
+                          />
                         </div>
                         <p className="mt-1 text-xs tabular-nums text-muted">
                           {topic.wrong} missed of {topic.attempts}
@@ -446,35 +507,19 @@ export default async function DashboardPage() {
                 </ul>
               )}
             </Panel>
-          </div>
+            </div>
 
-          <div className="lg:col-span-7">
-          <Panel
-            no="02"
-            title="Subject by subject"
-            hint="Rolled up from every question you have marked. Open a row to go deeper."
-          >
-            {subjectTree.length === 0 ? (
-              <Empty>No subjects yet.</Empty>
-            ) : (
-              <>
-                <TopicTree nodes={subjectTree} idBySlug={topicIdBySlug} />
-                <p className="hint">
-                  <Link
-                    href="/topics"
-                    className="text-accent underline underline-offset-2"
-                  >
-                    Browse every topic
-                  </Link>
-                  , including the ones you have not started.
-                </p>
-              </>
-            )}
-          </Panel>
-          </div>
+            {/* The rail. The record and the fragile list are both glanceable
+                rather than read, so they stack in the narrow column. */}
+            <div className="flex flex-col gap-12 lg:col-span-5 lg:mt-9">
+              <Panel
+              title="The record"
+              hint="Every day you have answered something, for the last half year."
+            >
+              <StudyCalendar days={calendar} streak={streak} />
+            </Panel>
 
-          <div className="lg:col-span-5">
-          <Panel
+              <Panel
             no="03"
             title="Right but guessed"
             hint="High accuracy with a high unsure rate is fragile, not strong."
@@ -496,10 +541,70 @@ export default async function DashboardPage() {
               </ul>
             )}
           </Panel>
-          </div>
+            </div>
 
-          <div className="lg:col-span-5">
-          <Panel
+            <div className="lg:col-span-4">
+              <Panel
+            no="02"
+            title="Subject by subject"
+            hint="Rolled up from every question you have marked. Open a row to go deeper."
+          >
+            {subjectTree.length === 0 ? (
+              <Empty>No subjects yet.</Empty>
+            ) : (
+              <>
+                <TopicTree nodes={subjectTree} idBySlug={topicIdBySlug} />
+                <p className="hint">
+                  <Link
+                    href="/topics"
+                    className="text-accent underline underline-offset-2"
+                  >
+                    Browse every topic
+                  </Link>
+                  , including the ones you have not started.
+                </p>
+              </>
+            )}
+          </Panel>
+            </div>
+
+            <div className="lg:col-span-8 lg:mt-9">
+              <Panel no="04" title="Are you getting better?" hint="Attempts per week.">
+              {!hasTrend ? (
+                <Empty>Not enough history yet.</Empty>
+              ) : (
+                <AccuracyChart overall={trend} bySubject={trendBySubject} />
+              )}
+            </Panel>
+            </div>
+
+            {distractors.length > 0 && (
+              <div className="lg:col-span-8">
+                <Panel
+                no="05"
+                title="Answers you keep reaching for"
+                hint="The same wrong choice, more than once."
+              >
+                <ul className="">
+                  {distractors.map((row) => (
+                    <li key={`${row.questionId}-${row.choiceLabel}`} className="py-2">
+                      <p className="truncate text-sm">{row.promptText}</p>
+                      <p className="text-xs text-muted">
+                        Picked{' '}
+                        <span className="font-medium">
+                          {row.choiceLabel}. {row.choiceText}
+                        </span>{' '}
+                        <span className="tabular-nums">{row.timesChosen}</span> times
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+              </div>
+            )}
+
+            <div className="lg:col-span-4 lg:mt-9">
+              <Panel
             title="Coming back to you"
             hint="What the scheduler has lined up, by topic."
           >
@@ -524,60 +629,11 @@ export default async function DashboardPage() {
               </ul>
             )}
           </Panel>
-          </div>
-
-          <div className="lg:col-span-7">
-            <Panel no="04" title="Are you getting better?" hint="Attempts per week.">
-              {!hasTrend ? (
-                <Empty>Not enough history yet.</Empty>
-              ) : (
-                <AccuracyChart overall={trend} bySubject={trendBySubject} />
-              )}
-            </Panel>
-          </div>
-
-          {/*
-            Sits beside the accuracy chart on purpose: that one says how well
-            the answers went, this one says whether you turned up at all, and
-            the two questions are only worth anything read together.
-          */}
-          <div className="lg:col-span-5">
-            <Panel
-              title="The record"
-              hint="Every day you have answered something, for the last half year."
-            >
-              <StudyCalendar days={calendar} streak={streak} />
-            </Panel>
-          </div>
-
-          {distractors.length > 0 && (
-            <div className="lg:col-span-12">
-              <Panel
-                no="05"
-                title="Answers you keep reaching for"
-                hint="The same wrong choice, more than once."
-              >
-                <ul className="">
-                  {distractors.map((row) => (
-                    <li key={`${row.questionId}-${row.choiceLabel}`} className="py-2">
-                      <p className="truncate text-sm">{row.promptText}</p>
-                      <p className="text-xs text-muted">
-                        Picked{' '}
-                        <span className="font-medium">
-                          {row.choiceLabel}. {row.choiceText}
-                        </span>{' '}
-                        <span className="tabular-nums">{row.timesChosen}</span> times
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </Panel>
             </div>
-          )}
 
-          {missed > 0 && (
-            <div className="lg:col-span-12">
-              <Panel
+            {missed > 0 && (
+              <div className="lg:col-span-5 lg:mt-9">
+                <Panel
                 title="Play these in Blooket"
                 hint="Every question you have got wrong, in Blooket's import format. In Blooket, choose Create a Set, then Import Questions, and upload the file."
               >
@@ -595,13 +651,13 @@ export default async function DashboardPage() {
                   right answer to score a question.
                 </p>
               </Panel>
-            </div>
-          )}
-        </div>
-      )}
+              </div>
+            )}
+          </>
+        )}
 
-      <div className="mt-10">
-        <Panel title="Lately">
+        <div className="lg:col-span-7">
+          <Panel title="Lately">
           {recent.length === 0 ? (
             <Empty>Nothing uploaded yet.</Empty>
           ) : (
@@ -642,6 +698,7 @@ export default async function DashboardPage() {
             </ul>
           )}
         </Panel>
+        </div>
       </div>
     </main>
   )
