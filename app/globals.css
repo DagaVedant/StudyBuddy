@@ -55,6 +55,17 @@
   --marker: oklch(91% 0.165 103);
   --marker-soft: oklch(94% 0.09 103);
 
+  /* The ink that goes on top of the highlighter, and the one colour that is
+     the same value in both themes. A marker is a bright yellow in either, so
+     what sits on it has to be dark in either; inheriting `--fg` would put
+     chalk-white text on yellow as soon as the page went dark. */
+  --marker-ink: oklch(21% 0.014 62);
+
+  /* Input boundaries. `--border` is a hairline for separating things, and at
+     roughly 1.5:1 it is correctly invisible for that job and far too light to
+     be the edge of a control, which WCAG 1.4.11 wants at 3:1. */
+  --field-border: oklch(55% 0.02 70);
+
   /* Retained under their old names so existing markup keeps working, but
      retuned from pastel fills to paper tints: these are stocks, not sweets. */
   --tint-mint: oklch(94% 0.035 158);
@@ -108,6 +119,10 @@
 
     --marker: oklch(80% 0.16 103);
     --marker-soft: oklch(38% 0.075 100);
+    /* Unchanged from light on purpose: see the note on the token. */
+    --marker-ink: oklch(21% 0.014 62);
+
+    --field-border: oklch(56% 0.02 74);
 
     --tint-mint: oklch(25% 0.035 158);
     --tint-peach: oklch(26% 0.04 62);
@@ -146,6 +161,10 @@
 
   --marker: oklch(80% 0.16 103);
   --marker-soft: oklch(38% 0.075 100);
+  /* Unchanged from light on purpose: see the note on the token. */
+  --marker-ink: oklch(21% 0.014 62);
+
+  --field-border: oklch(56% 0.02 74);
 
   --tint-mint: oklch(25% 0.035 158);
   --tint-peach: oklch(26% 0.04 62);
@@ -176,6 +195,7 @@
   --color-pen: var(--pen);
   --color-marker: var(--marker);
   --color-marker-soft: var(--marker-soft);
+  --color-field-border: var(--field-border);
   --color-tint-mint: var(--tint-mint);
   --color-tint-peach: var(--tint-peach);
   --color-tint-lavender: var(--tint-lavender);
@@ -293,7 +313,7 @@ h3 {
   }
 
   .field {
-    @apply min-h-11 w-full border border-border bg-surface px-3 py-2.5
+    @apply min-h-11 w-full border border-field-border bg-surface px-3 py-2.5
       text-fg outline-none placeholder:text-muted focus-visible:border-accent
       focus-visible:ring-2 focus-visible:ring-accent/25;
 
@@ -441,6 +461,7 @@ h3 {
    * the cap height the way a real marker does.
    */
   .marked {
+    color: var(--marker-ink);
     background-image: linear-gradient(
       to top,
       var(--marker) 0.1em,
