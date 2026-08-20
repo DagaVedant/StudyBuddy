@@ -18,7 +18,6 @@ import type { StudyDay } from '@/lib/dashboard/queries'
  * streak beside it can never disagree about where a day ends.
  */
 
-const WEEKS = 26
 const DAY_MS = 86_400_000
 
 /* Mondays first: the run of five is easier to read as a block than a week
@@ -64,10 +63,16 @@ const FILL: Record<number, string> = {
 export default function StudyCalendar({
   days,
   streak,
+  weeks = 26,
 }: {
   days: StudyDay[]
   streak: number
+  /* How many columns to draw. Half a year fills the page nicely and overruns
+     a 19rem margin, so the margin asks for a shorter window rather than
+     scrolling a grid that then looks cut off. */
+  weeks?: number
 }) {
+  const WEEKS = weeks
   const byDay = new Map(days.map((day) => [day.day, day]))
 
   /* Wind back to the Monday on or before the start of the window, so every
