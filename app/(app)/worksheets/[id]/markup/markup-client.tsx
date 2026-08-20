@@ -273,7 +273,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
   return (
     <div className="space-y-6">
       <div
-        className="inset-safe-top sticky top-0 z-10 -mx-6 bg-bg px-6 py-3"
+        className="inset-safe-top -mx-6 bg-bg px-6 py-3"
       >
         <div className="flex items-baseline justify-between gap-3">
           <p className="text-sm font-medium">

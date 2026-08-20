@@ -112,7 +112,7 @@ export default function PageCanvas({
       </div>
 
       <div
-        className={`card relative select-none overflow-hidden lg:sticky lg:top-4 ${
+        className={`card relative select-none overflow-hidden ${
           drawing ? 'touch-none ring-2 ring-accent' : 'touch-manipulation'
         }`}
         onPointerDown={(event) => {
@@ -216,7 +216,7 @@ export default function PageCanvas({
           sized to its own button, so it reads the same as the offset it
           replaced: empty space below the button, not a bar extending to the
           edge with its own fill. */}
-      <div className="inset-safe-bottom sticky bottom-0 mt-1.5 hidden items-center gap-2 any-pointer-coarse:flex">
+      <div className="inset-safe-bottom mt-1.5 hidden items-center gap-2 any-pointer-coarse:flex">
         <button
           type="button"
           aria-pressed={drawing}

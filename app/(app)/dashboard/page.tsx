@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ViewTransition } from 'react'
 
 import { auth } from '@/auth'
 import {
@@ -396,11 +395,6 @@ export default async function DashboardPage() {
                           }`}
                         >
                           <div className="flex items-baseline justify-between gap-3">
-                            <ViewTransition
-                              name={`topic-title-${topic.topicId}`}
-                              share="topic-title"
-                              default="none"
-                            >
                               <span
                                 className={
                                   index === 0
@@ -410,7 +404,6 @@ export default async function DashboardPage() {
                               >
                                 {topic.topicName}
                               </span>
-                            </ViewTransition>
                             <span className="flex shrink-0 items-baseline gap-1.5">
                               {index === 0 ? (
                                 <span className="font-display text-3xl font-semibold tabular-nums sm:text-4xl">
@@ -592,7 +585,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* The margin. */}
-        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+        <aside className="space-y-4">
           <MarginNote label="At a glance" colour="blue">
             <dl className="space-y-1.5">
               <Figure

@@ -264,7 +264,7 @@ export default function EditClient({
           Add a question by hand
         </button>
 
-        <div className="inset-safe-bottom sticky bottom-0 -mx-1 bg-bg px-1 pt-3">
+        <div className="inset-safe-bottom -mx-1 bg-bg px-1 pt-3">
           {untagged > 0 && (
             <p className="hint mb-2">
               <span className="tabular-nums">{untagged}</span> still have no topic. They

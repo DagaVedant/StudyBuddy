@@ -1,17 +1,16 @@
 /*
  * Homepage section two: "the object".
  *
- * The hero argues; this section produces the evidence. It is a composed
- * still of the real dashboard, and the three claims that used to sit here as
- * tinted feature tiles are now numbered notes pinned to the places on that
- * still where each one is visible.
+ * The hero argues; this section produces the evidence. It is a composed still
+ * of the real dashboard, and the three claims that used to sit here as tinted
+ * feature tiles are numbered notes pinned to the places on that still where
+ * each one is visible.
  *
- * The motion is a tilt-settle: the panel starts leaning back under a
- * perspective and lies down flat as you scroll it into view, like a sheet
- * being set onto the page. It is driven by a view() timeline, so there is no
- * observer, no client component, and nothing to hydrate, and where scroll
- * timelines are unsupported the panel simply renders in its settled state,
- * because the settled state is the one written on the element itself.
+ * It used to tilt back under a perspective and lie down flat as you scrolled
+ * it into view, driven by a `view()` scroll timeline. That is gone with the
+ * rest of the choreography: scroll-linked motion is the most advanced thing
+ * a page can do and the least like something a person put together, and it
+ * made the page move in a way scrolling should not.
  */
 
 /* 66rem, so the panel inside lands within a few pixels of the real
@@ -42,18 +41,8 @@
 
 /* ── the object ────────────────────────────────────────────── */
 
-/*
- * The perspective belongs to the parent. Declared on the animated element
- * itself it would apply *before* that element's own transform in the
- * rendering order and the tilt would come out flat.
- *
- * 1600px is a long lens on purpose: at hero distances the keystone becomes a
- * stunt. The top edge ends up ~4% narrower than the bottom, which is enough
- * to read as depth and not enough to notice as a trick.
- */
 .stage {
   margin-top: 2.5rem;
-  perspective: 1600px;
 }
 
 .mock {
@@ -64,11 +53,6 @@
    * is focusable, so this closes the last way in.
    */
   pointer-events: none;
-  /* The base rule is the finished state. Everything below only ever takes it
-     away from here and puts it back. */
-  transform: none;
-  /* Hinged along its bottom edge, so it lays down rather than swinging. */
-  transform-origin: 50% 100%;
   padding: 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -83,38 +67,6 @@
     padding: 1.5rem;
   }
 }
-
-@keyframes settle {
-  from {
-    transform: rotateX(6deg) scale(0.97);
-  }
-  to {
-    transform: none;
-  }
-}
-
-/*
- * Gated on support rather than left to fall back: with no scroll timeline an
- * un-gated `animation-duration: auto` resolves to 0s, which happens to land
- * on the right frame, but only by accident. This says it on purpose.
- */
-@supports (animation-timeline: view()) {
-  .mock {
-    animation: settle linear both;
-    animation-timeline: view();
-    /* Finishes while the panel is still arriving, so it is flat by the time
-       you are actually reading it. */
-    animation-range: entry 0% entry 45%;
-  }
-}
-
-/*
- * No `prefers-reduced-motion` fallback, by the owner's decision; the tilt
- * plays for everyone. It is a rotation on scroll, which is squarely the kind
- * of motion that setting exists to suppress, so weigh that before treating
- * its absence as an oversight. The `@supports` gate above is a browser
- * capability check and is unrelated; leave it in place.
- */
 
 /* ── the dashboard's own chrome ────────────────────────────── */
 

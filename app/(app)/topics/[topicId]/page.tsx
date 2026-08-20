@@ -1,7 +1,6 @@
 import { and, desc, eq, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ViewTransition } from 'react'
 
 import { auth } from '@/auth'
 import { AccuracyLabel, Meter } from '@/components/meter'
@@ -124,15 +123,9 @@ export default async function TopicPage({
         </Link>
       </nav>
 
-      <ViewTransition
-        name={`topic-title-${topicId}`}
-        share="topic-title"
-        default="none"
-      >
         <h1 className="text-balance text-2xl font-semibold tracking-tight">
           {topic.name}
         </h1>
-      </ViewTransition>
       <p className="hint mb-6 text-pretty">{path}</p>
 
       <section

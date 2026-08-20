@@ -56,11 +56,20 @@ export default function Hero({ children }: { children: React.ReactNode }) {
 
         <div className={styles.panel}>
           <div>
-            <p className={styles.count} aria-hidden="true" />
-            <span className="sr-only">
-              {TOTAL} questions found in one worksheet
-            </span>
-            <p className="hint mt-1">pulled out, tagged and ready to mark</p>
+            {/*
+              Real text, not a CSS counter.
+
+              This used to be `content: counter(sb)` driven by an animated
+              custom property, with the actual sentence duplicated in a
+              visually-hidden span because generated content is not reliably
+              announced, selectable or translatable. With the count animation
+              gone the whole apparatus can go: one element, one sentence, and
+              nothing to keep in sync.
+            */}
+            <p className={styles.count}>{TOTAL} questions</p>
+            <p className="hint mt-1">
+              found in one worksheet, pulled out, tagged and ready to mark
+            </p>
 
             <ul className={styles.topics}>
               {TOPICS.map((topic) => (
@@ -78,7 +87,6 @@ export default function Hero({ children }: { children: React.ReactNode }) {
                 <span className={styles.qbox} />
               </div>
             ))}
-            <div className={styles.beam} />
           </div>
         </div>
 
@@ -112,8 +120,6 @@ function Curve() {
           d={CURVE}
         />
       </svg>
-
-      <div className={styles.sweep} />
 
       {REVIEWS.map((review) => (
         <span

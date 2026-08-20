@@ -16,7 +16,7 @@ export default async function AppTopbar() {
    * was reading as a shadow rather than as a rule.
    */
   return (
-    <header className="inset-safe-top sticky top-0 z-50 bg-bg">
+    <header className="inset-safe-top bg-bg">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-4 sm:px-6">
         {/* The wordmark goes home, the way a masthead does. Dashboard has its
             own nav item a few pixels to the right, so pointing this there too

@@ -1,24 +1,23 @@
 /*
- * Homepage hero: "ground and figure".
+ * Homepage hero.
  *
- * Two layers. The forgetting curve is the ground: present from the first
- * frame but dim, so it reads as atmosphere. The extraction demo is the
- * figure, running in a panel on top of it. When the extraction finishes the
- * curve comes up to full and its review points light underneath, the
- * explanation arrives as a change in the background rather than as a second
- * screen.
+ * This used to be a five-second choreographed sequence: a clip drawing the
+ * forgetting curve, a counter ticking up to twenty-four, a read-head sweeping
+ * down the worksheet, topic rows sliding in one at a time, review dots
+ * popping, a band of light crossing the chart, and a caption fading in at the
+ * end of it.
  *
- * The whole sequence is CSS. No JavaScript, no observer, no client
- * component: the page stays a Server Component and the motion cannot fail
- * to start. It plays once on load and rests in its finished state, a
- * looping hero is exhausting on the second visit.
+ * It is all gone, and the elements that only existed to be animated, the
+ * sweep and the read-head, are gone with it rather than left sitting there
+ * inert. Every part of it was doing the same job, which was demonstrating
+ * that it could be done, and a landing page that performs for five seconds
+ * before it will hold still is a reliable sign that nobody in particular made
+ * it.
+ *
+ * What remains is the composition the sequence used to arrive at: the curve
+ * behind, the panel on top, the worksheet beside the count. Same picture. It
+ * just does not insist on being watched.
  */
-
-@property --sb-questions {
-  syntax: '<integer>';
-  inherits: false;
-  initial-value: 0;
-}
 
 .hero {
   position: relative;
@@ -37,8 +36,7 @@
  * One column, set left.
  *
  * It used to be centred, which is the arrangement every generated hero
- * arrives in and the reason this one read as generic despite the work in the
- * animation. Ranging it left gives the type a single edge to line up on.
+ * arrives in. Ranging it left gives the type a single edge to line up on.
  *
  * The spacing is deliberately uneven rather than a single gap: the mark sits
  * close to the sentence it signs, the sentence stands well clear of the demo,
@@ -52,10 +50,6 @@
   width: 100%;
   max-width: 48rem;
   text-align: left;
-  /* The panel's deal is a real 3D move; without a perspective on the parent
-     the rotations flatten into a shear and the whole thing reads as a slide.
-     Long lens on purpose; short ones turn the arrival into a stunt. */
-  perspective: 1500px;
 }
 
 /*
@@ -75,7 +69,6 @@
   letter-spacing: 0.18em;
   color: inherit;
   text-decoration: none;
-  animation: fadeup 400ms ease-out both;
 }
 
 .brand:hover {
@@ -94,9 +87,8 @@
 }
 
 /*
- * The one piece of display type on the page, so it is set like a headline
- * and not like a large paragraph: serif, tight, and big enough that the
- * optical size axis is doing visible work.
+ * The one piece of display type on the page, so it is set like a headline and
+ * not like a large paragraph.
  */
 .blurb {
   max-width: 20ch;
@@ -106,7 +98,6 @@
   line-height: 1.04;
   letter-spacing: -0.03em;
   text-wrap: balance;
-  animation: fadeup 400ms ease-out 80ms both;
 }
 
 .axis {
@@ -124,14 +115,16 @@
 
 /* ── the ground ────────────────────────────────────────────── */
 
-/* Full bleed, so the decay genuinely passes behind the panel rather than
-   sitting under it as a separate band. */
+/*
+ * Full bleed, so the decay genuinely passes behind the panel rather than
+ * sitting under it as a separate band. Held well short of full strength: this
+ * layer is the room, not the subject, and the call to action sits on it.
+ */
 .plot {
   position: absolute;
   inset: 0;
   z-index: -1;
-  opacity: 0.16;
-  animation: brighten 900ms cubic-bezier(0.22, 1, 0.36, 1) 3.3s both;
+  opacity: 0.4;
 }
 
 /* Stretched into a tall viewport the curve degenerates into vertical streaks,
@@ -158,29 +151,9 @@
   height: 100%;
 }
 
-/* Stops well short of full: this layer is the room, not the subject, and
-   the call to action sits on top of it. */
-@keyframes brighten {
-  from {
-    opacity: 0.16;
-  }
-  to {
-    opacity: 0.45;
-  }
-}
-
-/* Held back until the line that bounds it has been drawn; a fill with no
-   edge yet reads as a stain rather than as the area under a curve. */
 .area {
   fill: var(--accent);
-  opacity: 0;
-  animation: areain 900ms ease-out 2.1s both;
-}
-
-@keyframes areain {
-  to {
-    opacity: 0.09;
-  }
+  opacity: 0.09;
 }
 
 /* Paired with vector-effect on the element, so this is 2 device pixels at
@@ -192,121 +165,18 @@
   stroke-linecap: round;
 }
 
-/*
- * The line draws itself behind a moving clip, not behind a shutter.
- *
- * This used to be a rectangle painted in `--bg`, retreating to the right. It
- * worked only while the page behind it was one flat colour, and it forced the
- * hero to repaint itself opaque to guarantee that, which meant the ruled
- * paper, the margin and the binder holes all stopped at the top of the page.
- * Clipping the artwork reveals exactly the same geometry, matches any
- * background by construction because there is nothing to match, and lets the
- * hero go transparent.
- *
- * `stroke-dashoffset`, the obvious alternative, does not survive
- * `vector-effect: non-scaling-stroke`: `pathLength` normalisation is computed
- * against the rendered length rather than the declared 100, so a dasharray
- * meant to span the path tiles across it and the line appears in fragments.
- *
- * On the svg rather than on `.plot`, so the review dots that pop in later are
- * outside the clip and cannot be caught by it.
- */
-.plot svg {
-  animation: reveal 2.4s cubic-bezier(0.32, 0, 0.28, 1) 300ms both;
-}
-
-@keyframes reveal {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-/*
- * A band of light travelling the width of the chart, timed to arrive with the
- * brighten, the flourish that says the curve is the point, now that the
- * extraction has finished making it.
- */
-.sweep {
-  position: absolute;
-  inset-block: 0;
-  width: 22%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in oklch, var(--accent) 30%, transparent),
-    transparent
-  );
-  opacity: 0;
-  /* Faded out across the top third so it stays a gleam along the chart rather
-     than a bar of light crossing the headline. */
-  mask-image: linear-gradient(to bottom, transparent 0%, black 38%);
-  animation: sweep 1.8s cubic-bezier(0.4, 0, 0.3, 1) 3.3s both;
-}
-
-/* translateX is a percentage of the band's own width, so crossing a box it
-   occupies 22% of takes a little over 450%. */
-@keyframes sweep {
-  0% {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  14%,
-  82% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(500%);
-    opacity: 0;
-  }
-}
-
+/* The three points where a review lands. */
 .dot {
   position: absolute;
   width: 0.625rem;
   height: 0.625rem;
   border-radius: 999px;
   background: var(--accent);
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0);
-  animation: pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-.dot:nth-of-type(1) {
-  animation-delay: 3.9s;
-}
-.dot:nth-of-type(2) {
-  animation-delay: 4.12s;
-}
-.dot:nth-of-type(3) {
-  animation-delay: 4.34s;
-}
-
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
+  transform: translate(-50%, -50%);
 }
 
 /* ── the figure ────────────────────────────────────────────── */
 
-/*
- * The deal.
- *
- * The panel arrives the way a card is dealt onto a table: from far back and
- * below, pitched over on two axes at once, swinging flat and overshooting a
- * few degrees past level before it settles. Rotation on its own reads as a
- * PowerPoint transition, so every part of it is tied to something physical:
- * it travels in z as well as y, the roll and the pitch resolve together, and
- * the overshoot is what sells the weight.
- */
 .panel {
   position: relative;
   display: grid;
@@ -316,70 +186,11 @@
   padding: 1.25rem;
   /* the column is centred; its contents are not */
   text-align: left;
-  border: 1px solid var(--rule-strong);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
-  /* Load-bearing, not decorative: the panel sits on a live background and
-     has to stay legible once the curve behind it comes up to full.
-     92% opaque is what does that work.
-
-     No `backdrop-filter: blur(10px)` any more. At 92% there are 8% of the
-     backdrop showing through for it to blur, which is not a visible effect;
-     what it did do was promote the panel to its own layer and make the browser
-     re-blur everything behind it on every frame of the curve animation
-     underneath, for the whole first few seconds of the landing page, which is
-     the one moment the page has to feel quick. */
+  /* Load-bearing, not decorative: the panel sits on the curve and has to stay
+     legible where the line passes behind it. */
   background: color-mix(in oklch, var(--surface) 92%, transparent);
-  /* A hard offset block rather than a soft drop. Nothing printed casts a
-     32px blur, and the flat shadow is what makes the panel read as a sheet
-     sitting on the page instead of as a floating dialog. */
-  box-shadow: 6px 6px 0 -1px color-mix(in oklch, var(--fg) 12%, transparent);
-  animation: deal 900ms cubic-bezier(0.22, 1, 0.36, 1) 200ms both;
-}
-
-/*
- * The hover shadow, parked on its own layer and faded in.
- *
- * Animating `box-shadow` repaints the shadow of a 736px-wide element on every
- * frame, which is the classic way to make a 150ms hover feel like it is
- * dragging. A second shadow on an ::after and a transition on its opacity is
- * the same picture, composited.
- */
-.panel::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  box-shadow: 9px 9px 0 -1px color-mix(in oklch, var(--fg) 16%, transparent);
-  opacity: 0;
-  pointer-events: none;
-}
-
-/*
- * A pointer response so the panel answers to being pointed at: 2px, which is
- * under the threshold of notice until it is missing. It has to move `translate`
- * rather than `transform`: the `deal` animation above holds `transform: none`
- * with fill-mode `both` after it finishes, and an animation's fill beats a
- * plain declaration, so a hover `transform` here would simply never apply.
- * `translate` is an independent property the animation never touches, and it
- * composes on top.
- */
-@media (hover: hover) {
-  .panel {
-    transition: translate 150ms ease-out;
-  }
-
-  .panel::after {
-    transition: opacity 150ms ease-out;
-  }
-
-  .panel:hover {
-    translate: 0 -2px;
-  }
-
-  .panel:hover::after {
-    opacity: 1;
-  }
 }
 
 @media (min-width: 48rem) {
@@ -391,26 +202,8 @@
   }
 }
 
-@keyframes deal {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 3.5rem, -520px) rotateX(32deg) rotateZ(-10deg)
-      scale(0.88);
-  }
-  40% {
-    opacity: 1;
-  }
-  72% {
-    /* past level, then back; a card does not stop dead on the table */
-    transform: translate3d(0, 0, 0) rotateX(-4deg) rotateZ(1.5deg) scale(1.012);
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 .count {
+  margin: 0;
   font-family: var(--font-fraunces), ui-serif, Georgia, serif;
   font-variation-settings: 'SOFT' 40, 'WONK' 1;
   font-weight: 700;
@@ -418,23 +211,6 @@
   line-height: 1;
   letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
-  counter-reset: sb var(--sb-questions);
-  animation: count 1.9s cubic-bezier(0.16, 1, 0.3, 1) 1.4s both;
-}
-
-/* The real sentence lives in a visually-hidden sibling; generated content
-   is not reliably announced, selectable, or translatable. */
-.count::after {
-  content: counter(sb) ' questions';
-}
-
-@keyframes count {
-  from {
-    --sb-questions: 0;
-  }
-  to {
-    --sb-questions: 24;
-  }
 }
 
 .topics {
@@ -459,10 +235,8 @@
   align-items: center;
   gap: 0.625rem;
   padding: 0.4375rem 0 0.4375rem 0.125rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--rule);
   font-size: 0.875rem;
-  opacity: 0;
-  animation: slidein 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .topic:last-child {
@@ -487,36 +261,21 @@
 
 .topic:nth-child(1) {
   --swatch: var(--success);
-  animation-delay: 1.6s;
 }
 .topic:nth-child(2) {
   --swatch: var(--caution);
-  animation-delay: 1.88s;
 }
 .topic:nth-child(3) {
   --swatch: var(--accent);
-  animation-delay: 2.16s;
 }
 .topic:nth-child(4) {
   --swatch: var(--muted);
-  animation-delay: 2.44s;
-}
-
-@keyframes slidein {
-  from {
-    opacity: 0;
-    transform: translateX(0.5rem);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 /* ── the worksheet being read ──────────────────────────────── */
 
 /*
- * The worksheet being read, set down slightly off square.
+ * The worksheet, set down slightly off square.
  *
  * Everything else in this panel is aligned to the pixel, which is what makes
  * the panel read as a diagram. Nudging the one element that is supposed to be
@@ -546,17 +305,13 @@
 
 /*
  * Real question text, set small; the sheet is a document seen at a distance,
- * not a reading surface, so it is sized to read as prose at a glance and to
- * stay within about three lines in the narrow column. `--fg` rather than
- * `--muted`: worksheet ink is black, and greying it would push the sheet back
- * into looking like placeholder.
+ * not a reading surface. `--fg` rather than `--muted`: worksheet ink is black,
+ * and greying it would push the sheet back into looking like placeholder.
  */
 .stem {
   position: relative;
   z-index: 1;
   margin: 0;
-  /* Big enough to actually read; the point of using real questions here is
-     credibility, and text you have to squint at is still a wireframe. */
   font-size: 0.8125rem;
   line-height: 1.45;
   letter-spacing: -0.005em;
@@ -567,128 +322,18 @@
 }
 
 /*
- * One animation per box rather than a snap plus a settle: two animations
- * touching opacity would fight during the second one's delay, because
- * fill-mode `both` makes it assert its start value before it runs.
- */
-/*
- * A highlighter pass over each question as the reader finds it, not a box
- * drawn round it. The outline was the last border in the interface, and the
- * fill says the same thing better: this is an app about marking worksheets,
- * and a marked question is highlighted, not boxed.
+ * A highlighter pass over each question the reader found, not a box drawn
+ * round it. This is an app about marking worksheets, and a marked question is
+ * highlighted rather than boxed.
  */
 .qbox {
   position: absolute;
   inset: 0;
-  background: color-mix(in oklch, var(--marker) 62%, transparent);
+  background: color-mix(in oklch, var(--marker) 55%, transparent);
   border-radius: var(--radius);
-  opacity: 0;
-  animation: qbox 1.4s linear both;
 }
-
-.q:nth-child(1) .qbox {
-  animation-delay: 1.4s;
-}
-.q:nth-child(2) .qbox {
-  animation-delay: 1.68s;
-}
-.q:nth-child(3) .qbox {
-  animation-delay: 1.96s;
-}
-.q:nth-child(4) .qbox {
-  animation-delay: 2.24s;
-}
-
-@keyframes qbox {
-  0% {
-    opacity: 0;
-    transform: scale(1.04);
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  13% {
-    opacity: 1;
-    transform: none;
-  }
-  71% {
-    opacity: 1;
-  }
-  87% {
-    /* settles rather than vanishing; the evidence stays on screen */
-    opacity: 0.4;
-  }
-  100% {
-    opacity: 0.4;
-  }
-}
-
-/*
- * translateY percentages resolve against the element's own height, so a
- * 25%-tall head travelling -100% → 400% crosses exactly one sheet at any
- * viewport size, without animating a layout property.
- */
-.beam {
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  height: 25%;
-  pointer-events: none;
-  background: linear-gradient(
-    transparent,
-    color-mix(in oklch, var(--accent) 22%, transparent),
-    transparent
-  );
-  animation: beam 2.2s cubic-bezier(0.4, 0, 0.2, 1) 1.15s both;
-}
-
-@keyframes beam {
-  0% {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  8% {
-    opacity: 1;
-  }
-  88% {
-    transform: translateY(400%);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(400%);
-    opacity: 0;
-  }
-}
-
-/* ── the line that arrives once the curve is lit ───────────── */
 
 .caption {
   max-width: 30rem;
   margin: 3rem 0 0;
-  animation: fadeup 400ms ease-out 4.4s both;
 }
-
-@keyframes fadeup {
-  from {
-    opacity: 0;
-    transform: translateY(0.25rem);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/*
- * There is deliberately no `prefers-reduced-motion` fallback here.
- *
- * This sequence used to collapse to its finished state when the OS asked for
- * reduced motion; the owner's decision is that it should play for everyone.
- * Be aware of what that costs before restoring the guard or removing this
- * note: the read-head travels the full sheet, the pills slide, and the dots
- * scale up, the kinds of movement the setting exists to suppress for people
- * with vestibular disorders.
- *
- * If it is ever reinstated, the cheaper version is to keep the sequence and
- * strip only the movement: cross-fade the pills and dots in place, drop the
- * beam, leave the counter and the curve's brighten alone. The story survives
- * without anything traversing the screen.
- */

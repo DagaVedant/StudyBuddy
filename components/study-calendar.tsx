@@ -119,7 +119,7 @@ export default function StudyCalendar({
         fit a phone, and shrinking the squares to make it fit is what turns a
         readable grid into a texture.
       */}
-      <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+      <div className="-mx-1 overflow-x-auto px-1 pb-1">
         <div className="flex min-w-max gap-1.5">
           <div
             aria-hidden="true"

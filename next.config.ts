@@ -22,10 +22,6 @@ const nextConfig: NextConfig = {
   // Bundling it breaks both.
   serverExternalPackages: ["nodemailer"],
 
-  experimental: {
-    viewTransition: true,
-  },
-
   async redirects() {
     return [
       {

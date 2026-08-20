@@ -160,7 +160,7 @@ export default function TopicPicker({ topics, value, onChange, disabled }: Props
             id={listId}
             role="listbox"
             aria-label="Topics"
-            className="max-h-64 overflow-y-auto overscroll-contain"
+            className="max-h-64 overflow-y-auto"
           >
             {results.map((topic, index) => (
               <div

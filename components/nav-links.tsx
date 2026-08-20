@@ -18,7 +18,7 @@ export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <nav aria-label="Main" className="min-w-0 flex-1">
-      <ul className="flex items-center gap-1 overflow-x-auto text-sm md:justify-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <ul className="flex flex-wrap items-center gap-1 text-sm md:justify-center">
         {items.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`)
