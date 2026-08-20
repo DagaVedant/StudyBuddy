@@ -8,7 +8,7 @@ import { OllamaProvider } from '../../lib/ai/ollama'
 import { validated } from '../../lib/ai/parse'
 import type { Db } from '../../lib/db/types'
 import * as schema from '../../lib/db/schema'
-import { generateLesson, topicsNeedingLessons } from '../../lib/topics/lesson'
+import { generateLesson, topicsNeedingLessons } from '../../lib/topics'
 import { connect, requireDatabaseUrl } from '../db'
 
 function arg(name: string, fallback: string): string {

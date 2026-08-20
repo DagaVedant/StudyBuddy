@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { attempts, processingJobs, questions, worksheets } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
 import { phaseFor } from '@/lib/worker/progress'
-import { destination } from '@/lib/worksheets/destination'
+import { destination } from '@/lib/worksheets'
 
 import BrowserRunner from './browser-runner'
 import GoManualButton from './go-manual-button'

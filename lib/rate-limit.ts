@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
 
-import { unwrapDriverRows } from '@/lib/db/rows'
+import { unwrapDriverRows } from '@/lib/db/types'
 import type { Db } from '@/lib/db/types'
 
 export interface LimitDecision {
@@ -216,4 +216,4 @@ export async function guardRateLimit(
   return decision.ok ? null : limitedResponse(decision, message)
 }
 
-export { callerIp } from '@/lib/http/client-ip'
+export { callerIp } from '@/lib/request'

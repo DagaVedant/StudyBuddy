@@ -16,7 +16,7 @@ import {
 } from '@/lib/db/schema'
 import { CHOICE_ORDER } from '@/lib/questions/sql'
 import { pathBySlug } from '@/lib/taxonomy/trees'
-import { getLesson } from '@/lib/topics/lesson'
+import { getLesson } from '@/lib/topics'
 import Prose from '@/components/prose'
 import RevisitQuestion from '@/components/revisit-question'
 import GenerateLessonButton from '@/components/generate-lesson-button'

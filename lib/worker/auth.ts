@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 
-import { clientIp } from '@/lib/http/client-ip'
+import { clientIp } from '@/lib/request'
 
 function safeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a)

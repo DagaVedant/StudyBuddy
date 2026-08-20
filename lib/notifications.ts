@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 
-import { notifications, pushSubscriptions } from '@/lib/db/schema'
+import { notifications, pushSubscriptions, worksheets } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 
 export type NotificationKind = 'worksheet_ready' | 'worksheet_failed'
@@ -110,4 +110,31 @@ export async function markAllRead(db: Db, userId: string, now = new Date()): Pro
     .update(notifications)
     .set({ readAt: now })
     .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)))
+}
+
+export async function notifyWorksheet(
+  db: Db,
+  userId: string,
+  worksheetId: string,
+  kind: NotificationKind,
+): Promise<void> {
+  const [worksheet] = await db
+    .select({ title: worksheets.title })
+    .from(worksheets)
+    .where(eq(worksheets.id, worksheetId))
+    .limit(1)
+
+  if (!worksheet) return
+
+  const ready = kind === 'worksheet_ready'
+
+  await notify(db, {
+    userId,
+    kind,
+    title: worksheet.title,
+    body: ready
+      ? 'Your worksheet is read and ready to check.'
+      : 'We could not read this worksheet. It was not counted against your trial.',
+    href: `/worksheets/${worksheetId}/status`,
+  })
 }

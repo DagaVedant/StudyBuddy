@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 
 import { users } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
-import { isUniqueViolation } from '@/lib/db/errors'
+import { isUniqueViolation } from '@/lib/db/types'
 
 import { validateUsername } from './username'
 

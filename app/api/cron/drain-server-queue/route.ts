@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { authenticateCron } from '@/lib/cron-auth'
+import { authenticateCron } from '@/lib/request'
 import { db } from '@/lib/db'
 import { reapAbandonedJobs } from '@/lib/queue'
 import { applyPermanentFailure } from '@/lib/worker/fail'

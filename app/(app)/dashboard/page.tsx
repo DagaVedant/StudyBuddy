@@ -46,7 +46,7 @@ import {
 import { buildTopicTree, pruneToAttempted } from '@/lib/dashboard/topic-tree'
 import { topics } from '@/lib/db/schema'
 import { pathBySlug } from '@/lib/taxonomy/trees'
-import { destination } from '@/lib/worksheets/destination'
+import { destination } from '@/lib/worksheets'
 
 import AccuracyChart from './accuracy-chart'
 

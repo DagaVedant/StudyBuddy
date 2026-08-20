@@ -1,6 +1,6 @@
 import type { Instrumentation } from 'next'
 
-import { reportError } from '@/lib/observability/report-error'
+import { reportError } from '@/lib/observability'
 
 export const onRequestError: Instrumentation.onRequestError = async (
   err,

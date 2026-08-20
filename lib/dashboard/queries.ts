@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNotNull, lte, sql } from 'drizzle-orm'
 
-import { unwrapDriverRows as rows } from '@/lib/db/rows'
+import { unwrapDriverRows as rows } from '@/lib/db/types'
 import { COUNTS_TOWARDS_ACCURACY, IS_QUESTION } from '@/lib/questions/sql'
 import { inReviewQueue } from '@/lib/review/queue'
 import {

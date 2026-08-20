@@ -13,7 +13,7 @@ import {
 } from '@/lib/db/schema'
 import { checkpointJob, completeJob, enqueueJob, failJob, touchJob } from '@/lib/queue'
 import { CHOICE_ORDER } from '@/lib/questions/sql'
-import { notifyWorksheet } from '@/lib/notifications/worksheet'
+import { notifyWorksheet } from '@/lib/notifications'
 import { transitionWorksheet } from '@/lib/upload/claim'
 import { applyPermanentFailure } from '@/lib/worker/fail'
 import { persistQuestions } from '@/lib/worker/ingest'

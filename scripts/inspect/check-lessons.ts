@@ -2,7 +2,7 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local', quiet: true })
 
-import { trimLessonBody } from '../../lib/topics/lesson-body'
+import { trimLessonBody } from '../../lib/topics'
 import { openDatabase } from '../db'
 
 const COLLECTED = [

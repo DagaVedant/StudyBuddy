@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 
-import { unwrapDriverRows } from '@/lib/db/rows'
+import { unwrapDriverRows } from '@/lib/db/types'
 import { processingJobs, gpuWorkers, users } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 import { transitionWorksheet } from '@/lib/upload/claim'

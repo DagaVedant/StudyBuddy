@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 
 import { refundTrial } from '@/lib/ai/quota'
-import { notifyWorksheet } from '@/lib/notifications/worksheet'
+import { notifyWorksheet } from '@/lib/notifications'
 import { worksheets } from '@/lib/db/schema'
 import type { Db } from '@/lib/db/types'
 import type { JobStage } from '@/lib/queue'

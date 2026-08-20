@@ -1,5 +1,5 @@
 import type { Db } from '@/lib/db/types'
-import { callerIp } from '@/lib/http/client-ip'
+import { callerIp } from '@/lib/request'
 import { SIGNIN_EMAIL_LIMIT, SIGNIN_IP_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 
 export async function signInThrottled(
