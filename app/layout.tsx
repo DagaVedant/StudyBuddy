@@ -4,7 +4,6 @@ import { Fraunces, Public_Sans, Space_Mono } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
 
 import AutoRefresh from '@/components/auto-refresh'
-import { themeInitScript } from '@/lib/theme-script'
 import { appBaseUrl } from '@/lib/app-url'
 
 import './globals.css'
@@ -62,11 +61,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   viewportFit: 'cover',
-  themeColor: [
-    /* Paper and graphite, matching --bg in each theme. */
-    { media: '(prefers-color-scheme: light)', color: '#f7f2e8' },
-    { media: '(prefers-color-scheme: dark)', color: '#252220' },
-  ],
+  /* Paper, matching --bg. One value, because the app is light only. */
+  themeColor: '#f7f2e8',
 }
 
 export default function RootLayout({
@@ -78,11 +74,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${publicSans.variable} ${fraunces.variable} ${spaceMono.variable} h-full`}
-      suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
       <body className="flex min-h-full flex-col">
         <a
           href="#main"

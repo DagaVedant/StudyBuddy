@@ -49,13 +49,11 @@
 }
 
 /*
- * One column, set left, hung off a margin rule.
+ * One column, set left.
  *
  * It used to be centred, which is the arrangement every generated hero
  * arrives in and the reason this one read as generic despite the work in the
- * animation. Ranging it left gives the type a single edge to line up on, and
- * the red rule down that edge is the same exercise-book margin the sheets
- * elsewhere in the app are printed with, at hero scale.
+ * animation. Ranging it left gives the type a single edge to line up on.
  *
  * The spacing is deliberately uneven rather than a single gap: the mark sits
  * close to the sentence it signs, the sentence stands well clear of the demo,
@@ -76,19 +74,12 @@
 }
 
 /*
- * The margin rule. Drawn on the column rather than on the section so it
- * tracks the text's own left edge at every width, and held back on narrow
- * viewports where there is no room to sit outside the type.
+ * A link, so it carries a link's affordances: no underline at rest (a
+ * wordmark with a rule under it reads as broken), a visible focus ring for
+ * the keyboard, and a colour change on hover so the pointer gets an answer.
  */
-@media (min-width: 40rem) {
-  .stack {
-    padding-left: 2rem;
-    border-left: 1px solid color-mix(in oklch, var(--pen) 45%, transparent);
-  }
-}
-
 .brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   margin: 0;
@@ -97,13 +88,24 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.18em;
+  color: inherit;
+  text-decoration: none;
   animation: fadeup 400ms ease-out both;
+}
+
+.brand:hover {
+  color: var(--accent);
+}
+
+.brand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .mark {
   width: 1.125rem;
   height: 1.125rem;
-  color: var(--pen);
+  color: var(--accent);
 }
 
 /*
@@ -509,7 +511,7 @@
   animation-delay: 2.16s;
 }
 .topic:nth-child(4) {
-  --swatch: var(--pen);
+  --swatch: var(--muted);
   animation-delay: 2.44s;
 }
 
@@ -574,7 +576,7 @@
 .qbox {
   position: absolute;
   inset: 0;
-  border: 1.5px solid var(--pen);
+  border: 1.5px solid var(--accent);
   border-radius: var(--radius);
   opacity: 0;
   animation: qbox 1.4s linear both;
@@ -628,7 +630,7 @@
   pointer-events: none;
   background: linear-gradient(
     transparent,
-    color-mix(in oklch, var(--pen) 20%, transparent),
+    color-mix(in oklch, var(--accent) 22%, transparent),
     transparent
   );
   animation: beam 2.2s cubic-bezier(0.4, 0, 0.2, 1) 1.15s both;

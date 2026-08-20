@@ -5,7 +5,6 @@ import { auth, signOut } from '@/auth'
 import Mark from './mark'
 import NavLinks from './nav-links'
 import NotificationBell from './notification-bell'
-import ThemeToggle from './theme-toggle'
 
 export default async function AppTopbar() {
   const session = await auth()
@@ -23,7 +22,7 @@ export default async function AppTopbar() {
           href="/dashboard"
           className="flex shrink-0 items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          <Mark className="h-[18px] w-[18px] text-pen" />
+          <Mark className="h-[18px] w-[18px] text-accent" />
           <span className="font-mono text-[0.8125rem] font-bold uppercase tracking-[0.14em]">
             StudyBuddy
           </span>
@@ -33,7 +32,6 @@ export default async function AppTopbar() {
 
         <div className="flex shrink-0 items-center gap-2">
           <NotificationBell />
-          <ThemeToggle />
           <form
             action={async () => {
               'use server'

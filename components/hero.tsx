@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import Mark from './mark'
 
 import styles from './hero.module.css'
@@ -33,10 +35,19 @@ export default function Hero({ children }: { children: React.ReactNode }) {
       <Curve />
 
       <div className={styles.stack}>
-        <p className={styles.brand}>
+        {/*
+          The wordmark is the top-left thing on the page and looks exactly
+          like the one in the signed-in masthead, which is a link. It was a
+          bare <p> here, so it invited a click and did nothing.
+
+          It points at /dashboard rather than at /, because / is the page it
+          is already on. Signed out, /dashboard redirects to /signin, so the
+          mark means "into the app" in both states.
+        */}
+        <Link href="/dashboard" className={styles.brand}>
           <Mark className={styles.mark} />
           StudyBuddy
-        </p>
+        </Link>
 
         <h1 className={styles.blurb}>
           Turn the worksheets you have already done into a record of what you

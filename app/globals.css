@@ -7,8 +7,7 @@
  * written on, so the interface is built from that vocabulary rather than from
  * the usual dashboard one. Paper stock instead of grey surfaces. Ink-weight
  * rules instead of soft shadows. Square corners, because nothing printed has
- * a 16px radius. The red margin line down the left of an exercise book is the
- * signature, and it is load-bearing: it is what makes a panel read as a sheet.
+ * a 16px radius.
  *
  * Colour is rationed on purpose. The base is monochrome ink on paper and it
  * carries the whole design; a hue only appears where it means something.
@@ -16,10 +15,12 @@
  * spoken for, the interactive colour is a fountain-pen blue that cannot be
  * confused with any of them. The highlighter yellow is the one purely
  * decorative colour, and it never carries text.
+ *
+ * Light only. There is no dark theme and no toggle: the whole conceit is
+ * paper, and a sheet of paper does not have a night mode.
  */
 
-:root,
-:root[data-theme='light'] {
+:root {
   color-scheme: light;
 
   /* Paper stock. Warm and slightly cream, so it reads as stock rather than as
@@ -46,10 +47,6 @@
   --success: oklch(45% 0.125 152);
   --warning: oklch(56% 0.155 55);
   --caution: oklch(62% 0.13 88);
-
-  /* The teacher's pen. Decorative and semantic at once: it is the margin rule
-     on every sheet, and it is the colour of a correction. */
-  --pen: oklch(53% 0.21 27);
 
   /* Highlighter. Never carries text; ink sits on top of it. */
   --marker: oklch(91% 0.165 103);
@@ -89,96 +86,6 @@
   --google-fg: #1f1f1f;
 }
 
-/*
- * Dark mode is not the light palette inverted. Paper becomes a graphite
- * board, ink becomes chalk, and the pen and highlighter both lift in
- * lightness so they stay themselves against a dark ground instead of going
- * muddy.
- */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    color-scheme: dark;
-
-    --bg: oklch(17.5% 0.009 68);
-    --surface: oklch(21.5% 0.011 70);
-    --fg: oklch(93% 0.011 84);
-    --muted: oklch(67% 0.018 76);
-
-    --border: oklch(33% 0.014 72);
-    --rule-strong: oklch(78% 0.016 80);
-
-    --accent: oklch(74% 0.13 254);
-    --accent-fg: oklch(17.5% 0.009 68);
-
-    --danger: oklch(68% 0.17 27);
-    --success: oklch(70% 0.13 154);
-    --warning: oklch(74% 0.13 58);
-    --caution: oklch(78% 0.11 90);
-
-    --pen: oklch(66% 0.19 27);
-
-    --marker: oklch(80% 0.16 103);
-    --marker-soft: oklch(38% 0.075 100);
-    /* Unchanged from light on purpose: see the note on the token. */
-    --marker-ink: oklch(21% 0.014 62);
-
-    --field-border: oklch(56% 0.02 74);
-
-    --tint-mint: oklch(25% 0.035 158);
-    --tint-peach: oklch(26% 0.04 62);
-    --tint-lavender: oklch(26% 0.03 250);
-    --tint-butter: oklch(26% 0.04 98);
-
-    --rule-ghost: oklch(93% 0.011 84 / 0.05);
-
-    --google-bg: #131314;
-    --google-bg-hover: #1e1f20;
-    --google-border: #8e918f;
-    --google-fg: #e3e3e3;
-  }
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
-
-  --bg: oklch(17.5% 0.009 68);
-  --surface: oklch(21.5% 0.011 70);
-  --fg: oklch(93% 0.011 84);
-  --muted: oklch(67% 0.018 76);
-
-  --border: oklch(33% 0.014 72);
-  --rule-strong: oklch(78% 0.016 80);
-
-  --accent: oklch(74% 0.13 254);
-  --accent-fg: oklch(17.5% 0.009 68);
-
-  --danger: oklch(68% 0.17 27);
-  --success: oklch(70% 0.13 154);
-  --warning: oklch(74% 0.13 58);
-  --caution: oklch(78% 0.11 90);
-
-  --pen: oklch(66% 0.19 27);
-
-  --marker: oklch(80% 0.16 103);
-  --marker-soft: oklch(38% 0.075 100);
-  /* Unchanged from light on purpose: see the note on the token. */
-  --marker-ink: oklch(21% 0.014 62);
-
-  --field-border: oklch(56% 0.02 74);
-
-  --tint-mint: oklch(25% 0.035 158);
-  --tint-peach: oklch(26% 0.04 62);
-  --tint-lavender: oklch(26% 0.03 250);
-  --tint-butter: oklch(26% 0.04 98);
-
-  --rule-ghost: oklch(93% 0.011 84 / 0.05);
-
-  --google-bg: #131314;
-  --google-bg-hover: #1e1f20;
-  --google-border: #8e918f;
-  --google-fg: #e3e3e3;
-}
-
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -192,7 +99,6 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-caution: var(--caution);
-  --color-pen: var(--pen);
   --color-marker: var(--marker);
   --color-marker-soft: var(--marker-soft);
   --color-field-border: var(--field-border);
@@ -256,26 +162,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-@media (min-width: 60rem) {
-  body {
-    background-image:
-      linear-gradient(
-        to right,
-        transparent 3.5rem,
-        color-mix(in oklch, var(--pen) 26%, transparent) 3.5rem,
-        color-mix(in oklch, var(--pen) 26%, transparent) calc(3.5rem + 1px),
-        transparent calc(3.5rem + 1px)
-      ),
-      repeating-linear-gradient(
-        to bottom,
-        transparent,
-        transparent 31px,
-        var(--rule-ghost) 31px,
-        var(--rule-ghost) 32px
-      );
-  }
-}
-
 /*
  * Display type. Fraunces has optical-size, SOFT and WONK axes; set together
  * they are what stop a large heading from looking like body text that has
@@ -309,7 +195,7 @@ h3 {
    * the panel stops being a card and starts being a section of a document.
    */
   .section-no {
-    @apply font-mono text-[0.6875rem] tabular-nums text-pen;
+    @apply font-mono text-[0.6875rem] tabular-nums text-muted;
   }
 
   .field {
@@ -417,35 +303,23 @@ h3 {
   /*
    * A sheet of paper, and the one component that carries the whole idea.
    *
-   * Square corners, a real hairline border rather than a shadow, and the red
-   * margin rule 0.875rem in from the left edge, exactly where an exercise
-   * book prints it. The rule is an inset box-shadow rather than a border or a
-   * pseudo-element: a border would move the content box and force every
-   * caller to re-pad, and a pseudo-element would be one more thing for the
-   * cards that already use ::before to collide with.
+   * Square corners and a real hairline border rather than a shadow. It is the
+   * border that does the separating here, so it stays a solid hairline and
+   * never a soft edge.
    *
    * Kept under the name `.card` because roughly forty call sites use it, and
    * changing what a class looks like is a smaller change than renaming it
    * everywhere.
    *
-   * The border stays visible in forced-colors mode, where box-shadow and
-   * background-color are both discarded and everything is repainted from the
-   * user's own palette. A sheet whose only boundary was the shadow had no
-   * boundary at all there: the worksheets grid became one undivided page.
+   * The border is explicit rather than implied by the background, so it
+   * survives forced-colors mode, where background-color is discarded and
+   * everything is repainted from the user's own palette.
    */
   .card {
     position: relative;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--surface);
-    box-shadow: inset 0.875rem 0 0 -0.8125rem
-      color-mix(in oklch, var(--pen) 55%, transparent);
-  }
-
-  /* Opt out of the margin rule where a card is a tile rather than a sheet:
-     on something 5rem wide the rule is most of the left edge. */
-  .card-plain {
-    box-shadow: none;
   }
 
   /* An ink-weight frame, for the one element on a screen that outranks the
@@ -483,47 +357,6 @@ h3 {
     forced-color-adjust: none;
     background: Highlight;
   }
-}
-
-.theme-knob {
-  transform: translateX(0);
-}
-.theme-sun {
-  opacity: 1;
-}
-.theme-moon {
-  opacity: 0;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .theme-knob {
-    transform: translateX(1.25rem);
-  }
-  :root:not([data-theme='light']) .theme-sun {
-    opacity: 0;
-  }
-  :root:not([data-theme='light']) .theme-moon {
-    opacity: 1;
-  }
-}
-
-:root[data-theme='dark'] .theme-knob {
-  transform: translateX(1.25rem);
-}
-:root[data-theme='dark'] .theme-sun {
-  opacity: 0;
-}
-:root[data-theme='dark'] .theme-moon {
-  opacity: 1;
-}
-
-/* Unconditional: this app plays its motion regardless of the OS preference. */
-.theme-knob {
-  transition: transform 200ms ease-out;
-}
-.theme-sun,
-.theme-moon {
-  transition: opacity 150ms ease-out;
 }
 
 :root {

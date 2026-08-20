@@ -1,16 +1,8 @@
-import { createHash } from "node:crypto";
-
 import type { NextConfig } from "next";
-
-import { themeInitScript } from "./lib/theme-script";
-
-const themeScriptHash = `'sha256-${createHash("sha256")
-  .update(themeInitScript, "utf8")
-  .digest("base64")}'`;
 
 const reportOnlyCsp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com ${themeScriptHash}`,
+  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self'",

@@ -40,7 +40,7 @@ export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
                  */
                 className={`-mb-px block whitespace-nowrap border-b-2 px-3 py-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                   active
-                    ? 'border-pen text-fg'
+                    ? 'border-accent text-fg'
                     : 'border-transparent text-muted hover:text-fg'
                 }`}
               >
