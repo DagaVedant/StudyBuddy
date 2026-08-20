@@ -209,7 +209,7 @@ export default function NotificationBell() {
                       {!item.read && (
                         <span
                           aria-hidden="true"
-                          className="size-2 shrink-0 rounded-full bg-accent"
+                          className="size-2 shrink-0 bg-accent"
                         />
                       )}
                     </span>

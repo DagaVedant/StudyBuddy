@@ -123,15 +123,15 @@ export default function AccuracyChart({
 
       <p className="hint flex flex-wrap gap-x-4">
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-accent" aria-hidden="true" />
+          <span className="size-2 bg-accent" aria-hidden="true" />
           Correct
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-muted/50" aria-hidden="true" />
+          <span className="size-2 bg-muted/50" aria-hidden="true" />
           Unsure
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-danger/70" aria-hidden="true" />
+          <span className="size-2 bg-danger/70" aria-hidden="true" />
           Missed
         </span>
       </p>

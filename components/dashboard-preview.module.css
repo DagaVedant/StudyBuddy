@@ -71,7 +71,7 @@
   transform-origin: 50% 100%;
   padding: 1rem;
   border: 1px solid var(--border);
-  border-radius: 1.5rem;
+  border-radius: var(--radius-lg);
   /* Matches the real dashboard's ground: the cards inside are --surface and
      have to lift off something darker, exactly as they do in the app. */
   background: var(--bg);
@@ -136,7 +136,7 @@
 /* A picture of `.btn.btn-primary`, not the button itself. */
 .cta {
   padding: 0.4375rem 0.875rem;
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   background: var(--accent);
   color: var(--accent-fg);
   font-size: 0.8125rem;

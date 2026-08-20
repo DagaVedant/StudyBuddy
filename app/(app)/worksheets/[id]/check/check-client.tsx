@@ -244,7 +244,7 @@ export function CheckClient({
       </div>
 
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-border"
+        className="h-1.5 w-full overflow-hidden bg-border"
         role="progressbar"
         aria-valuenow={done}
         aria-valuemin={0}
@@ -252,7 +252,7 @@ export function CheckClient({
         aria-label="Questions checked"
       >
         <div
-          className="h-full rounded-full bg-accent transition-[width] duration-200"
+          className="h-full bg-fg transition-[width] duration-200"
           style={{ width: `${(done / questions.length) * 100}%` }}
         />
       </div>

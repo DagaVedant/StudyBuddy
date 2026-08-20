@@ -19,6 +19,36 @@ const RATINGS: { value: Rating; label: string; hint: string; key: string }[] = [
   { value: 'easy', label: 'Easy', hint: 'Instant', key: '4' },
 ]
 
+type Tally = Record<Rating, number>
+
+const NO_TALLY: Tally = { again: 0, hard: 0, good: 0, easy: 0 }
+
+/*
+ * The run.
+ *
+ * Only `again` breaks it. That is not leniency, it is what the scheduler
+ * already believes: `again` is the single rating FSRS treats as a lapse, and
+ * `hard` is a recall that took a while, not a failure. A run that broke on
+ * `hard` would be telling the student the opposite of what the algorithm
+ * behind the app is doing with the same button.
+ */
+function extendsRun(rating: Rating): boolean {
+  return rating !== 'again'
+}
+
+const RUN_COLOUR: Record<Rating, string> = {
+  again: 'bg-danger',
+  hard: 'bg-caution',
+  good: 'bg-success',
+  easy: 'bg-accent',
+}
+
+function minutesSince(start: number): string {
+  const minutes = Math.round((Date.now() - start) / 60_000)
+  if (minutes < 1) return 'under a minute'
+  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+}
+
 const EXPLAIN_DEADLINE_MS = 3 * 60_000
 const EXPLAIN_FIRST_WAIT_MS = 1_000
 const EXPLAIN_MAX_WAIT_MS = 15_000
@@ -78,6 +108,23 @@ export default function ReviewSession({
   const [explainNotice, setExplainNotice] = useState<string | null>(null)
   const [generated, setGenerated] = useState<Record<string, string>>({})
   const [refreshing, setRefreshing] = useState(false)
+
+  /*
+   * Session bookkeeping for the run counter and the recap.
+   *
+   * Deliberately not persisted and deliberately not reset when the queue
+   * refills mid-sitting, which matches `done` beside it: one sitting is one
+   * visit to this page, however many batches of twenty it took. Leaving the
+   * page ends the session, which is the behaviour a student expects from
+   * something described as a run.
+   */
+  const [tally, setTally] = useState<Tally>(NO_TALLY)
+  const [run, setRun] = useState(0)
+  const [bestRun, setBestRun] = useState(0)
+  /* Lazy initialiser rather than a ref: reading the clock is impure, and this
+     is the one place React will run it exactly once and never during a
+     re-render. */
+  const [startedAt] = useState(() => Date.now())
 
   const explainAbort = useRef<AbortController | null>(null)
 
@@ -248,6 +295,18 @@ export default function ReviewSession({
         })
         if (!response.ok) throw new Error('Could not save that rating')
 
+        /* Counted only once the rating is saved, so a failed request cannot
+           inflate a run the server never recorded. */
+        setTally((current) => ({
+          ...current,
+          [rating]: current[rating] + 1,
+        }))
+        setRun((current) => {
+          const next = extendsRun(rating) ? current + 1 : 0
+          setBestRun((best) => Math.max(best, next))
+          return next
+        })
+
         advance()
       } catch {
         setError('Could not save that rating. Check your connection and try again.')
@@ -303,18 +362,12 @@ export default function ReviewSession({
 
     if (done > 0) {
       return (
-        <div className="card p-6 text-center">
-          <h2 className="font-medium">Session complete</h2>
-          <p className="hint">
-            You reviewed <span className="tabular-nums">{done}</span>{' '}
-            {done === 1 ? 'question' : 'questions'}.
-          </p>
-          <div className="mt-4 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/dashboard" className="btn btn-primary sm:w-auto sm:px-6">
-              Back to dashboard
-            </Link>
-          </div>
-        </div>
+        <Recap
+          done={done}
+          bestRun={bestRun}
+          tally={tally}
+          startedAt={startedAt}
+        />
       )
     }
 
@@ -361,18 +414,44 @@ export default function ReviewSession({
 
   return (
     <div className="space-y-4">
-      <div
-        role="progressbar"
-        aria-valuenow={index}
-        aria-valuemin={0}
-        aria-valuemax={items.length}
-        aria-label="Review progress"
-        className="h-1 overflow-hidden rounded bg-border"
-      >
+      <div>
         <div
-          className="h-full bg-accent transition-[width] duration-200"
-          style={{ width: `${(index / items.length) * 100}%` }}
-        />
+          role="progressbar"
+          aria-valuenow={index}
+          aria-valuemin={0}
+          aria-valuemax={items.length}
+          aria-label="Review progress"
+          className="h-1 overflow-hidden bg-border"
+        >
+          <div
+            className="h-full bg-fg transition-[width] duration-200"
+            style={{ width: `${(index / items.length) * 100}%` }}
+          />
+        </div>
+
+        <div className="mt-2 flex items-baseline justify-between gap-3">
+          <p className="eyebrow">
+            Question {index + 1} / {items.length}
+          </p>
+
+          {/*
+            The run.
+
+            Held back until it is worth having: a counter that reads "1" after
+            every single answer is noise, and one that sits at zero while you
+            are getting things wrong is just a scold. From two upwards it is
+            something to keep going, which is the only reason it is here.
+
+            `aria-hidden`, because the live region at the foot of the page
+            already narrates progress and a number that changes on every
+            answer would interrupt it to say the same thing twice.
+          */}
+          {run >= 2 && (
+            <p aria-hidden="true" className="eyebrow text-fg">
+              Run <span className="marked font-bold tabular-nums">{run}</span>
+            </p>
+          )}
+        </div>
       </div>
 
       <article className="card p-5">
@@ -536,6 +615,109 @@ export default function ReviewSession({
         Question {index + 1} of {items.length}
         {revealed ? ', answer revealed' : ''}
       </p>
+    </div>
+  )
+}
+
+/*
+ * The end of a sitting.
+ *
+ * This used to be one sentence and a button. A sitting is the thing the whole
+ * app is arranged around, so it is worth printing properly: what the split
+ * was, how long the best run got, and how long it took. The bar is the only
+ * chart here because it is the only part that is easier to see than to read.
+ */
+function Recap({
+  done,
+  bestRun,
+  tally,
+  startedAt,
+}: {
+  done: number
+  bestRun: number
+  tally: Tally
+  startedAt: number
+}) {
+  const rated = RATINGS.reduce((sum, rating) => sum + tally[rating.value], 0)
+  const recalled = rated - tally.again
+
+  return (
+    <div className="card framed p-6">
+      <p className="eyebrow">Sitting complete</p>
+
+      <p className="mt-2 font-display text-4xl font-semibold tabular-nums">
+        {done} <span className="text-xl font-normal text-muted">reviewed</span>
+      </p>
+
+      {rated > 0 && (
+        <>
+          {/*
+            One bar, four segments, in the order the buttons are in. Segments
+            under 4% get a floor so a single `again` in a long sitting still
+            leaves a visible mark rather than rounding away to nothing.
+          */}
+          <div
+            aria-hidden="true"
+            className="mt-5 flex h-2.5 w-full overflow-hidden border border-border"
+          >
+            {RATINGS.filter((rating) => tally[rating.value] > 0).map(
+              (rating) => (
+                <span
+                  key={rating.value}
+                  className={RUN_COLOUR[rating.value]}
+                  style={{
+                    width: `${Math.max((tally[rating.value] / rated) * 100, 4)}%`,
+                  }}
+                />
+              ),
+            )}
+          </div>
+
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+            {RATINGS.map((rating) => (
+              <div key={rating.value} className="flex items-baseline gap-2">
+                <span
+                  aria-hidden="true"
+                  className={`size-2 shrink-0 ${RUN_COLOUR[rating.value]}`}
+                />
+                <dt className="flex-1 text-sm text-muted">{rating.label}</dt>
+                <dd className="font-mono text-sm font-bold tabular-nums">
+                  {tally[rating.value]}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
+
+      <p className="mt-5 border-t border-border pt-4 text-sm text-pretty">
+        {recalled === rated && rated > 0 ? (
+          <>You recalled every one of them.</>
+        ) : (
+          <>
+            You recalled <span className="tabular-nums">{recalled}</span> of{' '}
+            <span className="tabular-nums">{rated}</span> without having to
+            start over.
+          </>
+        )}{' '}
+        {bestRun >= 2 && (
+          <>
+            Your best run was{' '}
+            <span className="marked font-bold tabular-nums">{bestRun}</span> in
+            a row.{' '}
+          </>
+        )}
+        That took {minutesSince(startedAt)}.
+      </p>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <Link href="/dashboard" className="btn btn-primary sm:w-auto sm:px-6">
+          Back to dashboard
+        </Link>
+        <Link href="/worksheets" className="btn btn-secondary sm:w-auto sm:px-6">
+          Your worksheets
+        </Link>
+      </div>
     </div>
   )
 }

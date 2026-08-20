@@ -4,10 +4,10 @@ import { MIN_ATTEMPTS } from '@/lib/dashboard/ranking'
 import styles from './dashboard-preview.module.css'
 
 const STATS = [
-  { label: 'Due now', value: 12, tint: 'bg-tint-mint', link: true, pin: 3 },
-  { label: 'Later this week', value: 41, tint: 'bg-tint-peach' },
-  { label: 'Questions tracked', value: 218, tint: 'bg-tint-lavender', pin: 1 },
-  { label: 'Worksheets', value: 9, tint: 'bg-tint-butter' },
+  { label: 'Due now', value: 12, link: true, pin: 3 },
+  { label: 'Later this week', value: 41 },
+  { label: 'Questions tracked', value: 218, pin: 1 },
+  { label: 'Worksheets', value: 9 },
 ] as const
 
 const WEAKEST = [
@@ -95,19 +95,29 @@ export default function DashboardPreview() {
             <span className={styles.cta}>Upload a worksheet</span>
           </div>
 
-          <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {/*
+            The same ledger strip the real dashboard prints, down to the
+            unequal columns. This section's whole claim is that it is a still
+            of the app, so it has to be restyled in step with it: a mock that
+            has drifted from the screen it depicts is worse than no mock.
+          */}
+          <dl className="mt-5 grid grid-cols-2 border border-border sm:grid-cols-[1.3fr_1.3fr_1fr_1fr]">
             {STATS.map((stat) => (
               <div
                 key={stat.label}
-                className={`rounded-2xl px-4 py-3.5 ${stat.tint}`}
+                className="-mb-px -mr-px border-b border-r border-border px-4 py-3"
               >
-                <dt className="flex items-center gap-1.5 text-sm text-muted">
+                <dt className="eyebrow flex items-center gap-1.5">
                   {'pin' in stat && <span className={styles.pin}>{stat.pin}</span>}
                   {stat.label}
                 </dt>
-                <dd className="mt-1 text-2xl font-extrabold tabular-nums text-fg">
+                <dd
+                  className={`mt-1 font-display font-semibold tabular-nums text-fg ${
+                    'link' in stat ? 'text-3xl' : 'text-xl'
+                  }`}
+                >
                   {'link' in stat ? (
-                    <span className="text-accent underline underline-offset-4">
+                    <span className="text-accent underline decoration-1 underline-offset-4">
                       {stat.value}
                     </span>
                   ) : (

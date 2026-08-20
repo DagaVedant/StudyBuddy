@@ -52,7 +52,7 @@ export default function DeleteWorksheetButton({ worksheetId, title }: Props) {
         <div className="text-center">
           <span
             aria-hidden="true"
-            className="mx-auto flex size-11 items-center justify-center rounded-full bg-danger/10 text-danger"
+            className="mx-auto flex size-11 items-center justify-center bg-danger/10 text-danger"
           >
             <svg
               viewBox="0 0 24 24"

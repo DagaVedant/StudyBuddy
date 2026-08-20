@@ -47,10 +47,10 @@ export function Meter({
   return (
     <div
       {...measured}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-border"
+      className="h-1.5 w-full overflow-hidden bg-border"
     >
       <div
-        className={`h-full rounded-full ${FILL[band(accuracy, ranked)]}`}
+        className={`h-full ${FILL[band(accuracy, ranked)]}`}
         style={{ width: `${ranked ? Math.max(pct, 2) : 100}%` }}
       />
     </div>

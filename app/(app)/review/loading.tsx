@@ -8,7 +8,7 @@ export default function Loading() {
       <div className="skeleton h-8 w-32" />
       <div className="skeleton mt-3 h-4 w-64 max-w-full" />
 
-      <div className="skeleton mt-6 h-1.5 rounded-full" />
+      <div className="skeleton mt-6 h-1.5" />
 
       <div className="card mt-6 space-y-3 p-4">
         <div className="skeleton h-3 w-40" />

@@ -528,3 +528,60 @@ export async function getStudyStreak(
 
   return streak
 }
+
+export type StudyDay = {
+  day: string
+  total: number
+  correct: number
+  wrong: number
+}
+
+/*
+ * The daily tally behind the study streak.
+ *
+ * `getStudyStreak` answers "how many days in a row", which is a single number
+ * with no shape to it: it cannot show that the run before this one was longer,
+ * or that the gap was a fortnight. This returns the raw per-day counts so the
+ * dashboard can print the whole record and let the streak be read off it.
+ *
+ * Days with no attempts are omitted rather than returned as zeroes. The grid
+ * that renders this has to generate its own full run of dates anyway, because
+ * it needs them in the viewer's timezone and a query cannot know that, so
+ * padding here would only be work thrown away twice.
+ *
+ * The window is expressed in SQL rather than passed as a parameter: this
+ * driver takes ISO strings and not Date objects, and the interval keeps the
+ * conversion out of the call entirely.
+ */
+export async function getStudyCalendar(
+  db: Db,
+  userId: string,
+  days = 182,
+): Promise<StudyDay[]> {
+  const result = rows<{
+    day: string
+    total: number
+    correct: number
+    wrong: number
+  }>(
+    await db.execute(sql`
+      select
+        to_char(date_trunc('day', ${attempts.createdAt}), 'YYYY-MM-DD') as day,
+        count(*)::int as total,
+        count(*) filter (where ${attempts.outcome} = 'correct')::int as correct,
+        count(*) filter (where ${attempts.outcome} = 'wrong')::int as wrong
+      from ${attempts}
+      where ${attempts.userId} = ${userId}
+        and ${attempts.createdAt} >= now() - make_interval(days => ${days})
+      group by 1
+      order by 1
+    `),
+  )
+
+  return result.map((row) => ({
+    day: row.day,
+    total: Number(row.total),
+    correct: Number(row.correct),
+    wrong: Number(row.wrong),
+  }))
+}

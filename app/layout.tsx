@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Archivo, Geist } from 'next/font/google'
+import { Fraunces, Public_Sans, Space_Mono } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
 
 import AutoRefresh from '@/components/auto-refresh'
@@ -9,15 +9,34 @@ import { appBaseUrl } from '@/lib/app-url'
 
 import './globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+/*
+ * Three families, each with one job: see the note in globals.css for why
+ * these three and not the grotesque-plus-nothing this replaced.
+ *
+ * Fraunces is loaded as a variable font across the axes the stylesheet
+ * actually sets. `opsz` matters most: without it the display sizes get the
+ * text-optical cut, which is the version drawn to survive being small, and a
+ * 3rem heading set in it looks soft.
+ */
+const fraunces = Fraunces({
+  variable: '--font-fraunces',
   subsets: ['latin'],
+  axes: ['SOFT', 'WONK', 'opsz'],
+  display: 'swap',
 })
 
-const archivo = Archivo({
-  variable: '--font-archivo',
+const publicSans = Public_Sans({
+  variable: '--font-public-sans',
   subsets: ['latin'],
-  weight: ['800'],
+  display: 'swap',
+})
+
+/* Labels and metadata only, so two weights cover it. */
+const spaceMono = Space_Mono({
+  variable: '--font-space-mono',
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -44,8 +63,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#fcfcfd' },
-    { media: '(prefers-color-scheme: dark)', color: '#22242a' },
+    /* Paper and graphite, matching --bg in each theme. */
+    { media: '(prefers-color-scheme: light)', color: '#f7f2e8' },
+    { media: '(prefers-color-scheme: dark)', color: '#252220' },
   ],
 }
 
@@ -57,7 +77,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${archivo.variable} h-full`}
+      className={`${publicSans.variable} ${fraunces.variable} ${spaceMono.variable} h-full`}
       suppressHydrationWarning
     >
       <head>

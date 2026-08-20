@@ -49,7 +49,7 @@ export default function RevisitQuestion({
           {reflowText(promptText)}
         </p>
         <span
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-xs ${
+          className={`shrink-0 border px-2 py-0.5 text-xs ${
             OUTCOME_STYLE[outcome] ?? 'border-border text-muted'
           }`}
         >

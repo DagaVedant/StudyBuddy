@@ -1,25 +1,73 @@
 @import "tailwindcss";
 
+/*
+ * StudyBuddy's visual language: "marked paper".
+ *
+ * The product's raw material is a printed worksheet that somebody has already
+ * written on, so the interface is built from that vocabulary rather than from
+ * the usual dashboard one. Paper stock instead of grey surfaces. Ink-weight
+ * rules instead of soft shadows. Square corners, because nothing printed has
+ * a 16px radius. The red margin line down the left of an exercise book is the
+ * signature, and it is load-bearing: it is what makes a panel read as a sheet.
+ *
+ * Colour is rationed on purpose. The base is monochrome ink on paper and it
+ * carries the whole design; a hue only appears where it means something.
+ * Red is wrong, green is right, amber is unsure, and because those three are
+ * spoken for, the interactive colour is a fountain-pen blue that cannot be
+ * confused with any of them. The highlighter yellow is the one purely
+ * decorative colour, and it never carries text.
+ */
+
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --bg: oklch(97.5% 0.012 320);
-  --surface: oklch(99.5% 0.006 320);
-  --border: oklch(90% 0.025 320);
-  --fg: oklch(27% 0.045 320);
-  --muted: oklch(48% 0.035 320);
-  --accent: oklch(54% 0.19 42);
-  --accent-fg: oklch(99% 0.005 42);
-  --danger: oklch(52% 0.19 24);
-  --success: oklch(56% 0.14 158);
-  --warning: oklch(62% 0.15 55);
-  --caution: oklch(68% 0.12 90);
+  /* Paper stock. Warm and slightly cream, so it reads as stock rather than as
+     an unpainted div. The old background was tinted 320 (violet), which is the
+     single most common tell of a generated palette. */
+  --bg: oklch(96.4% 0.012 82);
+  --surface: oklch(99.2% 0.006 88);
+  --fg: oklch(21% 0.014 62);
+  --muted: oklch(44% 0.016 62);
 
-  --tint-mint: oklch(93% 0.05 165);
-  --tint-peach: oklch(92% 0.055 55);
-  --tint-lavender: oklch(93% 0.035 300);
-  --tint-butter: oklch(93% 0.06 95);
+  /* Two weights of rule. The hairline separates, the ink-weight one frames.
+     Having both is what keeps a square-cornered layout from turning into an
+     undifferentiated wireframe. */
+  --border: oklch(83% 0.018 74);
+  --rule-strong: oklch(21% 0.014 62);
+
+  /* Fountain-pen blue. Deliberately not a brand purple and not the orange it
+     replaced: it has to sit next to red, green and amber without joining the
+     marking vocabulary. */
+  --accent: oklch(42% 0.155 258);
+  --accent-fg: oklch(99% 0.004 88);
+
+  --danger: oklch(48% 0.2 27);
+  --success: oklch(45% 0.125 152);
+  --warning: oklch(56% 0.155 55);
+  --caution: oklch(62% 0.13 88);
+
+  /* The teacher's pen. Decorative and semantic at once: it is the margin rule
+     on every sheet, and it is the colour of a correction. */
+  --pen: oklch(53% 0.21 27);
+
+  /* Highlighter. Never carries text; ink sits on top of it. */
+  --marker: oklch(91% 0.165 103);
+  --marker-soft: oklch(94% 0.09 103);
+
+  /* Retained under their old names so existing markup keeps working, but
+     retuned from pastel fills to paper tints: these are stocks, not sweets. */
+  --tint-mint: oklch(94% 0.035 158);
+  --tint-peach: oklch(94% 0.04 62);
+  --tint-lavender: oklch(94% 0.028 250);
+  --tint-butter: oklch(95% 0.05 98);
+
+  /* The ruled-paper texture. Kept as a token so the two themes can set their
+     own contrast for it rather than sharing one alpha that suits neither. */
+  --rule-ghost: oklch(21% 0.014 62 / 0.055);
+
+  --radius: 3px;
+  --radius-lg: 4px;
 
   /* Google's, not ours. Their sign-in button is specified down to the hex in
      both themes, and a button that recolours itself to match a host app stops
@@ -30,26 +78,43 @@
   --google-fg: #1f1f1f;
 }
 
+/*
+ * Dark mode is not the light palette inverted. Paper becomes a graphite
+ * board, ink becomes chalk, and the pen and highlighter both lift in
+ * lightness so they stay themselves against a dark ground instead of going
+ * muddy.
+ */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --bg: oklch(18% 0.02 320);
-    --surface: oklch(23% 0.025 320);
-    --border: oklch(34% 0.03 320);
-    --fg: oklch(94% 0.015 320);
-    --muted: oklch(68% 0.025 320);
-    --accent: oklch(72% 0.15 42);
-    --accent-fg: oklch(18% 0.02 42);
-    --danger: oklch(70% 0.16 24);
-    --success: oklch(72% 0.13 160);
-    --warning: oklch(74% 0.13 55);
-    --caution: oklch(78% 0.11 92);
+    --bg: oklch(17.5% 0.009 68);
+    --surface: oklch(21.5% 0.011 70);
+    --fg: oklch(93% 0.011 84);
+    --muted: oklch(67% 0.018 76);
 
-    --tint-mint: oklch(26% 0.045 165);
-    --tint-peach: oklch(27% 0.05 55);
-    --tint-lavender: oklch(27% 0.035 300);
-    --tint-butter: oklch(27% 0.05 95);
+    --border: oklch(33% 0.014 72);
+    --rule-strong: oklch(78% 0.016 80);
+
+    --accent: oklch(74% 0.13 254);
+    --accent-fg: oklch(17.5% 0.009 68);
+
+    --danger: oklch(68% 0.17 27);
+    --success: oklch(70% 0.13 154);
+    --warning: oklch(74% 0.13 58);
+    --caution: oklch(78% 0.11 90);
+
+    --pen: oklch(66% 0.19 27);
+
+    --marker: oklch(80% 0.16 103);
+    --marker-soft: oklch(38% 0.075 100);
+
+    --tint-mint: oklch(25% 0.035 158);
+    --tint-peach: oklch(26% 0.04 62);
+    --tint-lavender: oklch(26% 0.03 250);
+    --tint-butter: oklch(26% 0.04 98);
+
+    --rule-ghost: oklch(93% 0.011 84 / 0.05);
 
     --google-bg: #131314;
     --google-bg-hover: #1e1f20;
@@ -61,22 +126,33 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: oklch(18% 0.02 320);
-  --surface: oklch(23% 0.025 320);
-  --border: oklch(34% 0.03 320);
-  --fg: oklch(94% 0.015 320);
-  --muted: oklch(68% 0.025 320);
-  --accent: oklch(72% 0.15 42);
-  --accent-fg: oklch(18% 0.02 42);
-  --danger: oklch(70% 0.16 24);
-  --success: oklch(72% 0.13 160);
-  --warning: oklch(74% 0.13 55);
-  --caution: oklch(78% 0.11 92);
+  --bg: oklch(17.5% 0.009 68);
+  --surface: oklch(21.5% 0.011 70);
+  --fg: oklch(93% 0.011 84);
+  --muted: oklch(67% 0.018 76);
 
-  --tint-mint: oklch(26% 0.045 165);
-  --tint-peach: oklch(27% 0.05 55);
-  --tint-lavender: oklch(27% 0.035 300);
-  --tint-butter: oklch(27% 0.05 95);
+  --border: oklch(33% 0.014 72);
+  --rule-strong: oklch(78% 0.016 80);
+
+  --accent: oklch(74% 0.13 254);
+  --accent-fg: oklch(17.5% 0.009 68);
+
+  --danger: oklch(68% 0.17 27);
+  --success: oklch(70% 0.13 154);
+  --warning: oklch(74% 0.13 58);
+  --caution: oklch(78% 0.11 90);
+
+  --pen: oklch(66% 0.19 27);
+
+  --marker: oklch(80% 0.16 103);
+  --marker-soft: oklch(38% 0.075 100);
+
+  --tint-mint: oklch(25% 0.035 158);
+  --tint-peach: oklch(26% 0.04 62);
+  --tint-lavender: oklch(26% 0.03 250);
+  --tint-butter: oklch(26% 0.04 98);
+
+  --rule-ghost: oklch(93% 0.011 84 / 0.05);
 
   --google-bg: #131314;
   --google-bg-hover: #1e1f20;
@@ -88,6 +164,7 @@
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-border: var(--border);
+  --color-rule-strong: var(--rule-strong);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
@@ -96,20 +173,100 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-caution: var(--caution);
+  --color-pen: var(--pen);
+  --color-marker: var(--marker);
+  --color-marker-soft: var(--marker-soft);
   --color-tint-mint: var(--tint-mint);
   --color-tint-peach: var(--tint-peach);
   --color-tint-lavender: var(--tint-lavender);
   --color-tint-butter: var(--tint-butter);
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+  /*
+   * Three families, each with one job.
+   *
+   * Fraunces sets anything meant to be read as a headline or a figure. It is
+   * a variable serif with a soft, slightly irregular colour that keeps big
+   * numbers from looking like a stock metric tile.
+   *
+   * Public Sans is the body. It was drawn for government forms, which is
+   * exactly the register a worksheet app wants: plain, legible, unbranded,
+   * and specifically not one of the grotesques every generated site ships
+   * with.
+   *
+   * Space Mono is for labels, eyebrows and metadata only. At small sizes and
+   * in caps it does the job the rubber stamp does on a paper form.
+   */
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, "Times New Roman",
+    serif;
+  --font-mono: var(--font-space-mono), ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-lg);
+  --radius-2xl: var(--radius-lg);
 }
 
+/*
+ * The page is ruled like a pad.
+ *
+ * Two gradients: a 32px horizontal rhythm, and a single vertical line 3.5rem
+ * in that is the exercise-book margin. Both are pinned to the top-left and
+ * sized in absolute units so the rhythm does not rescale with the viewport,
+ * which is what would give it away as a gradient rather than as stock.
+ *
+ * The vertical margin line is held back below 60rem: on a phone the content
+ * already starts inside where the line would fall, so it would cut through
+ * text instead of running beside it.
+ */
 body {
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 31px,
+    var(--rule-ghost) 31px,
+    var(--rule-ghost) 32px
+  );
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+@media (min-width: 60rem) {
+  body {
+    background-image:
+      linear-gradient(
+        to right,
+        transparent 3.5rem,
+        color-mix(in oklch, var(--pen) 26%, transparent) 3.5rem,
+        color-mix(in oklch, var(--pen) 26%, transparent) calc(3.5rem + 1px),
+        transparent calc(3.5rem + 1px)
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 31px,
+        var(--rule-ghost) 31px,
+        var(--rule-ghost) 32px
+      );
+  }
+}
+
+/*
+ * Display type. Fraunces has optical-size, SOFT and WONK axes; set together
+ * they are what stop a large heading from looking like body text that has
+ * been scaled up.
+ */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 30, 'WONK' 1;
+  letter-spacing: -0.015em;
 }
 
 /*
@@ -118,25 +275,44 @@ body {
  * @apply-ing one another.
  */
 @layer components {
+  /*
+   * Eyebrows are the stamped labels on a form. Mono, caps, wide, and small.
+   * This is the single most repeated piece of the new vocabulary, so it does
+   * a lot of the work of making a page look set rather than assembled.
+   */
   .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted;
+    @apply font-mono text-[0.6875rem] font-normal uppercase tracking-[0.16em] text-muted;
+  }
+
+  /*
+   * A section number, as printed on an exam paper. Pair it with a heading and
+   * the panel stops being a card and starts being a section of a document.
+   */
+  .section-no {
+    @apply font-mono text-[0.6875rem] tabular-nums text-pen;
   }
 
   .field {
-    @apply min-h-11 w-full rounded-xl border border-border bg-surface px-3 py-2.5
+    @apply min-h-11 w-full border border-border bg-surface px-3 py-2.5
       text-fg outline-none placeholder:text-muted focus-visible:border-accent
-      focus-visible:ring-2 focus-visible:ring-accent/30;
+      focus-visible:ring-2 focus-visible:ring-accent/25;
+
+    border-radius: var(--radius);
   }
 
   .btn {
-    @apply inline-flex min-h-11 w-full items-center justify-center rounded-xl
-      px-4 py-2 font-medium transition-colors focus-visible:outline-2
-      focus-visible:outline-offset-2 focus-visible:outline-accent
-      disabled:opacity-60;
+    @apply inline-flex min-h-11 w-full items-center justify-center px-4 py-2
+      font-medium transition-[background-color,color,border-color,box-shadow,translate]
+      duration-150 focus-visible:outline-2 focus-visible:outline-offset-2
+      focus-visible:outline-accent disabled:opacity-60;
+
+    border-radius: var(--radius);
   }
 
   .skeleton {
-    @apply animate-pulse rounded-xl bg-border;
+    @apply animate-pulse bg-border;
+
+    border-radius: var(--radius);
   }
 
   .inset-safe-top {
@@ -151,16 +327,47 @@ body {
     @apply -my-2 inline-flex min-h-11 items-center py-2;
   }
 
+  /*
+   * The primary action is a solid block of ink, not a coloured pill. It is
+   * the highest-contrast thing on the page, which is what a primary action
+   * should be, and it is the clearest single break from the tinted-button
+   * house style this replaced.
+   *
+   * The hard offset shadow is the press: it sits 2px down-right at rest and
+   * collapses under the pointer as the button moves into it, so the block
+   * reads as being pushed against the paper. `translate` and `box-shadow`
+   * only, so nothing reflows.
+   */
   .btn-primary {
-    @apply bg-accent text-accent-fg hover:opacity-90;
+    background: var(--fg);
+    color: var(--bg);
+    box-shadow: 2px 2px 0 0 color-mix(in oklch, var(--fg) 32%, transparent);
+  }
+
+  .btn-primary:hover {
+    translate: 1px 1px;
+    box-shadow: 1px 1px 0 0 color-mix(in oklch, var(--fg) 26%, transparent);
+  }
+
+  .btn-primary:active {
+    translate: 2px 2px;
+    box-shadow: 0 0 0 0 transparent;
   }
 
   .btn-secondary {
-    @apply border border-border bg-surface text-fg hover:border-accent;
+    @apply border border-rule-strong bg-transparent text-fg;
+  }
+
+  .btn-secondary:hover {
+    background: color-mix(in oklch, var(--fg) 7%, transparent);
   }
 
   .btn-danger {
-    @apply bg-danger text-white hover:opacity-90;
+    @apply bg-danger text-white;
+  }
+
+  .btn-danger:hover {
+    background: color-mix(in oklch, var(--danger) 88%, black);
   }
 
   .btn-google {
@@ -187,20 +394,61 @@ body {
     @apply mt-1.5 text-sm text-muted;
   }
 
-  /* Soft Pastels' card treatment: generously rounded, shadow over hairline
-     border so tiles feel lifted rather than boxed in. No padding baked in:
-     a divided list wants its outer wrapper padding-free, so callers add
-     their own (usually p-4).
-
-     The border is transparent rather than absent. Forced-colors mode throws
-     away box-shadow and background-color and repaints everything from the
-     user's own palette, so a card whose only boundary was the shadow had no
-     boundary at all: the worksheets grid became one undivided sheet of text.
-     A transparent border is invisible normally and gets repainted along with
-     everything else there, which is exactly the behaviour wanted. */
+  /*
+   * A sheet of paper, and the one component that carries the whole idea.
+   *
+   * Square corners, a real hairline border rather than a shadow, and the red
+   * margin rule 0.875rem in from the left edge, exactly where an exercise
+   * book prints it. The rule is an inset box-shadow rather than a border or a
+   * pseudo-element: a border would move the content box and force every
+   * caller to re-pad, and a pseudo-element would be one more thing for the
+   * cards that already use ::before to collide with.
+   *
+   * Kept under the name `.card` because roughly forty call sites use it, and
+   * changing what a class looks like is a smaller change than renaming it
+   * everywhere.
+   *
+   * The border stays visible in forced-colors mode, where box-shadow and
+   * background-color are both discarded and everything is repainted from the
+   * user's own palette. A sheet whose only boundary was the shadow had no
+   * boundary at all there: the worksheets grid became one undivided page.
+   */
   .card {
-    @apply rounded-2xl border border-transparent bg-surface
-      shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)];
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: inset 0.875rem 0 0 -0.8125rem
+      color-mix(in oklch, var(--pen) 55%, transparent);
+  }
+
+  /* Opt out of the margin rule where a card is a tile rather than a sheet:
+     on something 5rem wide the rule is most of the left edge. */
+  .card-plain {
+    box-shadow: none;
+  }
+
+  /* An ink-weight frame, for the one element on a screen that outranks the
+     sheets around it. Used sparingly; if everything is framed, nothing is. */
+  .framed {
+    border: 2px solid var(--rule-strong);
+    border-radius: var(--radius-lg);
+  }
+
+  /*
+   * A highlighter swipe. Drawn as a background gradient sized to the text and
+   * pinned to its baseline, so it sits behind the glyphs and stops short of
+   * the cap height the way a real marker does.
+   */
+  .marked {
+    background-image: linear-gradient(
+      to top,
+      var(--marker) 0.1em,
+      var(--marker) 0.62em,
+      transparent 0.62em
+    );
+    background-repeat: no-repeat;
+    padding-inline: 0.15em;
   }
 }
 

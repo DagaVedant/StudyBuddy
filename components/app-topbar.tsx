@@ -11,15 +11,20 @@ export default async function AppTopbar() {
   const session = await auth()
   if (!session?.user) return null
 
+  /*
+   * The masthead rule is ink-weight rather than a hairline. It is the line
+   * that separates the running head from the page, and at 1px in --border it
+   * was reading as a shadow rather than as a rule.
+   */
   return (
-    <header className="inset-safe-top sticky top-0 z-50 border-b border-border bg-bg">
+    <header className="inset-safe-top sticky top-0 z-50 border-b-2 border-rule-strong bg-bg">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-4 sm:px-6">
         <Link
           href="/dashboard"
-          className="flex shrink-0 items-center gap-2 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="flex shrink-0 items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          <Mark className="h-[18px] w-[18px] text-accent" />
-          <span className="text-[0.9375rem] font-semibold tracking-tight">
+          <Mark className="h-[18px] w-[18px] text-pen" />
+          <span className="font-mono text-[0.8125rem] font-bold uppercase tracking-[0.14em]">
             StudyBuddy
           </span>
         </Link>
@@ -37,7 +42,7 @@ export default async function AppTopbar() {
           >
             <button
               type="submit"
-              className="rounded-xl border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="rounded-sm border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               Sign out
             </button>
