@@ -150,6 +150,21 @@ export default function PageCanvas({
         }}
         onPointerCancel={endDrag}
       >
+        {/*
+          `draggable={false}` is load-bearing, not tidiness.
+
+          An <img> is draggable by default, so pressing on this one and moving
+          made the browser start a native image drag: it fired `dragstart`,
+          took the pointer away with `lostpointercapture`, and swallowed every
+          pointermove and pointerup after it. The marquee below never saw the
+          end of the gesture, so dragging a box around a question did nothing
+          at all with a mouse. Touch was unaffected, which is why it survived:
+          that path goes through the "Draw a Box" button and touch does not
+          start an image drag.
+
+          The `-webkit-user-drag` property is the same instruction for older
+          WebKit, which ignores the attribute.
+        */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={imageRef}
@@ -157,7 +172,8 @@ export default function PageCanvas({
           alt={`Page ${page.pageNumber} of ${worksheetTitle}`}
           width={page.width}
           height={page.height}
-          className="block h-auto w-full"
+          draggable={false}
+          className="block h-auto w-full [-webkit-user-drag:none]"
         />
 
         {draft && (
