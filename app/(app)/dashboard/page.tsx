@@ -14,7 +14,6 @@ import { AccuracyLabel, Meter } from '@/components/meter'
 import { countMissedQuestions } from '@/lib/blooket/missed'
 import { db } from '@/lib/db'
 import TopicTree from '@/components/topic-tree'
-import TrendArrow from '@/components/trend-arrow'
 import {
   getAccuracyTrend,
   getAccuracyTrendBySubject,
@@ -42,6 +41,7 @@ import {
   rankFragile,
   rankWeaknesses,
   summarize,
+  type TopicTrend,
 } from '@/lib/dashboard/ranking'
 import { buildTopicTree, pruneToAttempted } from '@/lib/dashboard/topic-tree'
 import { topics } from '@/lib/db/schema'
@@ -141,6 +141,25 @@ function Figure({
         )}
       </dd>
     </div>
+  )
+}
+
+function TrendArrow({ trend }: { trend: TopicTrend }) {
+  if (trend === null) return null
+
+  const face = {
+    up: { glyph: '↑', className: 'text-success', label: 'Improving' },
+    down: { glyph: '↓', className: 'text-danger', label: 'Getting worse' },
+    flat: { glyph: '→', className: 'text-muted', label: 'Holding steady' },
+  }[trend]
+
+  return (
+    <>
+      <span aria-hidden="true" className={`text-sm ${face.className}`}>
+        {face.glyph}
+      </span>
+      <span className="sr-only">{face.label} since you started this topic.</span>
+    </>
   )
 }
 

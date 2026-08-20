@@ -6,7 +6,7 @@ import PageHead from '@/components/page-head'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { attempts, questions, worksheetPages, worksheets } from '@/lib/db/schema'
-import { IS_QUESTION } from '@/lib/questions/sql'
+import { IS_QUESTION } from '@/lib/questions/queries'
 import { destination } from '@/lib/worksheets'
 
 import DeleteWorksheetButton from './delete-worksheet-button'

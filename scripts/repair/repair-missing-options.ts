@@ -7,7 +7,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 
 import { answerChoices, questions, worksheetPages, worksheets } from '../../lib/db/schema'
 import type { Db } from '../../lib/db/types'
-import { promptSimilarity } from '../../lib/questions/duplicates-plan'
+import { promptSimilarity } from '../../lib/questions/duplicates'
 import { questionsOnPage } from '../../lib/questions/numbering'
 import { hashQuestion, normalizeChoiceLabel } from '../../lib/questions/shape'
 import { runRepairPasses } from '../../lib/worker/pipeline'

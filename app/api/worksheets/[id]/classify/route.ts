@@ -10,7 +10,7 @@ import { pendingQuestionCount, pendingQuestions } from '@/lib/classify/pending'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
 import { guardWorksheet } from '@/lib/upload/guard'
-import { clearUntagged } from '@/lib/worker/untagged'
+import { clearUntagged } from '@/lib/worker/status'
 
 export const maxDuration = 300
 

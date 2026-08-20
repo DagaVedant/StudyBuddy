@@ -13,8 +13,8 @@ import {
   handlePageReview,
   handlePhase,
   handleSolution,
-} from './handlers'
-import { bodySchema } from './schema'
+} from '@/lib/worker/jobs'
+import { bodySchema } from '@/lib/worker/jobs'
 
 type Params = { params: Promise<{ jobId: string }> }
 

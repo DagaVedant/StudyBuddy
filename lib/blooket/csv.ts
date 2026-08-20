@@ -1,4 +1,4 @@
-import { reflowText } from '@/lib/questions/reflow'
+import { reflowText } from '@/lib/questions/text'
 
 const MAX_ANSWERS = 4
 

@@ -4,7 +4,7 @@ import { and, eq, gt, isNull } from 'drizzle-orm'
 
 import { appBaseUrl } from '@/lib/app-url'
 import { passwordResetTokens, users } from '@/lib/db/schema'
-import type { Db } from '@/lib/db/types'
+import { type Db } from '@/lib/db/types'
 
 export const RESET_TOKEN_TTL_MS = 60 * 60_000
 
@@ -96,4 +96,18 @@ export async function consumeResetToken(
       .set({ passwordHash, emailVerified: now })
       .where(eq(users.id, target.userId))
   })
+}
+
+export function inviteRequired(): boolean {
+  return Boolean(process.env.SIGNUP_INVITE_CODE?.trim())
+}
+
+export function inviteAccepted(offered: string): boolean {
+  const expected = process.env.SIGNUP_INVITE_CODE?.trim()
+  if (!expected) return true
+
+  const left = Buffer.from(offered.trim())
+  const right = Buffer.from(expected)
+
+  return left.length === right.length && timingSafeEqual(left, right)
 }

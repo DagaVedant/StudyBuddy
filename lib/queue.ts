@@ -1,8 +1,7 @@
 import { and, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 
-import { unwrapDriverRows } from '@/lib/db/types'
+import { type Db, unwrapDriverRows } from '@/lib/db/types'
 import { processingJobs, gpuWorkers, users } from '@/lib/db/schema'
-import type { Db } from '@/lib/db/types'
 import { transitionWorksheet } from '@/lib/upload/claim'
 
 export type JobExecutor = 'server' | 'browser' | 'operator_gpu'

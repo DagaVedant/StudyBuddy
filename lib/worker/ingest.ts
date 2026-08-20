@@ -4,11 +4,10 @@ import type { AIProvider, ExtractedQuestion } from '@/lib/ai/types'
 import type { Db } from '@/lib/db/types'
 import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
 import { isAnswerPage } from '@/lib/questions/answer-key'
-import { foldLeadInChoices } from '@/lib/questions/lead-in'
+import { foldLeadInChoices } from '@/lib/questions/shape'
 import { normalizeMath } from '@/lib/questions/math'
-import { seamAround } from '@/lib/questions/page-text'
+import { reflowText, seamAround } from '@/lib/questions/text'
 import { printedNumbersFor } from '@/lib/questions/numbering'
-import { reflowText } from '@/lib/questions/reflow'
 import {
   hashQuestion,
   normalizeChoiceLabel,

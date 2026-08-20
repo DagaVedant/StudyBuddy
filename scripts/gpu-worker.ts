@@ -9,7 +9,7 @@ import type { ExtractedQuestion } from '../lib/ai/types'
 import { validated } from '../lib/ai/parse'
 import { embed } from '../lib/embeddings'
 import { isAnswerPage } from '../lib/questions/answer-key'
-import { seamAround } from '../lib/questions/page-text'
+import { seamAround } from '../lib/questions/text'
 import { auditExtraction } from '../lib/worker/audit'
 import {
   MAX_REREAD_SHARE,

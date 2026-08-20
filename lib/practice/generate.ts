@@ -1,7 +1,6 @@
 import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 
-import type { Tier } from '@/lib/ai/resolve'
-import { storedProvider } from '@/lib/ai/resolve'
+import { type Tier, storedProvider } from '@/lib/ai/resolve'
 import type {
   AIProvider,
   GeneratedQuestion,

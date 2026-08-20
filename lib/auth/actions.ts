@@ -20,11 +20,15 @@ import {
   consumeRateLimit,
 } from '@/lib/rate-limit'
 
-import { isDisposableEmail } from './disposable'
-import { inviteAccepted, inviteRequired } from './invite'
-import { isAdminEmail, validateDob } from './policy'
-import { safeNextPath } from './redirect'
-import { consumeResetToken, findResetTarget, issueResetToken, resetLink } from './reset'
+import { isAdminEmail, isDisposableEmail, safeNextPath, validateDob } from './policy'
+import {
+  consumeResetToken,
+  findResetTarget,
+  inviteAccepted,
+  inviteRequired,
+  issueResetToken,
+  resetLink,
+} from './reset'
 
 export interface FormState {
   error?: string
@@ -257,4 +261,3 @@ export async function submitDob(_prev: FormState, formData: FormData): Promise<F
 
   return { message: 'Saved.' }
 }
-

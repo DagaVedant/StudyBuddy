@@ -16,7 +16,7 @@ import {
 } from '@tanstack/react-virtual'
 
 import TopicPicker, { type TopicChoice } from '@/components/topic-picker'
-import { reflowText } from '@/lib/questions/reflow'
+import { reflowText } from '@/lib/questions/text'
 import { choiceLabel } from '@/lib/questions/shape'
 
 import {

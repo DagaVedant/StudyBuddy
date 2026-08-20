@@ -14,7 +14,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { answerChoices, questions, worksheetPages, worksheets } from '../../lib/db/schema'
 import type { Db } from '../../lib/db/types'
 import { isAnswerPage, mergeAnswerKeys, parseAnswerKey } from '../../lib/questions/answer-key'
-import { questionNumbersOn } from '../../lib/questions/page-text'
+import { questionNumbersOn } from '../../lib/questions/text'
 import { normalizeChoiceLabel } from '../../lib/questions/shape'
 import { connect } from '../db'
 

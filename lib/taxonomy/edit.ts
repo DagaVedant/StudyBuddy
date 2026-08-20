@@ -1,7 +1,6 @@
 import { eq } from 'drizzle-orm'
 
-import { isUniqueViolation } from '@/lib/db/types'
-import type { Db } from '@/lib/db/types'
+import { type Db, isUniqueViolation } from '@/lib/db/types'
 import { topics } from '@/lib/db/schema'
 import { slugify, uniqueSlug } from '@/lib/classify/proposals'
 import { embed } from '@/lib/embeddings'

@@ -1,4 +1,4 @@
-import { DEFAULT_AFTER_SIGNIN, safeNextPath } from '@/lib/auth/redirect'
+import { DEFAULT_AFTER_SIGNIN, safeNextPath } from '@/lib/auth/policy'
 
 function currentPath(): string {
   if (typeof window === 'undefined') return DEFAULT_AFTER_SIGNIN

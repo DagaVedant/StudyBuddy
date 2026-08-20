@@ -1,8 +1,62 @@
-import { and, eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import type { z } from 'zod'
+import { and, eq, inArray } from 'drizzle-orm'
+import { z } from 'zod'
 
-import type { Db } from '@/lib/db/types'
+import { CHOICE_ORDER } from '@/lib/questions/queries'
+import { CLASSIFYING_AT, UNTAGGED_REASON, VERIFYING_AT, applyPermanentFailure, readingProgress, recordUntagged } from '@/lib/worker/status'
+import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
+import { checkpointJob, completeJob, enqueueJob, failJob, touchJob } from '@/lib/queue'
+import { extractedQuestionSchema } from '@/lib/ai/types'
+import { notifyWorksheet } from '@/lib/notifications'
+import { partitionByDeletability } from '@/lib/worker/apply'
+import { persistQuestions } from '@/lib/worker/ingest'
+import { planPageReplacement } from '@/lib/worker/review'
+import { promoteDerivedAnswer } from '@/lib/worker/solutions'
+import { transitionWorksheet } from '@/lib/upload/claim'
+import { type Db } from '@/lib/db/types'
+
+export const bodySchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('page_result'),
+    pageId: z.string().min(1),
+    pageNumber: z.number().int().min(1),
+    totalPages: z.number().int().min(1),
+    questions: z.array(extractedQuestionSchema).max(100),
+  }),
+  z.object({
+    action: z.literal('phase'),
+    phase: z.enum(['verifying', 'classifying']),
+  }),
+  z.object({
+    action: z.literal('page_review'),
+    pageId: z.string().min(1),
+    replace: z.array(z.string().uuid()).max(100),
+    questions: z.array(extractedQuestionSchema).max(100),
+  }),
+  z.object({
+    action: z.literal('explanation'),
+    questionId: z.string().uuid(),
+    attemptId: z.string().uuid().nullish(),
+    bodyMd: z.string().min(1).max(6000),
+    misconceptionNote: z.string().max(400).nullish(),
+    model: z.string().max(200),
+  }),
+  z.object({
+    action: z.literal('solution'),
+    questionId: z.string().uuid(),
+    answer: z.string().max(400).nullable(),
+    workingMd: z.string().max(8000),
+    traps: z
+      .array(z.object({ label: z.string().max(8).nullable(), why: z.string().max(600) }))
+      .max(12)
+      .default([]),
+    confidence: z.number().min(0).max(1),
+    model: z.string().max(200),
+  }),
+  z.object({ action: z.literal('complete') }),
+  z.object({ action: z.literal('fail'), message: z.string().max(2000) }),
+])
+
 import {
   answerChoices,
   explanations,
@@ -11,20 +65,7 @@ import {
   questions,
   worksheetPages,
 } from '@/lib/db/schema'
-import { checkpointJob, completeJob, enqueueJob, failJob, touchJob } from '@/lib/queue'
-import { CHOICE_ORDER } from '@/lib/questions/sql'
-import { notifyWorksheet } from '@/lib/notifications'
-import { transitionWorksheet } from '@/lib/upload/claim'
-import { applyPermanentFailure } from '@/lib/worker/fail'
-import { persistQuestions } from '@/lib/worker/ingest'
-import { promoteDerivedAnswer } from '@/lib/worker/solutions'
-import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
-import { planPageReplacement } from '@/lib/worker/review'
-import { partitionByDeletability } from '@/lib/worker/safe-delete'
-import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/untagged'
-import { CLASSIFYING_AT, VERIFYING_AT, readingProgress } from '@/lib/worker/progress'
 
-import type { bodySchema } from './schema'
 
 export type Job = typeof processingJobs.$inferSelect
 type Body = z.infer<typeof bodySchema>

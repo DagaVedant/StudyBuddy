@@ -7,7 +7,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 
 import { worksheets } from '../../lib/db/schema'
 import type { Db } from '../../lib/db/types'
-import { applyAnswerKey } from '../../lib/worker/answer-key'
+import { applyAnswerKey } from '../../lib/worker/pipeline'
 import { confirmDestructive, databaseHost, requireLocalDb } from '../_confirm'
 import { connect } from '../db'
 

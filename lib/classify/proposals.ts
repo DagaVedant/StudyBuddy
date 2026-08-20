@@ -1,8 +1,7 @@
 import { eq, inArray } from 'drizzle-orm'
 
-import type { Db } from '@/lib/db/types'
+import { type Db, isUniqueViolation } from '@/lib/db/types'
 import { questionTopics, topicProposals, topics } from '@/lib/db/schema'
-import { isUniqueViolation } from '@/lib/db/types'
 
 export type AcceptOutcome =
   | { ok: true; topicId: string; slug: string; taggedSource: boolean }

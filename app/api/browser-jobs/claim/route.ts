@@ -6,9 +6,8 @@ import { ollamaConfig } from '@/lib/ai/ollama-config'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, queueDepth, type JobStage } from '@/lib/queue'
-import { explainInput } from '@/lib/worker/explain-input'
+import { explainInput, unsolvedQuestions } from '@/lib/worker/solutions'
 import { pagesForJob } from '@/lib/worker/ingest'
-import { unsolvedQuestions } from '@/lib/worker/solutions'
 
 const STAGES: JobStage[] = ['extract', 'answer_key', 'explain']
 

@@ -5,8 +5,7 @@ import { useActionState } from 'react'
 
 import GoogleButton from '@/components/google-button'
 import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/providers'
-import { signInWithGoogle, signUp } from '@/lib/auth/actions'
-import type { FormState } from '@/lib/auth/actions'
+import { type FormState, signInWithGoogle, signUp } from '@/lib/auth/actions'
 import { MIN_AGE_YEARS } from '@/lib/auth/policy'
 
 export default function SignUpForm({ inviteRequired }: { inviteRequired: boolean }) {

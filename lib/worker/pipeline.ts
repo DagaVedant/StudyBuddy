@@ -1,11 +1,17 @@
-import type { Db } from '@/lib/db/types'
-import { applyAnswerKey } from '@/lib/worker/answer-key'
-import { recoverCarriedChoices } from '@/lib/worker/carried-choices-apply'
-import { mergeDuplicateQuestions } from '@/lib/worker/duplicates-apply'
-import { joinSplitQuestions } from '@/lib/worker/join-splits'
-import { renumberQuestions } from '@/lib/worker/renumber'
-import { repairUnrenderedMath } from '@/lib/worker/repair-math'
-import { repairPrintedNumbers } from '@/lib/worker/repair-numbers'
+import { and, asc, eq, ne, sql } from 'drizzle-orm'
+
+import { answerChoices, questions, worksheetPages, worksheets } from '@/lib/db/schema'
+import { deletableQuestionIds } from '@/lib/worker/apply'
+import { duplicatePrintedNumbers } from '@/lib/questions/duplicates'
+import { hashQuestion, normalizeChoiceLabel } from '@/lib/questions/shape'
+import { inferPrintedNumbers } from '@/lib/questions/numbering'
+import { loadQuestionsWithChoices } from '@/lib/questions/queries'
+import { mergeAnswerKeys, parseAnswerKey } from '@/lib/questions/answer-key'
+import { mergeDuplicateQuestions } from '@/lib/worker/apply'
+import { normalizeMath } from '@/lib/questions/math'
+import { recoverCarriedChoices } from '@/lib/worker/apply'
+import { type Db } from '@/lib/db/types'
+import { type SplitHalf, modalChoiceCount, planPageSplitJoins } from '@/lib/questions/validate'
 
 const ORDER = [
   'join',
@@ -122,3 +128,282 @@ export async function runRepairPasses(
 export const VERIFYING_PASSES = ['join', 'carried', 'math', 'merge'] as const
 
 export const FINAL_PASSES = ORDER
+
+export async function applyAnswerKey(
+  db: Db,
+  worksheetId: string,
+): Promise<{ answered: number }> {
+  const pages = await db
+    .select({ ocrText: worksheetPages.ocrText })
+    .from(worksheetPages)
+    .where(eq(worksheetPages.worksheetId, worksheetId))
+    .orderBy(asc(worksheetPages.pageNumber))
+
+  const key = mergeAnswerKeys(pages.map((page) => parseAnswerKey(page.ocrText ?? '')))
+  if (key.size === 0) return { answered: 0 }
+
+  const rows = await db
+    .select({
+      id: questions.id,
+      printedNumber: questions.printedNumber,
+    })
+    .from(questions)
+    .where(
+      and(
+        eq(questions.worksheetId, worksheetId),
+        ne(questions.answerSource, 'user_key'),
+      ),
+    )
+
+  let answered = 0
+
+  for (const row of rows) {
+    if (row.printedNumber === null) continue
+
+    const label = key.get(row.printedNumber)
+    if (!label) continue
+
+    await db
+      .update(questions)
+      .set({ correctAnswer: label, answerSource: 'pdf_key' })
+      .where(eq(questions.id, row.id))
+
+    const choices = await db
+      .select({
+        id: answerChoices.id,
+        label: answerChoices.label,
+        isCorrect: answerChoices.isCorrect,
+      })
+      .from(answerChoices)
+      .where(eq(answerChoices.questionId, row.id))
+
+    for (const choice of choices) {
+      const isCorrect = normalizeChoiceLabel(choice.label).toUpperCase() === label
+
+      if (choice.isCorrect === isCorrect) continue
+      await db
+        .update(answerChoices)
+        .set({ isCorrect })
+        .where(eq(answerChoices.id, choice.id))
+    }
+
+    answered += 1
+  }
+
+  return { answered }
+}
+
+export async function repairUnrenderedMath(
+  db: Db,
+  worksheetId: string,
+): Promise<{ repaired: number }> {
+  const rows = await loadQuestionsWithChoices(db, worksheetId)
+
+  if (rows.length === 0) return { repaired: 0 }
+
+  let repaired = 0
+
+  for (const row of rows) {
+    const choices = row.choices
+    const promptText = normalizeMath(row.promptText)
+    const fixedChoices = choices.map((choice) => ({
+      ...choice,
+      fixed: normalizeMath(choice.text),
+    }))
+
+    const changedChoices = fixedChoices.filter((choice) => choice.fixed !== choice.text)
+    if (promptText === row.promptText && changedChoices.length === 0) continue
+
+    for (const choice of changedChoices) {
+      await db
+        .update(answerChoices)
+        .set({ text: choice.fixed })
+        .where(eq(answerChoices.id, choice.id))
+    }
+
+    const contentHash = hashQuestion(
+      promptText,
+      fixedChoices.map((choice) => ({ text: choice.fixed })),
+    )
+
+    await db
+      .update(questions)
+      .set({ promptText, contentHash })
+      .where(eq(questions.id, row.id))
+
+    repaired += 1
+    console.log(`[maths] rewrote ${row.id} on ${worksheetId}: ${promptText.slice(0, 60)}`)
+  }
+
+  return { repaired }
+}
+
+export async function repairPrintedNumbers(
+  db: Db,
+  worksheetId: string,
+): Promise<{ repaired: number }> {
+  const [sheet] = await db
+    .select({ expected: worksheets.expectedQuestionCount })
+    .from(worksheets)
+    .where(eq(worksheets.id, worksheetId))
+    .limit(1)
+
+  const rows = await db
+    .select({
+      id: questions.id,
+      ordinal: questions.ordinal,
+      printedNumber: questions.printedNumber,
+      pageNumber: worksheetPages.pageNumber,
+    })
+    .from(questions)
+    .leftJoin(worksheetPages, eq(worksheetPages.id, questions.pageId))
+    .where(eq(questions.worksheetId, worksheetId))
+    .orderBy(asc(questions.ordinal))
+
+  if (rows.length === 0) return { repaired: 0 }
+
+  const fixes = inferPrintedNumbers(
+    rows.map((row) => ({
+      id: row.id,
+      pageNumber: row.pageNumber,
+      position: row.ordinal,
+      printedNumber: row.printedNumber,
+    })),
+    sheet?.expected ?? null,
+  )
+
+  for (const fix of fixes) {
+    await db
+      .update(questions)
+      .set({ printedNumber: fix.to })
+      .where(eq(questions.id, fix.id))
+
+    console.log(
+      `[numbers] ${fix.reason} on ${worksheetId}: ${fix.from ?? 'blank'} -> ${fix.to}`,
+    )
+  }
+
+  return { repaired: fixes.length }
+}
+
+export async function renumberQuestions(
+  db: Db,
+  worksheetId: string,
+): Promise<{ renumbered: number; duplicateNumbers: number[] }> {
+  const rows = await db
+    .select({
+      id: questions.id,
+      ordinal: questions.ordinal,
+      pageNumber: worksheetPages.pageNumber,
+      printedNumber: questions.printedNumber,
+    })
+    .from(questions)
+    .leftJoin(worksheetPages, eq(worksheetPages.id, questions.pageId))
+    .where(eq(questions.worksheetId, worksheetId))
+    .orderBy(asc(questions.ordinal))
+
+  if (rows.length === 0) return { renumbered: 0, duplicateNumbers: [] }
+
+  const duplicateNumbers = duplicatePrintedNumbers(rows)
+
+  const ordered = [...rows].sort((a, b) => {
+    const pageA = a.pageNumber ?? Number.MAX_SAFE_INTEGER
+    const pageB = b.pageNumber ?? Number.MAX_SAFE_INTEGER
+    if (pageA !== pageB) return pageA - pageB
+
+    const printedA = a.printedNumber ?? Number.MAX_SAFE_INTEGER
+    const printedB = b.printedNumber ?? Number.MAX_SAFE_INTEGER
+    if (printedA !== printedB) return printedA - printedB
+
+    return a.ordinal - b.ordinal
+  })
+
+  const moved = ordered
+    .map((row, index) => ({ id: row.id, ordinal: index + 1 }))
+    .filter((row, index) => ordered[index].ordinal !== row.ordinal)
+
+  if (moved.length > 0) {
+    const values = sql.join(
+      moved.map((row) => sql`(${row.id}, ${row.ordinal}::int)`),
+      sql`, `,
+    )
+
+    await db.execute(sql`
+      update ${questions} as q
+      set ordinal = v.ordinal
+      from (values ${values}) as v(id, ordinal)
+      where q.id = v.id
+    `)
+  }
+
+  const renumbered = moved.length
+
+  return { renumbered, duplicateNumbers }
+}
+
+export async function joinSplitQuestions(
+  db: Db,
+  worksheetId: string,
+): Promise<{ joined: number }> {
+  const rows = await loadQuestionsWithChoices(db, worksheetId)
+
+  if (rows.length < 2) return { joined: 0 }
+
+  const candidates: SplitHalf[] = rows.map((row) => ({
+    id: row.id,
+    pageNumber: row.pageNumber,
+    position: row.ordinal,
+    top: row.top,
+    printedNumber: row.printedNumber,
+    promptText: row.promptText,
+    questionType: row.questionType,
+    choices: row.choices,
+  }))
+
+  const plans = planPageSplitJoins(candidates, {
+    expectedChoiceCount: modalChoiceCount(candidates),
+  })
+
+  const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]))
+
+  const deletable = new Set(
+    await deletableQuestionIds(
+      db,
+      plans.map((plan) => plan.dropId),
+    ),
+  )
+
+  let joined = 0
+
+  for (const plan of plans) {
+    const keep = byId.get(plan.keepId)
+    const drop = byId.get(plan.dropId)
+    if (!keep || !drop) continue
+
+    if (!deletable.has(plan.dropId)) {
+      console.log(
+        `[split] left ${plan.dropId} on ${worksheetId}: a student has work against it`,
+      )
+      continue
+    }
+
+    await db
+      .update(answerChoices)
+      .set({ questionId: plan.keepId })
+      .where(eq(answerChoices.questionId, plan.dropId))
+
+    const contentHash = hashQuestion(keep.promptText, drop.choices)
+
+    await db
+      .update(questions)
+      .set({ printedNumber: plan.printedNumber, contentHash })
+      .where(eq(questions.id, plan.keepId))
+
+    await db.delete(questions).where(eq(questions.id, plan.dropId))
+    joined += 1
+
+    console.log(`[split] ${plan.reason} on ${worksheetId}`)
+  }
+
+  return { joined }
+}

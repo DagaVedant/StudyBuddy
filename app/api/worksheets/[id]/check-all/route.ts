@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { db } from '@/lib/db'
-import { unverifyQuestions, verifyRemaining } from '@/lib/questions/verify-all'
+import { unverifyQuestions, verifyRemaining } from '@/lib/questions/queries'
 import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { guardWorksheet } from '@/lib/upload/guard'
 

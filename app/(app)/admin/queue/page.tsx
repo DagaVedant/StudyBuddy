@@ -6,7 +6,7 @@ import { auth } from '@/auth'
 import AdminNav from '@/components/admin-nav'
 import { db } from '@/lib/db'
 import { cancelJob, listActionableJobs, requeueJob } from '@/lib/queue'
-import { applyPermanentFailure } from '@/lib/worker/fail'
+import { applyPermanentFailure } from '@/lib/worker/status'
 
 export const metadata = { title: 'Queue · StudyBuddy' }
 

@@ -5,8 +5,8 @@ import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import type { TopicChoice } from '@/components/topic-picker'
 import { db } from '@/lib/db'
-import { CHOICE_ORDER } from '@/lib/questions/sql'
-import { roundLines } from '@/lib/questions/text-lines'
+import { CHOICE_ORDER } from '@/lib/questions/queries'
+import { roundLines } from '@/lib/questions/text'
 import {
   answerChoices,
   questionTopics,

@@ -1,4 +1,4 @@
-import { countQuestionStarts } from './page-text'
+import { countQuestionStarts } from './text'
 
 const LABEL = '[A-Ea-e]'
 

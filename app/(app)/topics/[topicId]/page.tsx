@@ -14,7 +14,7 @@ import {
   topics,
   worksheets,
 } from '@/lib/db/schema'
-import { CHOICE_ORDER } from '@/lib/questions/sql'
+import { CHOICE_ORDER } from '@/lib/questions/queries'
 import { pathBySlug } from '@/lib/taxonomy/trees'
 import { getLesson } from '@/lib/topics'
 import Prose from '@/components/prose'

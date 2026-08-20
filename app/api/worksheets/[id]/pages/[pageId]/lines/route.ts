@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { worksheetPages } from '@/lib/db/schema'
-import { roundLines } from '@/lib/questions/text-lines'
+import { roundLines } from '@/lib/questions/text'
 import { guardWorksheet } from '@/lib/upload/guard'
 
 type Params = { params: Promise<{ id: string; pageId: string }> }

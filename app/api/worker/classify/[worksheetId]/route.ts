@@ -8,7 +8,7 @@ import { pendingQuestions } from '@/lib/classify/pending'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
-import { clearUntagged } from '@/lib/worker/untagged'
+import { clearUntagged } from '@/lib/worker/status'
 
 type Params = { params: Promise<{ worksheetId: string }> }
 

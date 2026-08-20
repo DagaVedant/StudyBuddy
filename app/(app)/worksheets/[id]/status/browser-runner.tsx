@@ -7,7 +7,7 @@ import { OllamaProvider } from '@/lib/ai/ollama'
 import { validated } from '@/lib/ai/parse'
 import { toPngBytes } from '@/lib/client/page-image'
 import { isAnswerPage } from '@/lib/questions/answer-key'
-import { seamAround } from '@/lib/questions/page-text'
+import { seamAround } from '@/lib/questions/text'
 
 interface ClaimedPage {
   id: string

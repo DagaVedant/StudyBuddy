@@ -8,7 +8,7 @@ import Google from 'next-auth/providers/google'
 import { accountMayBeAdmin } from '@/lib/auth/admin'
 import { db } from '@/lib/db'
 import { accounts, sessions, users, verificationTokens } from '@/lib/db/schema'
-import { signInThrottled } from '@/lib/auth/signin-throttle'
+import { signInThrottled } from '@/lib/auth/admin'
 
 type Role = 'student' | 'admin'
 

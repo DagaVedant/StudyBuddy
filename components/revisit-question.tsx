@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { reflowText } from '@/lib/questions/reflow'
+import { reflowText } from '@/lib/questions/text'
 
 const WHEN = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
 

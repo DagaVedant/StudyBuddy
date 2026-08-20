@@ -9,7 +9,7 @@ import { notifyWorksheet } from '@/lib/notifications'
 import { transitionWorksheet } from '@/lib/upload/claim'
 import { runExtraction } from '@/lib/worker/ingest'
 import { runRepairPasses } from '@/lib/worker/pipeline'
-import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/untagged'
+import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/status'
 import { deriveSolutions } from '@/lib/worker/solutions'
 
 type Resolver = (db: Db, userId: string) => Promise<ResolvedProvider>

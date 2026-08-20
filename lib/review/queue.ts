@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 
 import type { Db } from '@/lib/db/types'
-import { CHOICE_ORDER } from '@/lib/questions/sql'
+import { CHOICE_ORDER } from '@/lib/questions/queries'
 import {
   answerChoices,
   attempts,
@@ -12,7 +12,7 @@ import {
   questionTopics,
   worksheetPages,
 } from '@/lib/db/schema'
-import { evidenceFor, type QuestionEvidence } from '@/lib/questions/evidence'
+import { evidenceFor, type QuestionEvidence } from '@/lib/questions/text'
 import { formatInterval, previewIntervals, type ReviewRating } from '@/lib/review/fsrs'
 
 function inTopic(topicId?: string | null) {

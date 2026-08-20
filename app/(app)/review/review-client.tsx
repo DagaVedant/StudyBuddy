@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import ReportButton from '@/components/report-button'
 import { Tick } from '@/components/hand'
 import QuestionCrop from '@/components/question-crop'
-import { reflowText } from '@/lib/questions/reflow'
+import { reflowText } from '@/lib/questions/text'
 import type { ReviewItem } from '@/lib/review/queue'
 import { fetchJson } from '@/lib/client/fetch-json'
 

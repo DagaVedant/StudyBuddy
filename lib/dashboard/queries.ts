@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, lte, sql } from 'drizzle-orm'
 
-import { unwrapDriverRows as rows } from '@/lib/db/types'
-import { COUNTS_TOWARDS_ACCURACY, IS_QUESTION } from '@/lib/questions/sql'
+import { type Db, unwrapDriverRows as rows } from '@/lib/db/types'
+import { COUNTS_TOWARDS_ACCURACY, IS_QUESTION } from '@/lib/questions/queries'
 import { inReviewQueue } from '@/lib/review/queue'
 import {
   attempts,
@@ -11,7 +11,6 @@ import {
   topics,
   worksheets,
 } from '@/lib/db/schema'
-import type { Db } from '@/lib/db/types'
 
 import { MIN_ATTEMPTS, type TopicStats } from './ranking'
 

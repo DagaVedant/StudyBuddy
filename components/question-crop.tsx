@@ -1,4 +1,4 @@
-import type { QuestionEvidence } from '@/lib/questions/evidence'
+import type { QuestionEvidence } from '@/lib/questions/text'
 
 const CROP_MARGIN = 0.04
 

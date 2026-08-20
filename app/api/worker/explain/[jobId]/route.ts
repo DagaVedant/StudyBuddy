@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { processingJobs } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'
-import { explainInput } from '@/lib/worker/explain-input'
+import { explainInput } from '@/lib/worker/solutions'
 
 type Params = { params: Promise<{ jobId: string }> }
 
