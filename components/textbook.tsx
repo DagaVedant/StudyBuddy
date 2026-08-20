@@ -7,8 +7,7 @@ import Link from 'next/link'
  *
  *   Rules divide. A printed hairline under a section head and a heavy one at
  *   the masthead and the foot, which is what a page of a book actually uses
- *   to group things. The pencil is kept for the reader's layer, so the two
- *   materials never do the same job.
+ *   to group things.
  *
  *   Sections are numbered and indexed. A textbook does not ask you to scan
  *   nine equal tiles to find out what is in it; it prints a contents list

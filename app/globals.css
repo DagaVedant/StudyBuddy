@@ -98,10 +98,7 @@
    * Printed rules.
    *
    * These came out when the interface went borderless and are back on purpose:
-   * a textbook page is divided by rules, and they are doing a different job
-   * from the pencil. Printed rules are the book's own structure, drawn by the
-   * publisher; the pencil is the reader's. Keeping the two materials separate
-   * is what stops the page looking merely busy.
+   * a textbook page is divided by rules rather than boxed.
    *
    * `--rule` divides, `--rule-heavy` is the masthead and the foot of the page,
    * which are the only two places a rule should stop the eye rather than
@@ -109,12 +106,6 @@
    */
   --rule: oklch(79% 0.02 74);
   --rule-heavy: oklch(30% 0.016 64);
-
-  /* Graphite. Everything drawn in pencil uses this and nothing else does, so
-     the hand-drawn layer stays one material rather than becoming a second
-     palette. Warm rather than blue-grey: a soft pencil on cream paper reads
-     brown, not cold. */
-  --pencil: oklch(56% 0.012 68);
 
   /* The margin red, and the shadow inside a punched hole. Both belong to the
      paper texture, not to any component: nothing in the interface is allowed
@@ -160,7 +151,6 @@
   --color-caution: var(--caution);
   --color-marker: var(--marker);
   --color-marker-soft: var(--marker-soft);
-  --color-pencil: var(--pencil);
   --color-rule: var(--rule);
   --color-rule-heavy: var(--rule-heavy);
   --color-note-yellow: var(--note-yellow);

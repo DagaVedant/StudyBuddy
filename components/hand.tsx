@@ -11,6 +11,11 @@
  * tick does not have equal arms, and neither is symmetrical. They are used
  * sparingly, twice in the whole app, because the effect depends entirely on
  * being rare: a hand-drawn flourish on every heading is just another system.
+ *
+ * There were two more, a pencil frame and a pencil rule, drawn round every
+ * dashboard section. They went when the sections became sticky notes: a
+ * sticky note does not have a pencil box ruled round it, and keeping both was
+ * two ideas doing one job.
  */
 
 /*
@@ -62,71 +67,6 @@ export function Tick({ className = '' }: { className?: string }) {
       className={className}
     >
       <path d="M3.4 12.8C5.1 14.1 6.6 16 8.1 18.6 11.6 12.1 15.9 6.6 21 2.6" />
-    </svg>
-  )
-}
-
-/*
- * A pencil box, ruled round a section the way you would box something in a
- * textbook you were working through.
- *
- * Stretched to the element with `preserveAspectRatio="none"`, which sounds
- * wrong for a hand-drawn line and is not: the wobble on the top and bottom
- * edges lives in Y and stretching in X leaves it untouched, and the same
- * holds for the side edges in reverse. Only the frequency changes, not the
- * amplitude, so a wide box gets long lazy waves and a narrow one gets tighter
- * ones. That is what a drawn line actually does.
- *
- * `vector-effect="non-scaling-stroke"` is the part that makes it work. Without
- * it the uneven scale would make the horizontal strokes a different weight
- * from the vertical ones, which reads instantly as a bug rather than as a
- * hand.
- *
- * The four edges are separate paths that overshoot their corners slightly,
- * because a pencil ruled into a corner overshoots and a perfectly closed
- * rectangle is the one thing that would give it away as generated.
- */
-export function PencilFrame({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 200 100"
-      preserveAspectRatio="none"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.1"
-      strokeLinecap="round"
-      vectorEffect="non-scaling-stroke"
-      className={`pointer-events-none absolute inset-0 h-full w-full text-pencil ${className}`}
-    >
-      <path vectorEffect="non-scaling-stroke" d="M1.4 3.1C46 1.4 118 4.2 199 2.1" />
-      <path vectorEffect="non-scaling-stroke" d="M198.4 1.2C199.6 28 197.4 68 198.6 98.6" />
-      <path vectorEffect="non-scaling-stroke" d="M199.2 97.6C132 99.4 58 96.9 0.9 98.7" />
-      <path vectorEffect="non-scaling-stroke" d="M1.8 99.1C0.6 71 2.7 31 1.5 1.1" />
-    </svg>
-  )
-}
-
-/*
- * A pencil rule under a heading. Shorter and steadier than `Underline`, which
- * is a flourish; this one is doing the job a ruler does.
- */
-export function PencilRule({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 120 4"
-      preserveAspectRatio="none"
-      fill="none"
-      className={`h-[3px] w-full text-pencil ${className}`}
-    >
-      <path
-        vectorEffect="non-scaling-stroke"
-        d="M1 2.4C24 1.2 52 3 76 1.7 94 0.8 108 2.6 119 1.9"
-        stroke="currentColor"
-        strokeWidth="1.1"
-        strokeLinecap="round"
-      />
     </svg>
   )
 }
