@@ -7,7 +7,7 @@ import {
   type ReviewableQuestion,
 } from '../lib/worker/solutions'
 import {OllamaProvider} from '../lib/ai/ollama'
-import {auditExtraction} from '../lib/worker/pipeline'
+import {auditExtraction} from '../lib/worker/audit'
 import {embed} from '../lib/taxonomy'
 import {isAnswerPage, seamAround} from '../lib/questions/shape'
 import {type ExtractedQuestion, validated} from '../lib/ai/types'
