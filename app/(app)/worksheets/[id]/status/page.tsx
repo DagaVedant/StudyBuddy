@@ -53,7 +53,11 @@ export default async function StatusPage({
 
         <p className="hint text-pretty">{worksheet.title}</p>
 
-        <SampleRunner worksheetId={id} questionCount={found.length} />
+        <SampleRunner
+          worksheetId={id}
+          questionCount={found.length}
+          holdMs={sample.seconds * 1000}
+        />
       </main>
     )
   }

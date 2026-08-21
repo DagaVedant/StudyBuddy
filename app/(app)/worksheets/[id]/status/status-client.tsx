@@ -237,17 +237,17 @@ export function GoManualButton({worksheetId}: {worksheetId: string}) {
   )
 }
 
-const SAMPLE_MS = 40_000
-
 const READING_UNTIL = 0.8
 const VERIFYING_UNTIL = 0.95
 
 export function SampleRunner({
   worksheetId,
   questionCount,
+  holdMs,
 }: {
   worksheetId: string
   questionCount: number
+  holdMs: number
 }) {
   const router = useRouter()
   const [elapsed, setElapsed] = useState(0)
@@ -256,19 +256,19 @@ export function SampleRunner({
     const startedAt = Date.now()
 
     const tick = setInterval(() => {
-      const next = Math.min(Date.now() - startedAt, SAMPLE_MS)
+      const next = Math.min(Date.now() - startedAt, holdMs)
       setElapsed(next)
 
-      if (next >= SAMPLE_MS) {
+      if (next >= holdMs) {
         clearInterval(tick)
         router.push(`/worksheets/${worksheetId}/check`)
       }
     }, 200)
 
     return () => clearInterval(tick)
-  }, [router, worksheetId])
+  }, [holdMs, router, worksheetId])
 
-  const progress = elapsed / SAMPLE_MS
+  const progress = elapsed / holdMs
   const percent = Math.round(progress * 100)
 
   const found = Math.min(

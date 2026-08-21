@@ -114,9 +114,9 @@ export const EMBEDDING_INPUT_LIMIT = 2000
 export const MIN_ATTEMPTS = 5
 
 export const SAMPLE_WORKSHEETS = [
-  {slug: 'algebra-25', title: 'Algebra practice A', questions: 25, pages: 2},
-  {slug: 'algebra-10', title: 'Algebra practice B', questions: 10, pages: 1},
-  {slug: 'algebra-5', title: 'Algebra warm-up', questions: 5, pages: 1},
+  {slug: 'algebra-25', title: 'Algebra practice A', questions: 25, pages: 2, seconds: 40},
+  {slug: 'algebra-10', title: 'Algebra practice B', questions: 10, pages: 1, seconds: 20},
+  {slug: 'algebra-5', title: 'Algebra warm-up', questions: 5, pages: 1, seconds: 10},
 ]
 
 export function findSample(slug: string | undefined) {
