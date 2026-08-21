@@ -236,3 +236,69 @@ export function GoManualButton({worksheetId}: {worksheetId: string}) {
     </div>
   )
 }
+
+const SAMPLE_MS = 30_000
+
+const READING_UNTIL = 0.8
+const VERIFYING_UNTIL = 0.95
+
+export function SampleRunner({
+  worksheetId,
+  questionCount,
+}: {
+  worksheetId: string
+  questionCount: number
+}) {
+  const router = useRouter()
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    const startedAt = Date.now()
+
+    const tick = setInterval(() => {
+      const next = Math.min(Date.now() - startedAt, SAMPLE_MS)
+      setElapsed(next)
+
+      if (next >= SAMPLE_MS) {
+        clearInterval(tick)
+        router.push(`/worksheets/${worksheetId}/check`)
+      }
+    }, 200)
+
+    return () => clearInterval(tick)
+  }, [router, worksheetId])
+
+  const progress = elapsed / SAMPLE_MS
+  const percent = Math.round(progress * 100)
+
+  const found = Math.min(
+    questionCount,
+    Math.floor((progress / READING_UNTIL) * questionCount),
+  )
+
+  return (
+    <>
+      <div
+        role="progressbar"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Extraction progress"
+        className="mt-6 h-1.5 overflow-hidden rounded bg-wash-strong"
+      >
+        <div
+          className="h-full bg-accent transition-[width] duration-500"
+          style={{width: `${Math.max(percent, 4)}%`}}
+        />
+      </div>
+
+      <p aria-live="polite" className="hint mt-4 text-pretty">
+        {progress < READING_UNTIL
+          ? `Reading your worksheet. ${found} ${found === 1 ? 'question' : 'questions'} found so far.`
+          : progress < VERIFYING_UNTIL
+            ? 'Checking every question was picked up, and going back over anything that was missed.'
+            : 'Sorting the questions into topics.'}
+      </p>
+    </>
+  )
+}

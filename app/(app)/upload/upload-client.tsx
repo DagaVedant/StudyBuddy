@@ -30,27 +30,6 @@ const STAGE_LABEL: Record<IngestProgress['stage'], string> = {
   done: 'Done',
 }
 
-const SAMPLE_HOLD_MS = 30_000
-
-async function holdForSample(
-  startedAt: number,
-  signal: AbortSignal,
-  onTick: (progress: IngestProgress) => void,
-): Promise<void> {
-  const until = startedAt + SAMPLE_HOLD_MS
-
-  while (Date.now() < until && !signal.aborted) {
-    onTick({
-      stage: 'finishing',
-      completed: SAMPLE_HOLD_MS - (until - Date.now()),
-      total: SAMPLE_HOLD_MS,
-      detail: 'Reading your worksheet',
-    })
-
-    await new Promise((resolve) => setTimeout(resolve, 250))
-  }
-}
-
 const BYTES = new Intl.NumberFormat(undefined, {maximumFractionDigits: 1})
 
 function formatSize(bytes: number): string {
@@ -221,7 +200,6 @@ export default function UploadClient({subjects, initialSample}: Props) {
 
     const controller = new AbortController()
     abortRef.current = controller
-    const startedAt = Date.now()
 
     try {
       const result = await ingestWorksheet({
@@ -241,12 +219,6 @@ export default function UploadClient({subjects, initialSample}: Props) {
         signal: controller.signal,
       })
       worksheetRef.current = null
-
-      if (sampleSlug) {
-        await holdForSample(startedAt, controller.signal, setProgress)
-        if (controller.signal.aborted) return
-      }
-
       router.push(result.next)
     } catch (cause) {
       if (controller.signal.aborted) return

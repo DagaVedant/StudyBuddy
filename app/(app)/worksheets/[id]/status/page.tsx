@@ -7,9 +7,9 @@ import {db} from '@/lib/db'
 import {attempts, processingJobs, questions, worksheets} from '@/lib/schema'
 import {queueDepth, workerStatus} from '@/lib/queue'
 import {phaseFor} from '@/lib/worker/apply'
-import {destination} from '@/lib/upload'
+import {destination, findSample} from '@/lib/upload'
 
-import {BrowserRunner, GoManualButton} from './status-client'
+import {BrowserRunner, GoManualButton, SampleRunner} from './status-client'
 
 export const metadata = {title: 'Processing · StudyBuddy'}
 
@@ -17,10 +17,13 @@ export const revalidate = 0
 
 export default async function StatusPage({
   params,
+  searchParams,
 }: {
   params: Promise<{id: string}>
+  searchParams: Promise<{sample?: string}>
 }) {
   const {id} = await params
+  const sample = findSample((await searchParams).sample)
 
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -40,6 +43,20 @@ export default async function StatusPage({
   ])
 
   if (!worksheet || worksheet.userId !== session.user.id) notFound()
+
+  if (sample && worksheet.status === 'awaiting_review' && found.length > 0) {
+    return (
+      <main className="mx-auto w-full max-w-xl px-6 py-16">
+        <h1 className="text-balance text-2xl font-semibold tracking-tight">
+          Working on it
+        </h1>
+
+        <p className="hint text-pretty">{worksheet.title}</p>
+
+        <SampleRunner worksheetId={id} questionCount={found.length} />
+      </main>
+    )
+  }
 
   const target = destination(id, {
     status: worksheet.status,

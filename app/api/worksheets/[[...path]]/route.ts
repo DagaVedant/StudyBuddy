@@ -667,7 +667,7 @@ async function postIdComplete(request: Request, {params}: {params: Promise<Recor
         tier: 'free',
         mode: 'sample',
         questionCount: kept,
-        next: `/worksheets/${worksheetId}/check`,
+        next: `/worksheets/${worksheetId}/status?sample=${sample.slug}`,
       })
     }
   }
