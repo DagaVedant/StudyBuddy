@@ -60,6 +60,7 @@ import {applyPermanentFailure, clearUntagged} from '@/lib/worker/apply'
 import {auth} from '@/auth'
 import {classificationSchema, trialDailyCeiling} from '@/lib/ai/types'
 import {db} from '@/lib/db'
+import {applyCachedSample, cachedSample, matchesSample} from '@/lib/samples'
 import {drainServerQueue} from '@/lib/worker/jobs'
 import {hashQuestion, questionInputSchema} from '@/lib/questions/shape'
 import {ollamaConfig} from '@/lib/ai/ollama'
@@ -621,7 +622,7 @@ async function alreadyCompleted(worksheetId: string) {
   })
 }
 
-async function postIdComplete(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
+async function postIdComplete(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -636,6 +637,40 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited
+
+  const body = (await request.json().catch(() => ({}))) as {sample?: unknown}
+  const sample = cachedSample(body.sample)
+
+  if (sample) {
+    const pages = await matchesSample(db, worksheetId, sample)
+
+    if (pages) {
+      if (!(await claimForCompletion(worksheetId, 'queued', 'free'))) {
+        return alreadyCompleted(worksheetId)
+      }
+
+      const kept = await applyCachedSample(
+        db,
+        worksheetId,
+        guard.userId,
+        sample,
+        pages,
+      )
+
+      await transitionWorksheet(db, worksheetId, ['queued'], {
+        status: 'awaiting_review',
+        tierUsed: 'free',
+      })
+
+      return NextResponse.json({
+        ok: true,
+        tier: 'free',
+        mode: 'sample',
+        questionCount: kept,
+        next: `/worksheets/${worksheetId}/check`,
+      })
+    }
+  }
 
   const {tier, executor} = await resolveProvider(db, guard.userId)
 

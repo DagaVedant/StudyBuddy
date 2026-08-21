@@ -30,6 +30,27 @@ const STAGE_LABEL: Record<IngestProgress['stage'], string> = {
   done: 'Done',
 }
 
+const SAMPLE_HOLD_MS = 30_000
+
+async function holdForSample(
+  startedAt: number,
+  signal: AbortSignal,
+  onTick: (progress: IngestProgress) => void,
+): Promise<void> {
+  const until = startedAt + SAMPLE_HOLD_MS
+
+  while (Date.now() < until && !signal.aborted) {
+    onTick({
+      stage: 'finishing',
+      completed: SAMPLE_HOLD_MS - (until - Date.now()),
+      total: SAMPLE_HOLD_MS,
+      detail: 'Reading your worksheet',
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+}
+
 const BYTES = new Intl.NumberFormat(undefined, {maximumFractionDigits: 1})
 
 function formatSize(bytes: number): string {
@@ -64,6 +85,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [loadingSample, setLoadingSample] = useState<string | null>(null)
+  const [sampleSlug, setSampleSlug] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -93,6 +115,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
     (incoming: ArrayLike<File> | null) => {
       if (!incoming || incoming.length === 0) return
       setError(null)
+      setSampleSlug(null)
       const next = [...files, ...Array.from(incoming)]
       setFiles(next)
       if (!titleTouched) setTitle(defaultTitle(next))
@@ -116,6 +139,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
         const name = `${sample.title}.pdf`
 
         addFiles([new File([blob], name, {type: 'application/pdf'})])
+        setSampleSlug(slug)
 
         setPageFrom('1')
         setPageTo(String(sample.pages))
@@ -149,6 +173,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
   }, [initialSample, loadSample])
 
   function removeFile(index: number) {
+    setSampleSlug(null)
     setFiles((current) => current.filter((_, i) => i !== index))
   }
 
@@ -196,6 +221,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
 
     const controller = new AbortController()
     abortRef.current = controller
+    const startedAt = Date.now()
 
     try {
       const result = await ingestWorksheet({
@@ -204,6 +230,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
         subjectHint: subject || null,
         pageRange: parsed.range,
         expectedQuestionCount: expected.count,
+        sample: sampleSlug,
         onProgress: (next) => {
           if (controller.signal.aborted) return
           setProgress(next)
@@ -214,6 +241,12 @@ export default function UploadClient({subjects, initialSample}: Props) {
         signal: controller.signal,
       })
       worksheetRef.current = null
+
+      if (sampleSlug) {
+        await holdForSample(startedAt, controller.signal, setProgress)
+        if (controller.signal.aborted) return
+      }
+
       router.push(result.next)
     } catch (cause) {
       if (controller.signal.aborted) return
