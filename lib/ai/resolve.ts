@@ -159,58 +159,6 @@ function rawCloudProvider(
   }
 }
 
-const PROVIDER_LABEL: Record<CloudProvider | 'ollama', string> = {
-  anthropic: 'Anthropic',
-  openai: 'OpenAI',
-  openrouter: 'OpenRouter',
-  google: 'Google',
-  ollama: 'Ollama',
-}
-
-export interface AiStatus {
-  label: string
-  href: string
-  trialWorksheetsRemaining: number | null
-}
-
-export function shouldOfferAiSetup(status: AiStatus): boolean {
-  if (!browserTierEnabled() && !cloudExtractionEnabled()) return false
-  return status.trialWorksheetsRemaining === 1
-}
-
-export async function getAiStatus(db: Db, userId: string): Promise<AiStatus> {
-  const credentials = await getCredentialSummary(db, userId)
-  const configured = credentials.find(
-    (row) => isCloudProvider(row.provider) || row.provider === 'ollama',
-  )
-
-  if (configured) {
-    return {
-      label: `${PROVIDER_LABEL[configured.provider as CloudProvider | 'ollama']} connected`,
-      href: '/settings',
-      trialWorksheetsRemaining: null,
-    }
-  }
-
-  const [user] = await db
-    .select({worksheetsUsed: users.trialWorksheetsUsed})
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
-
-  const remaining = Math.max(0, TRIAL_WORKSHEET_LIMIT - (user?.worksheetsUsed ?? 0))
-
-  if (remaining > 0) {
-    return {
-      label: `${remaining} trial worksheet${remaining === 1 ? '' : 's'} left`,
-      href: '/settings',
-      trialWorksheetsRemaining: remaining,
-    }
-  }
-
-  return {label: 'No AI configured', href: '/settings', trialWorksheetsRemaining: 0}
-}
-
 export function canSortTopicsHere(
   credentials: Awaited<ReturnType<typeof getCredentialSummary>>,
 ): boolean {

@@ -4,11 +4,8 @@ import {redirect} from 'next/navigation'
 import {auth} from '@/auth'
 import {
   canSortTopicsHere,
-  getAiStatus,
   getCredentialSummary,
-  shouldOfferAiSetup,
 } from '@/lib/ai/resolve'
-import {AiSetupPrompt} from '@/components/ui'
 import {TopicSorter} from '@/components/client'
 import {AccuracyLabel, Meter} from '@/components/ui'
 import {countMissedQuestions} from '@/lib/blooket'
@@ -156,7 +153,6 @@ export default async function DashboardPage() {
     missed,
     streak,
     calendar,
-    aiStatus,
     topicRows,
     untagged,
     credentials,
@@ -165,7 +161,7 @@ export default async function DashboardPage() {
     getAccuracyTrendBySubject(db, userId), getReviewForecast(db, userId),
     getRecentWorksheets(db, userId), getDistractorPatterns(db, userId),
     countMissedQuestions(db, userId), getStudyStreak(db, userId),
-    getStudyCalendar(db, userId), getAiStatus(db, userId),
+    getStudyCalendar(db, userId),
     db.select({id: topics.id, slug: topics.slug}).from(topics),
     listUntaggedWorksheets(db, userId), getCredentialSummary(db, userId),
   ])
@@ -480,15 +476,6 @@ export default async function DashboardPage() {
             </dl>
           </MarginNote>
 
-          <MarginNote label="AI status">
-            <Link
-              href={aiStatus.href}
-              className="text-sm text-accent underline underline-offset-4"
-            >
-              {aiStatus.label}
-            </Link>
-          </MarginNote>
-
           {hasData && (
             <MarginNote label="The record">
               <StudyCalendar days={calendar} streak={streak} weeks={17} />
@@ -522,7 +509,6 @@ export default async function DashboardPage() {
             </MarginNote>
           )}
 
-          {shouldOfferAiSetup(aiStatus) && <AiSetupPrompt />}
 
           {missed > 0 && (
             <Callout label="Play these in Blooket">

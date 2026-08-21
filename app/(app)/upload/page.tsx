@@ -3,8 +3,7 @@ import {redirect} from 'next/navigation'
 import {PageHead} from '@/components/ui'
 
 import {auth} from '@/auth'
-import {AiSetupPrompt} from '@/components/ui'
-import {getAiStatus, resolveProvider, shouldOfferAiSetup} from '@/lib/ai/resolve'
+import {resolveProvider} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 import {queueDepth, workerStatus} from '@/lib/queue'
 import {flattenTaxonomy} from '@/lib/taxonomy'
@@ -33,9 +32,7 @@ export default async function UploadPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-  const [aiStatus, resolved] = await Promise.all([
-    getAiStatus(db, session.user.id), resolveProvider(db, session.user.id),
-  ])
+  const resolved = await resolveProvider(db, session.user.id)
 
   const onOperatorGpu = resolved.executor === 'operator_gpu'
   const [worker, queue] = onOperatorGpu
@@ -78,8 +75,6 @@ export default async function UploadPage() {
           the queue.
         </p>
       )}
-
-      {shouldOfferAiSetup(aiStatus) && <AiSetupPrompt />}
 
       <UploadClient
         subjects={subjectGroups()}
