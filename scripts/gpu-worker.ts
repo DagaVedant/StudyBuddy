@@ -63,6 +63,25 @@ const provider = validated(ollama)
 
 let shuttingDown = false
 
+const sleepers = new Set<() => void>()
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer)
+      sleepers.delete(done)
+      resolve()
+    }
+
+    const timer = setTimeout(done, ms)
+    sleepers.add(done)
+  })
+}
+
+function stopSleeping(): void {
+  for (const done of [...sleepers]) done()
+}
+
 let jobsInFlight = 0
 
 function log(message: string): void {
@@ -727,7 +746,7 @@ async function heartbeatLoop(): Promise<void> {
   let failures = 0
 
   while (!shuttingDown) {
-    await new Promise((resolve) => setTimeout(resolve, HEARTBEAT_MS))
+    await sleep(HEARTBEAT_MS)
     if (shuttingDown) return
 
     try {
@@ -740,6 +759,7 @@ async function heartbeatLoop(): Promise<void> {
       if (error instanceof WorkerRefused) {
         log(error.message)
         shuttingDown = true
+        stopSleeping()
         return
       }
 
@@ -801,7 +821,7 @@ async function main(): Promise<void> {
           log(`no work; checking every ${IDLE_POLL_MS / 1000}s`)
         }
 
-        await new Promise((resolve) => setTimeout(resolve, IDLE_POLL_MS))
+        await sleep(IDLE_POLL_MS)
         continue
       }
 
@@ -814,7 +834,7 @@ async function main(): Promise<void> {
       }
     } catch (error) {
       log(`poll error: ${(error as Error).message}, retrying in ${backoff / 1000}s`)
-      await new Promise((resolve) => setTimeout(resolve, backoff))
+      await sleep(backoff)
       backoff = Math.min(backoff * 2, BACKOFF_MAX_MS)
     }
   }
@@ -830,6 +850,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     if (shuttingDown) process.exit(1)
     shuttingDown = true
+    stopSleeping()
     log('shutdown requested; finishing current page')
   })
 }
