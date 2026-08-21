@@ -510,7 +510,7 @@ export default function ReviewSession({
                 <div className="mt-1">
                   <button
                     type="button"
-                    className="rounded-xl px-3 py-1.5 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+                    className="rounded-xl border border-rule bg-surface px-3 py-1.5 text-sm hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
                     disabled={explaining}
                     onClick={() => void explain(item)}
                   >

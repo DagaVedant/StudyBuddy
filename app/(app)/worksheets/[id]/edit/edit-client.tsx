@@ -505,7 +505,7 @@ export function PageCanvas({
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
-            className="min-h-11 rounded-xl px-3 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+            className="min-h-11 rounded-xl border border-rule bg-surface px-3 py-1 text-sm hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
             disabled={!canGoBack}
             onClick={onBack}
           >
@@ -513,7 +513,7 @@ export function PageCanvas({
           </button>
           <button
             type="button"
-            className="min-h-11 rounded-xl px-3 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+            className="min-h-11 rounded-xl border border-rule bg-surface px-3 py-1 text-sm hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
             disabled={!canGoForward}
             onClick={onForward}
           >
@@ -595,7 +595,7 @@ export function PageCanvas({
           type="button"
           aria-pressed={drawing}
           disabled={!linesReady}
-          className="shrink-0 rounded-xl bg-surface px-3 py-1.5 text-sm shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+          className="shrink-0 rounded-xl border border-rule bg-surface px-3 py-1.5 text-sm shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
           onClick={() => {
             setDrawing((on) => !on)
             endDrag()
@@ -815,7 +815,7 @@ const QuestionCard = memo(function QuestionCard({
               {question.choices.length < CHOICE_LABELS.length && (
                 <button
                   type="button"
-                  className="mt-2 rounded-xl px-2 py-1 text-sm hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="mt-2 rounded-xl border border-rule bg-surface px-2 py-1 text-sm hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   onClick={() =>
                     onUpdate(question.id, {
                       choices: [
