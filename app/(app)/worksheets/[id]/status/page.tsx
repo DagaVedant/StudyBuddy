@@ -129,9 +129,9 @@ export default async function StatusPage({
               </p>
 
               <p className="hint text-pretty">
-                This page updates itself every minute. Safe to close: we will
-                tell you when it is done, and it will be waiting in the bell at
-                the top of the screen.
+                This page updates itself every minute. Safe to close: the
+                worksheet keeps going, and it will be on your dashboard when it
+                is done.
               </p>
             </>
           )}
