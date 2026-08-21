@@ -28,6 +28,12 @@ function subjectGroups(): SubjectGroup[] {
     }))
 }
 
+const SAMPLES = [
+  {file: 'algebra-25.pdf', label: 'Algebra A, 25 questions'},
+  {file: 'algebra-10.pdf', label: 'Algebra B, 10 questions'},
+  {file: 'algebra-5.pdf', label: 'Warm-up, 5 questions'},
+]
+
 export default async function UploadPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -75,6 +81,22 @@ export default async function UploadPage() {
           the queue.
         </p>
       )}
+
+      <p className="hint mb-6">
+        Nothing to hand? Grab a sample:{' '}
+        {SAMPLES.map((sample, index) => (
+          <span key={sample.file}>
+            {index > 0 && ', '}
+            <a
+              href={`/samples/${sample.file}`}
+              download
+              className="text-muted underline underline-offset-2 hover:text-fg"
+            >
+              {sample.label}
+            </a>
+          </span>
+        ))}
+      </p>
 
       <UploadClient
         subjects={subjectGroups()}
