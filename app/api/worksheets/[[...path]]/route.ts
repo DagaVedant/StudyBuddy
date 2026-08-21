@@ -60,7 +60,7 @@ import {applyPermanentFailure, clearUntagged} from '@/lib/worker/apply'
 import {auth} from '@/auth'
 import {classificationSchema, trialDailyCeiling} from '@/lib/ai/types'
 import {db} from '@/lib/db'
-import {applyCachedSample, cachedSample, matchesSample} from '@/lib/samples'
+import {applyCachedSample, findMatchingSample} from '@/lib/samples'
 import {drainServerQueue} from '@/lib/worker/jobs'
 import {hashQuestion, questionInputSchema} from '@/lib/questions/shape'
 import {ollamaConfig} from '@/lib/ai/ollama'
@@ -622,7 +622,7 @@ async function alreadyCompleted(worksheetId: string) {
   })
 }
 
-async function postIdComplete(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+async function postIdComplete(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -638,38 +638,33 @@ async function postIdComplete(request: Request, {params}: {params: Promise<Recor
   )
   if (limited) return limited
 
-  const body = (await request.json().catch(() => ({}))) as {sample?: unknown}
-  const sample = cachedSample(body.sample)
+  const match = await findMatchingSample(db, worksheetId)
 
-  if (sample) {
-    const pages = await matchesSample(db, worksheetId, sample)
-
-    if (pages) {
-      if (!(await claimForCompletion(worksheetId, 'queued', 'free'))) {
-        return alreadyCompleted(worksheetId)
-      }
-
-      const kept = await applyCachedSample(
-        db,
-        worksheetId,
-        guard.userId,
-        sample,
-        pages,
-      )
-
-      await transitionWorksheet(db, worksheetId, ['queued'], {
-        status: 'awaiting_review',
-        tierUsed: 'free',
-      })
-
-      return NextResponse.json({
-        ok: true,
-        tier: 'free',
-        mode: 'sample',
-        questionCount: kept,
-        next: `/worksheets/${worksheetId}/status?sample=${sample.slug}`,
-      })
+  if (match) {
+    if (!(await claimForCompletion(worksheetId, 'queued', 'free'))) {
+      return alreadyCompleted(worksheetId)
     }
+
+    const kept = await applyCachedSample(
+      db,
+      worksheetId,
+      guard.userId,
+      match.sample,
+      match.pages,
+    )
+
+    await transitionWorksheet(db, worksheetId, ['queued'], {
+      status: 'awaiting_review',
+      tierUsed: 'free',
+    })
+
+    return NextResponse.json({
+      ok: true,
+      tier: 'free',
+      mode: 'sample',
+      questionCount: kept,
+      next: `/worksheets/${worksheetId}/status?sample=${match.sample.slug}`,
+    })
   }
 
   const {tier, executor} = await resolveProvider(db, guard.userId)

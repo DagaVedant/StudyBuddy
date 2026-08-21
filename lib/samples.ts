@@ -364,30 +364,32 @@ export const CACHED_SAMPLES: CachedSample[] = [
   },
 ]
 
-export function cachedSample(slug: unknown): CachedSample | null {
-  if (typeof slug !== 'string') return null
-  return CACHED_SAMPLES.find((sample) => sample.slug === slug) ?? null
-}
-
 function squash(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
-export async function matchesSample(
+export async function findMatchingSample(
   db: Db,
   worksheetId: string,
-  sample: CachedSample,
-): Promise<{id: string}[] | null> {
+): Promise<{sample: CachedSample; pages: {id: string}[]} | null> {
   const pages = await db
     .select({id: worksheetPages.id, ocrText: worksheetPages.ocrText})
     .from(worksheetPages)
     .where(eq(worksheetPages.worksheetId, worksheetId))
     .orderBy(asc(worksheetPages.pageNumber))
 
-  if (pages.length !== sample.pages.length) return null
-  if (!squash(pages[0]?.ocrText ?? '').includes(squash(sample.title))) return null
+  if (pages.length === 0) return null
 
-  return pages.map((page) => ({id: page.id}))
+  const firstPage = squash(pages[0].ocrText ?? '')
+
+  for (const sample of CACHED_SAMPLES) {
+    if (pages.length !== sample.pages.length) continue
+    if (!firstPage.includes(squash(sample.title))) continue
+
+    return {sample, pages: pages.map((page) => ({id: page.id}))}
+  }
+
+  return null
 }
 
 export async function applyCachedSample(

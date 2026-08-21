@@ -43,7 +43,6 @@ export interface IngestOptions {
   pageRange?: PageRange | null
 
   expectedQuestionCount?: number | null
-  sample?: string | null
   onProgress: (progress: IngestProgress) => void
   onWorksheetCreated?: (worksheetId: string) => void
   signal?: AbortSignal
@@ -72,7 +71,6 @@ export async function ingestWorksheet({
   subjectHint,
   pageRange = null,
   expectedQuestionCount = null,
-  sample = null,
   onProgress,
   onWorksheetCreated,
   signal,
@@ -229,12 +227,7 @@ export async function ingestWorksheet({
   onProgress({stage: 'finishing', completed: 1, total: 1, detail: 'Wrapping up'})
 
   const finished = (await expectOk(
-    await fetchJson(`/api/worksheets/${worksheetId}/complete`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({sample}),
-      signal,
-    }),
+    await fetchJson(`/api/worksheets/${worksheetId}/complete`, {method: 'POST', signal}),
   )) as {next: string}
 
   onProgress({stage: 'done', completed: 1, total: 1, detail: 'Done'})
