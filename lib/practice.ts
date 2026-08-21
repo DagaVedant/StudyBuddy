@@ -456,8 +456,7 @@ function checkProse(question: GeneratedQuestion): PracticeFlag[] {
   const flags: PracticeFlag[] = []
 
   const everything = [
-    question.prompt_text,
-    question.working,
+    question.prompt_text, question.working,
     ...question.choices.map((choice) => choice.text),
   ].join('\n')
 
@@ -681,10 +680,7 @@ export async function storeLesson(
 
   const conflict =
     userId === null
-      ? {
-          target: topicLessons.topicId,
-          targetWhere: isNull(topicLessons.userId),
-        }
+      ? {target: topicLessons.topicId, targetWhere: isNull(topicLessons.userId)}
       : {
           target: [topicLessons.topicId, topicLessons.userId],
           targetWhere: isNotNull(topicLessons.userId),
@@ -738,11 +734,7 @@ export async function topicsNeedingLessons(
   options: {includeWritten?: boolean} = {},
 ): Promise<{topicId: string; name: string; attempts: number}[]> {
   const rows = await db
-    .select({
-      topicId: topics.id,
-      name: topics.name,
-      attempts: sql<number>`count(*)::int`,
-    })
+    .select({topicId: topics.id, name: topics.name, attempts: sql<number>`count(*)::int`})
     .from(questionTopics)
     .innerJoin(topics, eq(topics.id, questionTopics.topicId))
     .where(

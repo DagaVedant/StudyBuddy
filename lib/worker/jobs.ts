@@ -49,10 +49,7 @@ export const bodySchema = z.discriminatedUnion('action', [
     totalPages: z.number().int().min(1),
     questions: z.array(extractedQuestionSchema).max(100),
   }),
-  z.object({
-    action: z.literal('phase'),
-    phase: z.enum(['verifying', 'classifying']),
-  }),
+  z.object({action: z.literal('phase'), phase: z.enum(['verifying', 'classifying'])}),
   z.object({
     action: z.literal('page_review'),
     pageId: z.string().min(1),
@@ -321,11 +318,7 @@ export async function handlePageResult(
     {donePages, lastPageNumber: Math.max(...donePages)},
   )
 
-  return NextResponse.json({
-    ok: true,
-    created,
-    duplicates: body.questions.length - created,
-  })
+  return NextResponse.json({ok: true, created, duplicates: body.questions.length - created})
 }
 function safeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a)

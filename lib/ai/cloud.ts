@@ -199,9 +199,7 @@ export class AnthropicProvider extends CloudClient {
           max_tokens: request.maxTokens,
           system: request.system,
           messages: [{role: 'user', content}],
-          output_config: {
-            format: {type: 'json_schema', schema: request.schema} as never,
-          },
+          output_config: {format: {type: 'json_schema', schema: request.schema} as never},
         },
         {timeout: CLOUD_TIMEOUT_MS},
       )
@@ -281,10 +279,7 @@ export class OpenAIProvider extends CloudClient {
       signal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
       body: JSON.stringify({
         model: this.model,
-        messages: [
-          {role: 'system', content: request.system},
-          {role: 'user', content},
-        ],
+        messages: [{role: 'system', content: request.system}, {role: 'user', content}],
         response_format: {
           type: 'json_schema',
           json_schema: {name: request.schemaName, strict: true, schema: request.schema},
@@ -362,10 +357,7 @@ export class GeminiProvider extends CloudClient {
       `${GEMINI_BASE}/${encodeURIComponent(this.model)}:generateContent`,
       {
         method: 'POST',
-        headers: {
-          'x-goog-api-key': this.apiKey,
-          'Content-Type': 'application/json',
-        },
+        headers: {'x-goog-api-key': this.apiKey, 'Content-Type': 'application/json'},
         signal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
         body: JSON.stringify({
           systemInstruction: {parts: [{text: request.system}]},
@@ -407,14 +399,7 @@ export class GeminiProvider extends CloudClient {
 
 export function geminiSchema(schema: Record<string, unknown>): Record<string, unknown> {
   const allowed = new Set([
-    'type',
-    'format',
-    'description',
-    'nullable',
-    'enum',
-    'items',
-    'properties',
-    'required',
+    'type', 'format', 'description', 'nullable', 'enum', 'items', 'properties', 'required',
   ])
 
   const walk = (node: unknown): unknown => {

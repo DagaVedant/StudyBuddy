@@ -275,10 +275,7 @@ export default function ReviewSession({
         })
         if (!response.ok) throw new Error('Could not save that rating')
 
-        setTally((current) => ({
-          ...current,
-          [rating]: current[rating] + 1,
-        }))
+        setTally((current) => ({...current, [rating]: current[rating] + 1}))
         setRun((current) => {
           const next = extendsRun(rating) ? current + 1 : 0
           setBestRun((best) => Math.max(best, next))
@@ -624,9 +621,7 @@ function Recap({
                 <span
                   key={rating.value}
                   className={RUN_COLOUR[rating.value]}
-                  style={{
-                    width: `${Math.max((tally[rating.value] / rated) * 100, 4)}%`,
-                  }}
+                  style={{width: `${Math.max((tally[rating.value] / rated) * 100, 4)}%`}}
                 />
               ),
             )}

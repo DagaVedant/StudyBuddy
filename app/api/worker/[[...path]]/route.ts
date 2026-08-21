@@ -193,21 +193,13 @@ async function postClassifyWorksheetid(request: Request, {params}: {params: Prom
     await clearUntagged(db, worksheetId)
   }
 
-  return NextResponse.json({
-    ok: true,
-    applied,
-    coarse,
-    done: remaining.length === 0,
-  })
+  return NextResponse.json({ok: true, applied, coarse, done: remaining.length === 0})
 }
 
 const schema = z.object({
   items: z
     .array(
-      z.object({
-        questionId: z.string().min(1),
-        embedding: z.array(z.number()),
-      }),
+      z.object({questionId: z.string().min(1), embedding: z.array(z.number())}),
     )
     .max(100),
 })
@@ -368,10 +360,7 @@ async function postHeartbeat(request: Request) {
 
   await heartbeat(db, workerName, modelName ?? null, jobsInFlight)
 
-  return NextResponse.json({
-    ok: true,
-    depth: await queueDepth(db, 'operator_gpu'),
-  })
+  return NextResponse.json({ok: true, depth: await queueDepth(db, 'operator_gpu')})
 }
 
 async function postJobsJobid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
@@ -432,10 +421,7 @@ async function getPagesPageid(request: Request, {params}: {params: Promise<Recor
   const {pageId} = await params
 
   const [page] = await db
-    .select({
-      imageKey: worksheetPages.imageKey,
-      worksheetId: worksheetPages.worksheetId,
-    })
+    .select({imageKey: worksheetPages.imageKey, worksheetId: worksheetPages.worksheetId})
     .from(worksheetPages)
     .where(eq(worksheetPages.id, pageId))
     .limit(1)
@@ -521,15 +507,12 @@ async function getSolutionsWorksheetid(request: Request, {params}: {params: Prom
 }
 
 const handle = endpoints([
-  ['POST', 'claim', postClaim],
-  ['GET', 'classify/:worksheetId', getClassifyWorksheetid],
+  ['POST', 'claim', postClaim], ['GET', 'classify/:worksheetId', getClassifyWorksheetid],
   ['POST', 'classify/:worksheetId', postClassifyWorksheetid],
   ['POST', 'classify/:worksheetId/shortlist', postClassifyWorksheetidShortlist],
   ['GET', 'coverage/:worksheetId', getCoverageWorksheetid],
-  ['GET', 'explain/:jobId', getExplainJobid],
-  ['POST', 'heartbeat', postHeartbeat],
-  ['POST', 'jobs/:jobId', postJobsJobid],
-  ['GET', 'pages/:pageId', getPagesPageid],
+  ['GET', 'explain/:jobId', getExplainJobid], ['POST', 'heartbeat', postHeartbeat],
+  ['POST', 'jobs/:jobId', postJobsJobid], ['GET', 'pages/:pageId', getPagesPageid],
   ['GET', 'questions/:worksheetId', getQuestionsWorksheetid],
   ['GET', 'solutions/:worksheetId', getSolutionsWorksheetid],
 ])

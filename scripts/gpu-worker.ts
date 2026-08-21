@@ -701,11 +701,7 @@ async function heartbeatLoop(): Promise<void> {
   while (!shuttingDown) {
     await api('/api/worker/heartbeat', {
       method: 'POST',
-      body: JSON.stringify({
-        workerName: WORKER_NAME,
-        modelName: VISION_MODEL,
-        jobsInFlight,
-      }),
+      body: JSON.stringify({workerName: WORKER_NAME, modelName: VISION_MODEL, jobsInFlight}),
     }).catch(() => {})
 
     await new Promise((resolve) => setTimeout(resolve, HEARTBEAT_MS))

@@ -87,10 +87,7 @@ async function deleteRoot(request: Request) {
   return NextResponse.json({ok: true, imagesFailed})
 }
 
-const handle = endpoints([
-  ['PATCH', 'identity', patchIdentity],
-  ['DELETE', '', deleteRoot],
-])
+const handle = endpoints([['PATCH', 'identity', patchIdentity], ['DELETE', '', deleteRoot]])
 
 export const GET = handle
 export const POST = handle

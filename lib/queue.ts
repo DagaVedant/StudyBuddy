@@ -318,21 +318,10 @@ export async function heartbeat(
 ): Promise<string> {
   const [row] = await db
     .insert(gpuWorkers)
-    .values({
-      name,
-      modelName,
-      status: 'online',
-      jobsInFlight,
-      lastHeartbeatAt: new Date(),
-    })
+    .values({name, modelName, status: 'online', jobsInFlight, lastHeartbeatAt: new Date()})
     .onConflictDoUpdate({
       target: gpuWorkers.name,
-      set: {
-        modelName,
-        status: 'online',
-        jobsInFlight,
-        lastHeartbeatAt: new Date(),
-      },
+      set: {modelName, status: 'online', jobsInFlight, lastHeartbeatAt: new Date()},
     })
     .returning({id: gpuWorkers.id})
 

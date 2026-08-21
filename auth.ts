@@ -18,11 +18,7 @@ interface UserClaims {
 
 async function syncUserClaims(userId: string): Promise<UserClaims> {
   const [row] = await db
-    .select({
-      email: users.email,
-      role: users.role,
-      dob: users.dob,
-    })
+    .select({email: users.email, role: users.role, dob: users.dob})
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
@@ -38,10 +34,7 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
     await db.update(users).set({role: desiredRole}).where(eq(users.id, userId))
   }
 
-  return {
-    role: desiredRole,
-    hasDob: row.dob !== null,
-  }
+  return {role: desiredRole, hasDob: row.dob !== null}
 }
 
 export const {handlers, auth, signIn, signOut} = NextAuth({
@@ -56,15 +49,10 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
 
   trustHost: true,
 
-  pages: {
-    signIn: '/signin',
-    error: '/signin',
-  },
+  pages: {signIn: '/signin', error: '/signin'},
 
   providers: [
-    Google({
-      allowDangerousEmailAccountLinking: false,
-    }),
+    Google({allowDangerousEmailAccountLinking: false}),
 
     Credentials({
       credentials: {
@@ -93,12 +81,7 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash)
         if (!valid) return null
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        }
+        return {id: user.id, email: user.email, name: user.name, image: user.image}
       },
     }),
   ],

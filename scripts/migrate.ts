@@ -92,11 +92,7 @@ async function readJournal(): Promise<Journal['entries']> {
 }
 
 const UNREACHABLE = new Set([
-  'ECONNREFUSED',
-  'ENOTFOUND',
-  'ETIMEDOUT',
-  'EAI_AGAIN',
-  'CONNECT_TIMEOUT',
+  'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'CONNECT_TIMEOUT',
   'CONNECTION_CLOSED',
 ])
 

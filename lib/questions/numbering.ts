@@ -417,8 +417,7 @@ export function planNumberDuplicateMerges(
   for (const question of questions) {
     if (question.printedNumber === null) continue
     byNumber.set(question.printedNumber, [
-      ...(byNumber.get(question.printedNumber) ?? []),
-      question,
+      ...(byNumber.get(question.printedNumber) ?? []), question,
     ])
   }
 

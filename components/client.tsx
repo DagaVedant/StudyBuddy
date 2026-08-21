@@ -537,10 +537,7 @@ async function pickHere(
   provider: AIProvider,
   items: {questionId: string; embedding: number[]}[],
 ): Promise<AppliedResponse> {
-  const {batch} = (await send(worksheetId, {
-    action: 'shortlist',
-    items,
-  })) as ShortlistResponse
+  const {batch} = (await send(worksheetId, {action: 'shortlist', items})) as ShortlistResponse
 
   const results = []
 
@@ -607,9 +604,7 @@ export function GenerateLessonButton({topicId}: {topicId: string}) {
     setError(null)
 
     try {
-      const response = await fetchJson(`/api/topics/${topicId}/lesson`, {
-        method: 'POST',
-      })
+      const response = await fetchJson(`/api/topics/${topicId}/lesson`, {method: 'POST'})
       const body = (await response.json().catch(() => ({}))) as LessonResponse
 
       if (!response.ok) {
@@ -698,9 +693,7 @@ export function GeneratePracticeButton({topicId}: {topicId: string}) {
     setMessage(null)
 
     try {
-      const response = await fetchJson(`/api/topics/${topicId}/practice`, {
-        method: 'POST',
-      })
+      const response = await fetchJson(`/api/topics/${topicId}/practice`, {method: 'POST'})
       const body = (await response.json().catch(() => ({}))) as PracticeResponse
 
       if (!response.ok) {
@@ -934,10 +927,8 @@ export function RevisitQuestion({
     </li>
   )
 }const NAV = [
-  {href: '/dashboard', label: 'Dashboard'},
-  {href: '/worksheets', label: 'Worksheets'},
-  {href: '/review', label: 'Review'},
-  {href: '/topics', label: 'Topics'},
+  {href: '/dashboard', label: 'Dashboard'}, {href: '/worksheets', label: 'Worksheets'},
+  {href: '/review', label: 'Review'}, {href: '/topics', label: 'Topics'},
   {href: '/settings', label: 'Settings'},
 ]
 

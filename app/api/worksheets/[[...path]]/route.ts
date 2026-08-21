@@ -290,11 +290,7 @@ async function postIdAttempts(request: Request, {params}: {params: Promise<Recor
     if (logs.length > 0) await tx.insert(reviewLogs).values(logs)
   })
 
-  return NextResponse.json({
-    ok: true,
-    recorded: accepted.length,
-    next: '/dashboard',
-  })
+  return NextResponse.json({ok: true, recorded: accepted.length, next: '/dashboard'})
 }
 
 const verifyAllSchema = z.object({
@@ -327,9 +323,7 @@ async function postIdCheckAll(request: Request, {params}: {params: Promise<Recor
   return NextResponse.json({verified: updated.length})
 }
 
-const unverifySchema = z.object({
-  ids: z.array(z.string().min(1).max(64)).min(1).max(500),
-})
+const unverifySchema = z.object({ids: z.array(z.string().min(1).max(64)).min(1).max(500)})
 
 async function deleteIdCheckAll(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
@@ -361,10 +355,7 @@ export const BROWSER_CLASSIFY_BATCH = 12
 
 const itemsSchema = z
   .array(
-    z.object({
-      questionId: z.string().min(1),
-      embedding: z.array(z.number()),
-    }),
+    z.object({questionId: z.string().min(1), embedding: z.array(z.number())}),
   )
   .max(BROWSER_CLASSIFY_BATCH)
 
@@ -395,11 +386,7 @@ type Body = z.infer<typeof schema>
 
 async function ownedQuestion(worksheetId: string, userId: string, questionId: string) {
   const [question] = await db
-    .select({
-      id: questions.id,
-      promptText: questions.promptText,
-      userId: questions.userId,
-    })
+    .select({id: questions.id, promptText: questions.promptText, userId: questions.userId})
     .from(questions)
     .where(
       and(
@@ -540,12 +527,7 @@ async function postIdClassify(request: Request, {params}: {params: Promise<Recor
       }
     }
 
-    return NextResponse.json({
-      applied,
-      coarse,
-      failed,
-      done: await finish(worksheetId),
-    })
+    return NextResponse.json({applied, coarse, failed, done: await finish(worksheetId)})
   }
 
   if (executor !== 'server') {
@@ -609,12 +591,7 @@ async function postIdClassify(request: Request, {params}: {params: Promise<Recor
     }
   }
 
-  return NextResponse.json({
-    applied,
-    coarse,
-    failed,
-    done: await finish(worksheetId),
-  })
+  return NextResponse.json({applied, coarse, failed, done: await finish(worksheetId)})
 }
 
 const claimForCompletion = (
@@ -1033,13 +1010,7 @@ async function postIdPages(request: Request, {params}: {params: Promise<Record<s
 
   const [page] = await db
     .insert(worksheetPages)
-    .values({
-      worksheetId,
-      pageNumber,
-      imageKey: key,
-      width: realWidth,
-      height: realHeight,
-    })
+    .values({worksheetId, pageNumber, imageKey: key, width: realWidth, height: realHeight})
     .onConflictDoUpdate({
       target: [worksheetPages.worksheetId, worksheetPages.pageNumber],
       set: {imageKey: key, width: realWidth, height: realHeight},
@@ -1236,9 +1207,7 @@ async function postIdQuestions(request: Request, {params}: {params: Promise<Reco
   return NextResponse.json({questionId}, {status: 201})
 }
 
-const renameSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-})
+const renameSchema = z.object({title: z.string().trim().min(1).max(200)})
 
 async function patchId(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const session = await auth()
@@ -1412,23 +1381,15 @@ async function getRoot() {
 }
 
 const handle = endpoints([
-  ['POST', ':id/attempts', postIdAttempts],
-  ['PATCH', ':id/attempts', patchIdAttempts],
-  ['POST', ':id/check-all', postIdCheckAll],
-  ['DELETE', ':id/check-all', deleteIdCheckAll],
-  ['GET', ':id/classify', getIdClassify],
-  ['POST', ':id/classify', postIdClassify],
-  ['POST', ':id/complete', postIdComplete],
-  ['POST', ':id/confirm', postIdConfirm],
+  ['POST', ':id/attempts', postIdAttempts], ['PATCH', ':id/attempts', patchIdAttempts],
+  ['POST', ':id/check-all', postIdCheckAll], ['DELETE', ':id/check-all', deleteIdCheckAll],
+  ['GET', ':id/classify', getIdClassify], ['POST', ':id/classify', postIdClassify],
+  ['POST', ':id/complete', postIdComplete], ['POST', ':id/confirm', postIdConfirm],
   ['POST', ':id/go-manual', postIdGoManual],
   ['GET', ':id/pages/:pageId/lines', getIdPagesPageidLines],
-  ['POST', ':id/pages', postIdPages],
-  ['PATCH', ':id/pages', patchIdPages],
-  ['GET', ':id/questions', getIdQuestions],
-  ['POST', ':id/questions', postIdQuestions],
-  ['PATCH', ':id', patchId],
-  ['DELETE', ':id', deleteId],
-  ['GET', '', getRoot],
+  ['POST', ':id/pages', postIdPages], ['PATCH', ':id/pages', patchIdPages],
+  ['GET', ':id/questions', getIdQuestions], ['POST', ':id/questions', postIdQuestions],
+  ['PATCH', ':id', patchId], ['DELETE', ':id', deleteId], ['GET', '', getRoot],
   ['POST', '', postRoot],
 ])
 

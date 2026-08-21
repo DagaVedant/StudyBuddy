@@ -56,8 +56,7 @@ export default async function StatusPage({
     .limit(1)
 
   const [worker, depth] = await Promise.all([
-    workerStatus(db),
-    queueDepth(db, job?.executor ?? 'operator_gpu'),
+    workerStatus(db), queueDepth(db, job?.executor ?? 'operator_gpu'),
   ])
 
   const failed = worksheet.status === 'failed' || job?.status === 'failed'

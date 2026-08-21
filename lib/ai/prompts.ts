@@ -9,12 +9,7 @@ import type {
 } from './types'
 
 const FENCE_NAMES = [
-  'page_text',
-  'question',
-  'previous_page_tail',
-  'next_page_head',
-  'topic',
-  'already_owned',
+  'page_text', 'question', 'previous_page_tail', 'next_page_head', 'topic', 'already_owned',
 ] as const
 
 type FenceName = (typeof FENCE_NAMES)[number]
@@ -98,30 +93,22 @@ export function extractionUserText(page: PageInput, expect: number[] = []): stri
 
   const before = page.before
     ? [
-        '',
-        'End of the PREVIOUS page. Context only, not content:',
-        ...fence('previous_page_tail', page.before, 4_000),
-      ]
+      '', 'End of the PREVIOUS page. Context only, not content:',
+      ...fence('previous_page_tail', page.before, 4_000),
+    ]
     : []
 
   const after = page.after
     ? [
-        '',
-        'Start of the NEXT page. Context only, not content:',
-        ...fence('next_page_head', page.after, 4_000),
-      ]
+      '', 'Start of the NEXT page. Context only, not content:',
+      ...fence('next_page_head', page.after, 4_000),
+    ]
     : []
 
   return [
-    `Page ${page.pageNumber}, ${page.width}x${page.height} pixels.`,
-    '',
+    `Page ${page.pageNumber}, ${page.width}x${page.height} pixels.`, '',
     'Text layer (may be imperfect, and may be empty):',
-    ...fence('page_text', page.text, 20_000),
-    ...before,
-    ...after,
-    ...target,
-    '',
-
+    ...fence('page_text', page.text, 20_000), ...before, ...after, ...target, '',
     'Extract the questions.',
   ].join('\n')
 }
@@ -142,11 +129,8 @@ export function classifyUserText(
   candidates: TopicCandidate[],
 ): string {
   return [
-    'Candidate topics:',
-    ...candidates.map((topic) => `- ${topic.slug}: ${topic.path}`),
-    '',
-    'Question:',
-    ...fence('question', promptText, 4000),
+    'Candidate topics:', ...candidates.map((topic) => `- ${topic.slug}: ${topic.path}`), '',
+    'Question:', ...fence('question', promptText, 4000),
   ].join('\n')
 }
 
@@ -192,40 +176,23 @@ export const EXTRACTION_JSON_SCHEMA = {
           question_type: {
             type: 'string',
             enum: [
-              'multiple_choice',
-              'free_response',
-              'true_false',
-              'fill_blank',
-              'grid_in',
+              'multiple_choice', 'free_response', 'true_false', 'fill_blank', 'grid_in',
             ],
           },
           choices: {
             type: 'array',
             items: {
               type: 'object',
-              properties: {
-                label: {type: 'string'},
-                text: {type: 'string'},
-              },
+              properties: {label: {type: 'string'}, text: {type: 'string'}},
               required: ['label', 'text'],
               additionalProperties: false,
             },
           },
-          bbox: {
-            anyOf: [
-              {type: 'array', items: {type: 'number'}},
-              {type: 'null'},
-            ],
-          },
+          bbox: {anyOf: [{type: 'array', items: {type: 'number'}}, {type: 'null'}]},
           has_figure: {type: 'boolean'},
         },
         required: [
-          'ordinal',
-          'prompt_text',
-          'question_type',
-          'choices',
-          'bbox',
-          'has_figure',
+          'ordinal', 'prompt_text', 'question_type', 'choices', 'bbox', 'has_figure',
         ],
         additionalProperties: false,
       },
@@ -380,18 +347,12 @@ export function answerUserText(input: AnswerInput): string {
   const options =
     input.choices.length > 0
       ? [
-          '',
-          'Options:',
-          ...input.choices.map((choice) => `${choice.label}) ${choice.text}`),
-        ]
+        '', 'Options:', ...input.choices.map((choice) => `${choice.label}) ${choice.text}`),
+      ]
       : ['', 'This question has no options. Answer with the value itself.']
 
   return [
-    'Question:',
-    ...fence('question', input.promptText, 8_000),
-    ...options,
-    '',
-    'Solve it.',
+    'Question:', ...fence('question', input.promptText, 8_000), ...options, '', 'Solve it.',
   ].join('\n')
 }
 
@@ -489,19 +450,15 @@ export function lessonUserText(input: LessonInput): string {
   const samples =
     input.samples.length > 0
       ? [
-          '',
-          'Questions from this topic, so you can see the level it is tested at.',
-          'Teach the topic, not these questions:',
-          ...fence('question', input.samples.join('\n\n'), 6_000),
-        ]
+        '', 'Questions from this topic, so you can see the level it is tested at.',
+        'Teach the topic, not these questions:',
+        ...fence('question', input.samples.join('\n\n'), 6_000),
+      ]
       : []
 
   return [
     `Topic: ${fenced(input.topicName, 200)}`,
-    `Where it sits: ${fenced(input.topicPath, 400)}`,
-    ...samples,
-    '',
-    'Teach it.',
+    `Where it sits: ${fenced(input.topicPath, 400)}`, ...samples, '', 'Teach it.',
   ].join('\n')
 }
 
@@ -559,10 +516,7 @@ export const PRACTICE_JSON_SCHEMA = {
             type: 'array',
             items: {
               type: 'object',
-              properties: {
-                label: {type: 'string'},
-                text: {type: 'string'},
-              },
+              properties: {label: {type: 'string'}, text: {type: 'string'}},
               required: ['label', 'text'],
               additionalProperties: false,
             },
@@ -583,18 +537,14 @@ export function practiceUserText(input: PracticeInput): string {
   const owned =
     input.owned.length > 0
       ? [
-          '',
-          'Questions this student already has on this topic. Match the level,',
-          'write none of them again:',
-          ...fence('already_owned', input.owned.join('\n\n'), 6_000),
-        ]
+        '', 'Questions this student already has on this topic. Match the level,',
+        'write none of them again:',
+        ...fence('already_owned', input.owned.join('\n\n'), 6_000),
+      ]
       : []
 
   return [
-    'Topic:',
-    ...fence('topic', `${input.topicName}\n${input.topicPath}`, 600),
-    ...owned,
-    '',
-    `Write ${input.count} new question${input.count === 1 ? '' : 's'}.`,
+    'Topic:', ...fence('topic', `${input.topicName}\n${input.topicPath}`, 600), ...owned,
+    '', `Write ${input.count} new question${input.count === 1 ? '' : 's'}.`,
   ].join('\n')
 }

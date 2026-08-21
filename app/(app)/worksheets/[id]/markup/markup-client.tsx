@@ -425,8 +425,7 @@ export interface MarkedQuestion {
 }
 
 const CORRECTION_OUTCOMES: {value: Outcome; label: string}[] = [
-  {value: 'correct', label: 'Got it'},
-  {value: 'unsure', label: 'Unsure'},
+  {value: 'correct', label: 'Got it'}, {value: 'unsure', label: 'Unsure'},
   {value: 'wrong', label: 'Missed it'},
 ]
 

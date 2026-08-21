@@ -458,10 +458,7 @@ export function sealApiKey(plaintext: string): SealedKey {
   const iv = randomBytes(IV_BYTES)
   const cipher = createCipheriv(ALGORITHM, masterKey(), iv)
 
-  const ciphertext = Buffer.concat([
-    cipher.update(trimmed, 'utf8'),
-    cipher.final(),
-  ])
+  const ciphertext = Buffer.concat([cipher.update(trimmed, 'utf8'), cipher.final()])
 
   return {
     ciphertext: ciphertext.toString('base64'),
@@ -480,8 +477,7 @@ export function openApiKey(sealed: Omit<SealedKey, 'last4'>): string {
   decipher.setAuthTag(Buffer.from(sealed.authTag, 'base64'))
 
   return Buffer.concat([
-    decipher.update(Buffer.from(sealed.ciphertext, 'base64')),
-    decipher.final(),
+    decipher.update(Buffer.from(sealed.ciphertext, 'base64')), decipher.final(),
   ]).toString('utf8')
 }
 
@@ -520,13 +516,11 @@ function probe(provider: CloudProvider, apiKey: string): [string, RequestInit] {
       ]
     case 'openai':
       return [
-        'https://api.openai.com/v1/models',
-        {headers: {authorization: `Bearer ${apiKey}`}},
+        'https://api.openai.com/v1/models', {headers: {authorization: `Bearer ${apiKey}`}},
       ]
     case 'openrouter':
       return [
-        'https://openrouter.ai/api/v1/key',
-        {headers: {authorization: `Bearer ${apiKey}`}},
+        'https://openrouter.ai/api/v1/key', {headers: {authorization: `Bearer ${apiKey}`}},
       ]
     case 'google':
       return [
@@ -564,16 +558,10 @@ export async function verifyCloudKey(
   if (response.ok) return {status: 'ok'}
 
   if (response.status === 401 || response.status === 403) {
-    return {
-      status: 'rejected',
-      reason: `${provider} did not accept that key.`,
-    }
+    return {status: 'rejected', reason: `${provider} did not accept that key.`}
   }
 
-  return {
-    status: 'unreachable',
-    reason: `${provider} answered ${response.status}.`,
-  }
+  return {status: 'unreachable', reason: `${provider} answered ${response.status}.`}
 }
 export class MockProvider implements RawAIProvider {
   readonly name = 'mock' as const
@@ -598,8 +586,7 @@ export class MockProvider implements RawAIProvider {
             prompt_text: `Sample question from page ${page.pageNumber}`,
             question_type: 'multiple_choice',
             choices: [
-              {label: 'A', text: 'First option'},
-              {label: 'B', text: 'Second option'},
+              {label: 'A', text: 'First option'}, {label: 'B', text: 'Second option'},
             ],
             bbox: [0, 0, Math.min(page.width, 100), Math.min(page.height, 100)],
             has_figure: false,
@@ -614,10 +601,8 @@ export class MockProvider implements RawAIProvider {
         prompt_text: line.replace(/^\s*\d+[.)]\s+/, ''),
         question_type: 'multiple_choice' as const,
         choices: [
-          {label: 'A', text: 'Option A'},
-          {label: 'B', text: 'Option B'},
-          {label: 'C', text: 'Option C'},
-          {label: 'D', text: 'Option D'},
+          {label: 'A', text: 'Option A'}, {label: 'B', text: 'Option B'},
+          {label: 'C', text: 'Option C'}, {label: 'D', text: 'Option D'},
         ],
         bbox: null,
         has_figure: false,
@@ -630,11 +615,7 @@ export class MockProvider implements RawAIProvider {
     candidates: TopicCandidate[],
   ): Promise<unknown> {
     if (candidates.length === 0) {
-      return {
-        topic_slug: null,
-        confidence: 0,
-        abstain: true,
-      }
+      return {topic_slug: null, confidence: 0, abstain: true}
     }
 
     const words = new Set(
@@ -659,11 +640,7 @@ export class MockProvider implements RawAIProvider {
     }
 
     if (bestScore <= 0) {
-      return {
-        topic_slug: null,
-        confidence: 0.1,
-        abstain: true,
-      }
+      return {topic_slug: null, confidence: 0.1, abstain: true}
     }
 
     return {
@@ -696,9 +673,7 @@ Mock lesson for ${input.topicPath}.`,
         {question: 'Mock example one', working: 'Step one.', answer: '1'},
         {question: 'Mock example two', working: 'Step one.', answer: '2'},
       ],
-      common_errors: [
-        {mistake: 'Mock mistake', why: 'Mock reason', fix: 'Mock fix'},
-      ],
+      common_errors: [{mistake: 'Mock mistake', why: 'Mock reason', fix: 'Mock fix'}],
     }
   }
 

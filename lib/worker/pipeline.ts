@@ -38,15 +38,7 @@ import {storage} from '@/lib/queue'
 import {type AIProvider, type ExtractedQuestion} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 
-const ORDER = [
-  'join',
-  'carried',
-  'math',
-  'numbers',
-  'merge',
-  'renumber',
-  'answers',
-] as const
+const ORDER = ['join', 'carried', 'math', 'numbers', 'merge', 'renumber', 'answers'] as const
 
 export type RepairPass = (typeof ORDER)[number]
 
@@ -168,10 +160,7 @@ export async function applyAnswerKey(
   if (key.size === 0) return {answered: 0}
 
   const rows = await db
-    .select({
-      id: questions.id,
-      printedNumber: questions.printedNumber,
-    })
+    .select({id: questions.id, printedNumber: questions.printedNumber})
     .from(questions)
     .where(
       and(
@@ -558,10 +547,7 @@ function pagesToRetry(
   }
 
   return [...expectByPage.entries()]
-    .map(([pageNumber, expect]) => ({
-      pageNumber,
-      expect: [...expect].sort((a, b) => a - b),
-    }))
+    .map(([pageNumber, expect]) => ({pageNumber, expect: [...expect].sort((a, b) => a - b)}))
     .sort((a, b) => a.pageNumber - b.pageNumber)
 }
 export interface ExtractProgress {

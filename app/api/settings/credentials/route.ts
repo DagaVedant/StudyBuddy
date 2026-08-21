@@ -35,9 +35,7 @@ export async function GET() {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
-  return NextResponse.json({
-    credentials: await getCredentialSummary(db, session.user.id),
-  })
+  return NextResponse.json({credentials: await getCredentialSummary(db, session.user.id)})
 }
 
 export async function POST(request: Request) {

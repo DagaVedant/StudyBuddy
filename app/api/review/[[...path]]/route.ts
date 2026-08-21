@@ -117,10 +117,7 @@ async function postRetire(request: Request) {
   return NextResponse.json({ok: true})
 }
 
-const handle = endpoints([
-  ['POST', 'rate', postRate],
-  ['POST', 'retire', postRetire],
-])
+const handle = endpoints([['POST', 'rate', postRate], ['POST', 'retire', postRetire]])
 
 export const GET = handle
 export const POST = handle

@@ -181,11 +181,7 @@ export function blocksOf(markdown: string): Block[] {
     const heading = /^(#{1,3})\s+(.*)$/.exec(line)
     if (heading) {
       flush()
-      blocks.push({
-        kind: 'heading',
-        level: heading[1].length <= 2 ? 2 : 3,
-        text: heading[2],
-      })
+      blocks.push({kind: 'heading', level: heading[1].length <= 2 ? 2 : 3, text: heading[2]})
       continue
     }
 
@@ -454,10 +450,8 @@ export function PageFoot({running}: {running: string}) {
   )
 }
 export const TOPICS = [
-  {name: 'Ratios and rates', count: 6},
-  {name: 'Linear equations', count: 5},
-  {name: 'Inferences', count: 8},
-  {name: 'Words in context', count: 5},
+  {name: 'Ratios and rates', count: 6}, {name: 'Linear equations', count: 5},
+  {name: 'Inferences', count: 8}, {name: 'Words in context', count: 5},
 ] as const
 
 const TOTAL = TOPICS.reduce((sum, topic) => sum + topic.count, 0)
@@ -466,8 +460,7 @@ const CURVE =
   'M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76'
 
 const REVIEWS = [
-  {left: '21.25%', top: '40%'},
-  {left: '38.75%', top: '46.7%'},
+  {left: '21.25%', top: '40%'}, {left: '38.75%', top: '46.7%'},
   {left: '61.25%', top: '55.6%'},
 ] as const
 
@@ -562,10 +555,8 @@ function Curve() {
   )
 }
 const STATS = [
-  {label: 'Due now', value: 12, link: true, pin: 3},
-  {label: 'Later this week', value: 41},
-  {label: 'Questions tracked', value: 218, pin: 1},
-  {label: 'Worksheets', value: 9},
+  {label: 'Due now', value: 12, link: true, pin: 3}, {label: 'Later this week', value: 41},
+  {label: 'Questions tracked', value: 218, pin: 1}, {label: 'Worksheets', value: 9},
 ] as const
 
 const WEAKEST = [
@@ -606,8 +597,7 @@ export const SUBJECTS = [
 ] as const
 
 const FRAGILE = [
-  {name: 'Words in context', unsureRate: 38},
-  {name: 'Percentages', unsureRate: 31},
+  {name: 'Words in context', unsureRate: 38}, {name: 'Percentages', unsureRate: 31},
   {name: 'Transitions', unsureRate: 27},
 ] as const
 
@@ -797,8 +787,7 @@ const DAY_MS = 86_400_000
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 
 const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ] as const
 
 function key(date: Date): string {

@@ -141,10 +141,7 @@ export async function getDueCards(
       )
       .orderBy(desc(attempts.createdAt)),
     db
-      .select({
-        questionId: questionTopics.questionId,
-        name: topics.name,
-      })
+      .select({questionId: questionTopics.questionId, name: topics.name})
       .from(questionTopics)
       .innerJoin(topics, eq(topics.id, questionTopics.topicId))
       .where(
@@ -378,8 +375,7 @@ export function previewIntervals(
   const entries = Object.entries(REVIEW_GRADES) as [ReviewRating, Grade][]
   return Object.fromEntries(
     entries.map(([name, grade]) => [
-      name,
-      scheduler.next(toFsrsCard(stored, now), now, grade).card.due,
+      name, scheduler.next(toFsrsCard(stored, now), now, grade).card.due,
     ]),
   ) as Record<ReviewRating, Date>
 }
@@ -490,10 +486,7 @@ export async function correctMarkupAttempt(
       .values({userId, questionId: input.questionId, ...card})
       .onConflictDoUpdate({
         target: [reviewCards.userId, reviewCards.questionId],
-        set: {
-          ...card,
-          retiredAt: null,
-        },
+        set: {...card, retiredAt: null},
       })
 
     rescheduled = true

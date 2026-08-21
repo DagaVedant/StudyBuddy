@@ -17,11 +17,7 @@ export type ProviderName =
   | 'null'
 
 export const questionTypeSchema = z.enum([
-  'multiple_choice',
-  'free_response',
-  'true_false',
-  'fill_blank',
-  'grid_in',
+  'multiple_choice', 'free_response', 'true_false', 'fill_blank', 'grid_in',
 ])
 
 export const extractedQuestionSchema = z.object({
@@ -161,10 +157,7 @@ export const solutionSchema = z.object({
   working: z.string().max(8000).default(''),
   traps: z
     .array(
-      z.object({
-        label: z.string().max(8).nullable().default(null),
-        why: z.string().max(600),
-      }),
+      z.object({label: z.string().max(8).nullable().default(null), why: z.string().max(600)}),
     )
     .max(12)
     .default([]),

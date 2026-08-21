@@ -36,45 +36,25 @@ export const userRole = pgEnum('user_role', ['student', 'admin'])
 export const aiTier = pgEnum('ai_tier', ['trial', 'free', 'cloud', 'ollama'])
 
 export const aiProvider = pgEnum('ai_provider', [
-  'anthropic',
-  'openai',
-  'openrouter',
-  'google',
-  'ollama',
+  'anthropic', 'openai', 'openrouter', 'google', 'ollama',
 ])
 
 export const sourceType = pgEnum('source_type', [
-  'pdf_digital',
-  'pdf_scanned',
-  'photo',
-  'image',
-  'generated',
+  'pdf_digital', 'pdf_scanned', 'photo', 'image', 'generated',
 ])
 
 export const contentOrigin = pgEnum('content_origin', ['extracted', 'generated'])
 
 export const worksheetStatus = pgEnum('worksheet_status', [
-  'uploading',
-  'queued',
-  'processing',
-  'awaiting_review',
-  'ready',
-  'failed',
+  'uploading', 'queued', 'processing', 'awaiting_review', 'ready', 'failed',
 ])
 
 export const questionType = pgEnum('question_type', [
-  'multiple_choice',
-  'free_response',
-  'true_false',
-  'fill_blank',
-  'grid_in',
+  'multiple_choice', 'free_response', 'true_false', 'fill_blank', 'grid_in',
 ])
 
 export const answerSource = pgEnum('answer_source', [
-  'user_key',
-  'pdf_key',
-  'ai_derived',
-  'none',
+  'user_key', 'pdf_key', 'ai_derived', 'none',
 ])
 
 export const ocrEngine = pgEnum('ocr_engine', ['pdf_text', 'tesseract', 'vision'])
@@ -88,22 +68,12 @@ export const attemptSource = pgEnum('attempt_source', ['markup', 'review'])
 export const jobExecutor = pgEnum('job_executor', ['server', 'browser', 'operator_gpu'])
 
 export const jobStatus = pgEnum('job_status', [
-  'pending',
-  'claimed',
-  'running',
-  'completed',
-  'failed',
-  'cancelled',
+  'pending', 'claimed', 'running', 'completed', 'failed', 'cancelled',
 ])
 
 export const jobPriority = pgEnum('job_priority', ['high', 'normal', 'low'])
 
-export const jobStage = pgEnum('job_stage', [
-  'extract',
-  'answer_key',
-  'classify',
-  'explain',
-])
+export const jobStage = pgEnum('job_stage', ['extract', 'answer_key', 'classify', 'explain'])
 
 export const workerStatus = pgEnum('worker_status', ['online', 'offline', 'draining'])
 
@@ -112,11 +82,7 @@ export const reportKind = pgEnum('report_kind', ['worksheet', 'explanation'])
 export const cardState = pgEnum('card_state', ['new', 'learning', 'review', 'relearning'])
 
 export const usageKind = pgEnum('usage_kind', [
-  'extract_page',
-  'answer_derive',
-  'classify',
-  'explain',
-  'generate_practice',
+  'extract_page', 'answer_derive', 'classify', 'explain', 'generate_practice',
 ])
 
 export const users = pgTable('users', {
@@ -507,12 +473,8 @@ export const reports = pgTable(
 
     kind: reportKind('kind').notNull(),
 
-    worksheetId: text('worksheet_id').references(() => worksheets.id, {
-      onDelete: 'cascade',
-    }),
-    questionId: text('question_id').references(() => questions.id, {
-      onDelete: 'cascade',
-    }),
+    worksheetId: text('worksheet_id').references(() => worksheets.id, {onDelete: 'cascade'}),
+    questionId: text('question_id').references(() => questions.id, {onDelete: 'cascade'}),
     explanationId: text('explanation_id').references(() => explanations.id, {
       onDelete: 'cascade',
     }),
@@ -525,8 +487,7 @@ export const reports = pgTable(
   (t) => [
     index('reports_created_idx').on(t.createdAt),
     index('reports_worksheet_idx').on(t.worksheetId),
-    index('reports_user_idx').on(t.userId),
-    index('reports_question_idx').on(t.questionId),
+    index('reports_user_idx').on(t.userId), index('reports_question_idx').on(t.questionId),
     index('reports_explanation_idx').on(t.explanationId),
   ],
 )
@@ -560,7 +521,6 @@ export const reviewCards = pgTable(
   },
   (t) => [
     unique('review_cards_user_question').on(t.userId, t.questionId),
-
     index('review_cards_user_due_idx').on(t.userId, t.dueAt),
     index('review_cards_question_idx').on(t.questionId),
   ],

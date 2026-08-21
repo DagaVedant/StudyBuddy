@@ -142,8 +142,7 @@ export default async function TopicPage({
 
         <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
           {[
-            {label: 'Got it', value: stats.correct},
-            {label: 'Unsure', value: stats.unsure},
+            {label: 'Got it', value: stats.correct}, {label: 'Unsure', value: stats.unsure},
             {label: 'Missed', value: stats.wrong},
           ].map((item) => (
             <div key={item.label}>

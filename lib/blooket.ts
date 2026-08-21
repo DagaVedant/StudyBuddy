@@ -15,14 +15,8 @@ const TIME_LIMIT = 30
 const BANNER = ['StudyBuddy: questions you missed']
 
 const HEADERS = [
-  'Question #',
-  'Question Text',
-  'Answer 1',
-  'Answer 2',
-  'Answer 3 (Optional)',
-  'Answer 4 (Optional)',
-  'Time Limit (sec)',
-  'Correct Answer(s)',
+  'Question #', 'Question Text', 'Answer 1', 'Answer 2', 'Answer 3 (Optional)',
+  'Answer 4 (Optional)', 'Time Limit (sec)', 'Correct Answer(s)',
 ]
 
 export interface ExportChoice {
@@ -167,13 +161,8 @@ export function toBlooketCsv(questions: ExportQuestion[]): BlooketCsv {
 
     lines.push(
       line([
-        String(included),
-        row.prompt,
-        ...answers,
-        String(TIME_LIMIT),
-        row.correct.join(','),
-        '',
-        row.typed ? 'typing' : '',
+        String(included), row.prompt, ...answers, String(TIME_LIMIT), row.correct.join(','),
+        '', row.typed ? 'typing' : '',
       ]),
     )
   }

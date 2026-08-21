@@ -634,11 +634,7 @@ export async function classifyWorksheet(
   subjectHint?: string | null,
 ): Promise<{classified: number; coarse: number; failed: number}> {
   const rows = await db
-    .select({
-      id: questions.id,
-      promptText: questions.promptText,
-      userId: questions.userId,
-    })
+    .select({id: questions.id, promptText: questions.promptText, userId: questions.userId})
     .from(questions)
     .where(eq(questions.worksheetId, worksheetId))
 
@@ -738,9 +734,7 @@ async function getExtractor(): Promise<FeatureExtractionPipeline> {
         env.allowRemoteModels = false
       }
 
-      return pipeline('feature-extraction', EMBEDDING_MODEL, {
-        dtype: 'q8',
-      }) as Promise<FeatureExtractionPipeline>
+      return pipeline('feature-extraction', EMBEDDING_MODEL, {dtype: 'q8'}) as Promise<FeatureExtractionPipeline>
     },
   )
 

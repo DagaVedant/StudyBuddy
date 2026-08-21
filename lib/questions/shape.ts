@@ -28,11 +28,7 @@ export const questionInputSchema = z.object({
   ordinal: z.number().int().min(1),
   promptText: z.string().trim().min(1).max(8000),
   questionType: z.enum([
-    'multiple_choice',
-    'free_response',
-    'true_false',
-    'fill_blank',
-    'grid_in',
+    'multiple_choice', 'free_response', 'true_false', 'fill_blank', 'grid_in',
   ]),
   bbox: bboxSchema.nullish(),
   correctAnswer: z.string().trim().max(2000).nullish(),
@@ -109,20 +105,14 @@ export function foldLeadInChoices<T extends FoldableQuestion>(question: T): T {
 }
 
 export const ESCAPE_COLLIDING_COMMANDS = new Set([
-  'bar', 'begin', 'binom', 'bmod', 'boxed', 'bullet',
-  'forall', 'frac',
-  'nabla', 'ne', 'neg', 'neq', 'ngeq', 'nleq', 'nmid', 'notin', 'nu',
-  'rangle', 'rceil', 'rfloor', 'rho', 'right', 'rightarrow',
-  'tan', 'text', 'textbf', 'textit', 'tfrac', 'theta', 'times', 'triangle',
-  'underbrace', 'underline', 'uparrow',
+  'bar', 'begin', 'binom', 'bmod', 'boxed', 'bullet', 'forall', 'frac', 'nabla', 'ne',
+  'neg', 'neq', 'ngeq', 'nleq', 'nmid', 'notin', 'nu', 'rangle', 'rceil', 'rfloor', 'rho',
+  'right', 'rightarrow', 'tan', 'text', 'textbf', 'textit', 'tfrac', 'theta', 'times',
+  'triangle', 'underbrace', 'underline', 'uparrow',
 ])
 
 const LETTER_FOR_CONTROL = new Map([
-  ['\u0008', 'b'],
-  ['\u000c', 'f'],
-  ['\n', 'n'],
-  ['\r', 'r'],
-  ['\t', 't'],
+  ['\u0008', 'b'], ['\u000c', 'f'], ['\n', 'n'], ['\r', 'r'], ['\t', 't'],
 ])
 
 function recoverEatenCommands(text: string): string {
@@ -133,8 +123,7 @@ function recoverEatenCommands(text: string): string {
 }
 
 const DELIMITERS: [RegExp, string][] = [
-  [/\\\[([\s\S]*?)\\\]/g, '$1'],
-  [/\\\(([\s\S]*?)\\\)/g, '$1'],
+  [/\\\[([\s\S]*?)\\\]/g, '$1'], [/\\\(([\s\S]*?)\\\)/g, '$1'],
   [/\$\$([\s\S]*?)\$\$/g, '$1'],
 ]
 
@@ -155,24 +144,11 @@ function unwrapInlineMath(text: string): string {
 
 const COMMANDS: [RegExp, string][] = [
   [/\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '$1/$2'],
-  [/\\sqrt\s*\{([^{}]*)\}/g, '√($1)'],
-  [/\\text\s*\{([^{}]*)\}/g, '$1'],
-  [/\\mathrm\s*\{([^{}]*)\}/g, '$1'],
-
-  [/\\times/g, '×'],
-  [/\\div/g, '÷'],
-  [/\\cdot/g, '·'],
-  [/\\pm/g, '±'],
-  [/\\leq/g, '≤'],
-  [/\\geq/g, '≥'],
-  [/\\neq/g, '≠'],
-  [/\\approx/g, '≈'],
-  [/\\pi/g, 'π'],
-  [/\\degree|\\circ/g, '°'],
-  [/\\%/g, '%'],
-  [/\\\$/g, '$'],
-  [/\\,|\\;|\\!|\\quad|\\qquad/g, ' '],
-  [/\\left|\\right/g, ''],
+  [/\\sqrt\s*\{([^{}]*)\}/g, '√($1)'], [/\\text\s*\{([^{}]*)\}/g, '$1'],
+  [/\\mathrm\s*\{([^{}]*)\}/g, '$1'], [/\\times/g, '×'], [/\\div/g, '÷'], [/\\cdot/g, '·'],
+  [/\\pm/g, '±'], [/\\leq/g, '≤'], [/\\geq/g, '≥'], [/\\neq/g, '≠'], [/\\approx/g, '≈'],
+  [/\\pi/g, 'π'], [/\\degree|\\circ/g, '°'], [/\\%/g, '%'], [/\\\$/g, '$'],
+  [/\\,|\\;|\\!|\\quad|\\qquad/g, ' '], [/\\left|\\right/g, ''],
 ]
 
 export function normalizeMath(input: string): string {
@@ -202,9 +178,7 @@ export function looksUnrendered(text: string): boolean {
 export function roundLines(lines: TextLine[] | null): TextLine[] {
   return (lines ?? []).map((line) => {
     const bbox: BBox = [
-      Math.round(line.bbox[0]),
-      Math.round(line.bbox[1]),
-      Math.round(line.bbox[2]),
+      Math.round(line.bbox[0]), Math.round(line.bbox[1]), Math.round(line.bbox[2]),
       Math.round(line.bbox[3]),
     ]
     return { text: line.text, bbox }
@@ -356,12 +330,7 @@ export function evidenceFor(
   if (x1 <= x0 || y1 <= y0) return null
   if (x0 >= page.width || y0 >= page.height || x1 <= 0 || y1 <= 0) return null
 
-  return {
-    src: `/api/files/${page.imageKey}`,
-    width: page.width,
-    height: page.height,
-    bbox,
-  }
+  return {src: `/api/files/${page.imageKey}`, width: page.width, height: page.height, bbox}
 }
 const LABEL = '[A-Ea-e]'
 

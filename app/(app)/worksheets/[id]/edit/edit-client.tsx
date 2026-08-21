@@ -57,8 +57,7 @@ export const QUESTION_TYPES: {value: QuestionType; label: string}[] = [
   {value: 'multiple_choice', label: 'Multiple Choice'},
   {value: 'free_response', label: 'Free Response'},
   {value: 'true_false', label: 'True or False'},
-  {value: 'fill_blank', label: 'Fill in the Blank'},
-  {value: 'grid_in', label: 'Grid-In'},
+  {value: 'fill_blank', label: 'Fill in the Blank'}, {value: 'grid_in', label: 'Grid-In'},
 ]
 
 export const CHOICE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
@@ -332,13 +331,7 @@ export function useQuestionEditor(
 
         questionsRef.current = [
           ...questionsRef.current,
-          {
-            ...body,
-            id: questionId,
-            correctAnswer: null,
-            topicId: null,
-            printedNumber: null,
-          },
+          {...body, id: questionId, correctAnswer: null, topicId: null, printedNumber: null},
         ]
         setQuestions(questionsRef.current)
         settle()
@@ -549,10 +542,8 @@ export function PageCanvas({
           const point = toPageCoords(event)
           const start = dragStart.current
           const box: BBox = [
-            Math.min(start.x, point.x),
-            Math.min(start.y, point.y),
-            Math.max(start.x, point.x),
-            Math.max(start.y, point.y),
+            Math.min(start.x, point.x), Math.min(start.y, point.y),
+            Math.max(start.x, point.x), Math.max(start.y, point.y),
           ]
           draftRef.current = box
           setDraft(box)
@@ -754,9 +745,7 @@ const QuestionCard = memo(function QuestionCard({
               className="field bg-surface text-fg"
               value={question.questionType}
               onChange={(event) =>
-                onUpdate(question.id, {
-                  questionType: event.target.value as QuestionType,
-                })
+                onUpdate(question.id, {questionType: event.target.value as QuestionType})
               }
             >
               {QUESTION_TYPES.map((type) => (

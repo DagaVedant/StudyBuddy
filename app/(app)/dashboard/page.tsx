@@ -161,20 +161,13 @@ export default async function DashboardPage() {
     untagged,
     credentials,
   ] = await Promise.all([
-    getOverview(db, userId),
-    getTopicStats(db, userId),
-    getAccuracyTrend(db, userId),
-    getAccuracyTrendBySubject(db, userId),
-    getReviewForecast(db, userId),
-    getRecentWorksheets(db, userId),
-    getDistractorPatterns(db, userId),
-    countMissedQuestions(db, userId),
-    getStudyStreak(db, userId),
-    getStudyCalendar(db, userId),
-    getAiStatus(db, userId),
+    getOverview(db, userId), getTopicStats(db, userId), getAccuracyTrend(db, userId),
+    getAccuracyTrendBySubject(db, userId), getReviewForecast(db, userId),
+    getRecentWorksheets(db, userId), getDistractorPatterns(db, userId),
+    countMissedQuestions(db, userId), getStudyStreak(db, userId),
+    getStudyCalendar(db, userId), getAiStatus(db, userId),
     db.select({id: topics.id, slug: topics.slug}).from(topics),
-    listUntaggedWorksheets(db, userId),
-    getCredentialSummary(db, userId),
+    listUntaggedWorksheets(db, userId), getCredentialSummary(db, userId),
   ])
 
   const canSortHere = canSortTopicsHere(credentials)

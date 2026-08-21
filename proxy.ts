@@ -30,13 +30,7 @@ export const proxy = auth((req) => {
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
-    '/upload/:path*',
-    '/worksheets/:path*',
-    '/topics/:path*',
-    '/review/:path*',
-    '/settings/:path*',
-    '/admin/:path*',
-    '/onboarding/:path*',
+    '/dashboard/:path*', '/upload/:path*', '/worksheets/:path*', '/topics/:path*',
+    '/review/:path*', '/settings/:path*', '/admin/:path*', '/onboarding/:path*',
   ],
 }

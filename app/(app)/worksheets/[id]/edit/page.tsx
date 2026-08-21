@@ -91,10 +91,7 @@ export default async function EditPage({
     .orderBy(...CHOICE_ORDER)
 
   const topicRows = await db
-    .select({
-      questionId: questionTopics.questionId,
-      topicId: questionTopics.topicId,
-    })
+    .select({questionId: questionTopics.questionId, topicId: questionTopics.topicId})
     .from(questionTopics)
     .innerJoin(questions, eq(questionTopics.questionId, questions.id))
     .where(eq(questions.worksheetId, id))

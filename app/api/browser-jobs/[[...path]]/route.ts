@@ -140,10 +140,7 @@ async function postClaim(request: Request) {
   })
 }
 
-const handle = endpoints([
-  ['POST', ':jobId', postJobid],
-  ['POST', 'claim', postClaim],
-])
+const handle = endpoints([['POST', ':jobId', postJobid], ['POST', 'claim', postClaim]])
 
 export const GET = handle
 export const POST = handle

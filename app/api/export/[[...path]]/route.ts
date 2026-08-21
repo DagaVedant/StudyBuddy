@@ -57,8 +57,7 @@ async function getBlooket() {
 }
 
 const handle = endpoints([
-  ['GET', 'blooket/:worksheetId', getBlooketWorksheetid],
-  ['GET', 'blooket', getBlooket],
+  ['GET', 'blooket/:worksheetId', getBlooketWorksheetid], ['GET', 'blooket', getBlooket],
 ])
 
 export const GET = handle

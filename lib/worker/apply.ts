@@ -25,10 +25,7 @@ export async function recoverCarriedChoices(
   worksheetId: string,
 ): Promise<{recovered: number}> {
   const pages = await db
-    .select({
-      pageNumber: worksheetPages.pageNumber,
-      ocrText: worksheetPages.ocrText,
-    })
+    .select({pageNumber: worksheetPages.pageNumber, ocrText: worksheetPages.ocrText})
     .from(worksheetPages)
     .where(eq(worksheetPages.worksheetId, worksheetId))
     .orderBy(asc(worksheetPages.pageNumber))
@@ -121,14 +118,7 @@ export async function recoverCarriedChoices(
 
     await db
       .update(questions)
-      .set({
-        contentHash,
-        
-        
-        
-        
-        questionType: 'multiple_choice',
-      })
+      .set({contentHash, questionType: 'multiple_choice'})
       .where(eq(questions.id, target.id))
 
     recovered += 1
@@ -291,8 +281,7 @@ export async function deletableQuestionIds(db: Db, ids: string[]): Promise<strin
   ])
 
   const claimed = new Set([
-    ...claimedByAttempt.map((row) => row.id),
-    ...claimedByCard.map((row) => row.id),
+    ...claimedByAttempt.map((row) => row.id), ...claimedByCard.map((row) => row.id),
   ])
 
   return ids.filter((id) => !claimed.has(id))

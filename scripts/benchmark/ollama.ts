@@ -164,9 +164,7 @@ async function main() {
   const explanation = await provider.explain({
     promptText: 'In triangle ABC, angle A = 40 and angle B = 65. What is the measure of angle C?',
     choices: [
-      { label: 'A', text: '75' },
-      { label: 'B', text: '105' },
-      { label: 'C', text: '115' },
+      { label: 'A', text: '75' }, { label: 'B', text: '105' }, { label: 'C', text: '115' },
       { label: 'D', text: '25' },
     ],
     correctAnswer: 'A',

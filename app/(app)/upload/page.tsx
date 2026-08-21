@@ -34,8 +34,7 @@ export default async function UploadPage() {
   if (!session?.user?.id) redirect('/signin')
 
   const [aiStatus, resolved] = await Promise.all([
-    getAiStatus(db, session.user.id),
-    resolveProvider(db, session.user.id),
+    getAiStatus(db, session.user.id), resolveProvider(db, session.user.id),
   ])
 
   const onOperatorGpu = resolved.executor === 'operator_gpu'

@@ -201,9 +201,7 @@ export async function requestPasswordReset(
   } catch (error) {
     console.error('[auth] could not send a reset link:', (error as Error).message)
 
-    return {
-      error: 'We could not send that email just now. Try again in a few minutes.',
-    }
+    return {error: 'We could not send that email just now. Try again in a few minutes.'}
   }
 
   return {message: SENT}

@@ -133,10 +133,7 @@ async function postTopicidLesson(_request: Request, {params}: {params: Promise<R
   }
 }
 
-const storedSchema = z.object({
-  lesson: lessonSchema,
-  model: z.string().max(200).nullish(),
-})
+const storedSchema = z.object({lesson: lessonSchema, model: z.string().max(200).nullish()})
 
 async function putTopicidLesson(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {topicId} = await params
@@ -272,10 +269,7 @@ async function postTopicidPractice(request: Request, {params}: {params: Promise<
       )
     }
 
-    return NextResponse.json({
-      created: outcome.created,
-      rejected: outcome.rejected.length,
-    })
+    return NextResponse.json({created: outcome.created, rejected: outcome.rejected.length})
   } catch (error) {
     if (error instanceof ProviderUnavailable) {
       return NextResponse.json({error: NO_MODEL}, {status: 409})
@@ -353,10 +347,7 @@ async function putTopicidPractice(request: Request, {params}: {params: Promise<R
     )
   }
 
-  return NextResponse.json({
-    created: outcome.created,
-    rejected: outcome.rejected.length,
-  })
+  return NextResponse.json({created: outcome.created, rejected: outcome.rejected.length})
 }
 
 const handle = endpoints([

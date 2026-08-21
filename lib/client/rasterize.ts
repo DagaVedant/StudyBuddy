@@ -93,10 +93,8 @@ function toTextLines(
       lines.push({
         text,
         bbox: [
-          Math.min(...ordered.map((f) => f.x0)),
-          Math.min(...ordered.map((f) => f.y0)),
-          Math.max(...ordered.map((f) => f.x1)),
-          Math.max(...ordered.map((f) => f.y1)),
+          Math.min(...ordered.map((f) => f.x0)), Math.min(...ordered.map((f) => f.y0)),
+          Math.max(...ordered.map((f) => f.x1)), Math.max(...ordered.map((f) => f.y1)),
         ],
       })
     }
@@ -204,8 +202,7 @@ export async function rasterizePdf(
       }
 
       const [blob, textContent] = await Promise.all([
-        canvasToBlob(canvas),
-        page.getTextContent(),
+        canvasToBlob(canvas), page.getTextContent(),
       ])
 
       const textItems = textContent.items.filter(
@@ -316,10 +313,7 @@ export async function ocrPage(image: Blob, signal?: AbortSignal): Promise<OcrRes
       for (const line of paragraph.lines ?? []) {
         const text = line.text.trim()
         if (!text) continue
-        lines.push({
-          text,
-          bbox: [line.bbox.x0, line.bbox.y0, line.bbox.x1, line.bbox.y1],
-        })
+        lines.push({text, bbox: [line.bbox.x0, line.bbox.y0, line.bbox.x1, line.bbox.y1]})
       }
     }
   }

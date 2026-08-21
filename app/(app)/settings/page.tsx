@@ -18,8 +18,7 @@ export default async function SettingsPage() {
   if (!session?.user?.id) redirect('/signin')
 
   const [credentials, trial, worker] = await Promise.all([
-    getCredentialSummary(db, session.user.id),
-    getTrialState(db, session.user.id),
+    getCredentialSummary(db, session.user.id), getTrialState(db, session.user.id),
     workerStatus(db),
   ])
 

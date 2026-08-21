@@ -60,8 +60,7 @@ export default async function WorksheetsPage({
   const cursor = before && !Number.isNaN(before.getTime()) ? before : null
 
   const filters = [
-    eq(worksheets.userId, session.user.id),
-    eq(worksheets.origin, 'extracted'),
+    eq(worksheets.userId, session.user.id), eq(worksheets.origin, 'extracted'),
   ]
   if (query) filters.push(ilike(worksheets.title, `%${likeLiteral(query)}%`))
   if (cursor) filters.push(lt(worksheets.createdAt, cursor))

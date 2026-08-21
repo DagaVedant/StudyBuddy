@@ -9,11 +9,7 @@ const eslintConfig = defineConfig([
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "warn",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_",
-        },
+        {argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_"},
       ],
     },
   },
@@ -24,20 +20,12 @@ const eslintConfig = defineConfig([
     },
     rules: {
       "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/no-misused-promises": [
-        "error",
-        {checksVoidReturn: false},
-      ],
+      "@typescript-eslint/no-misused-promises": ["error", {checksVoidReturn: false}],
     },
   },
   globalIgnores([
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-    "public/pdf.min.mjs",
-    "public/pdf.worker.min.mjs",
-    ".uploads/**",
+    ".next/**", "out/**", "build/**", "next-env.d.ts", "public/pdf.min.mjs",
+    "public/pdf.worker.min.mjs", ".uploads/**",
   ]),
 ]);
 
