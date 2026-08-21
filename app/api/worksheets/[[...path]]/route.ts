@@ -645,13 +645,23 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       return alreadyCompleted(worksheetId)
     }
 
-    const kept = await applyCachedSample(
-      db,
-      worksheetId,
-      guard.userId,
-      match.sample,
-      match.pages,
-    )
+    let kept = 0
+
+    try {
+      kept = await applyCachedSample(
+        db,
+        worksheetId,
+        guard.userId,
+        match.sample,
+        match.pages,
+      )
+    } catch (error) {
+      // a claimed worksheet with no job would sit in the queue forever
+      console.error(
+        `[sample] ${match.sample.slug} failed on ${worksheetId}:`,
+        (error as Error).message,
+      )
+    }
 
     await transitionWorksheet(db, worksheetId, ['queued'], {
       status: 'awaiting_review',
