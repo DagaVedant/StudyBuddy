@@ -1,6 +1,6 @@
-import type { Instrumentation } from 'next'
+import type {Instrumentation} from 'next'
 
-import { reportError } from '@/lib/observability'
+import {reportError} from '@/lib/mail'
 
 export const onRequestError: Instrumentation.onRequestError = async (
   err,
@@ -11,7 +11,7 @@ export const onRequestError: Instrumentation.onRequestError = async (
     message: err instanceof Error ? err.message : String(err),
     digest:
       typeof err === 'object' && err !== null && 'digest' in err
-        ? String((err as { digest?: unknown }).digest)
+        ? String((err as {digest?: unknown}).digest)
         : undefined,
     path: request.path,
     method: request.method,

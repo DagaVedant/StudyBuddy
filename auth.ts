@@ -1,13 +1,13 @@
-import { DrizzleAdapter } from '@auth/drizzle-adapter'
+import {DrizzleAdapter} from '@auth/drizzle-adapter'
 import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
+import {eq} from 'drizzle-orm'
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
 
-import { accountMayBeAdmin, signInThrottled } from '@/lib/auth/identity'
-import { db } from '@/lib/db'
-import { accounts, sessions, users, verificationTokens } from '@/lib/db/schema'
+import {accountMayBeAdmin, signInThrottled} from '@/lib/auth/identity'
+import {db} from '@/lib/db'
+import {accounts, sessions, users, verificationTokens} from '@/lib/schema'
 
 type Role = 'student' | 'admin'
 
@@ -28,14 +28,14 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
     .limit(1)
 
   if (!row) {
-    return { role: 'student', hasDob: false }
+    return {role: 'student', hasDob: false}
   }
 
   const shouldBeAdmin = await accountMayBeAdmin(db, userId, row.email)
   const desiredRole: Role = shouldBeAdmin ? 'admin' : 'student'
 
   if (row.role !== desiredRole) {
-    await db.update(users).set({ role: desiredRole }).where(eq(users.id, userId))
+    await db.update(users).set({role: desiredRole}).where(eq(users.id, userId))
   }
 
   return {
@@ -44,7 +44,7 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
   }
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const {handlers, auth, signIn, signOut} = NextAuth({
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,
@@ -52,7 +52,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verificationTokensTable: verificationTokens,
   }),
 
-  session: { strategy: 'jwt' },
+  session: {strategy: 'jwt'},
 
   trustHost: true,
 
@@ -68,8 +68,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
     Credentials({
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email: {label: 'Email', type: 'email'},
+        password: {label: 'Password', type: 'password'},
       },
       async authorize(credentials, request) {
         const email = String(credentials?.email ?? '')
@@ -104,21 +104,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({user, account, profile}) {
       if (account?.provider === 'google' && user.id) {
-        const verified = (profile as { email_verified?: boolean } | undefined)
+        const verified = (profile as {email_verified?: boolean} | undefined)
           ?.email_verified
         if (verified) {
           await db
             .update(users)
-            .set({ emailVerified: new Date() })
+            .set({emailVerified: new Date()})
             .where(eq(users.id, user.id))
         }
       }
       return true
     },
 
-    async jwt({ token, user, trigger }) {
+    async jwt({token, user, trigger}) {
       if (user?.id) token.id = user.id
 
       const shouldRefresh = Boolean(user) || trigger === 'update' || !token.role
@@ -132,7 +132,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token
     },
 
-    async session({ session, token }) {
+    async session({session, token}) {
       if (token.id) session.user.id = token.id
       session.user.role = token.role ?? 'student'
       session.user.hasDob = token.hasDob ?? false
