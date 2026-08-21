@@ -24,10 +24,6 @@
   --tint-butter: oklch(93% 0.055 98);
   --rule: oklch(79% 0.02 74);
   --rule-heavy: oklch(30% 0.016 64);
-  --paper-red: oklch(58% 0.19 25 / 0.5);
-  --paper-hole: oklch(21% 0.014 62 / 0.22);
-  --paper-hole-rim: oklch(21% 0.014 62 / 0.09);
-  --rule-ghost: oklch(21% 0.014 62 / 0.14);
 
   --radius: 3px;
   --radius-lg: 4px;
@@ -72,83 +68,12 @@
   --radius-2xl: var(--radius-lg);
 }
 body {
-  background-color: var(--bg);
-  background-image:
-    repeating-linear-gradient(
-      to bottom,
-      transparent,
-      transparent 31px,
-      var(--rule-ghost) 31px,
-      var(--rule-ghost) 32px
-    ),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='paperGrain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23paperGrain)' opacity='0.09'/%3E%3C/svg%3E");
+  background: var(--bg) url('/paper.svg') repeat;
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
-@media (min-width: 90rem) {
-  body {
-    background-image:
-      radial-gradient(
-        circle at center,
-        var(--paper-hole) 0 0.4rem,
-        var(--paper-hole-rim) 0.4rem 0.48rem,
-        transparent 0.48rem
-      ),
-      radial-gradient(
-        circle at center,
-        var(--paper-hole) 0 0.4rem,
-        var(--paper-hole-rim) 0.4rem 0.48rem,
-        transparent 0.48rem
-      ),
-      radial-gradient(
-        circle at center,
-        var(--paper-hole) 0 0.4rem,
-        var(--paper-hole-rim) 0.4rem 0.48rem,
-        transparent 0.48rem
-      ),
-      linear-gradient(
-        to right,
-        transparent 3.5rem,
-        var(--paper-red) 3.5rem calc(3.5rem + 1px),
-        transparent calc(3.5rem + 1px)
-      ),
-      linear-gradient(
-        to right,
-        transparent 3.75rem,
-        var(--paper-red) 3.75rem calc(3.75rem + 1px),
-        transparent calc(3.75rem + 1px)
-      ),
-      repeating-linear-gradient(
-        to bottom,
-        transparent,
-        transparent 31px,
-        var(--rule-ghost) 31px,
-        var(--rule-ghost) 32px
-      ),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='paperGrain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23paperGrain)' opacity='0.09'/%3E%3C/svg%3E");
 
-    background-attachment: fixed, fixed, fixed, fixed, fixed, scroll, scroll;
-    background-repeat:
-      no-repeat, no-repeat, no-repeat, repeat, repeat, repeat, repeat;
-    background-size:
-      1.2rem 1.2rem,
-      1.2rem 1.2rem,
-      1.2rem 1.2rem,
-      auto,
-      auto,
-      auto,
-      auto;
-    background-position:
-      1.1rem 18%,
-      1.1rem 50%,
-      1.1rem 82%,
-      0 0,
-      0 0,
-      0 0,
-      0 0;
-  }
-}
 h1,
 h2,
 h3 {
