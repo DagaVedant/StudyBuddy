@@ -237,7 +237,7 @@ export function GoManualButton({worksheetId}: {worksheetId: string}) {
   )
 }
 
-const SAMPLE_MS = 30_000
+const SAMPLE_MS = 40_000
 
 const READING_UNTIL = 0.8
 const VERIFYING_UNTIL = 0.95
