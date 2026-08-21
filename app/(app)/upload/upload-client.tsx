@@ -4,7 +4,12 @@ import {useRouter} from 'next/navigation'
 import {useCallback, useEffect, useId, useRef, useState} from 'react'
 
 import {ingestWorksheet, type IngestProgress} from '@/lib/client/ingest'
-import {parsePageRange, parseQuestionCount} from '@/lib/upload'
+import {
+  findSample,
+  parsePageRange,
+  parseQuestionCount,
+  SAMPLE_WORKSHEETS,
+} from '@/lib/upload'
 
 export interface SubjectGroup {
   label: string
@@ -13,6 +18,7 @@ export interface SubjectGroup {
 
 interface Props {
   subjects: SubjectGroup[]
+  initialSample?: string
 }
 
 const STAGE_LABEL: Record<IngestProgress['stage'], string> = {
@@ -36,7 +42,7 @@ function defaultTitle(files: File[]): string {
   return first.name.replace(/\.[^.]+$/, '').slice(0, 120)
 }
 
-export default function UploadClient({subjects}: Props) {
+export default function UploadClient({subjects, initialSample}: Props) {
   const router = useRouter()
   const titleId = useId()
   const subjectId = useId()
@@ -57,6 +63,7 @@ export default function UploadClient({subjects}: Props) {
   const [progress, setProgress] = useState<IngestProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [loadingSample, setLoadingSample] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -83,8 +90,8 @@ export default function UploadClient({subjects}: Props) {
   }, [])
 
   const addFiles = useCallback(
-    (incoming: FileList | null) => {
-      if (!incoming?.length) return
+    (incoming: ArrayLike<File> | null) => {
+      if (!incoming || incoming.length === 0) return
       setError(null)
       const next = [...files, ...Array.from(incoming)]
       setFiles(next)
@@ -92,6 +99,39 @@ export default function UploadClient({subjects}: Props) {
     },
     [files, titleTouched],
   )
+
+  const loadSample = useCallback(
+    async (slug: string) => {
+      const sample = findSample(slug)
+      if (!sample) return
+
+      setError(null)
+      setLoadingSample(slug)
+
+      try {
+        const response = await fetch(`/samples/${slug}.pdf`)
+        if (!response.ok) throw new Error(String(response.status))
+
+        const blob = await response.blob()
+        addFiles([
+          new File([blob], `${sample.title}.pdf`, {type: 'application/pdf'}),
+        ])
+      } catch {
+        setError('Could not load that sample worksheet. Try again.')
+      } finally {
+        setLoadingSample(null)
+      }
+    },
+    [addFiles],
+  )
+
+  const requested = useRef(false)
+
+  useEffect(() => {
+    if (requested.current || !initialSample) return
+    requested.current = true
+    void loadSample(initialSample)
+  }, [initialSample, loadSample])
 
   function removeFile(index: number) {
     setFiles((current) => current.filter((_, i) => i !== index))
@@ -243,6 +283,23 @@ export default function UploadClient({subjects}: Props) {
           </div>
         </div>
 
+        <p className="hint mt-4">
+          No worksheet to hand? Try a sample:{' '}
+          {SAMPLE_WORKSHEETS.map((sample, index) => (
+            <span key={sample.slug}>
+              {index > 0 && ', '}
+              <button
+                type="button"
+                disabled={busy || loadingSample !== null}
+                onClick={() => void loadSample(sample.slug)}
+                className="underline underline-offset-2 hover:text-fg disabled:opacity-60"
+              >
+                {sample.questions} questions
+              </button>
+            </span>
+          ))}
+          {loadingSample !== null && ' loading...'}
+        </p>
       </section>
 
       {files.length > 0 && (

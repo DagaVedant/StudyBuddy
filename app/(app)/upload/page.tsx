@@ -7,10 +7,15 @@ import {resolveProvider} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 import {queueDepth, workerStatus} from '@/lib/queue'
 import {flattenTaxonomy} from '@/lib/taxonomy'
+import {findSample} from '@/lib/upload'
 
 import UploadClient, {type SubjectGroup} from './upload-client'
 
 export const metadata = {title: 'Upload a Worksheet · StudyBuddy'}
+
+interface Props {
+  searchParams: Promise<{sample?: string}>
+}
 
 function subjectGroups(): SubjectGroup[] {
   const topics = flattenTaxonomy()
@@ -28,13 +33,7 @@ function subjectGroups(): SubjectGroup[] {
     }))
 }
 
-const SAMPLES = [
-  {file: 'algebra-25.pdf', label: 'Algebra A, 25 questions'},
-  {file: 'algebra-10.pdf', label: 'Algebra B, 10 questions'},
-  {file: 'algebra-5.pdf', label: 'Warm-up, 5 questions'},
-]
-
-export default async function UploadPage() {
+export default async function UploadPage({searchParams}: Props) {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
@@ -82,24 +81,9 @@ export default async function UploadPage() {
         </p>
       )}
 
-      <p className="hint mb-6">
-        Nothing to hand? Grab a sample:{' '}
-        {SAMPLES.map((sample, index) => (
-          <span key={sample.file}>
-            {index > 0 && ', '}
-            <a
-              href={`/samples/${sample.file}`}
-              download
-              className="text-muted underline underline-offset-2 hover:text-fg"
-            >
-              {sample.label}
-            </a>
-          </span>
-        ))}
-      </p>
-
       <UploadClient
         subjects={subjectGroups()}
+        initialSample={findSample((await searchParams).sample)?.slug}
       />
     </main>
   )

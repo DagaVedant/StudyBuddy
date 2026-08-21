@@ -3,7 +3,7 @@
 import {auth} from '@/auth'
 
 export const proxy = auth((req) => {
-  const {pathname} = req.nextUrl
+  const {pathname, search} = req.nextUrl
   const session = req.auth
 
   const isAuthed = Boolean(session?.user)
@@ -17,7 +17,7 @@ export const proxy = auth((req) => {
 
   if (!isAuthed) {
     const signin = new URL('/signin', req.nextUrl)
-    signin.searchParams.set('next', pathname)
+    signin.searchParams.set('next', pathname + search)
     return NextResponse.redirect(signin)
   }
 

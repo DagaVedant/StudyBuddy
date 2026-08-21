@@ -209,9 +209,17 @@ export default async function DashboardPage() {
             />
           </h1>
         </div>
-        <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-5">
-          Upload a worksheet
-        </Link>
+        <div className="flex flex-col gap-2">
+          <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-5">
+            Upload a worksheet
+          </Link>
+          <Link
+            href="/upload?sample=algebra-10"
+            className="hint text-center underline underline-offset-2 hover:text-fg"
+          >
+            or start with a sample
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 border-b-2 border-rule-heavy" />

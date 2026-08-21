@@ -112,3 +112,13 @@ export const EMBEDDING_DIMENSIONS = 384
 export const EMBEDDING_INPUT_LIMIT = 2000
 
 export const MIN_ATTEMPTS = 5
+
+export const SAMPLE_WORKSHEETS = [
+  {slug: 'algebra-25', title: 'Algebra practice A', questions: 25},
+  {slug: 'algebra-10', title: 'Algebra practice B', questions: 10},
+  {slug: 'algebra-5', title: 'Algebra warm-up', questions: 5},
+]
+
+export function findSample(slug: string | undefined) {
+  return SAMPLE_WORKSHEETS.find((sample) => sample.slug === slug)
+}
