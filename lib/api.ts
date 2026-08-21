@@ -272,14 +272,22 @@ export type Endpoint = (
   ctx: {params: Promise<Record<string, string>>},
 ) => Promise<Response>
 
+function dynamicSegments(pattern: string): number {
+  return pattern.split('/').filter((part) => part.startsWith(':')).length
+}
+
 export function endpoints(table: [string, string, Endpoint][]) {
+  const ordered = [...table].sort(
+    (a, b) => dynamicSegments(a[1]) - dynamicSegments(b[1]),
+  )
+
   return async function handle(
     request: Request,
     ctx: {params: Promise<{path?: string[]}>},
   ): Promise<Response> {
     const {path = []} = await ctx.params
 
-    for (const [method, pattern, handler] of table) {
+    for (const [method, pattern, handler] of ordered) {
       if (method !== request.method) continue
 
       const parts = pattern === '' ? [] : pattern.split('/')

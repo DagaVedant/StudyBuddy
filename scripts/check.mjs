@@ -1,5 +1,7 @@
-import {readFileSync} from 'node:fs'
+import {readFileSync, readdirSync} from 'node:fs'
+import {dirname, join, relative, sep} from 'node:path'
 import {spawn} from 'node:child_process'
+import picomatch from 'picomatch'
 
 function checkDocs() {
 
@@ -36,6 +38,125 @@ function checkDocs() {
 }
 
 
+function routePaths() {
+  const found = []
+
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, {withFileTypes: true})) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(full)
+      } else if (entry.name === 'route.ts' || entry.name === 'page.tsx') {
+        const segments = relative('app', dirname(full))
+          .split(sep)
+          .filter((part) => part && !/^\(.*\)$/.test(part))
+        found.push('/' + segments.join('/'))
+      }
+    }
+  }
+
+  walk('app')
+  return found
+}
+
+function checkTracing() {
+  const config = readFileSync('next.config.ts', 'utf8')
+  const block = config.match(/outputFileTracingIncludes:\s*\{([\s\S]*?)\n {2}\},/)
+
+  if (!block) {
+    console.log('  skip  next.config.ts: no outputFileTracingIncludes')
+    return true
+  }
+
+  const keys = [...block[1].matchAll(/^\s*"([^"]+)":/gm)].map((match) => match[1])
+  const routes = routePaths()
+  let bad = false
+
+  for (const key of keys) {
+    const hits = routes.filter((route) => picomatch.isMatch(route, key))
+
+    if (hits.length === 0) {
+      bad = true
+      console.log(`  BAD   tracing key "${key}" matches no route`)
+    } else {
+      console.log(`  ok    tracing key "${key}" -> ${hits.join(', ')}`)
+    }
+  }
+
+  if (bad) {
+    console.log('')
+    console.log('A key that matches nothing includes nothing. [id] is a character')
+    console.log('class in a glob, so dynamic segments have to be written as *.')
+  }
+
+  return !bad
+}
+
+function dispatcherTables() {
+  const tables = []
+
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, {withFileTypes: true})) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(full)
+      } else if (entry.name === 'route.ts') {
+        const source = readFileSync(full, 'utf8')
+        const block = source.match(/endpoints\(\[([\s\S]*?)\]\)/)
+        if (!block) continue
+        const patterns = [...block[1].matchAll(/\['(\w+)', '([^']*)'/g)].map((m) => ({
+          method: m[1],
+          pattern: m[2],
+        }))
+        tables.push({file: full, patterns})
+      }
+    }
+  }
+
+  walk(join('app', 'api'))
+  return tables
+}
+
+function bothCanMatch(a, b) {
+  const left = a === '' ? [] : a.split('/')
+  const right = b === '' ? [] : b.split('/')
+  if (left.length !== right.length) return false
+
+  return left.every((part, i) => {
+    const other = right[i]
+    if (part.startsWith(':') || other.startsWith(':')) return true
+    return part === other
+  })
+}
+
+function checkRoutes() {
+  let bad = false
+  let pairs = 0
+
+  for (const {file, patterns} of dispatcherTables()) {
+    for (let i = 0; i < patterns.length; i += 1) {
+      for (let j = i + 1; j < patterns.length; j += 1) {
+        const a = patterns[i]
+        const b = patterns[j]
+        if (a.method !== b.method) continue
+        if (!bothCanMatch(a.pattern, b.pattern)) continue
+
+        pairs += 1
+        const aStatic = !a.pattern.includes(':')
+        const bStatic = !b.pattern.includes(':')
+
+        if (!aStatic && !bStatic) {
+          bad = true
+          console.log(`  BAD   ${file}: "${a.pattern}" and "${b.pattern}" both match the same path`)
+        }
+      }
+    }
+  }
+
+  console.log(`  ok    route tables: ${pairs} overlapping pair(s), all resolved by static-before-dynamic`)
+  return !bad
+}
+
 const TASKS = [
   {name: 'tsc', script: 'node_modules/typescript/bin/tsc', args: ['--noEmit']},
   {
@@ -46,6 +167,8 @@ const TASKS = [
 ]
 
 const docsOk = checkDocs()
+const tracingOk = checkTracing()
+const routesOk = checkRoutes()
 
 const started = Date.now()
 
@@ -78,4 +201,4 @@ for (const result of failed) {
 
 console.log(`\n${((Date.now() - started) / 1000).toFixed(1)}s total`)
 
-process.exit(failed.length > 0 || !docsOk ? 1 : 0)
+process.exit(failed.length > 0 || !docsOk || !tracingOk || !routesOk ? 1 : 0)
