@@ -1,9 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState } from 'react'
+import {useActionState} from 'react'
 
-import { type FormState, requestPasswordReset } from '@/lib/auth/actions'
+import {type FormState, requestPasswordReset} from '@/lib/auth/actions'
 
 export default function ForgotPasswordPage() {
   const [state, action, pending] = useActionState<FormState, FormData>(

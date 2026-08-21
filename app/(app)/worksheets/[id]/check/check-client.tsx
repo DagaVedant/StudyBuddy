@@ -1,13 +1,13 @@
 'use client'
 
-import { QuestionCrop } from '@/components/ui'
-import { type QuestionEvidence, reflowText } from '@/lib/questions/text'
+import {QuestionCrop} from '@/components/ui'
+import {type QuestionEvidence, reflowText} from '@/lib/questions/text'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {useCallback, useEffect, useMemo, useState} from 'react'
 
-import { ReportButton } from '@/components/actions'
-import { fetchJson } from '@/lib/client/http'
+import {ReportButton} from '@/components/client'
+import {fetchJson} from '@/lib/client/http'
 
 const BULK_UNDO_WINDOW_MS = 12_000
 
@@ -17,7 +17,7 @@ export interface CheckableQuestion {
   ordinal: number
   pageNumber: number | null
   promptText: string
-  choices: { label: string; text: string }[]
+  choices: {label: string; text: string}[]
   userVerified: boolean
   concerns: string[]
   duplicateOf: {
@@ -45,7 +45,7 @@ export function CheckClient({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmingBulk, setConfirmingBulk] = useState(false)
-  const [bulkUndo, setBulkUndo] = useState<{ ids: string[]; count: number } | null>(null)
+  const [bulkUndo, setBulkUndo] = useState<{ids: string[]; count: number} | null>(null)
 
   const remaining = useMemo(
     () => questions.filter((q) => !verified.has(q.id)).length,
@@ -76,10 +76,10 @@ export function CheckClient({
           ids.map(async (id) => {
             const response = await fetchJson(`/api/questions/${id}`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userVerified: true }),
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({userVerified: true}),
             })
-            return { id, ok: response.ok }
+            return {id, ok: response.ok}
           }),
         )
 
@@ -107,14 +107,14 @@ export function CheckClient({
         `/api/worksheets/${worksheetId}/check-all`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ exclude: [] }),
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({exclude: []}),
         },
       )
       if (!response.ok) {
         rollBack(ids)
       } else {
-        setBulkUndo({ ids, count: ids.length })
+        setBulkUndo({ids, count: ids.length})
       }
     } catch {
       rollBack(ids)
@@ -125,7 +125,7 @@ export function CheckClient({
 
   const undoBulkAccept = useCallback(async () => {
     if (!bulkUndo) return
-    const { ids } = bulkUndo
+    const {ids} = bulkUndo
 
     setBulkUndo(null)
     setVerified((current) => {
@@ -137,8 +137,8 @@ export function CheckClient({
     try {
       const response = await fetchJson(`/api/worksheets/${worksheetId}/check-all`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids}),
       })
       if (!response.ok) {
         setVerified((current) => new Set([...current, ...ids]))
@@ -220,7 +220,7 @@ export function CheckClient({
 
         <div className="mt-4 pt-4">
           <ReportButton
-            target={{ kind: 'worksheet', worksheetId }}
+            target={{kind: 'worksheet', worksheetId}}
             label="Something is wrong with this whole worksheet"
             placeholder="Missing questions, wrong pages, numbering off?"
           />
@@ -252,7 +252,7 @@ export function CheckClient({
       >
         <div
           className="h-full bg-fg transition-[width] duration-200"
-          style={{ width: `${(done / questions.length) * 100}%` }}
+          style={{width: `${(done / questions.length) * 100}%`}}
         />
       </div>
 
@@ -405,7 +405,7 @@ export function CheckClient({
 
       <div className="pt-4">
         <ReportButton
-          target={{ kind: 'worksheet', worksheetId }}
+          target={{kind: 'worksheet', worksheetId}}
           label="Something is wrong with this whole worksheet"
           placeholder="Missing questions, wrong pages, numbering off?"
         />

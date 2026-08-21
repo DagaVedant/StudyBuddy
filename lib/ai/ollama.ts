@@ -1,7 +1,7 @@
-import { and, eq } from 'drizzle-orm'
+import {and, eq} from 'drizzle-orm'
 
-import { type Db } from '@/lib/db'
-import { userAiCredentials } from '@/lib/db/schema'
+import {type Db} from '@/lib/db'
+import {userAiCredentials} from '@/lib/db/schema'
 
 import {
   ANSWER_JSON_SCHEMA,
@@ -38,7 +38,7 @@ import {
   type ReviewCandidate,
   type TopicCandidate,
 } from './types'
-import { parseModelJson } from './parse'
+import {parseModelJson} from './parse'
 
 function toBase64(bytes: Uint8Array): string {
   if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')
@@ -179,7 +179,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     try {
       const response = await this.fetchImpl(`${this.baseUrl}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type': 'application/json'},
         signal: controller.signal,
         body: JSON.stringify({
           model,
@@ -192,10 +192,10 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
             num_predict: this.maxOutputTokens,
           },
           messages: [
-            { role: 'system', content: system },
+            {role: 'system', content: system},
             images?.length
-              ? { role: 'user', content: userText, images }
-              : { role: 'user', content: userText },
+              ? {role: 'user', content: userText, images}
+              : {role: 'user', content: userText},
           ],
         }),
       })
@@ -207,7 +207,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       }
 
       const body = (await response.json()) as {
-        message?: { content?: string }
+        message?: {content?: string}
         prompt_eval_count?: number
         eval_count?: number
         prompt_eval_duration?: number
@@ -229,7 +229,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       const content = body.message?.content
       if (!content?.trim()) throw new EmptyReplyError(model)
 
-      const { value, truncated } = parseModelJson(content)
+      const {value, truncated} = parseModelJson(content)
       if (truncated) {
         console.warn(
           `[ollama] reply truncated at ${content.length} chars; salvaged the complete entries`,
@@ -318,7 +318,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   }
 
   async reviewQuestions(candidates: ReviewCandidate[]): Promise<unknown> {
-    if (candidates.length === 0) return { verdicts: [] }
+    if (candidates.length === 0) return {verdicts: []}
 
     const raw = await this.chat(
       this.reviewModel,
@@ -336,7 +336,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       signal: AbortSignal.timeout(TAGS_TIMEOUT_MS),
     })
     if (!response.ok) throw new Error(`Ollama responded ${response.status}`)
-    const body = (await response.json()) as { models?: { name: string }[] }
+    const body = (await response.json()) as {models?: {name: string}[]}
     return (body.models ?? []).map((model) => model.name)
   }
 }

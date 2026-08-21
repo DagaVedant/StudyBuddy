@@ -1,6 +1,6 @@
-import { MIN_ATTEMPTS } from '@/lib/upload'
+import {MIN_ATTEMPTS} from '@/lib/upload'
 
-import { flattenTaxonomy } from '@/lib/taxonomy'
+import {flattenTaxonomy} from '@/lib/taxonomy'
 
 
 const Z = 1.96
@@ -180,7 +180,7 @@ export function hasAttempts(node: TopicTreeNode): boolean {
 export function pruneToAttempted(nodes: TopicTreeNode[]): TopicTreeNode[] {
   return nodes
     .filter(hasAttempts)
-    .map((node) => ({ ...node, children: pruneToAttempted(node.children) }))
+    .map((node) => ({...node, children: pruneToAttempted(node.children)}))
 }
 
-export { MIN_ATTEMPTS }
+export {MIN_ATTEMPTS}

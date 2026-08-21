@@ -1,10 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useId, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import {useId, useRef, useState} from 'react'
+import {useRouter} from 'next/navigation'
 
-import { fetchJson } from '@/lib/client/http'
+import {fetchJson} from '@/lib/client/http'
 
 export function WorksheetTitle({
   worksheetId,
@@ -40,11 +40,11 @@ export function WorksheetTitle({
     try {
       const response = await fetchJson(`/api/worksheets/${worksheetId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: next }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title: next}),
       })
 
-      const result = (await response.json()) as { error?: string; title?: string }
+      const result = (await response.json()) as {error?: string; title?: string}
       if (!response.ok) throw new Error(result.error ?? 'Could not rename that.')
 
       setCurrent(result.title ?? next)
@@ -145,7 +145,7 @@ interface Props {
   title: string
 }
 
-export function DeleteWorksheetButton({ worksheetId, title }: Props) {
+export function DeleteWorksheetButton({worksheetId, title}: Props) {
   const router = useRouter()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [deleting, setDeleting] = useState(false)
@@ -156,7 +156,7 @@ export function DeleteWorksheetButton({ worksheetId, title }: Props) {
     setError(null)
 
     try {
-      const response = await fetchJson(`/api/worksheets/${worksheetId}`, { method: 'DELETE' })
+      const response = await fetchJson(`/api/worksheets/${worksheetId}`, {method: 'DELETE'})
       if (!response.ok) throw new Error('Could not delete')
       dialogRef.current?.close()
       router.refresh()

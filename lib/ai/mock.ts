@@ -32,8 +32,8 @@ export class MockProvider implements RawAIProvider {
             prompt_text: `Sample question from page ${page.pageNumber}`,
             question_type: 'multiple_choice',
             choices: [
-              { label: 'A', text: 'First option' },
-              { label: 'B', text: 'Second option' },
+              {label: 'A', text: 'First option'},
+              {label: 'B', text: 'Second option'},
             ],
             bbox: [0, 0, Math.min(page.width, 100), Math.min(page.height, 100)],
             has_figure: false,
@@ -48,10 +48,10 @@ export class MockProvider implements RawAIProvider {
         prompt_text: line.replace(/^\s*\d+[.)]\s+/, ''),
         question_type: 'multiple_choice' as const,
         choices: [
-          { label: 'A', text: 'Option A' },
-          { label: 'B', text: 'Option B' },
-          { label: 'C', text: 'Option C' },
-          { label: 'D', text: 'Option D' },
+          {label: 'A', text: 'Option A'},
+          {label: 'B', text: 'Option B'},
+          {label: 'C', text: 'Option C'},
+          {label: 'D', text: 'Option D'},
         ],
         bbox: null,
         has_figure: false,
@@ -127,11 +127,11 @@ export class MockProvider implements RawAIProvider {
 
 Mock lesson for ${input.topicPath}.`,
       examples: [
-        { question: 'Mock example one', working: 'Step one.', answer: '1' },
-        { question: 'Mock example two', working: 'Step one.', answer: '2' },
+        {question: 'Mock example one', working: 'Step one.', answer: '1'},
+        {question: 'Mock example two', working: 'Step one.', answer: '2'},
       ],
       common_errors: [
-        { mistake: 'Mock mistake', why: 'Mock reason', fix: 'Mock fix' },
+        {mistake: 'Mock mistake', why: 'Mock reason', fix: 'Mock fix'},
       ],
     }
   }
@@ -140,17 +140,17 @@ Mock lesson for ${input.topicPath}.`,
     const wanted = Math.max(1, Math.min(input.count, 10))
 
     return {
-      questions: Array.from({ length: wanted }, (_, index) => {
+      questions: Array.from({length: wanted}, (_, index) => {
         const first = index + 2
         const second = index + 3
 
         return {
           prompt_text: `A shelf holds ${first} boxes and each box holds ${second} pens. How many pens are on the shelf?`,
           choices: [
-            { label: 'A', text: String(first * second) },
-            { label: 'B', text: String(first + second) },
-            { label: 'C', text: String(first * second - first) },
-            { label: 'D', text: String(first * second + second) },
+            {label: 'A', text: String(first * second)},
+            {label: 'B', text: String(first + second)},
+            {label: 'C', text: String(first * second - first)},
+            {label: 'D', text: String(first * second + second)},
           ],
           correct_label: 'A',
           working: `Multiply the number of boxes by the pens in each box: ${first} x ${second} = ${first * second}.`,

@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
+import {useSession} from 'next-auth/react'
 
-import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/types'
+import {TRIAL_WORKSHEET_LIMIT} from '@/lib/ai/types'
 
 export default function HomeCta() {
-  const { data: session, status } = useSession()
+  const {data: session, status} = useSession()
 
   if (status !== 'loading' && session?.user) {
     return (

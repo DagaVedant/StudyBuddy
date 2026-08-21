@@ -1,4 +1,4 @@
-import { createTransport } from 'nodemailer'
+import {createTransport} from 'nodemailer'
 
 
 export interface MailMessage {
@@ -20,7 +20,7 @@ export function mailSender(): MailSender | null {
   const address = process.env.MAIL_FROM?.trim()
   if (!address) return null
 
-  return { address, name: process.env.MAIL_FROM_NAME?.trim() || 'StudyBuddy' }
+  return {address, name: process.env.MAIL_FROM_NAME?.trim() || 'StudyBuddy'}
 }
 
 export function smtpSettings(): SmtpSettings | null {
@@ -79,7 +79,7 @@ export async function sendOverSmtp(
     secure: settings.port === 465,
     requireTLS: settings.port !== 465,
 
-    auth: { user: settings.user, pass: settings.password },
+    auth: {user: settings.user, pass: settings.password},
 
     connectionTimeout: TIMEOUT_MS,
     greetingTimeout: TIMEOUT_MS,
@@ -88,7 +88,7 @@ export async function sendOverSmtp(
 
   try {
     await transport.sendMail({
-      from: { address: sender.address, name: sender.name },
+      from: {address: sender.address, name: sender.name},
       to: message.to,
       subject: message.subject,
       text: message.text,
@@ -169,8 +169,8 @@ export async function reportError(
     try {
       await fetch(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text: body }),
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({text: body}),
         signal: AbortSignal.timeout(REPORT_TIMEOUT_MS),
       })
     } catch (cause) {

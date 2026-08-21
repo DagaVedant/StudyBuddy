@@ -1,6 +1,6 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
+import {createCipheriv, createDecipheriv, randomBytes} from 'node:crypto'
 
-import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm'
+import {and, desc, eq, gte, inArray, sql} from 'drizzle-orm'
 
 import {
   aiProvider,
@@ -10,7 +10,7 @@ import {
   users,
   worksheets,
 } from '@/lib/db/schema'
-import { type Db } from '@/lib/db'
+import {type Db} from '@/lib/db'
 
 import {
   AnthropicProvider,
@@ -26,11 +26,11 @@ import {
   TRIAL_EXPLANATION_LIMIT,
   TRIAL_WORKSHEET_LIMIT,
 } from './types'
-import { MockProvider, NullProvider } from './mock'
-import { type AIProvider, type ProviderName, type RawAIProvider } from './types'
-import { validated } from './parse'
+import {MockProvider, NullProvider} from './mock'
+import {type AIProvider, type ProviderName, type RawAIProvider} from './types'
+import {validated} from './parse'
 
-export { CLOUD_PROVIDERS, DEFAULT_CLOUD_MODEL, type CloudProvider }
+export {CLOUD_PROVIDERS, DEFAULT_CLOUD_MODEL, type CloudProvider}
 
 export type Tier = 'trial' | 'free' | 'cloud' | 'ollama'
 
@@ -50,7 +50,7 @@ export async function resolveProvider(
   userId: string,
 ): Promise<ResolvedProvider> {
   const [user] = await db
-    .select({ trialWorksheetsUsed: users.trialWorksheetsUsed, role: users.role })
+    .select({trialWorksheetsUsed: users.trialWorksheetsUsed, role: users.role})
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
@@ -67,7 +67,7 @@ export async function resolveProvider(
 
   if (cloud) {
     if (mockEnabled()) {
-      return { provider: validated(new MockProvider()), tier: 'cloud', executor: 'server' }
+      return {provider: validated(new MockProvider()), tier: 'cloud', executor: 'server'}
     }
 
     const apiKey = openApiKey({
@@ -93,10 +93,10 @@ export async function resolveProvider(
 
   if (ollama) {
     if (mockEnabled()) {
-      return { provider: validated(new MockProvider()), tier: 'ollama', executor: 'server' }
+      return {provider: validated(new MockProvider()), tier: 'ollama', executor: 'server'}
     }
 
-    return { provider: validated(new NullProvider()), tier: 'ollama', executor: 'browser' }
+    return {provider: validated(new NullProvider()), tier: 'ollama', executor: 'browser'}
   }
 
   if (user?.role === 'admin') {
@@ -116,7 +116,7 @@ export async function resolveProvider(
     }
   }
 
-  return { provider: validated(new NullProvider()), tier: 'free', executor: 'none' }
+  return {provider: validated(new NullProvider()), tier: 'free', executor: 'none'}
 }
 
 export function cloudProvider(
@@ -179,7 +179,7 @@ export async function getAiStatus(db: Db, userId: string): Promise<AiStatus> {
   }
 
   const [user] = await db
-    .select({ worksheetsUsed: users.trialWorksheetsUsed })
+    .select({worksheetsUsed: users.trialWorksheetsUsed})
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
@@ -194,7 +194,7 @@ export async function getAiStatus(db: Db, userId: string): Promise<AiStatus> {
     }
   }
 
-  return { label: 'No AI configured', href: '/settings', trialWorksheetsRemaining: 0 }
+  return {label: 'No AI configured', href: '/settings', trialWorksheetsRemaining: 0}
 }
 
 export function canSortTopicsHere(
@@ -247,7 +247,7 @@ export function storedProvider(name: ProviderName): StoredProvider | null {
 function isStored(name: string): name is StoredProvider {
   return (aiProvider.enumValues as readonly string[]).includes(name)
 }
-export { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT }
+export {TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT}
 
 export type TrialKind = 'worksheets' | 'explanations'
 
@@ -288,8 +288,8 @@ export async function getTrialState(db: Db, userId: string): Promise<TrialState>
 }
 
 export type ConsumeResult =
-  | { ok: true; remaining: number }
-  | { ok: false; remaining: number; reason: string }
+  | {ok: true; remaining: number}
+  | {ok: false; remaining: number; reason: string}
 
 function columnFor(kind: TrialKind) {
   return kind === 'worksheets' ? users.trialWorksheetsUsed : users.trialExplanationsUsed
@@ -313,14 +313,14 @@ export async function consumeTrial(
   kind: TrialKind,
   amount = 1,
 ): Promise<ConsumeResult> {
-  if (amount <= 0) return { ok: true, remaining: 0 }
+  if (amount <= 0) return {ok: true, remaining: 0}
 
   const column = columnFor(kind)
   const limit = limitFor(kind)
 
   const updated = await db
     .update(users)
-    .set({ [fieldFor(kind)]: sql`${column} + ${amount}` })
+    .set({[fieldFor(kind)]: sql`${column} + ${amount}`})
     .where(and(eq(users.id, userId), sql`${column} + ${amount} <= ${limit}`))
     .returning({
       worksheetsUsed: users.trialWorksheetsUsed,
@@ -352,7 +352,7 @@ export async function consumeTrial(
     quantity: amount,
   })
 
-  return { ok: true, remaining: Math.max(0, limit - used) }
+  return {ok: true, remaining: Math.max(0, limit - used)}
 }
 
 export async function refundTrial(
@@ -367,11 +367,11 @@ export async function refundTrial(
 
   await db
     .update(users)
-    .set({ [fieldFor(kind)]: sql`greatest(${column} - ${amount}, 0)` })
+    .set({[fieldFor(kind)]: sql`greatest(${column} - ${amount}, 0)`})
     .where(eq(users.id, userId))
 
   const pending = await db
-    .select({ id: usageEvents.id, quantity: usageEvents.quantity })
+    .select({id: usageEvents.id, quantity: usageEvents.quantity})
     .from(usageEvents)
     .where(
       and(
@@ -395,7 +395,7 @@ export async function refundTrial(
   if (refunding.length > 0) {
     await db
       .update(usageEvents)
-      .set({ refunded: true })
+      .set({refunded: true})
       .where(inArray(usageEvents.id, refunding))
   }
 }
@@ -409,7 +409,7 @@ export async function trialExtractionsToday(
   const since = new Date(now.getTime() - DAY_MS)
 
   const [row] = await db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({value: sql<number>`count(*)::int`})
     .from(processingJobs)
     .innerJoin(worksheets, eq(worksheets.id, processingJobs.worksheetId))
     .where(
@@ -506,26 +506,26 @@ export function isAllowedOllamaUrl(value: string): boolean {
 const VERIFY_TIMEOUT_MS = 10_000
 
 export type KeyVerdict =
-  | { status: 'ok' }
-  | { status: 'rejected'; reason: string }
-  | { status: 'unreachable'; reason: string }
+  | {status: 'ok'}
+  | {status: 'rejected'; reason: string}
+  | {status: 'unreachable'; reason: string}
 
 function probe(provider: CloudProvider, apiKey: string): [string, RequestInit] {
   switch (provider) {
     case 'anthropic':
       return [
         'https://api.anthropic.com/v1/models?limit=1',
-        { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } },
+        {headers: {'x-api-key': apiKey, 'anthropic-version': '2023-06-01'}},
       ]
     case 'openai':
       return [
         'https://api.openai.com/v1/models',
-        { headers: { authorization: `Bearer ${apiKey}` } },
+        {headers: {authorization: `Bearer ${apiKey}`}},
       ]
     case 'openrouter':
       return [
         'https://openrouter.ai/api/v1/key',
-        { headers: { authorization: `Bearer ${apiKey}` } },
+        {headers: {authorization: `Bearer ${apiKey}`}},
       ]
     case 'google':
       return [
@@ -541,7 +541,7 @@ export async function verifyCloudKey(
   fetchImpl: typeof fetch = fetch,
 ): Promise<KeyVerdict> {
   if (mockEnabled()) {
-    return { status: 'unreachable', reason: 'mock mode is on, so nothing was checked' }
+    return {status: 'unreachable', reason: 'mock mode is on, so nothing was checked'}
   }
 
   const [url, init] = probe(provider, apiKey)
@@ -560,7 +560,7 @@ export async function verifyCloudKey(
     }
   }
 
-  if (response.ok) return { status: 'ok' }
+  if (response.ok) return {status: 'ok'}
 
   if (response.status === 401 || response.status === 403) {
     return {

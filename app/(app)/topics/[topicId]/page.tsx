@@ -1,11 +1,11 @@
-import { and, desc, eq, sql } from 'drizzle-orm'
+import {and, desc, eq, sql} from 'drizzle-orm'
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import {notFound, redirect} from 'next/navigation'
 
-import { auth } from '@/auth'
-import { AccuracyLabel, Meter } from '@/components/ui'
-import { db } from '@/lib/db'
-import { summarize } from '@/lib/ranking'
+import {auth} from '@/auth'
+import {AccuracyLabel, Meter} from '@/components/ui'
+import {db} from '@/lib/db'
+import {summarize} from '@/lib/ranking'
 import {
   answerChoices,
   attempts,
@@ -14,24 +14,24 @@ import {
   topics,
   worksheets,
 } from '@/lib/db/schema'
-import { CHOICE_ORDER } from '@/lib/questions/queries'
-import { pathBySlug } from '@/lib/taxonomy'
-import { getLesson } from '@/lib/practice'
-import { Prose } from '@/components/ui'
-import { RevisitQuestion } from '@/components/actions'
-import { GenerateLessonButton } from '@/components/actions'
-import { GeneratePracticeButton } from '@/components/actions'
-import { countGenerated } from '@/lib/practice'
+import {CHOICE_ORDER} from '@/lib/questions/queries'
+import {pathBySlug} from '@/lib/taxonomy'
+import {getLesson} from '@/lib/practice'
+import {Prose} from '@/components/ui'
+import {RevisitQuestion} from '@/components/client'
+import {GenerateLessonButton} from '@/components/client'
+import {GeneratePracticeButton} from '@/components/client'
+import {countGenerated} from '@/lib/practice'
 
-export const metadata = { title: 'Topic · StudyBuddy' }
+export const metadata = {title: 'Topic · StudyBuddy'}
 export const dynamic = 'force-dynamic'
 
 export default async function TopicPage({
   params,
 }: {
-  params: Promise<{ topicId: string }>
+  params: Promise<{topicId: string}>
 }) {
-  const { topicId } = await params
+  const {topicId} = await params
 
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -149,9 +149,9 @@ export default async function TopicPage({
 
         <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
           {[
-            { label: 'Got it', value: stats.correct },
-            { label: 'Unsure', value: stats.unsure },
-            { label: 'Missed', value: stats.wrong },
+            {label: 'Got it', value: stats.correct},
+            {label: 'Unsure', value: stats.unsure},
+            {label: 'Missed', value: stats.wrong},
           ].map((item) => (
             <div key={item.label}>
               <dt className="text-muted">{item.label}</dt>

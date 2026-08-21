@@ -1,32 +1,32 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import {redirect} from 'next/navigation'
 
-import { auth } from '@/auth'
+import {auth} from '@/auth'
 import {
   canSortTopicsHere,
   getAiStatus,
   getCredentialSummary,
   shouldOfferAiSetup,
 } from '@/lib/ai/resolve'
-import { AiSetupPrompt } from '@/components/ui'
-import { TopicSorter } from '@/components/topics'
-import { AccuracyLabel, Meter } from '@/components/ui'
-import { countMissedQuestions } from '@/lib/blooket'
-import { db } from '@/lib/db'
-import { TopicTree } from '@/components/topics'
-import { getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getOverview, getRecentWorksheets, getReviewForecast, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats } from '@/lib/dashboard'
-import StudyCalendar from '@/components/study-calendar'
-import { Underline } from '@/components/ui'
-import { Callout, MarginNote, Note, PageFoot, SectionHead } from '@/components/ui'
-import { rankFragile, rankWeaknesses, summarize, type TopicTrend } from '@/lib/ranking'
-import { buildTopicTree, pruneToAttempted } from '@/lib/ranking'
-import { topics } from '@/lib/db/schema'
-import { pathBySlug } from '@/lib/taxonomy'
-import { destination } from '@/lib/upload'
+import {AiSetupPrompt} from '@/components/ui'
+import {TopicSorter} from '@/components/client'
+import {AccuracyLabel, Meter} from '@/components/ui'
+import {countMissedQuestions} from '@/lib/blooket'
+import {db} from '@/lib/db'
+import {TopicTree} from '@/components/client'
+import {getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getOverview, getRecentWorksheets, getReviewForecast, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats} from '@/lib/dashboard'
+import {StudyCalendar} from '@/components/ui'
+import {Underline} from '@/components/ui'
+import {Callout, MarginNote, Note, PageFoot, SectionHead} from '@/components/ui'
+import {rankFragile, rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
+import {buildTopicTree, pruneToAttempted} from '@/lib/ranking'
+import {topics} from '@/lib/db/schema'
+import {pathBySlug} from '@/lib/taxonomy'
+import {destination} from '@/lib/upload'
 
 import AccuracyChart from './accuracy-chart'
 
-export const metadata = { title: 'Dashboard · StudyBuddy' }
+export const metadata = {title: 'Dashboard · StudyBuddy'}
 
 const PERCENT = new Intl.NumberFormat(undefined, {
   style: 'percent',
@@ -45,7 +45,7 @@ function Verdict({
   hasData,
 }: {
   dueNow: number
-  weakest: { topicName: string } | undefined
+  weakest: {topicName: string} | undefined
   hasData: boolean
 }) {
   if (!hasData) return <>Nothing tracked yet</>
@@ -77,7 +77,7 @@ function Verdict({
   return <>Nothing is due today, and nothing looks shaky.</>
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
+function Empty({children}: {children: React.ReactNode}) {
   return <p className="py-1 text-sm text-muted">{children}</p>
 }
 
@@ -120,13 +120,13 @@ function Figure({
   )
 }
 
-function TrendArrow({ trend }: { trend: TopicTrend }) {
+function TrendArrow({trend}: {trend: TopicTrend}) {
   if (trend === null) return null
 
   const face = {
-    up: { glyph: '↑', className: 'text-success', label: 'Improving' },
-    down: { glyph: '↓', className: 'text-danger', label: 'Getting worse' },
-    flat: { glyph: '→', className: 'text-muted', label: 'Holding steady' },
+    up: {glyph: '↑', className: 'text-success', label: 'Improving'},
+    down: {glyph: '↓', className: 'text-danger', label: 'Getting worse'},
+    flat: {glyph: '→', className: 'text-muted', label: 'Holding steady'},
   }[trend]
 
   return (
@@ -172,7 +172,7 @@ export default async function DashboardPage() {
     getStudyStreak(db, userId),
     getStudyCalendar(db, userId),
     getAiStatus(db, userId),
-    db.select({ id: topics.id, slug: topics.slug }).from(topics),
+    db.select({id: topics.id, slug: topics.slug}).from(topics),
     listUntaggedWorksheets(db, userId),
     getCredentialSummary(db, userId),
   ])

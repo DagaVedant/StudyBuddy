@@ -1,26 +1,26 @@
-import { and, desc, eq } from 'drizzle-orm'
+import {and, desc, eq} from 'drizzle-orm'
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import {notFound, redirect} from 'next/navigation'
 
-import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { attempts, processingJobs, questions, worksheets } from '@/lib/db/schema'
-import { queueDepth, workerStatus } from '@/lib/queue'
-import { phaseFor } from '@/lib/worker/apply'
-import { destination } from '@/lib/upload'
+import {auth} from '@/auth'
+import {db} from '@/lib/db'
+import {attempts, processingJobs, questions, worksheets} from '@/lib/db/schema'
+import {queueDepth, workerStatus} from '@/lib/queue'
+import {phaseFor} from '@/lib/worker/apply'
+import {destination} from '@/lib/upload'
 
-import { BrowserRunner, GoManualButton } from './status-client'
+import {BrowserRunner, GoManualButton} from './status-client'
 
-export const metadata = { title: 'Processing · StudyBuddy' }
+export const metadata = {title: 'Processing · StudyBuddy'}
 
 export const revalidate = 0
 
 export default async function StatusPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{id: string}>
 }) {
-  const { id } = await params
+  const {id} = await params
 
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -28,11 +28,11 @@ export default async function StatusPage({
   const [[worksheet], found, markup] = await Promise.all([
     db.select().from(worksheets).where(eq(worksheets.id, id)).limit(1),
     db
-      .select({ id: questions.id })
+      .select({id: questions.id})
       .from(questions)
       .where(eq(questions.worksheetId, id)),
     db
-      .select({ id: attempts.id })
+      .select({id: attempts.id})
       .from(attempts)
       .innerJoin(questions, eq(attempts.questionId, questions.id))
       .where(and(eq(questions.worksheetId, id), eq(attempts.source, 'markup')))
@@ -110,7 +110,7 @@ export default async function StatusPage({
           >
             <div
               className="h-full bg-accent transition-[width] duration-500"
-              style={{ width: `${Math.max(percent, 4)}%` }}
+              style={{width: `${Math.max(percent, 4)}%`}}
             />
           </div>
 

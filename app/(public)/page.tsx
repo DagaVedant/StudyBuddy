@@ -1,5 +1,5 @@
-import DashboardPreview from '@/components/dashboard-preview'
-import Hero from '@/components/hero'
+import {DashboardPreview} from '@/components/ui'
+import {Hero} from '@/components/ui'
 
 import HomeCta from './home-cta'
 

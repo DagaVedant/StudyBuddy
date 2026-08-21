@@ -1,10 +1,10 @@
-import { and, count, desc, eq, gte, inArray, lt, notExists, or, sql } from 'drizzle-orm'
+import {and, count, desc, eq, gte, inArray, lt, notExists, or, sql} from 'drizzle-orm'
 
-import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { storage } from '@/lib/storage'
+import {auth} from '@/auth'
+import {db} from '@/lib/db'
+import {storage} from '@/lib/storage'
 
-import { type Db, unwrapDriverRows } from '@/lib/db'
+import {type Db, unwrapDriverRows} from '@/lib/db'
 import {
   gpuWorkers,
   processingJobs,
@@ -40,7 +40,7 @@ const IN_FLIGHT = ['pending', 'claimed', 'running'] as const
 
 export async function inFlightExtractCount(db: Db, userId: string): Promise<number> {
   const [row] = await db
-    .select({ count: count() })
+    .select({count: count()})
     .from(processingJobs)
     .where(
       and(
@@ -66,7 +66,7 @@ export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {
       status: 'pending',
       checkpoint: args.checkpoint ?? null,
     })
-    .returning({ id: processingJobs.id })
+    .returning({id: processingJobs.id})
 
   return row.id
 }
@@ -77,7 +77,7 @@ export async function pendingExplainJob(
   questionId: string,
 ): Promise<string | null> {
   const [row] = await db
-    .select({ id: processingJobs.id })
+    .select({id: processingJobs.id})
     .from(processingJobs)
     .where(
       and(
@@ -193,7 +193,7 @@ export async function checkpointJob(
 export async function touchJob(db: Db, jobId: string): Promise<void> {
   await db
     .update(processingJobs)
-    .set({ status: 'running', claimedAt: new Date() })
+    .set({status: 'running', claimedAt: new Date()})
     .where(
       and(
         eq(processingJobs.id, jobId),
@@ -205,7 +205,7 @@ export async function touchJob(db: Db, jobId: string): Promise<void> {
 export async function completeJob(db: Db, jobId: string): Promise<void> {
   await db
     .update(processingJobs)
-    .set({ status: 'completed', progress: 1, completedAt: new Date(), error: null })
+    .set({status: 'completed', progress: 1, completedAt: new Date(), error: null})
     .where(eq(processingJobs.id, jobId))
 }
 
@@ -214,9 +214,9 @@ export async function failJob(
   jobId: string,
   message: string,
   force = false,
-): Promise<{ permanent: boolean }> {
+): Promise<{permanent: boolean}> {
   const [row] = await db
-    .select({ attemptCount: processingJobs.attemptCount })
+    .select({attemptCount: processingJobs.attemptCount})
     .from(processingJobs)
     .where(eq(processingJobs.id, jobId))
     .limit(1)
@@ -230,11 +230,11 @@ export async function failJob(
       error: message.slice(0, 2000),
       claimedBy: null,
       claimedAt: null,
-      ...(permanent ? { completedAt: new Date() } : {}),
+      ...(permanent ? {completedAt: new Date()} : {}),
     })
     .where(eq(processingJobs.id, jobId))
 
-  return { permanent }
+  return {permanent}
 }
 
 export interface AbandonedJob {
@@ -326,7 +326,7 @@ export async function heartbeat(
         lastHeartbeatAt: new Date(),
       },
     })
-    .returning({ id: gpuWorkers.id })
+    .returning({id: gpuWorkers.id})
 
   return row.id
 }
@@ -372,7 +372,7 @@ export async function workerStatus(
 export async function markWorkerOffline(db: Db, name: string): Promise<void> {
   await db
     .update(gpuWorkers)
-    .set({ status: 'offline', jobsInFlight: 0 })
+    .set({status: 'offline', jobsInFlight: 0})
     .where(eq(gpuWorkers.name, name))
 }
 
@@ -458,11 +458,11 @@ export async function requeueJob(db: Db, jobId: string): Promise<boolean> {
     .where(
       and(eq(processingJobs.id, jobId), inArray(processingJobs.status, ['failed', 'cancelled'])),
     )
-    .returning({ id: processingJobs.id, worksheetId: processingJobs.worksheetId })
+    .returning({id: processingJobs.id, worksheetId: processingJobs.worksheetId})
 
   if (!job) return false
 
-  await transitionWorksheet(db, job.worksheetId, ['failed'], { status: 'queued' })
+  await transitionWorksheet(db, job.worksheetId, ['failed'], {status: 'queued'})
 
   return true
 }
@@ -476,13 +476,13 @@ export async function transitionWorksheet(
   db: Db,
   worksheetId: string,
   from: readonly WorksheetStatus[],
-  set: Partial<typeof worksheets.$inferInsert> & { status: WorksheetStatus },
+  set: Partial<typeof worksheets.$inferInsert> & {status: WorksheetStatus},
 ): Promise<boolean> {
   const claimed = await db
     .update(worksheets)
     .set(set)
     .where(and(eq(worksheets.id, worksheetId), inArray(worksheets.status, [...from])))
-    .returning({ id: worksheets.id })
+    .returning({id: worksheets.id})
 
   return claimed.length > 0
 }
@@ -495,35 +495,35 @@ export async function claimWorksheetForCompletion(
   status: CompletedStatus,
   tierUsed: Tier,
 ): Promise<boolean> {
-  return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, { status, tierUsed })
+  return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, {status, tierUsed})
 }
 
 export async function claimWorksheetForManualFallback(
   db: Db,
   worksheetId: string,
 ): Promise<boolean> {
-  return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, { status: 'failed' })
+  return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, {status: 'failed'})
 }
 
 export type Guarded =
-  | { ok: true; userId: string; role: 'student' | 'admin' }
-  | { ok: false; status: 401 | 404 }
+  | {ok: true; userId: string; role: 'student' | 'admin'}
+  | {ok: false; status: 401 | 404}
 
 export async function guardWorksheet(worksheetId: string): Promise<Guarded> {
   const session = await auth()
-  if (!session?.user?.id) return { ok: false, status: 401 }
+  if (!session?.user?.id) return {ok: false, status: 401}
 
   const [worksheet] = await db
-    .select({ userId: worksheets.userId })
+    .select({userId: worksheets.userId})
     .from(worksheets)
     .where(eq(worksheets.id, worksheetId))
     .limit(1)
 
   if (!worksheet || worksheet.userId !== session.user.id) {
-    return { ok: false, status: 404 }
+    return {ok: false, status: 404}
   }
 
-  return { ok: true, userId: session.user.id, role: session.user.role }
+  return {ok: true, userId: session.user.id, role: session.user.role}
 }
 
 export const ABANDONED_AFTER_MS = 60 * 60_000
@@ -536,7 +536,7 @@ export async function sweepAbandonedUploads(
   const cutoff = new Date(now.getTime() - ABANDONED_AFTER_MS)
 
   const stale = await db
-    .select({ id: worksheets.id })
+    .select({id: worksheets.id})
     .from(worksheets)
     .where(
       and(
@@ -548,7 +548,7 @@ export async function sweepAbandonedUploads(
             eq(worksheets.status, 'processing'),
             notExists(
               db
-                .select({ one: sql`1` })
+                .select({one: sql`1`})
                 .from(processingJobs)
                 .where(eq(processingJobs.worksheetId, worksheets.id)),
             ),
@@ -561,7 +561,7 @@ export async function sweepAbandonedUploads(
 
   for (const sheet of stale) {
     const pages = await db
-      .select({ imageKey: worksheetPages.imageKey })
+      .select({imageKey: worksheetPages.imageKey})
       .from(worksheetPages)
       .where(eq(worksheetPages.worksheetId, sheet.id))
 

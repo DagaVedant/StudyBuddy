@@ -1,16 +1,16 @@
-import { config } from 'dotenv'
+import {config} from 'dotenv'
 
-config({ path: '.env.local' })
+config({path: '.env.local'})
 
 import sharp from 'sharp'
 
-import { OllamaProvider } from '../lib/ai/ollama'
-import type { ExtractedQuestion } from '../lib/ai/types'
-import { validated } from '../lib/ai/parse'
-import { embed } from '../lib/embeddings'
-import { isAnswerPage } from '../lib/questions/text'
-import { seamAround } from '../lib/questions/text'
-import { auditExtraction } from '../lib/worker/pipeline'
+import {OllamaProvider} from '../lib/ai/ollama'
+import type {ExtractedQuestion} from '../lib/ai/types'
+import {validated} from '../lib/ai/parse'
+import {embed} from '../lib/embeddings'
+import {isAnswerPage} from '../lib/questions/text'
+import {seamAround} from '../lib/questions/text'
+import {auditExtraction} from '../lib/worker/pipeline'
 import {
   MAX_REREAD_SHARE,
   planReview,
@@ -44,13 +44,13 @@ interface ClaimedJob {
   stage: string
   attemptCount: number
   expectedQuestionCount?: number | null
-  checkpoint: { lastPageNumber?: number; donePages?: number[] } | null
+  checkpoint: {lastPageNumber?: number; donePages?: number[]} | null
 }
 
 interface ClaimResponse {
   job: ClaimedJob | null
   pages?: WorkerPage[]
-  depth?: { pending: number; running: number }
+  depth?: {pending: number; running: number}
 }
 
 const ollama = new OllamaProvider({
@@ -81,7 +81,7 @@ async function api(path: string, init: RequestInit = {}): Promise<Response> {
     signal: init.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${TOKEN}`,
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init.body ? {'Content-Type': 'application/json'} : {}),
       ...init.headers,
     },
   })
@@ -103,12 +103,12 @@ async function postJob(jobId: string, body: unknown): Promise<Response> {
 async function toOllamaImage(
   bytes: Uint8Array,
   mediaType: string,
-): Promise<{ image: Uint8Array; mediaType: string }> {
+): Promise<{image: Uint8Array; mediaType: string}> {
   if (mediaType === 'image/png' || mediaType === 'image/jpeg') {
-    return { image: bytes, mediaType }
+    return {image: bytes, mediaType}
   }
   const png = await sharp(Buffer.from(bytes)).png().toBuffer()
-  return { image: new Uint8Array(png), mediaType: 'image/png' }
+  return {image: new Uint8Array(png), mediaType: 'image/png'}
 }
 
 interface PendingQuestion {
@@ -123,13 +123,13 @@ interface TopicCandidate {
 }
 
 async function reviewExtractedQuestions(
-  job: { id: string; worksheetId: string },
+  job: {id: string; worksheetId: string},
   pages: WorkerPage[],
 ): Promise<void> {
   const response = await api(`/api/worker/questions/${job.worksheetId}`)
   if (!response.ok) return
 
-  const { questions } = (await response.json()) as { questions: ReviewableQuestion[] }
+  const {questions} = (await response.json()) as {questions: ReviewableQuestion[]}
   if (questions.length === 0) return
 
   const plan = await planReview(questions, async (candidates) =>
@@ -170,7 +170,7 @@ async function reviewExtractedQuestions(
       if (!imageResponse.ok) continue
 
       const raw = new Uint8Array(await imageResponse.arrayBuffer())
-      const { image, mediaType } = await toOllamaImage(
+      const {image, mediaType} = await toOllamaImage(
         raw,
         imageResponse.headers.get('content-type') ?? 'image/webp',
       )
@@ -209,14 +209,14 @@ async function reviewExtractedQuestions(
 }
 
 async function recoverMissingQuestions(
-  job: { id: string; worksheetId: string; expectedQuestionCount?: number | null },
+  job: {id: string; worksheetId: string; expectedQuestionCount?: number | null},
   pages: WorkerPage[],
 ): Promise<void> {
   const response = await api(`/api/worker/coverage/${job.worksheetId}`)
   if (!response.ok) return
 
   const coverage = (await response.json()) as {
-    pages: { pageNumber: number; printed: number[]; expectsQuestions?: boolean }[]
+    pages: {pageNumber: number; printed: number[]; expectsQuestions?: boolean}[]
   }
 
   const audit = auditExtraction(coverage.pages, job.expectedQuestionCount ?? null)
@@ -269,7 +269,7 @@ async function recoverMissingQuestions(
       if (!imageResponse.ok) continue
 
       const raw = new Uint8Array(await imageResponse.arrayBuffer())
-      const { image, mediaType } = await toOllamaImage(
+      const {image, mediaType} = await toOllamaImage(
         raw,
         imageResponse.headers.get('content-type') ?? 'image/webp',
       )
@@ -314,7 +314,7 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
       return
     }
 
-    const { questions: page } = (await pendingResponse.json()) as {
+    const {questions: page} = (await pendingResponse.json()) as {
       questions: PendingQuestion[]
     }
 
@@ -338,22 +338,22 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
 async function classifyBatch(
   worksheetId: string,
   pending: PendingQuestion[],
-): Promise<{ applied: number; coarse: number } | null> {
+): Promise<{applied: number; coarse: number} | null> {
   const items = []
   for (const question of pending) {
     if (shuttingDown) return null
     try {
-      items.push({ questionId: question.id, embedding: await embed(question.promptText) })
+      items.push({questionId: question.id, embedding: await embed(question.promptText)})
     } catch (error) {
       log(`  classify: could not embed a question: ${(error as Error).message}`)
     }
   }
 
-  if (items.length === 0) return { applied: 0, coarse: 0 }
+  if (items.length === 0) return {applied: 0, coarse: 0}
 
   const shortlistResponse = await api(`/api/worker/classify/${worksheetId}/shortlist`, {
     method: 'POST',
-    body: JSON.stringify({ items }),
+    body: JSON.stringify({items}),
   })
 
   if (!shortlistResponse.ok) {
@@ -361,8 +361,8 @@ async function classifyBatch(
     return null
   }
 
-  const { batch } = (await shortlistResponse.json()) as {
-    batch: { questionId: string; candidates: TopicCandidate[] }[]
+  const {batch} = (await shortlistResponse.json()) as {
+    batch: {questionId: string; candidates: TopicCandidate[]}[]
   }
 
   const promptById = new Map(pending.map((question) => [question.id, question.promptText]))
@@ -387,11 +387,11 @@ async function classifyBatch(
     }
   }
 
-  if (results.length === 0) return { applied: 0, coarse: 0 }
+  if (results.length === 0) return {applied: 0, coarse: 0}
 
   const post = await api(`/api/worker/classify/${worksheetId}`, {
     method: 'POST',
-    body: JSON.stringify({ results }),
+    body: JSON.stringify({results}),
   })
 
   if (!post.ok) {
@@ -399,22 +399,22 @@ async function classifyBatch(
     return null
   }
 
-  return (await post.json()) as { applied: number; coarse: number }
+  return (await post.json()) as {applied: number; coarse: number}
 }
 
-async function processAnswerJob(job: { id: string; worksheetId: string }): Promise<void> {
+async function processAnswerJob(job: {id: string; worksheetId: string}): Promise<void> {
   const response = await api(`/api/worker/solutions/${job.worksheetId}`)
   if (!response.ok) {
     throw new Error(`Could not fetch the questions to solve (${response.status})`)
   }
 
-  const { questions: pending } = (await response.json()) as {
+  const {questions: pending} = (await response.json()) as {
     questions: {
       id: string
       promptText: string
       printedNumber: number | null
       pageId: string | null
-      choices: { label: string; text: string }[]
+      choices: {label: string; text: string}[]
     }[]
   }
 
@@ -447,7 +447,7 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
 
         if (page.ok) {
           const image = new Uint8Array(await page.arrayBuffer())
-          const { image: converted, mediaType } = await toOllamaImage(
+          const {image: converted, mediaType} = await toOllamaImage(
             image,
             page.headers.get('content-type') ?? 'image/webp',
           )
@@ -491,7 +491,7 @@ async function processAnswerJob(job: { id: string; worksheetId: string }): Promi
   )
 }
 
-async function processExplainJob(job: { id: string }): Promise<void> {
+async function processExplainJob(job: {id: string}): Promise<void> {
   const response = await api(`/api/worker/explain/${job.id}`)
   if (!response.ok) {
     throw new Error(`Could not fetch the question to explain (${response.status})`)
@@ -501,7 +501,7 @@ async function processExplainJob(job: { id: string }): Promise<void> {
     questionId: string
     attemptId: string | null
     promptText: string
-    choices: { label: string; text: string }[]
+    choices: {label: string; text: string}[]
     correctAnswer: string | null
     studentAnswer: string | null
   }
@@ -522,7 +522,7 @@ async function processExplainJob(job: { id: string }): Promise<void> {
     model: VISION_MODEL,
   })
 
-  await postJob(job.id, { action: 'complete' })
+  await postJob(job.id, {action: 'complete'})
   log(`explained ${input.questionId}`)
 }
 
@@ -540,11 +540,11 @@ async function processClassifyStageJob(job: ClaimedJob): Promise<void> {
   log(`claimed ${job.id}: sorting into topics (attempt ${job.attemptCount})`)
   try {
     await classifyWorksheet(job.worksheetId)
-    await postJob(job.id, { action: 'complete' })
+    await postJob(job.id, {action: 'complete'})
   } catch (error) {
     const message = (error as Error).message
     log(`failed ${job.id}: ${message}`)
-    await postJob(job.id, { action: 'fail', message }).catch(() => {})
+    await postJob(job.id, {action: 'fail', message}).catch(() => {})
   }
 }
 
@@ -552,11 +552,11 @@ async function processAnswerKeyJob(job: ClaimedJob): Promise<void> {
   log(`claimed ${job.id}: answers (attempt ${job.attemptCount})`)
   try {
     await processAnswerJob(job)
-    await postJob(job.id, { action: 'complete' })
+    await postJob(job.id, {action: 'complete'})
   } catch (error) {
     const message = (error as Error).message
     log(`failed ${job.id}: ${message}`)
-    await postJob(job.id, { action: 'fail', message }).catch(() => {})
+    await postJob(job.id, {action: 'fail', message}).catch(() => {})
   }
 }
 
@@ -567,7 +567,7 @@ async function processExplainStageJob(job: ClaimedJob): Promise<void> {
   } catch (error) {
     const message = (error as Error).message
     log(`failed ${job.id}: ${message}`)
-    await postJob(job.id, { action: 'fail', message }).catch(() => {})
+    await postJob(job.id, {action: 'fail', message}).catch(() => {})
   }
 }
 
@@ -591,7 +591,7 @@ async function readJobPages(
   for (const page of todo) {
     if (shuttingDown) {
       log('shutting down mid-job; leaving it to be reclaimed')
-      return { attempted, pageFailures, lastError, interrupted: true }
+      return {attempted, pageFailures, lastError, interrupted: true}
     }
 
     if (isAnswerPage(page.ocrText ?? '')) {
@@ -614,7 +614,7 @@ async function readJobPages(
     }
 
     const raw = new Uint8Array(await imageResponse.arrayBuffer())
-    const { image, mediaType } = await toOllamaImage(
+    const {image, mediaType} = await toOllamaImage(
       raw,
       imageResponse.headers.get('content-type') ?? 'image/webp',
     )
@@ -655,21 +655,21 @@ async function readJobPages(
     done.add(page.pageNumber)
   }
 
-  return { attempted, pageFailures, lastError, interrupted: false }
+  return {attempted, pageFailures, lastError, interrupted: false}
 }
 
 async function finishExtraction(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
-  await postJob(job.id, { action: 'phase', phase: 'verifying' })
+  await postJob(job.id, {action: 'phase', phase: 'verifying'})
   await recoverMissingQuestions(job, pages)
 
-  await postJob(job.id, { action: 'phase', phase: 'verifying' })
+  await postJob(job.id, {action: 'phase', phase: 'verifying'})
 
   await reviewExtractedQuestions(job, pages)
 
-  await postJob(job.id, { action: 'phase', phase: 'classifying' })
+  await postJob(job.id, {action: 'phase', phase: 'classifying'})
   await classifyWorksheet(job.worksheetId)
 
-  await postJob(job.id, { action: 'complete' })
+  await postJob(job.id, {action: 'complete'})
 }
 
 async function processExtractionJob(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
@@ -697,7 +697,7 @@ async function processExtractionJob(job: ClaimedJob, pages: WorkerPage[]): Promi
   } catch (error) {
     const message = (error as Error).message
     log(`failed ${job.id}: ${message}`)
-    await postJob(job.id, { action: 'fail', message }).catch(() => {})
+    await postJob(job.id, {action: 'fail', message}).catch(() => {})
   }
 }
 
@@ -778,7 +778,7 @@ async function main(): Promise<void> {
 
   await api('/api/worker/heartbeat', {
     method: 'POST',
-    body: JSON.stringify({ workerName: WORKER_NAME, shuttingDown: true }),
+    body: JSON.stringify({workerName: WORKER_NAME, shuttingDown: true}),
   }).catch(() => {})
 
   log('worker stopped')

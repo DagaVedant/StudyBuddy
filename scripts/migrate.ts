@@ -1,8 +1,8 @@
-import { config } from 'dotenv'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import {config} from 'dotenv'
+import {drizzle} from 'drizzle-orm/postgres-js'
+import {migrate} from 'drizzle-orm/postgres-js/migrator'
 
-import { connect } from './db'
+import {connect} from './db'
 
 export interface MigrateEnv {
   VERCEL_ENV?: string
@@ -17,12 +17,12 @@ export function shouldSkipBuildMigration(
 }
 
 export function missingDatabaseUrlIsFatal(
-  env: { VERCEL_ENV?: string } = process.env as { VERCEL_ENV?: string },
+  env: {VERCEL_ENV?: string} = process.env as {VERCEL_ENV?: string},
 ): boolean {
   return Boolean(env.VERCEL_ENV)
 }
 
-config({ path: '.env.local' })
+config({path: '.env.local'})
 
 
 async function main() {
@@ -62,7 +62,7 @@ async function main() {
 
   await sql`CREATE EXTENSION IF NOT EXISTS vector`
 
-  await migrate(drizzle(sql), { migrationsFolder: './drizzle' })
+  await migrate(drizzle(sql), {migrationsFolder: './drizzle'})
   await sql.end()
 
   console.log('Migrations applied.')

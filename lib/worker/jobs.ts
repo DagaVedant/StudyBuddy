@@ -1,8 +1,8 @@
-import { timingSafeEqual } from 'node:crypto'
+import {timingSafeEqual} from 'node:crypto'
 
-import { NextResponse } from 'next/server'
-import { and, eq, inArray } from 'drizzle-orm'
-import { z } from 'zod'
+import {NextResponse} from 'next/server'
+import {and, eq, inArray} from 'drizzle-orm'
+import {z} from 'zod'
 
 import {
   FINAL_PASSES,
@@ -33,14 +33,14 @@ import {
   touchJob,
   transitionWorksheet,
 } from '@/lib/queue'
-import { CHOICE_ORDER } from '@/lib/questions/queries'
-import { clientIp } from '@/lib/rate-limit'
-import { extractedQuestionSchema } from '@/lib/ai/types'
-import { partitionByDeletability } from '@/lib/worker/apply'
-import { persistQuestions } from '@/lib/worker/ingest'
-import { planPageReplacement } from '@/lib/worker/solutions'
-import { promoteDerivedAnswer } from '@/lib/worker/solutions'
-import { type Db } from '@/lib/db'
+import {CHOICE_ORDER} from '@/lib/questions/queries'
+import {clientIp} from '@/lib/api'
+import {extractedQuestionSchema} from '@/lib/ai/types'
+import {partitionByDeletability} from '@/lib/worker/apply'
+import {persistQuestions} from '@/lib/worker/ingest'
+import {planPageReplacement} from '@/lib/worker/solutions'
+import {promoteDerivedAnswer} from '@/lib/worker/solutions'
+import {type Db} from '@/lib/db'
 
 export const bodySchema = z.discriminatedUnion('action', [
   z.object({
@@ -74,19 +74,19 @@ export const bodySchema = z.discriminatedUnion('action', [
     answer: z.string().max(400).nullable(),
     workingMd: z.string().max(8000),
     traps: z
-      .array(z.object({ label: z.string().max(8).nullable(), why: z.string().max(600) }))
+      .array(z.object({label: z.string().max(8).nullable(), why: z.string().max(600)}))
       .max(12)
       .default([]),
     confidence: z.number().min(0).max(1),
     model: z.string().max(200),
   }),
-  z.object({ action: z.literal('complete') }),
-  z.object({ action: z.literal('fail'), message: z.string().max(2000) }),
+  z.object({action: z.literal('complete')}),
+  z.object({action: z.literal('fail'), message: z.string().max(2000)}),
 ])
 
 export type Job = typeof processingJobs.$inferSelect
 type Body = z.infer<typeof bodySchema>
-type Action<Name extends Body['action']> = Extract<Body, { action: Name }>
+type Action<Name extends Body['action']> = Extract<Body, {action: Name}>
 
 export async function handleFail(
   db: Db,
@@ -94,13 +94,13 @@ export async function handleFail(
   job: Job,
   body: Action<'fail'>,
 ): Promise<NextResponse> {
-  const { permanent } = await failJob(db, jobId, body.message)
+  const {permanent} = await failJob(db, jobId, body.message)
 
   if (permanent) {
     await applyPermanentFailure(db, job)
   }
 
-  return NextResponse.json({ ok: true, permanent })
+  return NextResponse.json({ok: true, permanent})
 }
 
 export async function handlePhase(
@@ -120,7 +120,7 @@ export async function handlePhase(
     job.checkpoint ?? {},
   )
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ok: true})
 }
 
 export async function handlePageReview(
@@ -139,19 +139,19 @@ export async function handlePageReview(
     .limit(1)
 
   if (!target || target.worksheetId !== job.worksheetId) {
-    return NextResponse.json({ error: 'Page does not belong to this job' }, { status: 400 })
+    return NextResponse.json({error: 'Page does not belong to this job'}, {status: 400})
   }
 
   const doubted = body.replace.length
     ? await db
-        .select({ id: questions.id, printedNumber: questions.printedNumber })
+        .select({id: questions.id, printedNumber: questions.printedNumber})
         .from(questions)
         .where(
           and(eq(questions.worksheetId, job.worksheetId), inArray(questions.id, body.replace)),
         )
     : []
 
-  const { removable: suspects, held } = await partitionByDeletability(db, doubted)
+  const {removable: suspects, held} = await partitionByDeletability(db, doubted)
 
   if (held.length > 0) {
     console.log(
@@ -188,13 +188,13 @@ export async function handleExplanation(
   body: Action<'explanation'>,
 ): Promise<NextResponse> {
   const [question] = await db
-    .select({ id: questions.id })
+    .select({id: questions.id})
     .from(questions)
     .where(and(eq(questions.id, body.questionId), eq(questions.userId, job.userId)))
     .limit(1)
 
   if (!question) {
-    return NextResponse.json({ error: 'Question does not belong to this job' }, { status: 400 })
+    return NextResponse.json({error: 'Question does not belong to this job'}, {status: 400})
   }
 
   await db.insert(explanations).values({
@@ -206,7 +206,7 @@ export async function handleExplanation(
     model: body.model,
   })
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ok: true})
 }
 
 export async function handleSolution(
@@ -226,11 +226,11 @@ export async function handleSolution(
     .limit(1)
 
   if (!question || question.worksheetId !== job.worksheetId) {
-    return NextResponse.json({ error: 'Question does not belong to this job' }, { status: 400 })
+    return NextResponse.json({error: 'Question does not belong to this job'}, {status: 400})
   }
 
   const choices = await db
-    .select({ label: answerChoices.label, text: answerChoices.text })
+    .select({label: answerChoices.label, text: answerChoices.text})
     .from(answerChoices)
     .where(eq(answerChoices.questionId, body.questionId))
     .orderBy(...CHOICE_ORDER)
@@ -246,7 +246,7 @@ export async function handleSolution(
       provider: null,
       model: body.model,
     })
-    .onConflictDoNothing({ target: questionSolutions.questionId })
+    .onConflictDoNothing({target: questionSolutions.questionId})
 
   const promoted = await promoteDerivedAnswer(db, {
     questionId: body.questionId,
@@ -258,7 +258,7 @@ export async function handleSolution(
 
   await touchJob(db, jobId)
 
-  return NextResponse.json({ ok: true, promoted })
+  return NextResponse.json({ok: true, promoted})
 }
 
 export async function handleComplete(
@@ -271,7 +271,7 @@ export async function handleComplete(
     db,
     job.worksheetId,
     ['queued', 'processing'],
-    { status: 'awaiting_review' },
+    {status: 'awaiting_review'},
   )
 
   if (delivered) {
@@ -291,7 +291,7 @@ export async function handleComplete(
     })
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ok: true})
 }
 
 export async function handlePageResult(
@@ -301,25 +301,25 @@ export async function handlePageResult(
   body: Action<'page_result'>,
 ): Promise<NextResponse> {
   const [page] = await db
-    .select({ id: worksheetPages.id, worksheetId: worksheetPages.worksheetId })
+    .select({id: worksheetPages.id, worksheetId: worksheetPages.worksheetId})
     .from(worksheetPages)
     .where(eq(worksheetPages.id, body.pageId))
     .limit(1)
 
   if (!page || page.worksheetId !== job.worksheetId) {
-    return NextResponse.json({ error: 'Page does not belong to this job' }, { status: 400 })
+    return NextResponse.json({error: 'Page does not belong to this job'}, {status: 400})
   }
 
   const created = await persistQuestions(db, job, page.id, body.questions)
 
-  const previous = (job.checkpoint as { donePages?: number[] } | null)?.donePages ?? []
+  const previous = (job.checkpoint as {donePages?: number[]} | null)?.donePages ?? []
   const donePages = [...new Set([...previous, body.pageNumber])].sort((a, b) => a - b)
 
   await checkpointJob(
     db,
     jobId,
     readingProgress(donePages.length, body.totalPages),
-    { donePages, lastPageNumber: Math.max(...donePages) },
+    {donePages, lastPageNumber: Math.max(...donePages)},
   )
 
   return NextResponse.json({
@@ -336,20 +336,20 @@ function safeEquals(a: string, b: string): boolean {
 }
 
 export type WorkerAuth =
-  | { ok: true }
-  | { ok: false; status: 401 | 403; message: string }
+  | {ok: true}
+  | {ok: false; status: 401 | 403; message: string}
 
 export function authenticateWorker(request: Request): WorkerAuth {
   const expected = process.env.WORKER_API_TOKEN
   if (!expected) {
-    return { ok: false, status: 403, message: 'Worker API is not configured.' }
+    return {ok: false, status: 403, message: 'Worker API is not configured.'}
   }
 
   const header = request.headers.get('authorization') ?? ''
   const token = header.startsWith('Bearer ') ? header.slice(7) : ''
 
   if (!token || !safeEquals(token, expected)) {
-    return { ok: false, status: 401, message: 'Bad worker credential.' }
+    return {ok: false, status: 401, message: 'Bad worker credential.'}
   }
 
   const configured = (process.env.WORKER_ALLOWED_IPS ?? '').trim()
@@ -371,9 +371,9 @@ export function authenticateWorker(request: Request): WorkerAuth {
 
     const ip = clientIp(request.headers)
     if (!ip || !allowed.includes(ip)) {
-      return { ok: false, status: 403, message: 'Worker credential not valid from here.' }
+      return {ok: false, status: 403, message: 'Worker credential not valid from here.'}
     }
   }
 
-  return { ok: true }
+  return {ok: true}
 }

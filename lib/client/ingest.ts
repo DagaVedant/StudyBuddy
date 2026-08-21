@@ -11,8 +11,8 @@ import {
   rasterizePdf,
   type RasterPage,
 } from './rasterize'
-import { fetchJson, throwIfCancelled } from './http'
-import { ocrPage, preloadOcr } from './rasterize'
+import {fetchJson, throwIfCancelled} from './http'
+import {ocrPage, preloadOcr} from './rasterize'
 
 export type IngestStage =
   | 'reading'
@@ -55,7 +55,7 @@ const assertNotAborted = throwIfCancelled
 async function expectOk(response: Response): Promise<unknown> {
   if (response.ok) return response.json()
 
-  const body = (await response.json().catch(() => null)) as { error?: string } | null
+  const body = (await response.json().catch(() => null)) as {error?: string} | null
   throw new IngestError(body?.error ?? `Request failed (${response.status}).`)
 }
 
@@ -76,7 +76,7 @@ export async function ingestWorksheet({
     throw new IngestError(`"${oversized.name}" is too large to upload.`)
   }
 
-  onProgress({ stage: 'reading', completed: 0, total: 1, detail: 'Reading files' })
+  onProgress({stage: 'reading', completed: 0, total: 1, detail: 'Reading files'})
 
   const pdfs = files.filter((file) => file.type === 'application/pdf')
   const images = files.filter((file) => file.type !== 'application/pdf')
@@ -92,7 +92,7 @@ export async function ingestWorksheet({
 
     const rendered = await rasterizePdf(
       file,
-      ({ page, total }) => {
+      ({page, total}) => {
         onProgress({
           stage: 'rasterizing',
           completed: page,
@@ -100,7 +100,7 @@ export async function ingestWorksheet({
           detail: `Rendering ${file.name}`,
         })
       },
-      { offset, range: pageRange, signal },
+      {offset, range: pageRange, signal},
     )
 
     pages.push(...rendered.pages)
@@ -145,7 +145,7 @@ export async function ingestWorksheet({
   const created = (await expectOk(
     await fetchJson('/api/worksheets', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         title,
         sourceType,
@@ -155,7 +155,7 @@ export async function ingestWorksheet({
       }),
       signal,
     }),
-  )) as { worksheetId: string }
+  )) as {worksheetId: string}
 
   const worksheetId = created.worksheetId
   onWorksheetCreated?.(worksheetId)
@@ -183,7 +183,7 @@ export async function ingestWorksheet({
         body: form,
         signal,
       }),
-    )) as { pageId: string }
+    )) as {pageId: string}
 
     pageIds.push(uploaded.pageId)
   }
@@ -199,14 +199,14 @@ export async function ingestWorksheet({
         : `Recognizing text on page ${page.pageNumber}`,
     })
 
-    const { text, lines } = digital
-      ? { text: page.embeddedText, lines: page.embeddedLines }
+    const {text, lines} = digital
+      ? {text: page.embeddedText, lines: page.embeddedLines}
       : await ocrPage(page.blob, signal)
 
     await expectOk(
       await fetchJson(`/api/worksheets/${worksheetId}/pages`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           pageId: pageIds[index],
           ocrText: text.slice(0, 200_000),
@@ -230,11 +230,11 @@ export async function ingestWorksheet({
       method: 'POST',
       signal,
     }),
-  )) as { next: string }
+  )) as {next: string}
 
-  onProgress({ stage: 'done', completed: 1, total: 1, detail: 'Done' })
+  onProgress({stage: 'done', completed: 1, total: 1, detail: 'Done'})
 
-  return { worksheetId, pageCount: pages.length, next: finished.next }
+  return {worksheetId, pageCount: pages.length, next: finished.next}
 }
 
 export interface PageImage {
@@ -244,7 +244,7 @@ export interface PageImage {
 
 export async function toPngBytes(blob: Blob): Promise<PageImage> {
   if (blob.type === 'image/png' || blob.type === 'image/jpeg') {
-    return { image: new Uint8Array(await blob.arrayBuffer()), mediaType: blob.type }
+    return {image: new Uint8Array(await blob.arrayBuffer()), mediaType: blob.type}
   }
 
   const bitmap = await createImageBitmap(blob)
@@ -264,7 +264,7 @@ export async function toPngBytes(blob: Blob): Promise<PageImage> {
     )
     if (!png) throw new Error('The page image could not be converted to PNG.')
 
-    return { image: new Uint8Array(await png.arrayBuffer()), mediaType: 'image/png' }
+    return {image: new Uint8Array(await png.arrayBuffer()), mediaType: 'image/png'}
   } finally {
     bitmap.close()
   }

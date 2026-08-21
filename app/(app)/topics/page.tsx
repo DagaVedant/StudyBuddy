@@ -1,15 +1,15 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { PageHead } from '@/components/ui'
+import {redirect} from 'next/navigation'
+import {PageHead} from '@/components/ui'
 
-import { auth } from '@/auth'
-import { TopicTree } from '@/components/topics'
-import { db } from '@/lib/db'
-import { getTopicStats } from '@/lib/dashboard'
-import { buildTopicTree } from '@/lib/ranking'
-import { topics } from '@/lib/db/schema'
+import {auth} from '@/auth'
+import {TopicTree} from '@/components/client'
+import {db} from '@/lib/db'
+import {getTopicStats} from '@/lib/dashboard'
+import {buildTopicTree} from '@/lib/ranking'
+import {topics} from '@/lib/db/schema'
 
-export const metadata = { title: 'Topics · StudyBuddy' }
+export const metadata = {title: 'Topics · StudyBuddy'}
 
 export default async function TopicsPage() {
   const session = await auth()
@@ -17,7 +17,7 @@ export default async function TopicsPage() {
 
   const [stats, rows] = await Promise.all([
     getTopicStats(db, session.user.id),
-    db.select({ id: topics.id, slug: topics.slug }).from(topics),
+    db.select({id: topics.id, slug: topics.slug}).from(topics),
   ])
 
   const idBySlug = new Map(rows.map((row) => [row.slug, row.id]))

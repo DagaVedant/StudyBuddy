@@ -1,4 +1,4 @@
-import { DEFAULT_AFTER_SIGNIN, safeNextPath } from '@/lib/auth/policy'
+import {DEFAULT_AFTER_SIGNIN, safeNextPath} from '@/lib/auth/policy'
 
 function currentPath(): string {
   if (typeof window === 'undefined') return DEFAULT_AFTER_SIGNIN
@@ -48,7 +48,7 @@ export function untilCancelled<T>(work: Promise<T>, signal?: AbortSignal): Promi
 
   return new Promise<T>((resolve, reject) => {
     const onAbort = () => reject(new CancelledError())
-    signal.addEventListener('abort', onAbort, { once: true })
+    signal.addEventListener('abort', onAbort, {once: true})
 
     const cleanup = () => signal.removeEventListener('abort', onAbort)
 
@@ -90,7 +90,7 @@ export interface MarkupDraft {
   cursor: number
 }
 
-const EMPTY: MarkupDraft = { outcomes: {}, answers: {}, cursor: 0 }
+const EMPTY: MarkupDraft = {outcomes: {}, answers: {}, cursor: 0}
 
 function key(worksheetId: string): string {
   return `studybuddy:markup:${worksheetId}`

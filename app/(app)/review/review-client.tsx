@@ -1,28 +1,28 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {useRouter} from 'next/navigation'
+import {useCallback, useEffect, useRef, useState} from 'react'
 
-import { ReportButton } from '@/components/actions'
-import { Tick } from '@/components/ui'
-import { QuestionCrop } from '@/components/ui'
-import { reflowText } from '@/lib/questions/text'
-import type { ReviewItem } from '@/lib/review'
-import { fetchJson } from '@/lib/client/http'
+import {ReportButton} from '@/components/client'
+import {Tick} from '@/components/ui'
+import {QuestionCrop} from '@/components/ui'
+import {reflowText} from '@/lib/questions/text'
+import type {ReviewItem} from '@/lib/review'
+import {fetchJson} from '@/lib/client/http'
 
 type Rating = 'again' | 'hard' | 'good' | 'easy'
 
-const RATINGS: { value: Rating; label: string; hint: string; key: string }[] = [
-  { value: 'again', label: 'Again', hint: 'No idea', key: '1' },
-  { value: 'hard', label: 'Hard', hint: 'Got there slowly', key: '2' },
-  { value: 'good', label: 'Good', hint: 'Knew it', key: '3' },
-  { value: 'easy', label: 'Easy', hint: 'Instant', key: '4' },
+const RATINGS: {value: Rating; label: string; hint: string; key: string}[] = [
+  {value: 'again', label: 'Again', hint: 'No idea', key: '1'},
+  {value: 'hard', label: 'Hard', hint: 'Got there slowly', key: '2'},
+  {value: 'good', label: 'Good', hint: 'Knew it', key: '3'},
+  {value: 'easy', label: 'Easy', hint: 'Instant', key: '4'},
 ]
 
 type Tally = Record<Rating, number>
 
-const NO_TALLY: Tally = { again: 0, hard: 0, good: 0, easy: 0 }
+const NO_TALLY: Tally = {again: 0, hard: 0, good: 0, easy: 0}
 
 function extendsRun(rating: Rating): boolean {
   return rating !== 'again'
@@ -75,7 +75,7 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
       resolve()
     }, ms)
 
-    signal.addEventListener('abort', onAbort, { once: true })
+    signal.addEventListener('abort', onAbort, {once: true})
   })
 }
 
@@ -125,7 +125,7 @@ export default function ReviewSession({
   async function waitForExplanation(
     questionId: string,
     signal: AbortSignal,
-  ): Promise<{ text: string } | { waiting: string }> {
+  ): Promise<{text: string} | {waiting: string}> {
     const deadline = Date.now() + EXPLAIN_DEADLINE_MS
     let wait = EXPLAIN_FIRST_WAIT_MS
 
@@ -135,16 +135,16 @@ export default function ReviewSession({
 
       const response = await fetchJson(
         `/api/explain?questionId=${encodeURIComponent(questionId)}`,
-        { signal },
+        {signal},
       )
       const body = (await response.json()) as {
         status?: 'ready' | 'queued' | 'none'
-        explanation?: { body: string }
+        explanation?: {body: string}
         writerOnline?: boolean
       }
 
       if (body.status === 'ready' && body.explanation) {
-        return { text: body.explanation.body }
+        return {text: body.explanation.body}
       }
 
       if (body.status === 'none') {
@@ -152,11 +152,11 @@ export default function ReviewSession({
       }
 
       if (body.status === 'queued' && body.writerOnline === false) {
-        return { waiting: WRITER_OFFLINE }
+        return {waiting: WRITER_OFFLINE}
       }
     }
 
-    return { waiting: WRITER_SLOW }
+    return {waiting: WRITER_SLOW}
   }
 
   async function explain(entry: ReviewItem) {
@@ -171,12 +171,12 @@ export default function ReviewSession({
     try {
       const response = await fetchJson('/api/explain', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId: entry.questionId }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({questionId: entry.questionId}),
         signal: controller.signal,
       })
       const body = (await response.json()) as {
-        explanation?: { body: string }
+        explanation?: {body: string}
         status?: string
         error?: string
         writerOnline?: boolean
@@ -191,7 +191,7 @@ export default function ReviewSession({
       }
 
       const result = body.explanation
-        ? { text: body.explanation.body }
+        ? {text: body.explanation.body}
         : await waitForExplanation(entry.questionId, controller.signal)
 
       if ('waiting' in result) {
@@ -199,7 +199,7 @@ export default function ReviewSession({
         return
       }
 
-      setGenerated((current) => ({ ...current, [entry.questionId]: result.text }))
+      setGenerated((current) => ({...current, [entry.questionId]: result.text}))
     } catch (cause) {
       if (controller.signal.aborted) return
       setExplainError((cause as Error).message)
@@ -248,8 +248,8 @@ export default function ReviewSession({
     try {
       const response = await fetchJson('/api/review/retire', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardId: item.cardId }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cardId: item.cardId}),
       })
       if (!response.ok) throw new Error('Could not put that one away')
 
@@ -270,8 +270,8 @@ export default function ReviewSession({
       try {
         const response = await fetchJson('/api/review/rate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cardId: item.cardId, rating }),
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({cardId: item.cardId, rating}),
         })
         if (!response.ok) throw new Error('Could not save that rating')
 
@@ -403,7 +403,7 @@ export default function ReviewSession({
         >
           <div
             className="h-full bg-fg transition-[width] duration-200"
-            style={{ width: `${(index / items.length) * 100}%` }}
+            style={{width: `${(index / items.length) * 100}%`}}
           />
         </div>
 
@@ -503,7 +503,7 @@ export default function ReviewSession({
                   </p>
                   <div className="mt-2">
                     <ReportButton
-                      target={{ kind: 'explanation', questionId: item.questionId }}
+                      target={{kind: 'explanation', questionId: item.questionId}}
                       label="This explanation looks wrong"
                       placeholder="What is wrong with it?"
                     />

@@ -1,23 +1,23 @@
-import { eq } from 'drizzle-orm'
+import {eq} from 'drizzle-orm'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { PageHead } from '@/components/ui'
+import {redirect} from 'next/navigation'
+import {PageHead} from '@/components/ui'
 
-import { auth } from '@/auth'
-import { resolveProvider } from '@/lib/ai/resolve'
-import { db } from '@/lib/db'
-import { topics } from '@/lib/db/schema'
-import { workerStatus } from '@/lib/queue'
-import { countReviewQueue, getDueCards } from '@/lib/review'
+import {auth} from '@/auth'
+import {resolveProvider} from '@/lib/ai/resolve'
+import {db} from '@/lib/db'
+import {topics} from '@/lib/db/schema'
+import {workerStatus} from '@/lib/queue'
+import {countReviewQueue, getDueCards} from '@/lib/review'
 
 import ReviewSession from './review-client'
 
-export const metadata = { title: 'Review · StudyBuddy' }
+export const metadata = {title: 'Review · StudyBuddy'}
 
 export default async function ReviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ topic?: string | string[] }>
+  searchParams: Promise<{topic?: string | string[]}>
 }) {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -29,7 +29,7 @@ export default async function ReviewPage({
 
   const [topic] = requested
     ? await db
-        .select({ id: topics.id, name: topics.name })
+        .select({id: topics.id, name: topics.name})
         .from(topics)
         .where(eq(topics.id, requested))
         .limit(1)

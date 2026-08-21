@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm'
+import {and, asc, eq, inArray, isNotNull, ne, notInArray, sql} from 'drizzle-orm'
 
-import { type BBox, answerChoices, attempts, questions, topics, worksheetPages, worksheets } from '@/lib/db/schema'
-import { type Db } from '@/lib/db'
+import {type BBox, answerChoices, attempts, questions, topics, worksheetPages, worksheets} from '@/lib/db/schema'
+import {type Db} from '@/lib/db'
 
 export const IS_QUESTION = sql`(
   ${questions.promptText} ~ '([a-z]{3,}.*){3}'
@@ -211,11 +211,11 @@ export interface ReferenceCheck {
 export async function checkReferences(
   db: Db,
   worksheetId: string,
-  input: { pageId?: string | null; topicId?: string | null },
+  input: {pageId?: string | null; topicId?: string | null},
 ): Promise<ReferenceCheck> {
   if (input.pageId) {
     const [page] = await db
-      .select({ id: worksheetPages.id })
+      .select({id: worksheetPages.id})
       .from(worksheetPages)
       .where(
         and(
@@ -225,20 +225,20 @@ export async function checkReferences(
       )
       .limit(1)
 
-    if (!page) return { ok: false, field: 'pageId' }
+    if (!page) return {ok: false, field: 'pageId'}
   }
 
   if (input.topicId) {
     const [topic] = await db
-      .select({ id: topics.id })
+      .select({id: topics.id})
       .from(topics)
       .where(eq(topics.id, input.topicId))
       .limit(1)
 
-    if (!topic) return { ok: false, field: 'topicId' }
+    if (!topic) return {ok: false, field: 'topicId'}
   }
 
-  return { ok: true }
+  return {ok: true}
 }
 
 export function referenceError(field: 'pageId' | 'topicId'): string {
@@ -254,7 +254,7 @@ export async function verifyRemaining(
 ): Promise<string[]> {
   const updated = await db
     .update(questions)
-    .set({ userVerified: true })
+    .set({userVerified: true})
     .where(
       and(
         eq(questions.worksheetId, worksheetId),
@@ -262,7 +262,7 @@ export async function verifyRemaining(
         exclude.length > 0 ? notInArray(questions.id, exclude) : undefined,
       ),
     )
-    .returning({ id: questions.id })
+    .returning({id: questions.id})
 
   return updated.map((row) => row.id)
 }
@@ -274,9 +274,9 @@ export async function unverifyQuestions(
 ): Promise<string[]> {
   const updated = await db
     .update(questions)
-    .set({ userVerified: false })
+    .set({userVerified: false})
     .where(and(eq(questions.worksheetId, worksheetId), inArray(questions.id, ids)))
-    .returning({ id: questions.id })
+    .returning({id: questions.id})
 
   return updated.map((row) => row.id)
 }

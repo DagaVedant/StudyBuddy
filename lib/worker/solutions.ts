@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, notExists, sql } from 'drizzle-orm'
+import {and, asc, desc, eq, inArray, notExists, sql} from 'drizzle-orm'
 
 import {
   answerChoices,
@@ -18,10 +18,10 @@ import {
   type QuestionReview,
   type ReviewCandidate,
 } from '@/lib/ai/types'
-import { CHOICE_ORDER } from '@/lib/questions/queries'
-import { normalizeChoiceLabel } from '@/lib/questions/shape'
-import { printedNumbersFor } from '@/lib/questions/numbering'
-import { type Db } from '@/lib/db'
+import {CHOICE_ORDER} from '@/lib/questions/queries'
+import {normalizeChoiceLabel} from '@/lib/questions/shape'
+import {printedNumbersFor} from '@/lib/questions/numbering'
+import {type Db} from '@/lib/db'
 
 const PROMOTE_ABOVE = 0.6
 
@@ -33,7 +33,7 @@ export interface UnsolvedQuestion {
   printedNumber: number | null
   pageId: string | null
   pageImageKey: string | null
-  choices: { label: string; text: string }[]
+  choices: {label: string; text: string}[]
 }
 
 export async function unsolvedQuestions(
@@ -54,7 +54,7 @@ export async function unsolvedQuestions(
         eq(questions.worksheetId, worksheetId),
         notExists(
           db
-            .select({ one: sql`1` })
+            .select({one: sql`1`})
             .from(questionSolutions)
             .where(eq(questionSolutions.questionId, questions.id)),
         ),
@@ -80,10 +80,10 @@ export async function unsolvedQuestions(
     )
     .orderBy(...CHOICE_ORDER)
 
-  const byQuestion = new Map<string, { label: string; text: string }[]>()
+  const byQuestion = new Map<string, {label: string; text: string}[]>()
   for (const choice of choices) {
     const list = byQuestion.get(choice.questionId) ?? []
-    list.push({ label: choice.label, text: choice.text })
+    list.push({label: choice.label, text: choice.text})
     byQuestion.set(choice.questionId, list)
   }
 
@@ -91,7 +91,7 @@ export async function unsolvedQuestions(
 
   const pages = pageIds.length
     ? await db
-        .select({ id: worksheetPages.id, imageKey: worksheetPages.imageKey })
+        .select({id: worksheetPages.id, imageKey: worksheetPages.imageKey})
         .from(worksheetPages)
         .where(inArray(worksheetPages.id, pageIds))
     : []
@@ -126,7 +126,7 @@ export async function deriveSolutions(
   } = {},
 ): Promise<SolutionProgress> {
   const log = options.log === undefined ? console.log : options.log
-  const progress: SolutionProgress = { solved: 0, promoted: 0, refused: 0, failed: 0 }
+  const progress: SolutionProgress = {solved: 0, promoted: 0, refused: 0, failed: 0}
 
   const pending = await db
     .select({
@@ -140,7 +140,7 @@ export async function deriveSolutions(
         eq(questions.worksheetId, worksheetId),
         notExists(
           db
-            .select({ one: sql`1` })
+            .select({one: sql`1`})
             .from(questionSolutions)
             .where(eq(questionSolutions.questionId, questions.id)),
         ),
@@ -153,7 +153,7 @@ export async function deriveSolutions(
 
   for (const [index, question] of pending.entries()) {
     const choices = await db
-      .select({ label: answerChoices.label, text: answerChoices.text })
+      .select({label: answerChoices.label, text: answerChoices.text})
       .from(answerChoices)
       .where(eq(answerChoices.questionId, question.id))
       .orderBy(...CHOICE_ORDER)
@@ -177,7 +177,7 @@ export async function deriveSolutions(
         })
         
         
-        .onConflictDoNothing({ target: questionSolutions.questionId })
+        .onConflictDoNothing({target: questionSolutions.questionId})
 
       if (solution.answer === null) {
         progress.refused += 1
@@ -217,11 +217,11 @@ export async function promoteDerivedAnswer(
     questionId: string
     answer: string | null
     confidence: number
-    choices: { label: string; text: string }[]
+    choices: {label: string; text: string}[]
     answerSource: string
   },
 ): Promise<boolean> {
-  const { questionId, answer, confidence, choices, answerSource } = input
+  const {questionId, answer, confidence, choices, answerSource} = input
 
   if (answer === null) return false
   if (answerSource !== 'none') return false
@@ -232,16 +232,16 @@ export async function promoteDerivedAnswer(
 
   const updated = await db
     .update(questions)
-    .set({ correctAnswer: stored, answerSource: 'ai_derived' })
+    .set({correctAnswer: stored, answerSource: 'ai_derived'})
     .where(and(eq(questions.id, questionId), eq(questions.answerSource, 'none')))
-    .returning({ id: questions.id })
+    .returning({id: questions.id})
 
   return updated.length > 0
 }
 
 export function storedAnswer(
   answer: string,
-  choices: { label: string; text: string }[],
+  choices: {label: string; text: string}[],
 ): string | null {
   const trimmed = answer.trim()
   if (!trimmed) return null
@@ -277,7 +277,7 @@ export interface ExplainInput {
   questionId: string
   attemptId: string | null
   promptText: string
-  choices: { label: string; text: string }[]
+  choices: {label: string; text: string}[]
   correctAnswer: string | null
   studentAnswer: string | null
 }
@@ -317,7 +317,7 @@ export async function explainInput(
     questionId: question.id,
     attemptId: lastAttempt?.id ?? null,
     promptText: question.promptText,
-    choices: choices.map((choice) => ({ label: choice.label, text: choice.text })),
+    choices: choices.map((choice) => ({label: choice.label, text: choice.text})),
     correctAnswer:
       choices.find((choice) => choice.isCorrect)?.label ?? question.correctAnswer,
     studentAnswer,
@@ -337,7 +337,7 @@ export interface Suspect {
 
 export interface ReviewPlan {
   suspects: Suspect[]
-  reread: { pageNumber: number; expect: number[] }[]
+  reread: {pageNumber: number; expect: number[]}[]
   skippedPages: number[]
   modelConsulted: boolean
 }
@@ -355,7 +355,7 @@ export interface PageReplacement<T> {
   replacements: T[]
 }
 
-export function planPageReplacement<T extends { ordinal: number; prompt_text: string }>(
+export function planPageReplacement<T extends {ordinal: number; prompt_text: string}>(
   pageText: string,
   fresh: readonly T[],
   doubted: readonly DoubtedQuestion[],
@@ -389,7 +389,7 @@ export function planPageReplacement<T extends { ordinal: number; prompt_text: st
     return number !== null && wanted.has(number)
   })
 
-  return { replace, keep, replacements }
+  return {replace, keep, replacements}
 }
 
 export const MAX_REREAD_SHARE = 0.3
@@ -397,7 +397,7 @@ export const MAX_REREAD_SHARE = 0.3
 export async function planReview(
   questions: ReviewableQuestion[],
   review?: ReviewFn,
-  options: { maxRereadShare?: number } = {},
+  options: {maxRereadShare?: number} = {},
 ): Promise<ReviewPlan> {
   const expectedChoiceCount = modalChoiceCount(questions)
 
@@ -418,7 +418,7 @@ export async function planReview(
   }
 
   for (const question of questions) {
-    const flags = validateQuestion(question, { expectedChoiceCount })
+    const flags = validateQuestion(question, {expectedChoiceCount})
     if (worthRereading(flags)) {
       for (const f of flags) flag(question, f.detail)
     }

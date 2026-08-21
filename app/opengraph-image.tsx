@@ -1,11 +1,11 @@
-import { ImageResponse } from 'next/og'
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import {ImageResponse} from 'next/og'
+import {readFile} from 'node:fs/promises'
+import {join} from 'node:path'
 
 export const alt =
   'StudyBuddy: turn the worksheets you have already done into a record of what you actually know.'
 
-export const size = { width: 1200, height: 630 }
+export const size = {width: 1200, height: 630}
 
 export const contentType = 'image/png'
 
@@ -66,12 +66,12 @@ export default async function Image() {
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- next/image
             has no meaning inside ImageResponse; Satori only renders <img>. */}
-        <img src={curveSrc} width={1200} height={272} alt="" style={{ position: 'absolute', bottom: 0, left: 0 }} />
+        <img src={curveSrc} width={1200} height={272} alt="" style={{position: 'absolute', bottom: 0, left: 0}} />
 
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 56, width: 1, backgroundColor: PAPER_RED }} />
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 60, width: 1, backgroundColor: PAPER_RED }} />
+        <div style={{position: 'absolute', top: 0, bottom: 0, left: 56, width: 1, backgroundColor: PAPER_RED}} />
+        <div style={{position: 'absolute', top: 0, bottom: 0, left: 60, width: 1, backgroundColor: PAPER_RED}} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 21 }}>
+        <div style={{display: 'flex', alignItems: 'center', gap: 21}}>
           {/* eslint-disable-next-line @next/next/no-img-element -- Satori
               only renders <img>; next/image has no meaning inside
               ImageResponse. */}
@@ -124,8 +124,8 @@ export default async function Image() {
     {
       ...size,
       fonts: [
-        { name: 'Archivo', data: archivo, style: 'normal', weight: 800 },
-        { name: 'Geist', data: geist, style: 'normal', weight: 500 },
+        {name: 'Archivo', data: archivo, style: 'normal', weight: 800},
+        {name: 'Geist', data: geist, style: 'normal', weight: 500},
       ],
     }
   )

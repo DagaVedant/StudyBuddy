@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { spawn } from 'node:child_process'
+import {readFileSync} from 'node:fs'
+import {spawn} from 'node:child_process'
 
 function checkDocs() {
 
@@ -37,7 +37,7 @@ function checkDocs() {
 
 
 const TASKS = [
-  { name: 'tsc', script: 'node_modules/typescript/bin/tsc', args: ['--noEmit'] },
+  {name: 'tsc', script: 'node_modules/typescript/bin/tsc', args: ['--noEmit']},
   {
     name: 'eslint',
     script: 'node_modules/eslint/bin/eslint.js',
@@ -63,7 +63,7 @@ const runs = TASKS.map(
       child.on('close', (code) => {
         const seconds = ((Date.now() - started) / 1000).toFixed(1)
         console.log(`${code === 0 ? 'ok  ' : 'FAIL'} ${task.name.padEnd(7)} ${seconds}s`)
-        resolve({ name: task.name, code: code ?? 1, output })
+        resolve({name: task.name, code: code ?? 1, output})
       })
     }),
 )

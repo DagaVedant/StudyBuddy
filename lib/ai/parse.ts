@@ -1,4 +1,4 @@
-import { ESCAPE_COLLIDING_COMMANDS } from '@/lib/questions/shape'
+import {ESCAPE_COLLIDING_COMMANDS} from '@/lib/questions/shape'
 
 import {
   canReview,
@@ -106,7 +106,7 @@ export function parseModelJson(text: string): LenientParse {
   const repaired = repairLatexEscapes(text)
 
   try {
-    return { value: JSON.parse(repaired), truncated: false }
+    return {value: JSON.parse(repaired), truncated: false}
   } catch {
     const salvaged = salvageTruncatedJson(repaired)
     if (salvaged === null) {
@@ -114,13 +114,13 @@ export function parseModelJson(text: string): LenientParse {
         `Model returned unparseable JSON (${text.length} chars) and nothing could be salvaged.`,
       )
     }
-    return { value: salvaged, truncated: true }
+    return {value: salvaged, truncated: true}
   }
 }
 
 export function validated<T extends RawAIProvider>(
   provider: T,
-): T extends { reviewQuestions: unknown } ? AIProvider & QuestionReviewer : AIProvider {
+): T extends {reviewQuestions: unknown} ? AIProvider & QuestionReviewer : AIProvider {
   const wrapped: AIProvider = {
     name: provider.name,
     model: provider.model,
@@ -129,7 +129,7 @@ export function validated<T extends RawAIProvider>(
     executionSite: provider.executionSite,
 
     async extractQuestions(page) {
-      const { questions, rejected, rejections } = parseExtraction(
+      const {questions, rejected, rejections} = parseExtraction(
         await provider.extractQuestions(page),
       )
 

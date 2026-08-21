@@ -1,17 +1,17 @@
-import { eq } from 'drizzle-orm'
+import {eq} from 'drizzle-orm'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import {redirect} from 'next/navigation'
 
-import { auth, signOut } from '@/auth'
-import { db } from '@/lib/db'
-import { users } from '@/lib/db/schema'
-import { getAccountAccuracy, getOverview, getStudyStreak } from '@/lib/dashboard'
+import {auth, signOut} from '@/auth'
+import {db} from '@/lib/db'
+import {users} from '@/lib/db/schema'
+import {getAccountAccuracy, getOverview, getStudyStreak} from '@/lib/dashboard'
 
 import ProfileClient from './profile-client'
 
-export const metadata = { title: 'Profile · StudyBuddy' }
+export const metadata = {title: 'Profile · StudyBuddy'}
 
-const MEMBER_SINCE = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
+const MEMBER_SINCE = new Intl.DateTimeFormat(undefined, {month: 'long', year: 'numeric'})
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -62,7 +62,7 @@ export default async function ProfilePage() {
             <form
               action={async () => {
                 'use server'
-                await signOut({ redirectTo: '/signin' })
+                await signOut({redirectTo: '/signin'})
               }}
             >
               <button type="submit" className="btn btn-secondary sm:w-auto sm:px-6">

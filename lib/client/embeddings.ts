@@ -1,4 +1,4 @@
-import type { FeatureExtractionPipeline } from '@huggingface/transformers'
+import type {FeatureExtractionPipeline} from '@huggingface/transformers'
 
 import {
   EMBEDDING_DIMENSIONS,
@@ -9,7 +9,7 @@ import {
 let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
 
 async function getExtractor(): Promise<FeatureExtractionPipeline> {
-  extractorPromise ??= import('@huggingface/transformers').then(({ env, pipeline }) => {
+  extractorPromise ??= import('@huggingface/transformers').then(({env, pipeline}) => {
     env.allowLocalModels = false
 
     return pipeline('feature-extraction', EMBEDDING_MODEL, {

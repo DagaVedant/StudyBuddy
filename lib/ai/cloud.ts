@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-import { appBaseUrl } from '@/lib/rate-limit'
+import {appBaseUrl} from '@/lib/api'
 
-import { parseModelJson } from './parse'
+import {parseModelJson} from './parse'
 import {
   ANSWER_JSON_SCHEMA,
   ANSWER_SYSTEM,
@@ -60,7 +60,7 @@ function describeStatus(label: string, status: number): string {
 export function upstreamUnreachable(label: string, cause: unknown): Error {
   console.error(`[ai] ${label} call failed:`, cause)
 
-  const name = (cause as { name?: unknown } | null | undefined)?.name
+  const name = (cause as {name?: unknown} | null | undefined)?.name
   const timedOut = typeof name === 'string' && /timeout/i.test(name)
 
   return new Error(
@@ -76,7 +76,7 @@ export interface ModelRequest {
   schemaName: string
   schema: Record<string, unknown>
   maxTokens: number
-  image?: { data: Uint8Array; mediaType: string }
+  image?: {data: Uint8Array; mediaType: string}
 }
 
 function asSchema(schema: unknown): Record<string, unknown> {
@@ -110,7 +110,7 @@ export abstract class CloudClient implements RawAIProvider {
       schemaName: 'extraction',
       schema: asSchema(EXTRACTION_JSON_SCHEMA),
       maxTokens: 16000,
-      image: { data: page.image, mediaType: page.mediaType },
+      image: {data: page.image, mediaType: page.mediaType},
     })
   }
 
@@ -172,7 +172,7 @@ export class AnthropicProvider extends CloudClient {
 
   constructor(apiKey: string, model: string) {
     super(model)
-    this.client = new Anthropic({ apiKey })
+    this.client = new Anthropic({apiKey})
   }
 
   protected async send(request: ModelRequest): Promise<string> {
@@ -189,7 +189,7 @@ export class AnthropicProvider extends CloudClient {
       })
     }
 
-    content.push({ type: 'text', text: request.userText })
+    content.push({type: 'text', text: request.userText})
 
     let response: Anthropic.Message
     try {
@@ -198,12 +198,12 @@ export class AnthropicProvider extends CloudClient {
           model: this.model,
           max_tokens: request.maxTokens,
           system: request.system,
-          messages: [{ role: 'user', content }],
+          messages: [{role: 'user', content}],
           output_config: {
-            format: { type: 'json_schema', schema: request.schema } as never,
+            format: {type: 'json_schema', schema: request.schema} as never,
           },
         },
-        { timeout: CLOUD_TIMEOUT_MS },
+        {timeout: CLOUD_TIMEOUT_MS},
       )
     } catch (error) {
       if (error instanceof Anthropic.APIError && typeof error.status === 'number') {
@@ -248,7 +248,7 @@ export class OpenAIProvider extends CloudClient {
     super(model)
 
     const resolved: ChatCompletionsOptions =
-      typeof options === 'function' ? { fetchImpl: options } : options
+      typeof options === 'function' ? {fetchImpl: options} : options
 
     this.apiKey = apiKey
     this.fetchImpl = resolved.fetchImpl ?? fetch
@@ -267,7 +267,7 @@ export class OpenAIProvider extends CloudClient {
               url: `data:${request.image.mediaType};base64,${Buffer.from(request.image.data).toString('base64')}`,
             },
           },
-          { type: 'text', text: request.userText },
+          {type: 'text', text: request.userText},
         ]
       : request.userText
 
@@ -282,12 +282,12 @@ export class OpenAIProvider extends CloudClient {
       body: JSON.stringify({
         model: this.model,
         messages: [
-          { role: 'system', content: request.system },
-          { role: 'user', content },
+          {role: 'system', content: request.system},
+          {role: 'user', content},
         ],
         response_format: {
           type: 'json_schema',
-          json_schema: { name: request.schemaName, strict: true, schema: request.schema },
+          json_schema: {name: request.schemaName, strict: true, schema: request.schema},
         },
       }),
     }).catch((error) => {
@@ -299,7 +299,7 @@ export class OpenAIProvider extends CloudClient {
     }
 
     const body = (await response.json()) as {
-      choices?: { message?: { content?: string } }[]
+      choices?: {message?: {content?: string}}[]
     }
 
     const text = body.choices?.[0]?.message?.content
@@ -321,7 +321,7 @@ export class OpenRouterProvider extends OpenAIProvider {
       label: 'OpenRouter',
       name: 'openrouter',
       fetchImpl,
-      headers: { 'HTTP-Referer': appUrl, 'X-Title': 'StudyBuddy' },
+      headers: {'HTTP-Referer': appUrl, 'X-Title': 'StudyBuddy'},
     })
   }
 }
@@ -356,7 +356,7 @@ export class GeminiProvider extends CloudClient {
       })
     }
 
-    parts.push({ text: request.userText })
+    parts.push({text: request.userText})
 
     const response = await this.fetchImpl(
       `${GEMINI_BASE}/${encodeURIComponent(this.model)}:generateContent`,
@@ -368,8 +368,8 @@ export class GeminiProvider extends CloudClient {
         },
         signal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: request.system }] },
-          contents: [{ role: 'user', parts }],
+          systemInstruction: {parts: [{text: request.system}]},
+          contents: [{role: 'user', parts}],
           generationConfig: {
             temperature: 0,
             responseMimeType: 'application/json',
@@ -386,8 +386,8 @@ export class GeminiProvider extends CloudClient {
     }
 
     const body = (await response.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[]
-      promptFeedback?: { blockReason?: string }
+      candidates?: {content?: {parts?: {text?: string}[]}}[]
+      promptFeedback?: {blockReason?: string}
     }
 
     const blocked = body.promptFeedback?.blockReason
@@ -428,7 +428,7 @@ export function geminiSchema(schema: Record<string, unknown>): Record<string, un
       const concrete = variants.filter((variant) => variant?.type !== 'null')
 
       if (concrete.length === 1 && concrete.length < variants.length) {
-        return { ...(walk(concrete[0]) as object), nullable: true }
+        return {...(walk(concrete[0]) as object), nullable: true}
       }
     }
 

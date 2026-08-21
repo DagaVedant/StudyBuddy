@@ -1,15 +1,15 @@
-import { eq } from 'drizzle-orm'
+import {eq} from 'drizzle-orm'
 
-import { resolveProvider, type ResolvedProvider } from '@/lib/ai/resolve'
-import { EmbeddingUnavailableError, classifyWorksheet } from '@/lib/taxonomy'
-import type { Db } from '@/lib/db'
-import { worksheets } from '@/lib/db/schema'
-import { claimJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
-import { transitionWorksheet } from '@/lib/queue'
-import { runExtraction } from '@/lib/worker/ingest'
-import { runRepairPasses } from '@/lib/worker/pipeline'
-import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/apply'
-import { deriveSolutions } from '@/lib/worker/solutions'
+import {resolveProvider, type ResolvedProvider} from '@/lib/ai/resolve'
+import {EmbeddingUnavailableError, classifyWorksheet} from '@/lib/taxonomy'
+import type {Db} from '@/lib/db'
+import {worksheets} from '@/lib/db/schema'
+import {claimJob, completeJob, enqueueJob, failJob} from '@/lib/queue'
+import {transitionWorksheet} from '@/lib/queue'
+import {runExtraction} from '@/lib/worker/ingest'
+import {runRepairPasses} from '@/lib/worker/pipeline'
+import {UNTAGGED_REASON, recordUntagged} from '@/lib/worker/apply'
+import {deriveSolutions} from '@/lib/worker/solutions'
 
 type Resolver = (db: Db, userId: string) => Promise<ResolvedProvider>
 
@@ -46,7 +46,7 @@ async function runOneServerJob(
   },
   resolve: Resolver,
 ): Promise<void> {
-  const { provider, executor } = await resolve(db, job.userId)
+  const {provider, executor} = await resolve(db, job.userId)
 
   if (executor !== 'server') {
     await failJob(
@@ -82,13 +82,13 @@ async function runOneServerJob(
     await runRepairPasses(db, job.worksheetId)
 
     const [worksheet] = await db
-      .select({ subjectHint: worksheets.subjectHint })
+      .select({subjectHint: worksheets.subjectHint})
       .from(worksheets)
       .where(eq(worksheets.id, job.worksheetId))
       .limit(1)
 
     try {
-      const { classified, coarse, failed } = await classifyWorksheet(
+      const {classified, coarse, failed} = await classifyWorksheet(
         db,
         provider,
         job.worksheetId,
@@ -124,7 +124,7 @@ async function runOneServerJob(
       db,
       job.worksheetId,
       ['queued', 'processing'],
-      { status: 'awaiting_review' },
+      {status: 'awaiting_review'},
     )
 
     await completeJob(db, job.id)
@@ -140,7 +140,7 @@ async function runOneServerJob(
       priority: 'low',
     })
   } catch (error) {
-    const { permanent } = await failJob(db, job.id, (error as Error).message)
+    const {permanent} = await failJob(db, job.id, (error as Error).message)
     if (permanent) {
       await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
         status: 'failed',
@@ -151,7 +151,7 @@ async function runOneServerJob(
 
 async function handOverClassification(
   db: Db,
-  job: { worksheetId: string; userId: string },
+  job: {worksheetId: string; userId: string},
 ): Promise<void> {
   await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.workerQueued)
 
@@ -167,7 +167,7 @@ async function handOverClassification(
 async function runSolvingJob(
   db: Db,
   provider: Awaited<ReturnType<Resolver>>['provider'],
-  job: { id: string; worksheetId: string; userId: string },
+  job: {id: string; worksheetId: string; userId: string},
 ): Promise<void> {
   try {
     const progress = await deriveSolutions(db, provider, job.worksheetId, {
@@ -194,7 +194,7 @@ async function runSolvingJob(
       })
     }
   } catch (error) {
-    const { permanent } = await failJob(db, job.id, (error as Error).message)
+    const {permanent} = await failJob(db, job.id, (error as Error).message)
 
     console.error(
       `[server-job] solving failed on ${job.worksheetId}` +

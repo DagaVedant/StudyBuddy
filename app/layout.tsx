@@ -1,10 +1,10 @@
-import { Analytics } from '@vercel/analytics/next'
-import type { Metadata, Viewport } from 'next'
-import { Fraunces, Public_Sans, Space_Mono } from 'next/font/google'
-import { SessionProvider } from 'next-auth/react'
+import {Analytics} from '@vercel/analytics/next'
+import type {Metadata, Viewport} from 'next'
+import {Fraunces, Public_Sans, Space_Mono} from 'next/font/google'
+import {SessionProvider} from 'next-auth/react'
 
-import { AutoRefresh } from '@/components/chrome'
-import { appBaseUrl } from '@/lib/rate-limit'
+import {AutoRefresh} from '@/components/client'
+import {appBaseUrl} from '@/lib/api'
 
 import './globals.css'
 

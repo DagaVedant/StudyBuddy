@@ -1,17 +1,17 @@
-import { and, desc, eq, ilike, inArray, lt, sql } from 'drizzle-orm'
+import {and, desc, eq, ilike, inArray, lt, sql} from 'drizzle-orm'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { PageHead } from '@/components/ui'
+import {redirect} from 'next/navigation'
+import {PageHead} from '@/components/ui'
 
-import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { attempts, questions, worksheetPages, worksheets } from '@/lib/db/schema'
-import { IS_QUESTION } from '@/lib/questions/queries'
-import { destination } from '@/lib/upload'
+import {auth} from '@/auth'
+import {db} from '@/lib/db'
+import {attempts, questions, worksheetPages, worksheets} from '@/lib/db/schema'
+import {IS_QUESTION} from '@/lib/questions/queries'
+import {destination} from '@/lib/upload'
 
-import { DeleteWorksheetButton, WorksheetTitle } from './worksheets-client'
+import {DeleteWorksheetButton, WorksheetTitle} from './worksheets-client'
 
-export const metadata = { title: 'Worksheets · StudyBuddy' }
+export const metadata = {title: 'Worksheets · StudyBuddy'}
 export const dynamic = 'force-dynamic'
 
 const WORKSHEETS_SHOWN = 50
@@ -44,7 +44,7 @@ const STATUS_LABEL: Record<string, string> = {
 export default async function WorksheetsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string | string[]; before?: string | string[] }>
+  searchParams: Promise<{q?: string | string[]; before?: string | string[]}>
 }) {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -175,7 +175,7 @@ export default async function WorksheetsPage({
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((sheet) => {
-            const { href, cta } = destination(sheet.id, sheet)
+            const {href, cta} = destination(sheet.id, sheet)
 
             return (
               <li
@@ -290,7 +290,7 @@ export default async function WorksheetsPage({
           {hasOlder && olderThan && (
             <Link
               href={`/worksheets?${new URLSearchParams({
-                ...(query ? { q: query } : {}),
+                ...(query ? {q: query} : {}),
                 before: olderThan.toISOString(),
               })}`}
               className="btn btn-secondary sm:w-auto sm:px-4"

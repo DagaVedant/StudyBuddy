@@ -1,5 +1,5 @@
-import { sql } from 'drizzle-orm'
-import type { AnyPgColumn } from 'drizzle-orm/pg-core'
+import {sql} from 'drizzle-orm'
+import type {AnyPgColumn} from 'drizzle-orm/pg-core'
 import {
   boolean,
   index,
@@ -15,7 +15,7 @@ import {
   uniqueIndex,
   vector,
 } from 'drizzle-orm/pg-core'
-import type { AdapterAccountType } from 'next-auth/adapters'
+import type {AdapterAccountType} from 'next-auth/adapters'
 
 export type BBox = [number, number, number, number]
 
@@ -29,7 +29,7 @@ const id = () =>
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID())
 
-const createdAt = () => timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+const createdAt = () => timestamp('created_at', {withTimezone: true}).defaultNow().notNull()
 
 export const userRole = pgEnum('user_role', ['student', 'admin'])
 
@@ -127,12 +127,12 @@ export const users = pgTable('users', {
 
   username: text('username').unique(),
 
-  emailVerified: timestamp('email_verified', { withTimezone: true }),
+  emailVerified: timestamp('email_verified', {withTimezone: true}),
   image: text('image'),
 
   passwordHash: text('password_hash'),
 
-  dob: timestamp('dob', { withTimezone: true }),
+  dob: timestamp('dob', {withTimezone: true}),
 
   role: userRole('role').default('student').notNull(),
 
@@ -147,7 +147,7 @@ export const accounts = pgTable(
   {
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
     type: text('type').$type<AdapterAccountType>().notNull(),
     provider: text('provider').notNull(),
     providerAccountId: text('provider_account_id').notNull(),
@@ -160,7 +160,7 @@ export const accounts = pgTable(
     session_state: text('session_state'),
   },
   (t) => [
-    primaryKey({ columns: [t.provider, t.providerAccountId] }),
+    primaryKey({columns: [t.provider, t.providerAccountId]}),
     index('accounts_user_idx').on(t.userId),
   ],
 )
@@ -171,8 +171,8 @@ export const sessions = pgTable(
     sessionToken: text('session_token').primaryKey(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    expires: timestamp('expires', { withTimezone: true }).notNull(),
+      .references(() => users.id, {onDelete: 'cascade'}),
+    expires: timestamp('expires', {withTimezone: true}).notNull(),
   },
   (t) => [index('sessions_user_idx').on(t.userId)],
 )
@@ -182,9 +182,9 @@ export const verificationTokens = pgTable(
   {
     identifier: text('identifier').notNull(),
     token: text('token').notNull(),
-    expires: timestamp('expires', { withTimezone: true }).notNull(),
+    expires: timestamp('expires', {withTimezone: true}).notNull(),
   },
-  (t) => [primaryKey({ columns: [t.identifier, t.token] })],
+  (t) => [primaryKey({columns: [t.identifier, t.token]})],
 )
 
 export const passwordResetTokens = pgTable(
@@ -193,12 +193,12 @@ export const passwordResetTokens = pgTable(
     id: id(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
 
     tokenHash: text('token_hash').notNull().unique(),
 
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    usedAt: timestamp('used_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', {withTimezone: true}).notNull(),
+    usedAt: timestamp('used_at', {withTimezone: true}),
 
     createdAt: createdAt(),
   },
@@ -211,7 +211,7 @@ export const userAiCredentials = pgTable(
     id: id(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
     provider: aiProvider('provider').notNull(),
 
     encryptedKey: text('encrypted_key'),
@@ -225,9 +225,9 @@ export const userAiCredentials = pgTable(
     modelName: text('model_name'),
     visionModelName: text('vision_model_name'),
 
-    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    verifiedAt: timestamp('verified_at', {withTimezone: true}),
     createdAt: createdAt(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow().notNull(),
   },
   (t) => [unique('user_ai_credentials_user_provider').on(t.userId, t.provider)],
 )
@@ -238,7 +238,7 @@ export const worksheets = pgTable(
     id: id(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
     title: text('title').notNull(),
     sourceType: sourceType('source_type').notNull(),
     origin: contentOrigin('origin').default('extracted').notNull(),
@@ -269,7 +269,7 @@ export const worksheetPages = pgTable(
     id: id(),
     worksheetId: text('worksheet_id')
       .notNull()
-      .references(() => worksheets.id, { onDelete: 'cascade' }),
+      .references(() => worksheets.id, {onDelete: 'cascade'}),
     pageNumber: integer('page_number').notNull(),
 
     imageKey: text('image_key').notNull(),
@@ -289,11 +289,11 @@ export const questions = pgTable(
     id: id(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
     worksheetId: text('worksheet_id')
       .notNull()
-      .references(() => worksheets.id, { onDelete: 'cascade' }),
-    pageId: text('page_id').references(() => worksheetPages.id, { onDelete: 'set null' }),
+      .references(() => worksheets.id, {onDelete: 'cascade'}),
+    pageId: text('page_id').references(() => worksheetPages.id, {onDelete: 'set null'}),
     ordinal: integer('ordinal').notNull(),
 
     printedNumber: integer('printed_number'),
@@ -313,7 +313,7 @@ export const questions = pgTable(
     userVerified: boolean('user_verified').default(false).notNull(),
 
     contentHash: text('content_hash'),
-    embedding: vector('embedding', { dimensions: 384 }),
+    embedding: vector('embedding', {dimensions: 384}),
 
     createdAt: createdAt(),
   },
@@ -336,7 +336,7 @@ export const answerChoices = pgTable(
     id: id(),
     questionId: text('question_id')
       .notNull()
-      .references(() => questions.id, { onDelete: 'cascade' }),
+      .references(() => questions.id, {onDelete: 'cascade'}),
     label: text('label').notNull(),
     text: text('text').notNull(),
     isCorrect: boolean('is_correct').default(false).notNull(),
@@ -360,7 +360,7 @@ export const topics = pgTable(
 
     isCanonical: boolean('is_canonical').default(true).notNull(),
     isLeaf: boolean('is_leaf').default(false).notNull(),
-    embedding: vector('embedding', { dimensions: 384 }),
+    embedding: vector('embedding', {dimensions: 384}),
     createdAt: createdAt(),
   },
   (t) => [
@@ -375,16 +375,16 @@ export const questionTopics = pgTable(
   {
     questionId: text('question_id')
       .notNull()
-      .references(() => questions.id, { onDelete: 'cascade' }),
+      .references(() => questions.id, {onDelete: 'cascade'}),
     topicId: text('topic_id')
       .notNull()
-      .references(() => topics.id, { onDelete: 'cascade' }),
+      .references(() => topics.id, {onDelete: 'cascade'}),
     confidence: real('confidence'),
     assignedBy: assignedBy('assigned_by').notNull(),
     isPrimary: boolean('is_primary').default(true).notNull(),
   },
   (t) => [
-    primaryKey({ columns: [t.questionId, t.topicId] }),
+    primaryKey({columns: [t.questionId, t.topicId]}),
     index('question_topics_topic_idx').on(t.topicId),
   ],
 )
@@ -395,10 +395,10 @@ export const attempts = pgTable(
     id: id(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
     questionId: text('question_id')
       .notNull()
-      .references(() => questions.id, { onDelete: 'cascade' }),
+      .references(() => questions.id, {onDelete: 'cascade'}),
     outcome: attemptOutcome('outcome').notNull(),
 
     selectedChoiceId: text('selected_choice_id').references(() => answerChoices.id, {
@@ -426,9 +426,9 @@ export const explanations = pgTable(
     id: id(),
     questionId: text('question_id')
       .notNull()
-      .references(() => questions.id, { onDelete: 'cascade' }),
+      .references(() => questions.id, {onDelete: 'cascade'}),
 
-    attemptId: text('attempt_id').references(() => attempts.id, { onDelete: 'set null' }),
+    attemptId: text('attempt_id').references(() => attempts.id, {onDelete: 'set null'}),
     bodyMd: text('body_md').notNull(),
     misconceptionNote: text('misconception_note'),
     provider: aiProvider('provider'),
@@ -448,12 +448,12 @@ export const questionSolutions = pgTable(
     id: id(),
     questionId: text('question_id')
       .notNull()
-      .references(() => questions.id, { onDelete: 'cascade' })
+      .references(() => questions.id, {onDelete: 'cascade'})
       .unique(),
 
     derivedAnswer: text('derived_answer'),
     workingMd: text('working_md').notNull(),
-    traps: jsonb('traps').$type<{ label: string | null; why: string }[]>(),
+    traps: jsonb('traps').$type<{label: string | null; why: string}[]>(),
     confidence: real('confidence'),
 
     provider: aiProvider('provider'),
@@ -469,15 +469,15 @@ export const topicLessons = pgTable(
     id: id(),
     topicId: text('topic_id')
       .notNull()
-      .references(() => topics.id, { onDelete: 'cascade' }),
-    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => topics.id, {onDelete: 'cascade'}),
+    userId: text('user_id').references(() => users.id, {onDelete: 'cascade'}),
 
     bodyMd: text('body_md').notNull(),
     examples: jsonb('examples').$type<
-      { question: string; working: string; answer: string }[]
+      {question: string; working: string; answer: string}[]
     >(),
     commonErrors: jsonb('common_errors').$type<
-      { mistake: string; why: string; fix: string }[]
+      {mistake: string; why: string; fix: string}[]
     >(),
 
     provider: aiProvider('provider'),
@@ -504,7 +504,7 @@ export const reports = pgTable(
     id: id(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
 
     kind: reportKind('kind').notNull(),
 
@@ -521,7 +521,7 @@ export const reports = pgTable(
     message: text('message'),
 
     createdAt: createdAt(),
-    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolvedAt: timestamp('resolved_at', {withTimezone: true}),
   },
   (t) => [
     index('reports_created_idx').on(t.createdAt),
@@ -538,12 +538,12 @@ export const reviewCards = pgTable(
     id: id(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
     questionId: text('question_id')
       .notNull()
-      .references(() => questions.id, { onDelete: 'cascade' }),
+      .references(() => questions.id, {onDelete: 'cascade'}),
 
-    dueAt: timestamp('due_at', { withTimezone: true }).notNull(),
+    dueAt: timestamp('due_at', {withTimezone: true}).notNull(),
     stability: real('stability').default(0).notNull(),
     difficulty: real('difficulty').default(0).notNull(),
     elapsedDays: integer('elapsed_days').default(0).notNull(),
@@ -553,9 +553,9 @@ export const reviewCards = pgTable(
     reps: integer('reps').default(0).notNull(),
     lapses: integer('lapses').default(0).notNull(),
     state: cardState('state').default('new').notNull(),
-    lastReview: timestamp('last_review', { withTimezone: true }),
+    lastReview: timestamp('last_review', {withTimezone: true}),
 
-    retiredAt: timestamp('retired_at', { withTimezone: true }),
+    retiredAt: timestamp('retired_at', {withTimezone: true}),
 
     createdAt: createdAt(),
   },
@@ -573,7 +573,7 @@ export const reviewLogs = pgTable(
     id: id(),
     cardId: text('card_id')
       .notNull()
-      .references(() => reviewCards.id, { onDelete: 'cascade' }),
+      .references(() => reviewCards.id, {onDelete: 'cascade'}),
     rating: integer('rating').notNull(),
     state: cardState('state').notNull(),
     elapsedDays: integer('elapsed_days').default(0).notNull(),
@@ -589,18 +589,18 @@ export const processingJobs = pgTable(
     id: id(),
     worksheetId: text('worksheet_id')
       .notNull()
-      .references(() => worksheets.id, { onDelete: 'cascade' }),
+      .references(() => worksheets.id, {onDelete: 'cascade'}),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
     stage: jobStage('stage').notNull(),
     status: jobStatus('status').default('pending').notNull(),
     executor: jobExecutor('executor').notNull(),
     priority: jobPriority('priority').default('normal').notNull(),
     progress: real('progress').default(0).notNull(),
 
-    claimedBy: text('claimed_by').references(() => gpuWorkers.id, { onDelete: 'set null' }),
-    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    claimedBy: text('claimed_by').references(() => gpuWorkers.id, {onDelete: 'set null'}),
+    claimedAt: timestamp('claimed_at', {withTimezone: true}),
     attemptCount: integer('attempt_count').default(0).notNull(),
 
     error: text('error'),
@@ -608,7 +608,7 @@ export const processingJobs = pgTable(
     checkpoint: jsonb('checkpoint').$type<Record<string, unknown>>(),
 
     createdAt: createdAt(),
-    completedAt: timestamp('completed_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', {withTimezone: true}),
   },
   (t) => [
     index('processing_jobs_claim_idx').on(t.status, t.executor, t.priority, t.createdAt),
@@ -624,7 +624,7 @@ export const gpuWorkers = pgTable('gpu_workers', {
   modelName: text('model_name'),
   status: workerStatus('status').default('offline').notNull(),
   jobsInFlight: integer('jobs_in_flight').default(0).notNull(),
-  lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }),
+  lastHeartbeatAt: timestamp('last_heartbeat_at', {withTimezone: true}),
   createdAt: createdAt(),
 })
 
@@ -634,7 +634,7 @@ export const usageEvents = pgTable(
     id: id(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, {onDelete: 'cascade'}),
     kind: usageKind('kind').notNull(),
     provider: aiProvider('provider'),
     tierUsed: aiTier('tier_used'),
@@ -643,7 +643,7 @@ export const usageEvents = pgTable(
     tokensOut: integer('tokens_out'),
 
     refunded: boolean('refunded').default(false).notNull(),
-    jobId: text('job_id').references(() => processingJobs.id, { onDelete: 'set null' }),
+    jobId: text('job_id').references(() => processingJobs.id, {onDelete: 'set null'}),
     createdAt: createdAt(),
   },
   (t) => [
@@ -655,7 +655,7 @@ export const usageEvents = pgTable(
 export const rateLimits = pgTable('rate_limits', {
   key: text('key').primaryKey(),
   count: integer('count').default(0).notNull(),
-  windowStart: timestamp('window_start', { withTimezone: true }).defaultNow().notNull(),
+  windowStart: timestamp('window_start', {withTimezone: true}).defaultNow().notNull(),
 })
 
 export type User = typeof users.$inferSelect

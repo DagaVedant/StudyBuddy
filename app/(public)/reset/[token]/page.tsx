@@ -1,16 +1,16 @@
 import Link from 'next/link'
 
-import { findResetTarget } from '@/lib/auth/identity'
-import { db } from '@/lib/db'
+import {findResetTarget} from '@/lib/auth/identity'
+import {db} from '@/lib/db'
 
 import ResetForm from './reset-form'
 
-export const metadata = { title: 'Set a new password · StudyBuddy' }
+export const metadata = {title: 'Set a new password · StudyBuddy'}
 
-type Params = { params: Promise<{ token: string }> }
+type Params = {params: Promise<{token: string}>}
 
-export default async function ResetPasswordPage({ params }: Params) {
-  const { token } = await params
+export default async function ResetPasswordPage({params}: Params) {
+  const {token} = await params
 
   const target = await findResetTarget(db, token)
 

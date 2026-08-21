@@ -1,11 +1,11 @@
-import { alias } from 'drizzle-orm/pg-core'
-import { and, asc, count, eq, exists, isNotNull, notExists, sql } from 'drizzle-orm'
+import {alias} from 'drizzle-orm/pg-core'
+import {and, asc, count, eq, exists, isNotNull, notExists, sql} from 'drizzle-orm'
 
-import { embed } from '@/lib/embeddings'
-import { EMBEDDING_DIMENSIONS } from '@/lib/upload'
-import { questions, questionTopics, topics } from '@/lib/db/schema'
-import { type AIProvider, type TopicCandidate } from '@/lib/ai/types'
-import { type Db } from '@/lib/db'
+import {embed} from '@/lib/embeddings'
+import {EMBEDDING_DIMENSIONS} from '@/lib/upload'
+import {questions, questionTopics, topics} from '@/lib/db/schema'
+import {type AIProvider, type TopicCandidate} from '@/lib/ai/types'
+import {type Db} from '@/lib/db'
 
 export interface TopicNode {
   name: string
@@ -15,7 +15,7 @@ export interface TopicNode {
 }
 
 function n(name: string, ...children: TopicNode[]): TopicNode {
-  return children.length ? { name, children } : { name }
+  return children.length ? {name, children} : {name}
 }
 
 const satMath = n(
@@ -254,19 +254,19 @@ export async function demoteParentsWithChildren(db: Db): Promise<string[]> {
 
   const corrected = await db
     .update(topics)
-    .set({ isLeaf: false })
+    .set({isLeaf: false})
     .where(
       and(
         eq(topics.isLeaf, true),
         exists(
           db
-            .select({ one: sql`1` })
+            .select({one: sql`1`})
             .from(child)
             .where(eq(child.parentId, topics.id)),
         ),
       ),
     )
-    .returning({ slug: topics.slug })
+    .returning({slug: topics.slug})
 
   return corrected.map((row) => row.slug)
 }
@@ -505,7 +505,7 @@ export async function shortlistByVector(
   const literal = `[${vector.join(',')}]`
 
   const rows = await db
-    .select({ slug: topics.slug, name: topics.name })
+    .select({slug: topics.slug, name: topics.name})
     .from(topics)
     .where(
       and(
@@ -546,16 +546,16 @@ export async function shortlistTopics(
   }
 
   if (questionId) {
-    await db.update(questions).set({ embedding: vector }).where(eq(questions.id, questionId))
+    await db.update(questions).set({embedding: vector}).where(eq(questions.id, questionId))
   }
 
-  return shortlistByVector(db, vector, { subjectHint, limit })
+  return shortlistByVector(db, vector, {subjectHint, limit})
 }
 
 export async function classifyQuestion(
   db: Db,
   provider: AIProvider,
-  question: { id: string; promptText: string; userId: string },
+  question: {id: string; promptText: string; userId: string},
   subjectHint?: string | null,
 ): Promise<ClassifyOutcome> {
   const candidates = await shortlistTopics(
@@ -567,7 +567,7 @@ export async function classifyQuestion(
   )
 
   if (candidates.length === 0) {
-    return { topicId: null, coarse: false, confidence: 0 }
+    return {topicId: null, coarse: false, confidence: 0}
   }
 
   const result = await provider.classifyTopic(question.promptText, candidates)
@@ -577,7 +577,7 @@ export async function classifyQuestion(
 
 export async function applyClassification(
   db: Db,
-  question: { id: string; promptText: string; userId: string },
+  question: {id: string; promptText: string; userId: string},
   candidates: TopicCandidate[],
   result: {
     topic_slug: string | null
@@ -586,7 +586,7 @@ export async function applyClassification(
   },
 ): Promise<ClassifyOutcome> {
   if (candidates.length === 0) {
-    return { topicId: null, coarse: false, confidence: 0 }
+    return {topicId: null, coarse: false, confidence: 0}
   }
 
   const chosen =
@@ -596,7 +596,7 @@ export async function applyClassification(
 
   if (chosen) {
     const [topic] = await db
-      .select({ id: topics.id })
+      .select({id: topics.id})
       .from(topics)
       .where(eq(topics.slug, chosen.slug))
       .limit(1)
@@ -613,11 +613,11 @@ export async function applyClassification(
         })
         .onConflictDoNothing()
 
-      return { topicId: topic.id, coarse: false, confidence: result.confidence }
+      return {topicId: topic.id, coarse: false, confidence: result.confidence}
     }
   }
 
-  return { topicId: null, coarse: true, confidence: result.confidence }
+  return {topicId: null, coarse: true, confidence: result.confidence}
 }
 
 export async function classifyWorksheet(
@@ -625,7 +625,7 @@ export async function classifyWorksheet(
   provider: AIProvider,
   worksheetId: string,
   subjectHint?: string | null,
-): Promise<{ classified: number; coarse: number; failed: number }> {
+): Promise<{classified: number; coarse: number; failed: number}> {
   const rows = await db
     .select({
       id: questions.id,
@@ -638,7 +638,7 @@ export async function classifyWorksheet(
   const tagged = new Set(
     (
       await db
-        .select({ questionId: questionTopics.questionId })
+        .select({questionId: questionTopics.questionId})
         .from(questionTopics)
         .innerJoin(questions, eq(questionTopics.questionId, questions.id))
         .where(eq(questions.worksheetId, worksheetId))
@@ -673,7 +673,7 @@ export async function classifyWorksheet(
     )
   }
 
-  return { classified, coarse, failed }
+  return {classified, coarse, failed}
 }
 
 export const PENDING_PAGE_SIZE = 100
@@ -688,7 +688,7 @@ function untagged(db: Db, worksheetId: string) {
     eq(questions.worksheetId, worksheetId),
     notExists(
       db
-        .select({ questionId: questionTopics.questionId })
+        .select({questionId: questionTopics.questionId})
         .from(questionTopics)
         .where(eq(questionTopics.questionId, questions.id)),
     ),
@@ -701,7 +701,7 @@ export async function pendingQuestions(
   limit: number = PENDING_PAGE_SIZE,
 ): Promise<PendingQuestion[]> {
   return db
-    .select({ id: questions.id, promptText: questions.promptText })
+    .select({id: questions.id, promptText: questions.promptText})
     .from(questions)
     .where(untagged(db, worksheetId))
     .orderBy(asc(questions.ordinal), asc(questions.id))
@@ -713,7 +713,7 @@ export async function pendingQuestionCount(
   worksheetId: string,
 ): Promise<number> {
   const [row] = await db
-    .select({ value: count() })
+    .select({value: count()})
     .from(questions)
     .where(untagged(db, worksheetId))
 

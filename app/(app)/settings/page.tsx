@@ -1,17 +1,17 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { PageHead } from '@/components/ui'
+import {redirect} from 'next/navigation'
+import {PageHead} from '@/components/ui'
 
-import { auth } from '@/auth'
-import { getTrialState } from '@/lib/ai/resolve'
-import { appBaseUrl } from '@/lib/rate-limit'
-import { getCredentialSummary } from '@/lib/ai/resolve'
-import { db } from '@/lib/db'
-import { workerStatus } from '@/lib/queue'
+import {auth} from '@/auth'
+import {getTrialState} from '@/lib/ai/resolve'
+import {appBaseUrl} from '@/lib/api'
+import {getCredentialSummary} from '@/lib/ai/resolve'
+import {db} from '@/lib/db'
+import {workerStatus} from '@/lib/queue'
 
-import SettingsClient, { DeleteAccount } from './settings-client'
+import SettingsClient, {DeleteAccount} from './settings-client'
 
-export const metadata = { title: 'Settings · StudyBuddy' }
+export const metadata = {title: 'Settings · StudyBuddy'}
 
 export default async function SettingsPage() {
   const session = await auth()

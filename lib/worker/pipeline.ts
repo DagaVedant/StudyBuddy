@@ -1,4 +1,4 @@
-import { and, asc, eq, ne, sql } from 'drizzle-orm'
+import {and, asc, eq, ne, sql} from 'drizzle-orm'
 
 import {
   answerChoices,
@@ -16,13 +16,13 @@ import {
   planPageSplitJoins,
   type SplitHalf,
 } from '@/lib/questions/validate'
-import { duplicatePrintedNumbers } from '@/lib/questions/numbering'
-import { hashQuestion, normalizeChoiceLabel } from '@/lib/questions/shape'
-import { inferPrintedNumbers } from '@/lib/questions/numbering'
-import { loadQuestionsWithChoices } from '@/lib/questions/queries'
-import { mergeAnswerKeys, parseAnswerKey } from '@/lib/questions/text'
-import { normalizeMath } from '@/lib/questions/shape'
-import { type Db } from '@/lib/db'
+import {duplicatePrintedNumbers} from '@/lib/questions/numbering'
+import {hashQuestion, normalizeChoiceLabel} from '@/lib/questions/shape'
+import {inferPrintedNumbers} from '@/lib/questions/numbering'
+import {loadQuestionsWithChoices} from '@/lib/questions/queries'
+import {mergeAnswerKeys, parseAnswerKey} from '@/lib/questions/text'
+import {normalizeMath} from '@/lib/questions/shape'
+import {type Db} from '@/lib/db'
 
 const ORDER = [
   'join',
@@ -74,7 +74,7 @@ export async function runRepairPasses(
   const wanted = new Set<RepairPass>(options.only ?? ORDER)
   const log = options.log === undefined ? '' : options.log
   
-  const counts: RepairCounts = { ...NONE, duplicateNumbers: [] }
+  const counts: RepairCounts = {...NONE, duplicateNumbers: []}
 
   const note = (message: string) => {
     if (log !== null) console.log(`${log}${message} on ${worksheetId}`)
@@ -85,37 +85,37 @@ export async function runRepairPasses(
 
     switch (pass) {
       case 'join': {
-        const { joined } = await joinSplitQuestions(db, worksheetId)
+        const {joined} = await joinSplitQuestions(db, worksheetId)
         counts.joined = joined
         if (joined > 0) note(`[split] rejoined ${joined} question(s)`)
         break
       }
       case 'carried': {
-        const { recovered } = await recoverCarriedChoices(db, worksheetId)
+        const {recovered} = await recoverCarriedChoices(db, worksheetId)
         counts.recovered = recovered
         if (recovered > 0) note(`[carried] recovered options for ${recovered} question(s)`)
         break
       }
       case 'math': {
-        const { repaired } = await repairUnrenderedMath(db, worksheetId)
+        const {repaired} = await repairUnrenderedMath(db, worksheetId)
         counts.rendered = repaired
         if (repaired > 0) note(`[maths] re-rendered ${repaired} question(s)`)
         break
       }
       case 'numbers': {
-        const { repaired } = await repairPrintedNumbers(db, worksheetId)
+        const {repaired} = await repairPrintedNumbers(db, worksheetId)
         counts.repaired = repaired
         if (repaired > 0) note(`[numbers] recovered ${repaired} printed number(s)`)
         break
       }
       case 'merge': {
-        const { merged } = await mergeDuplicateQuestions(db, worksheetId)
+        const {merged} = await mergeDuplicateQuestions(db, worksheetId)
         counts.merged = merged
         if (merged > 0) note(`[dedupe] folded ${merged} duplicate question(s)`)
         break
       }
       case 'renumber': {
-        const { renumbered, duplicateNumbers } = await renumberQuestions(db, worksheetId)
+        const {renumbered, duplicateNumbers} = await renumberQuestions(db, worksheetId)
         counts.renumbered = renumbered
         counts.duplicateNumbers = duplicateNumbers
         if (renumbered > 0) note(`[renumber] reordered ${renumbered} question(s)`)
@@ -125,7 +125,7 @@ export async function runRepairPasses(
         break
       }
       case 'answers': {
-        const { answered } = await applyAnswerKey(db, worksheetId)
+        const {answered} = await applyAnswerKey(db, worksheetId)
         counts.answered = answered
         if (answered > 0) note(`[key] answered ${answered} question(s) from the paper`)
         break
@@ -143,15 +143,15 @@ export const FINAL_PASSES = ORDER
 export async function applyAnswerKey(
   db: Db,
   worksheetId: string,
-): Promise<{ answered: number }> {
+): Promise<{answered: number}> {
   const pages = await db
-    .select({ ocrText: worksheetPages.ocrText })
+    .select({ocrText: worksheetPages.ocrText})
     .from(worksheetPages)
     .where(eq(worksheetPages.worksheetId, worksheetId))
     .orderBy(asc(worksheetPages.pageNumber))
 
   const key = mergeAnswerKeys(pages.map((page) => parseAnswerKey(page.ocrText ?? '')))
-  if (key.size === 0) return { answered: 0 }
+  if (key.size === 0) return {answered: 0}
 
   const rows = await db
     .select({
@@ -176,7 +176,7 @@ export async function applyAnswerKey(
 
     await db
       .update(questions)
-      .set({ correctAnswer: label, answerSource: 'pdf_key' })
+      .set({correctAnswer: label, answerSource: 'pdf_key'})
       .where(eq(questions.id, row.id))
 
     const choices = await db
@@ -194,23 +194,23 @@ export async function applyAnswerKey(
       if (choice.isCorrect === isCorrect) continue
       await db
         .update(answerChoices)
-        .set({ isCorrect })
+        .set({isCorrect})
         .where(eq(answerChoices.id, choice.id))
     }
 
     answered += 1
   }
 
-  return { answered }
+  return {answered}
 }
 
 export async function repairUnrenderedMath(
   db: Db,
   worksheetId: string,
-): Promise<{ repaired: number }> {
+): Promise<{repaired: number}> {
   const rows = await loadQuestionsWithChoices(db, worksheetId)
 
-  if (rows.length === 0) return { repaired: 0 }
+  if (rows.length === 0) return {repaired: 0}
 
   let repaired = 0
 
@@ -228,33 +228,33 @@ export async function repairUnrenderedMath(
     for (const choice of changedChoices) {
       await db
         .update(answerChoices)
-        .set({ text: choice.fixed })
+        .set({text: choice.fixed})
         .where(eq(answerChoices.id, choice.id))
     }
 
     const contentHash = hashQuestion(
       promptText,
-      fixedChoices.map((choice) => ({ text: choice.fixed })),
+      fixedChoices.map((choice) => ({text: choice.fixed})),
     )
 
     await db
       .update(questions)
-      .set({ promptText, contentHash })
+      .set({promptText, contentHash})
       .where(eq(questions.id, row.id))
 
     repaired += 1
     console.log(`[maths] rewrote ${row.id} on ${worksheetId}: ${promptText.slice(0, 60)}`)
   }
 
-  return { repaired }
+  return {repaired}
 }
 
 export async function repairPrintedNumbers(
   db: Db,
   worksheetId: string,
-): Promise<{ repaired: number }> {
+): Promise<{repaired: number}> {
   const [sheet] = await db
-    .select({ expected: worksheets.expectedQuestionCount })
+    .select({expected: worksheets.expectedQuestionCount})
     .from(worksheets)
     .where(eq(worksheets.id, worksheetId))
     .limit(1)
@@ -271,7 +271,7 @@ export async function repairPrintedNumbers(
     .where(eq(questions.worksheetId, worksheetId))
     .orderBy(asc(questions.ordinal))
 
-  if (rows.length === 0) return { repaired: 0 }
+  if (rows.length === 0) return {repaired: 0}
 
   const fixes = inferPrintedNumbers(
     rows.map((row) => ({
@@ -286,7 +286,7 @@ export async function repairPrintedNumbers(
   for (const fix of fixes) {
     await db
       .update(questions)
-      .set({ printedNumber: fix.to })
+      .set({printedNumber: fix.to})
       .where(eq(questions.id, fix.id))
 
     console.log(
@@ -294,13 +294,13 @@ export async function repairPrintedNumbers(
     )
   }
 
-  return { repaired: fixes.length }
+  return {repaired: fixes.length}
 }
 
 export async function renumberQuestions(
   db: Db,
   worksheetId: string,
-): Promise<{ renumbered: number; duplicateNumbers: number[] }> {
+): Promise<{renumbered: number; duplicateNumbers: number[]}> {
   const rows = await db
     .select({
       id: questions.id,
@@ -313,7 +313,7 @@ export async function renumberQuestions(
     .where(eq(questions.worksheetId, worksheetId))
     .orderBy(asc(questions.ordinal))
 
-  if (rows.length === 0) return { renumbered: 0, duplicateNumbers: [] }
+  if (rows.length === 0) return {renumbered: 0, duplicateNumbers: []}
 
   const duplicateNumbers = duplicatePrintedNumbers(rows)
 
@@ -330,7 +330,7 @@ export async function renumberQuestions(
   })
 
   const moved = ordered
-    .map((row, index) => ({ id: row.id, ordinal: index + 1 }))
+    .map((row, index) => ({id: row.id, ordinal: index + 1}))
     .filter((row, index) => ordered[index].ordinal !== row.ordinal)
 
   if (moved.length > 0) {
@@ -349,16 +349,16 @@ export async function renumberQuestions(
 
   const renumbered = moved.length
 
-  return { renumbered, duplicateNumbers }
+  return {renumbered, duplicateNumbers}
 }
 
 export async function joinSplitQuestions(
   db: Db,
   worksheetId: string,
-): Promise<{ joined: number }> {
+): Promise<{joined: number}> {
   const rows = await loadQuestionsWithChoices(db, worksheetId)
 
-  if (rows.length < 2) return { joined: 0 }
+  if (rows.length < 2) return {joined: 0}
 
   const candidates: SplitHalf[] = rows.map((row) => ({
     id: row.id,
@@ -400,14 +400,14 @@ export async function joinSplitQuestions(
 
     await db
       .update(answerChoices)
-      .set({ questionId: plan.keepId })
+      .set({questionId: plan.keepId})
       .where(eq(answerChoices.questionId, plan.dropId))
 
     const contentHash = hashQuestion(keep.promptText, drop.choices)
 
     await db
       .update(questions)
-      .set({ printedNumber: plan.printedNumber, contentHash })
+      .set({printedNumber: plan.printedNumber, contentHash})
       .where(eq(questions.id, plan.keepId))
 
     await db.delete(questions).where(eq(questions.id, plan.dropId))
@@ -416,7 +416,7 @@ export async function joinSplitQuestions(
     console.log(`[split] ${plan.reason} on ${worksheetId}`)
   }
 
-  return { joined }
+  return {joined}
 }
 
 export interface PageFindings {
@@ -475,7 +475,7 @@ export function auditExtraction(
   const targeted = new Set(retry.map((target) => target.pageNumber))
 
   for (const pageNumber of silent) {
-    if (!targeted.has(pageNumber)) retry.push({ pageNumber, expect: [] })
+    if (!targeted.has(pageNumber)) retry.push({pageNumber, expect: []})
   }
 
   return {

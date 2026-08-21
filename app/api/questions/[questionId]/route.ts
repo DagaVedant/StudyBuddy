@@ -1,46 +1,50 @@
-import { eq } from 'drizzle-orm'
-import { NextResponse } from 'next/server'
+import {NextResponse} from 'next/server'
+import {eq} from 'drizzle-orm'
 
-import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { CHOICE_ORDER, checkReferences, referenceError } from '@/lib/questions/queries'
-import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
-import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'
+import {
+  checkReferences,
+  CHOICE_ORDER,
+  referenceError,
+} from '@/lib/questions/queries'
+import {answerChoices, questions, questionTopics} from '@/lib/db/schema'
+import {auth} from '@/auth'
+import {db} from '@/lib/db'
+import {hashQuestion, questionInputSchema} from '@/lib/questions/shape'
 
-type Params = { params: Promise<{ questionId: string }> }
+type Params = {params: Promise<{questionId: string}>}
 
 type Ownership =
-  | { ok: true; userId: string; worksheetId: string }
-  | { ok: false; status: 401 | 404 }
+  | {ok: true; userId: string; worksheetId: string}
+  | {ok: false; status: 401 | 404}
 
 async function ownsQuestion(questionId: string): Promise<Ownership> {
   const session = await auth()
-  if (!session?.user?.id) return { ok: false, status: 401 }
+  if (!session?.user?.id) return {ok: false, status: 401}
 
   const [row] = await db
-    .select({ userId: questions.userId, worksheetId: questions.worksheetId })
+    .select({userId: questions.userId, worksheetId: questions.worksheetId})
     .from(questions)
     .where(eq(questions.id, questionId))
     .limit(1)
 
-  if (!row || row.userId !== session.user.id) return { ok: false, status: 404 }
-  return { ok: true, userId: session.user.id, worksheetId: row.worksheetId }
+  if (!row || row.userId !== session.user.id) return {ok: false, status: 404}
+  return {ok: true, userId: session.user.id, worksheetId: row.worksheetId}
 }
 
-export async function PATCH(request: Request, { params }: Params) {
-  const { questionId } = await params
+export async function PATCH(request: Request, {params}: Params) {
+  const {questionId} = await params
 
   const owner = await ownsQuestion(questionId)
   if (!owner.ok) {
     return NextResponse.json(
-      { error: owner.status === 401 ? 'Unauthorized' : 'Not found' },
-      { status: owner.status },
+      {error: owner.status === 401 ? 'Unauthorized' : 'Not found'},
+      {status: owner.status},
     )
   }
 
   const parsed = questionInputSchema.partial().safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid question' }, { status: 400 })
+    return NextResponse.json({error: 'Invalid question'}, {status: 400})
   }
 
   const input = parsed.data
@@ -48,8 +52,8 @@ export async function PATCH(request: Request, { params }: Params) {
   const references = await checkReferences(db, owner.worksheetId, input)
   if (!references.ok) {
     return NextResponse.json(
-      { error: referenceError(references.field!) },
-      { status: 400 },
+      {error: referenceError(references.field!)},
+      {status: 400},
     )
   }
 
@@ -72,7 +76,7 @@ export async function PATCH(request: Request, { params }: Params) {
       const choices =
         input.choices ??
         (await tx
-          .select({ text: answerChoices.text })
+          .select({text: answerChoices.text})
           .from(answerChoices)
           .where(eq(answerChoices.questionId, questionId))
           .orderBy(...CHOICE_ORDER))
@@ -81,7 +85,7 @@ export async function PATCH(request: Request, { params }: Params) {
         input.promptText ??
         (
           await tx
-            .select({ promptText: questions.promptText })
+            .select({promptText: questions.promptText})
             .from(questions)
             .where(eq(questions.id, questionId))
             .limit(1)
@@ -123,20 +127,20 @@ export async function PATCH(request: Request, { params }: Params) {
     }
   })
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ok: true})
 }
 
-export async function DELETE(_request: Request, { params }: Params) {
-  const { questionId } = await params
+export async function DELETE(_request: Request, {params}: Params) {
+  const {questionId} = await params
 
   const owner = await ownsQuestion(questionId)
   if (!owner.ok) {
     return NextResponse.json(
-      { error: owner.status === 401 ? 'Unauthorized' : 'Not found' },
-      { status: owner.status },
+      {error: owner.status === 401 ? 'Unauthorized' : 'Not found'},
+      {status: owner.status},
     )
   }
 
   await db.delete(questions).where(eq(questions.id, questionId))
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ok: true})
 }

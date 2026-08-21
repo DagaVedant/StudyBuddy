@@ -1,26 +1,26 @@
-import { and, eq } from 'drizzle-orm'
-import { notFound, redirect } from 'next/navigation'
+import {and, eq} from 'drizzle-orm'
+import {notFound, redirect} from 'next/navigation'
 
-import { auth } from '@/auth'
-import { canSortTopicsHere, getCredentialSummary } from '@/lib/ai/resolve'
-import { TopicSorter } from '@/components/topics'
-import { db } from '@/lib/db'
-import { worksheetPages, worksheets } from '@/lib/db/schema'
-import { evidenceFor } from '@/lib/questions/text'
-import { findLibraryDuplicates, loadQuestionsWithChoices } from '@/lib/questions/queries'
-import { modalChoiceCount, validateQuestion, worthRereading } from '@/lib/questions/validate'
+import {auth} from '@/auth'
+import {canSortTopicsHere, getCredentialSummary} from '@/lib/ai/resolve'
+import {TopicSorter} from '@/components/client'
+import {db} from '@/lib/db'
+import {worksheetPages, worksheets} from '@/lib/db/schema'
+import {evidenceFor} from '@/lib/questions/text'
+import {findLibraryDuplicates, loadQuestionsWithChoices} from '@/lib/questions/queries'
+import {modalChoiceCount, validateQuestion, worthRereading} from '@/lib/questions/validate'
 
-import { CheckClient, type CheckableQuestion } from './check-client'
+import {CheckClient, type CheckableQuestion} from './check-client'
 
-export const metadata = { title: 'Check your questions · StudyBuddy' }
+export const metadata = {title: 'Check your questions · StudyBuddy'}
 
-type Params = { params: Promise<{ id: string }> }
+type Params = {params: Promise<{id: string}>}
 
-export default async function CheckPage({ params }: Params) {
+export default async function CheckPage({params}: Params) {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
-  const { id } = await params
+  const {id} = await params
 
   const [worksheet] = await db
     .select({
@@ -57,7 +57,7 @@ export default async function CheckPage({ params }: Params) {
   const expectedChoiceCount = modalChoiceCount(shaped)
 
   const items: CheckableQuestion[] = shaped.map((row) => {
-    const flags = validateQuestion(row, { expectedChoiceCount })
+    const flags = validateQuestion(row, {expectedChoiceCount})
     const duplicate = duplicateFor.get(row.id)
 
     return {
@@ -107,7 +107,7 @@ export default async function CheckPage({ params }: Params) {
           {canSortHere && (
             <div className="mt-3">
               <TopicSorter
-                worksheets={[{ id: worksheet.id, title: worksheet.title }]}
+                worksheets={[{id: worksheet.id, title: worksheet.title}]}
                 label="Sort these into topics"
               />
             </div>

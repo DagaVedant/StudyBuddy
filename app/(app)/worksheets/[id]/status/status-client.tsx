@@ -1,14 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import {useCallback, useEffect, useRef, useState} from 'react'
+import {useRouter} from 'next/navigation'
 
-import { OllamaProvider } from '@/lib/ai/ollama'
-import { fetchJson } from '@/lib/client/http'
-import { isAnswerPage } from '@/lib/questions/text'
-import { seamAround } from '@/lib/questions/text'
-import { toPngBytes } from '@/lib/client/ingest'
-import { validated } from '@/lib/ai/parse'
+import {OllamaProvider} from '@/lib/ai/ollama'
+import {fetchJson} from '@/lib/client/http'
+import {isAnswerPage} from '@/lib/questions/text'
+import {seamAround} from '@/lib/questions/text'
+import {toPngBytes} from '@/lib/client/ingest'
+import {validated} from '@/lib/ai/parse'
 
 interface ClaimedPage {
   id: string
@@ -24,21 +24,21 @@ interface Claim {
     id: string
     worksheetId: string
     stage: string
-    checkpoint: { donePages?: number[] } | null
+    checkpoint: {donePages?: number[]} | null
   } | null
   pages?: ClaimedPage[]
-  ollama?: { baseUrl: string; visionModel: string; textModel: string }
+  ollama?: {baseUrl: string; visionModel: string; textModel: string}
 }
 
 type Phase =
-  | { kind: 'idle' }
-  | { kind: 'reading'; done: number; total: number }
-  | { kind: 'finishing' }
-  | { kind: 'done' }
-  | { kind: 'error'; message: string }
+  | {kind: 'idle'}
+  | {kind: 'reading'; done: number; total: number}
+  | {kind: 'finishing'}
+  | {kind: 'done'}
+  | {kind: 'error'; message: string}
 
-export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
-  const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
+export function BrowserRunner({worksheetId}: {worksheetId: string}) {
+  const [phase, setPhase] = useState<Phase>({kind: 'idle'})
   const router = useRouter()
 
   const started = useRef(false)
@@ -47,12 +47,12 @@ export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
   const post = useCallback(async (jobId: string, body: unknown) => {
     const response = await fetch(`/api/browser-jobs/${jobId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(body),
     })
 
     if (!response.ok) {
-      const detail = (await response.json().catch(() => null)) as { error?: string } | null
+      const detail = (await response.json().catch(() => null)) as {error?: string} | null
       throw new Error(detail?.error ?? `The server refused a page (${response.status}).`)
     }
 
@@ -71,7 +71,7 @@ export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
     if (!claimResponse.ok) throw new Error('Could not ask the server for work.')
 
     const claim = (await claimResponse.json()) as Claim
-    const { job, pages, ollama } = claim
+    const {job, pages, ollama} = claim
     if (!job || !pages || !ollama) return
 
     if (job.worksheetId !== worksheetId) return
@@ -88,7 +88,7 @@ export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
     const done = new Set(job.checkpoint?.donePages ?? [])
     const todo = pages.filter((page) => !done.has(page.pageNumber))
 
-    setPhase({ kind: 'reading', done: done.size, total: pages.length })
+    setPhase({kind: 'reading', done: done.size, total: pages.length})
 
     for (const page of todo) {
       if (cancelled.current) return
@@ -102,7 +102,7 @@ export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
           questions: [],
         })
         done.add(page.pageNumber)
-        setPhase({ kind: 'reading', done: done.size, total: pages.length })
+        setPhase({kind: 'reading', done: done.size, total: pages.length})
         continue
       }
 
@@ -111,7 +111,7 @@ export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
         throw new Error(`Could not load page ${page.pageNumber}.`)
       }
 
-      const { image, mediaType } = await toPngBytes(await imageResponse.blob())
+      const {image, mediaType} = await toPngBytes(await imageResponse.blob())
 
       let questions: unknown[] = []
       try {
@@ -139,14 +139,14 @@ export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
       })
 
       done.add(page.pageNumber)
-      setPhase({ kind: 'reading', done: done.size, total: pages.length })
+      setPhase({kind: 'reading', done: done.size, total: pages.length})
     }
 
     if (cancelled.current) return
 
-    setPhase({ kind: 'finishing' })
-    await post(job.id, { action: 'complete' })
-    setPhase({ kind: 'done' })
+    setPhase({kind: 'finishing'})
+    await post(job.id, {action: 'complete'})
+    setPhase({kind: 'done'})
 
     router.refresh()
   }, [post, router, worksheetId])
@@ -157,7 +157,7 @@ export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
     cancelled.current = false
 
     void run().catch((error: unknown) => {
-      setPhase({ kind: 'error', message: (error as Error).message })
+      setPhase({kind: 'error', message: (error as Error).message})
     })
 
     return () => {
@@ -191,7 +191,7 @@ export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
   )
 }
 
-export function GoManualButton({ worksheetId }: { worksheetId: string }) {
+export function GoManualButton({worksheetId}: {worksheetId: string}) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -206,11 +206,11 @@ export function GoManualButton({ worksheetId }: { worksheetId: string }) {
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        const body = (await response.json().catch(() => null)) as {error?: string} | null
         throw new Error(body?.error ?? 'Could not switch to manual entry.')
       }
 
-      const body = (await response.json()) as { next: string }
+      const body = (await response.json()) as {next: string}
       router.push(body.next)
     } catch (err) {
       setBusy(false)

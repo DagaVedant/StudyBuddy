@@ -1,9 +1,9 @@
-import { createReadStream } from 'node:fs'
-import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises'
-import { dirname, join, normalize, sep } from 'node:path'
-import { Readable } from 'node:stream'
+import {createReadStream} from 'node:fs'
+import {mkdir, readFile, stat, unlink, writeFile} from 'node:fs/promises'
+import {dirname, join, normalize, sep} from 'node:path'
+import {Readable} from 'node:stream'
 
-import { del, get, put } from '@vercel/blob'
+import {del, get, put} from '@vercel/blob'
 
 export interface StoredObject {
   body: Buffer
@@ -40,7 +40,7 @@ const localDriver: StorageDriver = {
 
   async put(key, body, contentType) {
     const path = safeLocalPath(key)
-    await mkdir(dirname(path), { recursive: true })
+    await mkdir(dirname(path), {recursive: true})
     await writeFile(path, body)
     await writeFile(`${path}.meta`, contentType, 'utf8')
   },
@@ -52,7 +52,7 @@ const localDriver: StorageDriver = {
         readFile(path),
         readFile(`${path}.meta`, 'utf8').catch(() => 'application/octet-stream'),
       ])
-      return { body, contentType }
+      return {body, contentType}
     } catch {
       return null
     }
@@ -102,7 +102,7 @@ const blobDriver: StorageDriver = {
 
   async get(key) {
     try {
-      const result = await get(key, { access: 'private' })
+      const result = await get(key, {access: 'private'})
       if (!result) return null
       return {
         body: Buffer.from(await new Response(result.stream).arrayBuffer()),
@@ -115,7 +115,7 @@ const blobDriver: StorageDriver = {
 
   async getStream(key) {
     try {
-      const result = await get(key, { access: 'private' })
+      const result = await get(key, {access: 'private'})
       if (!result) return null
 
       return {

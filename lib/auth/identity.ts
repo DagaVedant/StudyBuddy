@@ -1,6 +1,6 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import {createHash, randomBytes, timingSafeEqual} from 'node:crypto'
 
-import { and, eq, gt, isNull } from 'drizzle-orm'
+import {and, eq, gt, isNull} from 'drizzle-orm'
 
 import {
   accounts,
@@ -13,51 +13,51 @@ import {
   consumeRateLimit,
   SIGNIN_EMAIL_LIMIT,
   SIGNIN_IP_LIMIT,
-} from '@/lib/rate-limit'
-import { appBaseUrl, callerIp } from '@/lib/rate-limit'
-import { storage } from '@/lib/storage'
-import { type Db, isUniqueViolation } from '@/lib/db'
+} from '@/lib/api'
+import {appBaseUrl, callerIp} from '@/lib/api'
+import {storage} from '@/lib/storage'
+import {type Db, isUniqueViolation} from '@/lib/db'
 
-import { isAdminEmail } from './policy'
+import {isAdminEmail} from './policy'
 
 export type SaveIdentityResult =
-  | { ok: true; name: string | null; username: string | null }
-  | { ok: false; status: 400 | 409; reason: string }
+  | {ok: true; name: string | null; username: string | null}
+  | {ok: false; status: 400 | 409; reason: string}
 
 export async function saveIdentity(
   db: Db,
   userId: string,
-  input: { name: string | null; username: string | null },
+  input: {name: string | null; username: string | null},
 ): Promise<SaveIdentityResult> {
   const name = input.name?.trim() || null
 
   let username: string | null = null
   if (input.username && input.username.trim()) {
     const checked = validateUsername(input.username)
-    if (!checked.ok) return { ok: false, status: 400, reason: checked.reason }
+    if (!checked.ok) return {ok: false, status: 400, reason: checked.reason}
     username = checked.username
 
     const [taken] = await db
-      .select({ id: users.id })
+      .select({id: users.id})
       .from(users)
       .where(eq(users.username, username))
       .limit(1)
 
     if (taken && taken.id !== userId) {
-      return { ok: false, status: 409, reason: 'That username is taken.' }
+      return {ok: false, status: 409, reason: 'That username is taken.'}
     }
   }
 
   try {
-    await db.update(users).set({ name, username }).where(eq(users.id, userId))
+    await db.update(users).set({name, username}).where(eq(users.id, userId))
   } catch (error) {
     if (isUniqueViolation(error)) {
-      return { ok: false, status: 409, reason: 'That username is taken.' }
+      return {ok: false, status: 409, reason: 'That username is taken.'}
     }
     throw error
   }
 
-  return { ok: true, name, username }
+  return {ok: true, name, username}
 }
 
 export const MIN_USERNAME_LENGTH = 3
@@ -66,20 +66,20 @@ export const MAX_USERNAME_LENGTH = 20
 const USERNAME_SHAPE = /^[a-z][a-z0-9_]*$/
 
 export type UsernameCheck =
-  | { ok: true; username: string }
-  | { ok: false; reason: string }
+  | {ok: true; username: string}
+  | {ok: false; reason: string}
 
 export function validateUsername(input: string | null | undefined): UsernameCheck {
   const trimmed = (input ?? '').trim().toLowerCase()
 
-  if (!trimmed) return { ok: false, reason: 'Enter a username.' }
+  if (!trimmed) return {ok: false, reason: 'Enter a username.'}
 
   if (trimmed.length < MIN_USERNAME_LENGTH) {
-    return { ok: false, reason: `At least ${MIN_USERNAME_LENGTH} characters.` }
+    return {ok: false, reason: `At least ${MIN_USERNAME_LENGTH} characters.`}
   }
 
   if (trimmed.length > MAX_USERNAME_LENGTH) {
-    return { ok: false, reason: `${MAX_USERNAME_LENGTH} characters or fewer.` }
+    return {ok: false, reason: `${MAX_USERNAME_LENGTH} characters or fewer.`}
   }
 
   if (!USERNAME_SHAPE.test(trimmed)) {
@@ -89,7 +89,7 @@ export function validateUsername(input: string | null | undefined): UsernameChec
     }
   }
 
-  return { ok: true, username: trimmed }
+  return {ok: true, username: trimmed}
 }
 
 export async function accountMayBeAdmin(
@@ -100,7 +100,7 @@ export async function accountMayBeAdmin(
   if (!isAdminEmail(email)) return false
 
   const [link] = await db
-    .select({ userId: accounts.userId })
+    .select({userId: accounts.userId})
     .from(accounts)
     .where(and(eq(accounts.userId, userId), eq(accounts.provider, 'google')))
     .limit(1)
@@ -131,7 +131,7 @@ export async function deleteAccount(
   userId: string,
 ): Promise<DeletedAccount> {
   const keys = await db
-    .select({ imageKey: worksheetPages.imageKey })
+    .select({imageKey: worksheetPages.imageKey})
     .from(worksheetPages)
     .innerJoin(worksheets, eq(worksheets.id, worksheetPages.worksheetId))
     .where(eq(worksheets.userId, userId))
@@ -151,7 +151,7 @@ export async function deleteAccount(
     )
   }
 
-  return { imagesRemoved: keys.length - imagesFailed, imagesFailed }
+  return {imagesRemoved: keys.length - imagesFailed, imagesFailed}
 }
 export const RESET_TOKEN_TTL_MS = 60 * 60_000
 
@@ -214,7 +214,7 @@ export async function findResetTarget(
 
   if (found.length !== wanted.length || !timingSafeEqual(found, wanted)) return null
 
-  return { tokenId: row.id, userId: row.userId }
+  return {tokenId: row.id, userId: row.userId}
 }
 
 export async function consumeResetToken(
@@ -226,7 +226,7 @@ export async function consumeResetToken(
   await db.transaction(async (tx) => {
     await tx
       .update(passwordResetTokens)
-      .set({ usedAt: now })
+      .set({usedAt: now})
       .where(eq(passwordResetTokens.id, target.tokenId))
 
     await tx
@@ -240,7 +240,7 @@ export async function consumeResetToken(
 
     await tx
       .update(users)
-      .set({ passwordHash, emailVerified: now })
+      .set({passwordHash, emailVerified: now})
       .where(eq(users.id, target.userId))
   })
 }

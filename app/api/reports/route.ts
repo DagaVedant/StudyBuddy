@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
-import { z } from 'zod'
+import {NextResponse} from 'next/server'
+import {z} from 'zod'
 
-import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { REPORT_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
-import { recordReport } from '@/lib/reports'
+import {auth} from '@/auth'
+import {consumeRateLimit, REPORT_LIMIT} from '@/lib/api'
+import {db} from '@/lib/db'
+import {recordReport} from '@/lib/reports'
 
 const schema = z.discriminatedUnion('kind', [
   z.object({
@@ -22,20 +22,20 @@ const schema = z.discriminatedUnion('kind', [
 export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
   const allowance = await consumeRateLimit(db, REPORT_LIMIT, `user:${session.user.id}`)
   if (!allowance.ok) {
     return NextResponse.json(
-      { error: "That's a lot of reports at once. Try again shortly." },
-      { status: 429, headers: { 'Retry-After': String(allowance.retryAfter) } },
+      {error: "That's a lot of reports at once. Try again shortly."},
+      {status: 429, headers: {'Retry-After': String(allowance.retryAfter)}},
     )
   }
 
   const parsed = schema.safeParse(await request.json().catch(() => ({})))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+    return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
 
   const outcome = await recordReport(db, session.user.id, parsed.data)
@@ -48,9 +48,9 @@ export async function POST(request: Request) {
             ? 'There is no explanation on that question yet.'
             : 'Not found',
       },
-      { status: 404 },
+      {status: 404},
     )
   }
 
-  return NextResponse.json({ ok: true }, { status: 201 })
+  return NextResponse.json({ok: true}, {status: 201})
 }

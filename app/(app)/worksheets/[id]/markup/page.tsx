@@ -1,11 +1,11 @@
-import { and, asc, eq } from 'drizzle-orm'
+import {and, asc, eq} from 'drizzle-orm'
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import {notFound, redirect} from 'next/navigation'
 
-import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { CHOICE_ORDER } from '@/lib/questions/queries'
-import { answerChoices, attempts, questions, worksheets } from '@/lib/db/schema'
+import {auth} from '@/auth'
+import {db} from '@/lib/db'
+import {CHOICE_ORDER} from '@/lib/questions/queries'
+import {answerChoices, attempts, questions, worksheets} from '@/lib/db/schema'
 
 import MarkupClient, {
   CorrectionsClient,
@@ -13,14 +13,14 @@ import MarkupClient, {
   type MarkedQuestion,
 } from './markup-client'
 
-export const metadata = { title: 'Mark Your Answers · StudyBuddy' }
+export const metadata = {title: 'Mark Your Answers · StudyBuddy'}
 
 export default async function MarkupPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{id: string}>
 }) {
-  const { id } = await params
+  const {id} = await params
 
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -87,7 +87,7 @@ export default async function MarkupPage({
           selectedChoiceId: mark.selectedChoiceId,
           choices: markedChoices
             .filter((choice) => choice.questionId === question.id)
-            .map(({ id: choiceId, label, text }) => ({ id: choiceId, label, text })),
+            .map(({id: choiceId, label, text}) => ({id: choiceId, label, text})),
         }
       })
 
@@ -152,7 +152,7 @@ export default async function MarkupPage({
     ...question,
     choices: choiceRows
       .filter((choice) => choice.questionId === question.id)
-      .map(({ id: choiceId, label, text }) => ({ id: choiceId, label, text })),
+      .map(({id: choiceId, label, text}) => ({id: choiceId, label, text})),
   }))
 
   if (markable.length === 0) {

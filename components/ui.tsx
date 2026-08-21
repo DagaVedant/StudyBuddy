@@ -1,9 +1,12 @@
 import Link from 'next/link'
-import { Fragment, type ReactNode } from 'react'
+import {Fragment, type ReactNode} from 'react'
 
-import { MIN_ATTEMPTS } from '@/lib/upload'
-import { type QuestionEvidence } from '@/lib/questions/text'
-export function Mark({ className }: { className?: string }) {
+import {MIN_ATTEMPTS} from '@/lib/upload'
+import {type QuestionEvidence} from '@/lib/questions/text'
+import {type StudyDay} from '@/lib/dashboard'
+
+import styles from './styles.module.css'
+export function Mark({className}: {className?: string}) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -22,7 +25,7 @@ export function Mark({ className }: { className?: string }) {
 
 export function MainRegion({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: Readonly<{children: React.ReactNode}>) {
   return (
     <div id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
       {children}
@@ -98,7 +101,7 @@ export function Meter({
         'aria-valuemax': 100,
         'aria-label': `${label}: ${PERCENT.format(accuracy)} correct`,
       }
-    : { 'aria-hidden': true as const }
+    : {'aria-hidden': true as const}
 
   return (
     <div
@@ -107,7 +110,7 @@ export function Meter({
     >
       <div
         className={`h-full ${FILL[band(accuracy, ranked)]}`}
-        style={{ width: `${ranked ? Math.max(pct, 2) : 100}%` }}
+        style={{width: `${ranked ? Math.max(pct, 2) : 100}%`}}
       />
     </div>
   )
@@ -147,22 +150,22 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
 }
 
 type Block =
-  | { kind: 'heading'; level: 2 | 3; text: string }
-  | { kind: 'paragraph'; text: string }
-  | { kind: 'list'; ordered: boolean; items: string[] }
+  | {kind: 'heading'; level: 2 | 3; text: string}
+  | {kind: 'paragraph'; text: string}
+  | {kind: 'list'; ordered: boolean; items: string[]}
 
 export function blocksOf(markdown: string): Block[] {
   const blocks: Block[] = []
   let paragraph: string[] = []
-  let list: { ordered: boolean; items: string[] } | null = null
+  let list: {ordered: boolean; items: string[]} | null = null
 
   const flush = () => {
     if (paragraph.length > 0) {
-      blocks.push({ kind: 'paragraph', text: paragraph.join(' ') })
+      blocks.push({kind: 'paragraph', text: paragraph.join(' ')})
       paragraph = []
     }
     if (list) {
-      blocks.push({ kind: 'list', ...list })
+      blocks.push({kind: 'list', ...list})
       list = null
     }
   }
@@ -196,11 +199,11 @@ export function blocksOf(markdown: string): Block[] {
       if (list && list.ordered !== ordered) flush()
 
       if (paragraph.length > 0) {
-        blocks.push({ kind: 'paragraph', text: paragraph.join(' ') })
+        blocks.push({kind: 'paragraph', text: paragraph.join(' ')})
         paragraph = []
       }
 
-      list = list ?? { ordered, items: [] }
+      list = list ?? {ordered, items: []}
       list.items.push(item)
       continue
     }
@@ -213,7 +216,7 @@ export function blocksOf(markdown: string): Block[] {
   return blocks
 }
 
-export function Prose({ markdown }: { markdown: string }) {
+export function Prose({markdown}: {markdown: string}) {
   const blocks = blocksOf(markdown)
 
   return (
@@ -261,7 +264,7 @@ export function Prose({ markdown }: { markdown: string }) {
   )
 }
 
-export function Underline({ className = '' }: { className?: string }) {
+export function Underline({className = ''}: {className?: string}) {
   return (
     <svg
       aria-hidden="true"
@@ -280,7 +283,7 @@ export function Underline({ className = '' }: { className?: string }) {
   )
 }
 
-export function Tick({ className = '' }: { className?: string }) {
+export function Tick({className = ''}: {className?: string}) {
   return (
     <svg
       aria-hidden="true"
@@ -316,7 +319,7 @@ export function QuestionCrop({
 
   return (
     <div className="my-0.5 overflow-hidden rounded-lg [rotate:0.35deg]">
-      <div className="relative" style={{ aspectRatio: `${cropWidth} / ${cropHeight}` }}>
+      <div className="relative" style={{aspectRatio: `${cropWidth} / ${cropHeight}`}}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={image.src}
@@ -400,7 +403,7 @@ export function Note({
   )
 }
 
-export function SectionHead({ id, title }: { id: string; title: string }) {
+export function SectionHead({id, title}: {id: string; title: string}) {
   return (
     <div className="mb-4 border-b border-fg/20 pb-2">
       <h2
@@ -443,10 +446,550 @@ export function MarginNote({
   )
 }
 
-export function PageFoot({ running }: { running: string }) {
+export function PageFoot({running}: {running: string}) {
   return (
     <footer className="mt-14 border-t border-rule-heavy pt-3">
       <p className="eyebrow">{running}</p>
     </footer>
   )
+}
+export const TOPICS = [
+  {name: 'Ratios and rates', count: 6},
+  {name: 'Linear equations', count: 5},
+  {name: 'Inferences', count: 8},
+  {name: 'Words in context', count: 5},
+] as const
+
+const TOTAL = TOPICS.reduce((sum, topic) => sum + topic.count, 0)
+
+const CURVE =
+  'M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76'
+
+const REVIEWS = [
+  {left: '21.25%', top: '40%'},
+  {left: '38.75%', top: '46.7%'},
+  {left: '61.25%', top: '55.6%'},
+] as const
+
+const QUESTIONS = [
+  'A child grows 1 1/4 inches in 1/3 of a year. What would be his yearly growth rate in inches per year?',
+  'If (3/5 − 1/2)x = 1/4 + 2/3, what is the value of x?',
+  'The narrator’s actions in paragraph 5 reveal that he is',
+  'In paragraph 3, the phrase “the butterflies of the sea” conveys the idea that',
+] as const
+
+export function Hero({children}: {children: React.ReactNode}) {
+  return (
+    <section className={styles.hero}>
+      <Curve />
+
+      <div className={styles.stack}>
+        <Link href="/" className={styles.brand}>
+          <Mark className={styles.mark} />
+          StudyBuddy
+        </Link>
+
+        <h1 className={styles.blurb}>
+          Turn the worksheets you have already done into a record of what you
+          actually know.
+        </h1>
+
+        <div className={styles.panel}>
+          <div>
+            <p className={styles.count}>{TOTAL} questions</p>
+            <p className="hint mt-1">
+              found in one worksheet, pulled out, tagged and ready to mark
+            </p>
+
+            <ul className={styles.topics}>
+              {TOPICS.map((topic) => (
+                <li key={topic.name} className={styles.topic}>
+                  {topic.name} <b>{topic.count}</b>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className={styles.sheet} aria-hidden="true">
+            {QUESTIONS.map((stem) => (
+              <div key={stem} className={styles.q}>
+                <p className={styles.stem}>{stem}</p>
+                <span className={styles.qbox} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {children}
+
+        <p className={`${styles.caption} text-sm text-pretty text-muted`}>
+          Then the ones you missed are waiting in review, spaced to the day you
+          are about to forget them. That is the curve behind this page.
+        </p>
+      </div>
+
+      <div className={styles.axis} aria-hidden="true">
+        <span>Today</span>
+        <span>Day 30</span>
+      </div>
+    </section>
+  )
+}
+
+function Curve() {
+  return (
+    <div className={styles.plot} aria-hidden="true">
+      <svg viewBox="0 0 160 90" preserveAspectRatio="none">
+        <path
+          className={styles.area}
+          d="M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76 L154,90 L6,90 Z"
+        />
+        <path
+          className={styles.curve}
+          vectorEffect="non-scaling-stroke"
+          d={CURVE}
+        />
+      </svg>
+
+      {REVIEWS.map((review) => (
+        <span
+          key={review.left}
+          className={styles.dot}
+          style={{left: review.left, top: review.top}}
+        />
+      ))}
+    </div>
+  )
+}
+const STATS = [
+  {label: 'Due now', value: 12, link: true, pin: 3},
+  {label: 'Later this week', value: 41},
+  {label: 'Questions tracked', value: 218, pin: 1},
+  {label: 'Worksheets', value: 9},
+] as const
+
+const WEAKEST = [
+  {
+    name: 'Nonlinear functions',
+    path: 'SAT Math › Advanced Math › Nonlinear functions',
+    correct: 6,
+    unsure: 2,
+    wrong: 6,
+  },
+  {
+    name: 'Ratios, rates, and proportional relationships',
+    path: 'SAT Math › Problem-Solving and Data Analysis › Ratios, rates, and proportional relationships',
+    correct: 11,
+    unsure: 3,
+    wrong: 5,
+  },
+  {
+    name: 'Command of evidence: textual',
+    path: 'SAT Reading and Writing › Information and Ideas › Command of evidence: textual',
+    correct: 11,
+    unsure: 2,
+    wrong: 4,
+  },
+  {
+    name: 'Right triangles and trigonometry',
+    path: 'SAT Math › Geometry and Trigonometry › Right triangles and trigonometry',
+    correct: 9,
+    unsure: 0,
+    wrong: 3,
+  },
+] as const
+
+export const SUBJECTS = [
+  {name: 'Competition Math', correct: 28, attempts: 32},
+  {name: 'SAT Math', correct: 71, attempts: 104},
+  {name: 'SAT Reading and Writing', correct: 65, attempts: 82},
+] as const
+
+const FRAGILE = [
+  {name: 'Words in context', unsureRate: 38},
+  {name: 'Percentages', unsureRate: 31},
+  {name: 'Transitions', unsureRate: 27},
+] as const
+
+const NOTES = [
+  {
+    term: 'Every question',
+    detail:
+      'Not just the ones you got wrong. 218 counted is what makes 43% on nonlinear functions mean something instead of nothing.',
+  },
+  {
+    term: 'Sorted by topic',
+    detail:
+      'Each question lands somewhere in a subject tree, so the grey line under a row names a skill rather than the worksheet it came from.',
+  },
+  {
+    term: 'Scheduled to stick',
+    detail:
+      'Spaced repetition sets the day each question comes back. Twelve of them are due today, and that number is the whole to-do list.',
+  },
+] as const
+
+const CAL_PERCENT = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  maximumFractionDigits: 0,
+})
+
+export function DashboardPreview() {
+  return (
+    <section className={styles.section} aria-labelledby="preview-title">
+      <p className="eyebrow">The dashboard</p>
+      <h2 id="preview-title" className={styles.title}>
+        After nine worksheets, it looks like this.
+      </h2>
+      <p className={`${styles.lede} text-pretty text-muted`}>
+        Every question you have marked, rolled up into the topics that are
+        actually costing you marks, and a queue of what to review today.
+      </p>
+
+      <div className={styles.stage}>
+        <div className={styles.mock} aria-hidden="true">
+          <div className={styles.bar}>
+            <span className={styles.screen}>Dashboard</span>
+            <span className={styles.cta}>Upload a worksheet</span>
+          </div>
+
+          <dl className="mt-5 grid grid-cols-2 sm:grid-cols-[1.3fr_1.3fr_1fr_1fr]">
+            {STATS.map((stat) => (
+              <div
+                key={stat.label}
+                className="py-3 pr-6"
+              >
+                <dt className="eyebrow flex items-center gap-1.5">
+                  {'pin' in stat && <span className={styles.pin}>{stat.pin}</span>}
+                  {stat.label}
+                </dt>
+                <dd
+                  className={`mt-1 font-display font-semibold tabular-nums text-fg ${
+                    'link' in stat ? 'text-3xl' : 'text-xl'
+                  }`}
+                >
+                  {'link' in stat ? (
+                    <span className="text-accent underline decoration-1 underline-offset-4">
+                      {stat.value}
+                    </span>
+                  ) : (
+                    stat.value
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="card mt-4 p-4">
+            <h3 className="flex items-center gap-1.5 text-sm font-medium">
+              <span className={styles.pin}>2</span>
+              Weakest topics
+            </h3>
+            <p className="hint mb-3 text-pretty">
+              Ranked by how confident we can be that the misses are real, not by
+              raw percentage. A topic needs {MIN_ATTEMPTS} attempts before it
+              appears here.
+            </p>
+            <ul className="">
+              {WEAKEST.map((topic) => {
+                const attempts = topic.correct + topic.unsure + topic.wrong
+                const accuracy = topic.correct / attempts
+
+                return (
+                  <li key={topic.name} className="py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {topic.name}
+                      </span>
+                      <AccuracyLabel
+                        accuracy={accuracy}
+                        ranked
+                        attempts={attempts}
+                      />
+                    </div>
+                    <p className="truncate text-xs text-muted">{topic.path}</p>
+                    <div className="mt-2">
+                      <Meter accuracy={accuracy} label={topic.name} />
+                    </div>
+                    <p className="mt-1 text-xs tabular-nums text-muted">
+                      {topic.wrong} missed of {attempts}
+                      {topic.unsure > 0 && ` · ${topic.unsure} unsure`}
+                    </p>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="card p-4">
+              <h3 className="text-sm font-medium">By subject</h3>
+              <p className="hint mb-3">
+                Rolled up from every question you have marked.
+              </p>
+              <ul className="space-y-3">
+                {SUBJECTS.map((subject) => {
+                  const accuracy = subject.correct / subject.attempts
+
+                  return (
+                    <li key={subject.name}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="truncate text-sm">{subject.name}</span>
+                        <span className="shrink-0 text-sm tabular-nums text-muted">
+                          {CAL_PERCENT.format(accuracy)}
+                        </span>
+                      </div>
+                      <div className="mt-1.5">
+                        <Meter accuracy={accuracy} label={subject.name} />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+
+            <div className={`card p-4 ${styles.aside}`}>
+              <h3 className="text-sm font-medium">Right but guessed</h3>
+              <p className="hint mb-3 text-pretty">
+                High accuracy with a high unsure rate is fragile, not strong.
+              </p>
+              <ul className="space-y-2">
+                {FRAGILE.map((topic) => (
+                  <li key={topic.name} className="flex items-baseline gap-3">
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {topic.name}
+                    </span>
+                    <span className="shrink-0 text-sm tabular-nums text-muted">
+                      {topic.unsureRate}% guessed
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="sr-only">
+        An example dashboard: 218 questions tracked across 9 worksheets, 12 due
+        for review today, and a ranked list of the weakest topics with an
+        accuracy meter on each.
+      </p>
+
+      <ol className={styles.notes}>
+        {NOTES.map((note, index) => (
+          <li key={note.term} className={styles.note}>
+            <span aria-hidden="true" className={styles.pin}>
+              {index + 1}
+            </span>
+            <p className="text-sm text-pretty text-muted">
+              <b className={styles.term}>{note.term}.</b> {note.detail}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+const DAY_MS = 86_400_000
+
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const
+
+function key(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+function level(total: number): 0 | 1 | 2 | 3 | 4 {
+  if (total === 0) return 0
+  if (total < 5) return 1
+  if (total < 15) return 2
+  if (total < 30) return 3
+  return 4
+}
+
+const CAL_FILL: Record<number, string> = {
+  0: 'bg-fg/10',
+  1: 'bg-marker/30',
+  2: 'bg-marker/55',
+  3: 'bg-marker/80',
+  4: 'bg-marker',
+}
+
+export function StudyCalendar({
+  days,
+  streak,
+  weeks = 26,
+}: {
+  days: StudyDay[]
+  streak: number
+  weeks?: number
+}) {
+  const WEEKS = weeks
+  const byDay = new Map(days.map((day) => [day.day, day]))
+
+  const today = new Date()
+  const end = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+  )
+  const start = new Date(end.getTime() - (WEEKS * 7 - 1) * DAY_MS)
+  start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7))
+
+  const columns: {date: Date; day: StudyDay | undefined}[][] = []
+  for (
+    let cursor = new Date(start);
+    cursor <= end;
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  ) {
+    const weekday = (cursor.getUTCDay() + 6) % 7
+    if (weekday === 0) columns.push([])
+    const date = new Date(cursor)
+    columns[columns.length - 1]?.push({date, day: byDay.get(key(date))})
+  }
+
+  let lastLabelAt = -99
+
+  const studied = days.length
+  const total = days.reduce((sum, day) => sum + day.total, 0)
+  const best = bestRun(days)
+
+  return (
+    <div>
+      <dl className="mb-3 flex flex-wrap gap-x-6 gap-y-1">
+        <Figure label="Current run" value={streak} unit="days" />
+        <Figure label="Best run" value={best} unit="days" />
+        <Figure label="Days studied" value={studied} unit={`of ${WEEKS * 7}`} />
+      </dl>
+
+      <div className="-mx-1 overflow-x-auto px-1 pb-1">
+        <div className="flex min-w-max gap-1.5">
+          <div
+            aria-hidden="true"
+            className="grid shrink-0 grid-rows-7 gap-[3px] pt-[15px] text-right"
+          >
+            {WEEKDAYS.map((name, row) => (
+              <span
+                key={name}
+                className="font-mono text-[9px] leading-[12px] text-muted"
+              >
+                {row % 2 === 1 ? name : ''}
+              </span>
+            ))}
+          </div>
+
+          <div>
+            <div className="flex gap-[3px]">
+              {columns.map((week, index) => {
+                const first = week[0]?.date
+                const previous = columns[index - 1]?.[0]?.date
+                const isNewMonth =
+                  first &&
+                  (!previous || previous.getUTCMonth() !== first.getUTCMonth())
+                const roomSinceLast = index - lastLabelAt >= 3
+                const showLabel = isNewMonth && roomSinceLast
+                if (showLabel) lastLabelAt = index
+
+                return (
+                  <span
+                    key={first ? key(first) : index}
+                    aria-hidden="true"
+                    className="w-[12px] font-mono text-[9px] leading-[12px] text-muted"
+                  >
+                    {showLabel ? MONTHS[first.getUTCMonth()] : ''}
+                  </span>
+                )
+              })}
+            </div>
+
+            <div className="mt-[3px] flex gap-[3px]">
+              {columns.map((week, index) => (
+                <div key={index} className="grid grid-rows-7 gap-[3px]">
+                  {week.map(({date, day}) => (
+                    <span
+                      key={key(date)}
+                      title={describe(date, day)}
+                      className={`size-[12px] ${
+                        CAL_FILL[level(day?.total ?? 0)]
+                      }`}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="sr-only">
+        You have studied on {studied} of the last {WEEKS * 7} days, {total}{' '}
+        questions in total. Your current run is {streak}{' '}
+        {streak === 1 ? 'day' : 'days'} and your best run in this period is{' '}
+        {best} {best === 1 ? 'day' : 'days'}.
+      </p>
+
+      <div
+        aria-hidden="true"
+        className="mt-2 flex items-center justify-end gap-1.5"
+      >
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
+          Lighter
+        </span>
+        {[0, 1, 2, 3, 4].map((step) => (
+          <span
+            key={step}
+            className={`size-[10px] ${CAL_FILL[step]}`}
+          />
+        ))}
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
+          Heavier
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function Figure({
+  label,
+  value,
+  unit,
+}: {
+  label: string
+  value: number
+  unit: string
+}) {
+  return (
+    <div>
+      <dt className="eyebrow">{label}</dt>
+      <dd className="font-display text-xl font-semibold tabular-nums">
+        {value}{' '}
+        <span className="font-sans text-xs font-normal text-muted">{unit}</span>
+      </dd>
+    </div>
+  )
+}
+
+function describe(date: Date, day: StudyDay | undefined): string {
+  const when = date.toISOString().slice(0, 10)
+  if (!day) return `${when}: nothing`
+  return `${when}: ${day.total} answered, ${day.correct} right, ${day.wrong} missed`
+}
+
+function bestRun(days: StudyDay[]): number {
+  let best = 0
+  let run = 0
+  let previous: number | null = null
+
+  for (const day of days) {
+    const at = Date.parse(`${day.day}T00:00:00Z`)
+    run = previous !== null && at - previous === DAY_MS ? run + 1 : 1
+    if (run > best) best = run
+    previous = at
+  }
+
+  return best
 }

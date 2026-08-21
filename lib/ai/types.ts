@@ -1,6 +1,6 @@
-import { z } from 'zod'
+import {z} from 'zod'
 
-import { normalizeChoiceLabel } from '@/lib/questions/shape'
+import {normalizeChoiceLabel} from '@/lib/questions/shape'
 
 export type ExecutionSite = 'server' | 'browser' | 'operator_gpu' | 'none'
 export type ProviderName =
@@ -69,7 +69,7 @@ export interface ExtractionRejection {
 }
 
 function previewOf(item: unknown): string {
-  const text = (item as { prompt_text?: unknown })?.prompt_text
+  const text = (item as {prompt_text?: unknown})?.prompt_text
   const source = typeof text === 'string' && text.length > 0 ? text : JSON.stringify(item)
   return (source ?? '').replace(/\s+/g, ' ').slice(0, 70)
 }
@@ -80,10 +80,10 @@ export function parseExtraction(raw: unknown): {
   rejections: ExtractionRejection[]
 } {
   const outer = z
-    .object({ questions: z.array(z.unknown()).max(200) })
+    .object({questions: z.array(z.unknown()).max(200)})
     .safeParse(raw)
 
-  if (!outer.success) return { questions: [], rejected: 0, rejections: [] }
+  if (!outer.success) return {questions: [], rejected: 0, rejections: []}
 
   const questions: ExtractedQuestion[] = []
   const rejections: ExtractionRejection[] = []
@@ -112,7 +112,7 @@ export function parseExtraction(raw: unknown): {
     questions.push(parsed.data)
   }
 
-  return { questions, rejected: rejections.length, rejections }
+  return {questions, rejected: rejections.length, rejections}
 }
 
 const RESTATEMENT = /^\s*(the\s+)?question\s+(asks|is\s+asking|requires|wants)\b/i
@@ -222,7 +222,7 @@ export const generatedQuestionSchema = z.object({
 export type GeneratedQuestion = z.infer<typeof generatedQuestionSchema>
 
 export function parsePractice(raw: unknown): GeneratedQuestion[] {
-  const outer = z.object({ questions: z.array(z.unknown()).max(40) }).safeParse(raw)
+  const outer = z.object({questions: z.array(z.unknown()).max(40)}).safeParse(raw)
   if (!outer.success) return []
 
   const kept: GeneratedQuestion[] = []
@@ -238,7 +238,7 @@ export function parsePractice(raw: unknown): GeneratedQuestion[] {
 export interface ReviewCandidate {
   number: number
   prompt_text: string
-  choices: { label: string; text: string }[]
+  choices: {label: string; text: string}[]
 }
 
 export const questionReviewSchema = z.object({
@@ -290,7 +290,7 @@ export interface TopicCandidate {
 
 export interface AnswerInput {
   promptText: string
-  choices: { label: string; text: string }[]
+  choices: {label: string; text: string}[]
 
   image?: Uint8Array
   mediaType?: string
@@ -311,7 +311,7 @@ export interface PracticeInput {
 
 export interface ExplainInput {
   promptText: string
-  choices: { label: string; text: string }[]
+  choices: {label: string; text: string}[]
   correctAnswer: string | null
 
   studentAnswer: string | null

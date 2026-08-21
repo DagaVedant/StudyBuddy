@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-export const metadata = { title: 'Not Found · StudyBuddy' }
+export const metadata = {title: 'Not Found · StudyBuddy'}
 
 export default function NotFound() {
   return (

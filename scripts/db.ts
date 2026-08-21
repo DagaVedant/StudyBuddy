@@ -1,4 +1,4 @@
-import { createInterface } from 'node:readline/promises'
+import {createInterface} from 'node:readline/promises'
 
 import postgres from 'postgres'
 
@@ -25,7 +25,7 @@ const LOOPBACK_HOSTNAMES = new Set(['localhost', '::1', '[::1]'])
 
 export function isLocalDatabaseUrl(
   url: string,
-  env: { PGHOST?: string } = process.env as { PGHOST?: string },
+  env: {PGHOST?: string} = process.env as {PGHOST?: string},
 ): boolean {
   let parsed: URL
   try {
@@ -89,7 +89,7 @@ export async function confirmDestructive(summary: string[]): Promise<void> {
     process.exit(1)
   }
 
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  const rl = createInterface({input: process.stdin, output: process.stdout})
   const answer = await rl.question('\nType "yes" to proceed: ')
   rl.close()
 

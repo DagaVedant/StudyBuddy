@@ -1,14 +1,14 @@
-import { config } from 'dotenv'
+import {config} from 'dotenv'
 
-config({ path: '.env.local', quiet: true })
+config({path: '.env.local', quiet: true})
 
-import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import {readFile} from 'node:fs/promises'
+import {resolve} from 'node:path'
 
-import { connect } from '../db'
+import {connect} from '../db'
 
 interface Journal {
-  entries: { idx: number; when: number; tag: string }[]
+  entries: {idx: number; when: number; tag: string}[]
 }
 
 function describe(url: string): string {
@@ -37,7 +37,7 @@ const UNREACHABLE = new Set([
 ])
 
 function cannotReach(error: unknown): boolean {
-  const code = (error as { code?: string } | null)?.code
+  const code = (error as {code?: string} | null)?.code
   return code !== undefined && UNREACHABLE.has(code)
 }
 
@@ -47,13 +47,13 @@ async function lastApplied(url: string): Promise<number | null> {
   try {
     const [table] = (await sql`
       select to_regclass('drizzle.__drizzle_migrations') is not null as present
-    `) as unknown as { present: boolean }[]
+    `) as unknown as {present: boolean}[]
 
     if (!table.present) return null
 
     const [row] = (await sql`
       select created_at from drizzle.__drizzle_migrations order by created_at desc limit 1
-    `) as unknown as { created_at: string | number | null }[]
+    `) as unknown as {created_at: string | number | null}[]
 
     return row?.created_at == null ? null : Number(row.created_at)
   } finally {

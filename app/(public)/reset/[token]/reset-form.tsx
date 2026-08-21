@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState } from 'react'
+import {useActionState} from 'react'
 
-import { type FormState, resetPassword } from '@/lib/auth/actions'
+import {type FormState, resetPassword} from '@/lib/auth/actions'
 
-export default function ResetForm({ token }: { token: string }) {
+export default function ResetForm({token}: {token: string}) {
   const [state, action, pending] = useActionState<FormState, FormData>(resetPassword, {})
 
   if (state.message) {

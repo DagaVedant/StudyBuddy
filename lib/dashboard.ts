@@ -1,9 +1,9 @@
-import { and, desc, eq, inArray, isNotNull, lte, sql } from 'drizzle-orm'
+import {and, desc, eq, inArray, isNotNull, lte, sql} from 'drizzle-orm'
 
-import { COUNTS_TOWARDS_ACCURACY, IS_QUESTION } from '@/lib/questions/queries'
-import { inReviewQueue } from '@/lib/review'
-import { type Db, unwrapDriverRows as rows } from '@/lib/db'
-import { MIN_ATTEMPTS, type TopicStats } from '@/lib/ranking'
+import {COUNTS_TOWARDS_ACCURACY, IS_QUESTION} from '@/lib/questions/queries'
+import {inReviewQueue} from '@/lib/review'
+import {type Db, unwrapDriverRows as rows} from '@/lib/db'
+import {MIN_ATTEMPTS, type TopicStats} from '@/lib/ranking'
 
 import {
   attempts,
@@ -121,7 +121,7 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
   )
 
   const [dueNow] = await db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({value: sql<number>`count(*)::int`})
     .from(reviewCards)
     .where(
       and(
@@ -132,7 +132,7 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
     )
 
   const [queued] = await db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({value: sql<number>`count(*)::int`})
     .from(reviewCards)
     .where(and(eq(reviewCards.userId, userId), inReviewQueue(userId)))
 
@@ -158,7 +158,7 @@ export async function listUntaggedWorksheets(
   limit = UNTAGGED_WORKSHEETS_SHOWN,
 ): Promise<UntaggedWorksheet[]> {
   return db
-    .select({ id: worksheets.id, title: worksheets.title })
+    .select({id: worksheets.id, title: worksheets.title})
     .from(worksheets)
     .where(
       and(eq(worksheets.userId, userId), isNotNull(worksheets.classificationError)),
@@ -337,7 +337,7 @@ export async function getAccuracyTrendBySubject(
   }
 
   return [...bySubject.entries()]
-    .map(([subjectRoot, points]) => ({ subjectRoot, points }))
+    .map(([subjectRoot, points]) => ({subjectRoot, points}))
     .sort((a, b) => a.subjectRoot.localeCompare(b.subjectRoot))
 }
 
@@ -351,7 +351,7 @@ export interface RecentWorksheet {
   wrongCount: number
   markedCount: number
   correctCount: number
-  topics: { topicId: string; topicName: string; questionCount: number }[]
+  topics: {topicId: string; topicName: string; questionCount: number}[]
 }
 
 export async function getRecentWorksheets(
@@ -472,7 +472,7 @@ export interface AccountAccuracy {
 }
 
 export async function getAccountAccuracy(db: Db, userId: string): Promise<AccountAccuracy> {
-  const [row] = rows<{ correct: number; total: number }>(
+  const [row] = rows<{correct: number; total: number}>(
     await db.execute(sql`
       select
         count(*) filter (where ${attempts.outcome} = 'correct')::int as correct,
@@ -498,7 +498,7 @@ export async function getStudyStreak(
   userId: string,
   now: Date = new Date(),
 ): Promise<number> {
-  const days = rows<{ day: string }>(
+  const days = rows<{day: string}>(
     await db.execute(sql`
       select distinct to_char(date_trunc('day', ${attempts.createdAt}), 'YYYY-MM-DD') as day
       from ${attempts}

@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm'
+import {and, asc, desc, eq, inArray, isNull, lte, or, sql} from 'drizzle-orm'
 
-import { CHOICE_ORDER } from '@/lib/questions/queries'
+import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {
   answerChoices,
   attempts,
@@ -11,8 +11,8 @@ import {
   topics,
   worksheetPages,
 } from '@/lib/db/schema'
-import { type Db } from '@/lib/db'
-import { type QuestionEvidence, evidenceFor } from '@/lib/questions/text'
+import {type Db} from '@/lib/db'
+import {type QuestionEvidence, evidenceFor} from '@/lib/questions/text'
 
 function inTopic(topicId?: string | null) {
   if (!topicId) return undefined
@@ -71,7 +71,7 @@ export interface ReviewItem {
   lastOutcome: string | null
   lastChoiceId: string | null
   lastFreeText: string | null
-  explanation: { body: string; reportedWrong: boolean } | null
+  explanation: {body: string; reportedWrong: boolean} | null
   evidence: QuestionEvidence | null
   dueAt: string
   intervals: Record<ReviewRating, string>
@@ -84,7 +84,7 @@ export async function countReviewQueue(
   topicId?: string | null,
 ): Promise<number> {
   const [row] = await db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({value: sql<number>`count(*)::int`})
     .from(reviewCards)
     .where(
       and(eq(reviewCards.userId, userId), inReviewQueue(userId, now), inTopic(topicId)),
@@ -231,7 +231,7 @@ export async function getDueCards(
       lastChoiceId: last?.selectedChoiceId ?? null,
       lastFreeText: last?.freeTextAnswer ?? null,
       explanation: explanation
-        ? { body: explanation.bodyMd, reportedWrong: explanation.reportedWrong }
+        ? {body: explanation.bodyMd, reportedWrong: explanation.reportedWrong}
         : null,
       evidence: card.pageImageKey
         ? evidenceFor(card.bbox, {
@@ -351,7 +351,7 @@ function schedule(
   grade: Grade,
   now: Date,
 ): ScheduleResult {
-  const { card, log } = scheduler.next(toFsrsCard(stored, now), now, grade)
+  const {card, log} = scheduler.next(toFsrsCard(stored, now), now, grade)
 
   return {
     card: fromFsrsCard(card),
@@ -419,8 +419,8 @@ export interface Correction {
 }
 
 export type CorrectionResult =
-  | { ok: true; outcome: Outcome; rescheduled: boolean }
-  | { ok: false; reason: 'no-question' | 'not-marked' }
+  | {ok: true; outcome: Outcome; rescheduled: boolean}
+  | {ok: false; reason: 'no-question' | 'not-marked'}
 
 export async function correctMarkupAttempt(
   db: Db,
@@ -429,17 +429,17 @@ export async function correctMarkupAttempt(
   input: Correction,
 ): Promise<CorrectionResult> {
   const [question] = await db
-    .select({ id: questions.id })
+    .select({id: questions.id})
     .from(questions)
     .where(
       and(eq(questions.worksheetId, worksheetId), eq(questions.id, input.questionId)),
     )
     .limit(1)
 
-  if (!question) return { ok: false, reason: 'no-question' }
+  if (!question) return {ok: false, reason: 'no-question'}
 
   const [existing] = await db
-    .select({ id: attempts.id })
+    .select({id: attempts.id})
     .from(attempts)
     .where(
       and(
@@ -450,11 +450,11 @@ export async function correctMarkupAttempt(
     )
     .limit(1)
 
-  if (!existing) return { ok: false, reason: 'not-marked' }
+  if (!existing) return {ok: false, reason: 'not-marked'}
 
   const [choice] = input.selectedChoiceId
     ? await db
-        .select({ id: answerChoices.id })
+        .select({id: answerChoices.id})
         .from(answerChoices)
         .where(
           and(
@@ -479,7 +479,7 @@ export async function correctMarkupAttempt(
       .where(eq(attempts.id, existing.id))
 
     const [practised] = await tx
-      .select({ id: attempts.id })
+      .select({id: attempts.id})
       .from(attempts)
       .where(
         and(
@@ -492,11 +492,11 @@ export async function correctMarkupAttempt(
 
     if (practised) return
 
-    const { card } = scheduleFromOutcome(null, input.outcome, now)
+    const {card} = scheduleFromOutcome(null, input.outcome, now)
 
     await tx
       .insert(reviewCards)
-      .values({ userId, questionId: input.questionId, ...card })
+      .values({userId, questionId: input.questionId, ...card})
       .onConflictDoUpdate({
         target: [reviewCards.userId, reviewCards.questionId],
         set: {
@@ -508,5 +508,5 @@ export async function correctMarkupAttempt(
     rescheduled = true
   })
 
-  return { ok: true, outcome: input.outcome, rescheduled }
+  return {ok: true, outcome: input.outcome, rescheduled}
 }

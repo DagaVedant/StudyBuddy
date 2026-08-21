@@ -1,16 +1,16 @@
 'use server'
 
 import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
-import { z } from 'zod'
+import {eq} from 'drizzle-orm'
+import {z} from 'zod'
 
-import { headers } from 'next/headers'
-import { AuthError } from 'next-auth'
+import {headers} from 'next/headers'
+import {AuthError} from 'next-auth'
 
-import { auth, signIn } from '@/auth'
-import { db } from '@/lib/db'
-import { users } from '@/lib/db/schema'
-import { mailConfigured, sendMail } from '@/lib/mail'
+import {auth, signIn} from '@/auth'
+import {db} from '@/lib/db'
+import {users} from '@/lib/db/schema'
+import {mailConfigured, sendMail} from '@/lib/mail'
 import {
   RESET_ATTEMPT_LIMIT,
   RESET_REQUEST_EMAIL_LIMIT,
@@ -18,9 +18,9 @@ import {
   SIGNUP_LIMIT,
   callerIp,
   consumeRateLimit,
-} from '@/lib/rate-limit'
+} from '@/lib/api'
 
-import { isAdminEmail, isDisposableEmail, safeNextPath, validateDob } from './policy'
+import {isAdminEmail, isDisposableEmail, safeNextPath, validateDob} from './policy'
 import {
   consumeResetToken,
   findResetTarget,
@@ -72,7 +72,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   }
 
   if (inviteRequired() && !inviteAccepted(String(formData.get('invite') ?? ''))) {
-    return { error: 'That invite code is not right. Ask whoever sent you here.' }
+    return {error: 'That invite code is not right. Ask whoever sent you here.'}
   }
 
   const parsed = signupSchema.safeParse({
@@ -83,26 +83,26 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   })
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? 'Check the form and try again.' }
+    return {error: parsed.error.issues[0]?.message ?? 'Check the form and try again.'}
   }
 
   const age = validateDob(parsed.data.dob)
-  if (!age.ok) return { error: age.reason }
+  if (!age.ok) return {error: age.reason}
 
-  const { email, password, name } = parsed.data
+  const {email, password, name} = parsed.data
 
   if (isAdminEmail(email)) {
-    return { message: 'Your account is ready. Sign in below.' }
+    return {message: 'Your account is ready. Sign in below.'}
   }
 
   const [existing] = await db
-    .select({ id: users.id, emailVerified: users.emailVerified })
+    .select({id: users.id, emailVerified: users.emailVerified})
     .from(users)
     .where(eq(users.email, email))
     .limit(1)
 
   if (existing) {
-    return { message: 'Your account is ready. Sign in below.' }
+    return {message: 'Your account is ready. Sign in below.'}
   }
 
   const passwordHash = await bcrypt.hash(password, 12)
@@ -115,11 +115,11 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     emailVerified: null,
   })
 
-  return { message: 'Your account is ready. Sign in below.' }
+  return {message: 'Your account is ready. Sign in below.'}
 }
 
 export async function signInWithGoogle(): Promise<void> {
-  await signIn('google', { redirectTo: '/dashboard' })
+  await signIn('google', {redirectTo: '/dashboard'})
 }
 
 const SIGNIN_FAILED = 'That email and password combination did not work.'
@@ -141,7 +141,7 @@ export async function signInWithCredentials(
     return {}
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: SIGNIN_FAILED }
+      return {error: SIGNIN_FAILED}
     }
     throw error
   }
@@ -157,7 +157,7 @@ export async function requestPasswordReset(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!mailConfigured()) return { error: NO_MAIL }
+  if (!mailConfigured()) return {error: NO_MAIL}
 
   const email = String(formData.get('email') ?? '')
     .trim()
@@ -173,19 +173,19 @@ export async function requestPasswordReset(
   }
 
   if (!z.string().email().safeParse(email).success) {
-    return { error: 'Enter a valid email address.' }
+    return {error: 'Enter a valid email address.'}
   }
 
   const byEmail = await consumeRateLimit(db, RESET_REQUEST_EMAIL_LIMIT, `email:${email}`)
-  if (!byEmail.ok) return { message: SENT }
+  if (!byEmail.ok) return {message: SENT}
 
   const [user] = await db
-    .select({ id: users.id })
+    .select({id: users.id})
     .from(users)
     .where(eq(users.email, email))
     .limit(1)
 
-  if (!user) return { message: SENT }
+  if (!user) return {message: SENT}
 
   const token = await issueResetToken(db, user.id)
 
@@ -206,7 +206,7 @@ export async function requestPasswordReset(
     }
   }
 
-  return { message: SENT }
+  return {message: SENT}
 }
 
 const resetSchema = z.object({
@@ -239,25 +239,25 @@ export async function resetPassword(
   })
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? 'Check the form and try again.' }
+    return {error: parsed.error.issues[0]?.message ?? 'Check the form and try again.'}
   }
 
   const target = await findResetTarget(db, parsed.data.token)
-  if (!target) return { error: DEAD_LINK }
+  if (!target) return {error: DEAD_LINK}
 
   await consumeResetToken(db, target, await bcrypt.hash(parsed.data.password, 12))
 
-  return { message: 'Your password is set. Sign in with it below.' }
+  return {message: 'Your password is set. Sign in with it below.'}
 }
 
 export async function submitDob(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await auth()
-  if (!session?.user?.id) return { error: 'You need to be signed in.' }
+  if (!session?.user?.id) return {error: 'You need to be signed in.'}
 
   const age = validateDob(formData.get('dob') as string | null)
-  if (!age.ok) return { error: age.reason }
+  if (!age.ok) return {error: age.reason}
 
-  await db.update(users).set({ dob: age.dob }).where(eq(users.id, session.user.id))
+  await db.update(users).set({dob: age.dob}).where(eq(users.id, session.user.id))
 
-  return { message: 'Saved.' }
+  return {message: 'Saved.'}
 }

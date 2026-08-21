@@ -1,6 +1,6 @@
 import * as PdfjsModule from 'pdfjs-dist'
-import { createWorker, type Worker } from 'tesseract.js'
-import { type TextItem } from 'pdfjs-dist/types/src/display/api'
+import {createWorker, type Worker} from 'tesseract.js'
+import {type TextItem} from 'pdfjs-dist/types/src/display/api'
 
 import {
   countInRange,
@@ -9,9 +9,9 @@ import {
   RASTER_DPI,
   RASTER_MAX_EDGE,
 } from '@/lib/upload'
-import { type TextLine } from '@/lib/db/schema'
+import {type TextLine} from '@/lib/db/schema'
 
-import { throwIfCancelled, untilCancelled } from './http'
+import {throwIfCancelled, untilCancelled} from './http'
 
 const runtimeImport = new Function('url', 'return import(url)') as (
   url: string,
@@ -153,14 +153,14 @@ export async function rasterizePdf(
   onProgress?: (progress: RasterProgress) => void,
   options: RasterizeOptions = {},
 ): Promise<RasterizedPdf> {
-  const { offset = 0, range = null, signal } = options
+  const {offset = 0, range = null, signal} = options
 
   throwIfCancelled(signal)
 
   const pdfjs = await getPdfjs()
   const data = await file.arrayBuffer()
 
-  const loadingTask = pdfjs.getDocument({ data })
+  const loadingTask = pdfjs.getDocument({data})
   const pdf = await loadingTask.promise
 
   const pages: RasterPage[] = []
@@ -179,20 +179,20 @@ export async function rasterizePdf(
       const page = await pdf.getPage(pageNumber)
 
       let scale = RASTER_DPI / PDF_POINTS_PER_INCH
-      const base = page.getViewport({ scale })
+      const base = page.getViewport({scale})
       const longestEdge = Math.max(base.width, base.height)
       if (longestEdge > RASTER_MAX_EDGE) {
         scale *= RASTER_MAX_EDGE / longestEdge
       }
 
-      const viewport = page.getViewport({ scale })
+      const viewport = page.getViewport({scale})
       const canvas = document.createElement('canvas')
       canvas.width = Math.floor(viewport.width)
       canvas.height = Math.floor(viewport.height)
 
-      const renderTask = page.render({ canvas, viewport, intent: 'print' })
+      const renderTask = page.render({canvas, viewport, intent: 'print'})
       const cancelRender = () => renderTask.cancel()
-      signal?.addEventListener('abort', cancelRender, { once: true })
+      signal?.addEventListener('abort', cancelRender, {once: true})
 
       try {
         await renderTask.promise
@@ -229,13 +229,13 @@ export async function rasterizePdf(
 
       page.cleanup()
       rendered += 1
-      onProgress?.({ page: rendered, total: plannedTotal })
+      onProgress?.({page: rendered, total: plannedTotal})
     }
   } finally {
     await loadingTask.destroy()
   }
 
-  return { pages, totalPages: pdf.numPages }
+  return {pages, totalPages: pdf.numPages}
 }
 
 export async function rasterizeImage(
@@ -260,12 +260,12 @@ export async function rasterizeImage(
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
 
     const blob = await canvasToBlob(canvas)
-    const { width, height } = canvas
+    const {width, height} = canvas
 
     canvas.width = 0
     canvas.height = 0
 
-    return { pageNumber, blob, width, height, embeddedText: '', embeddedLines: [] }
+    return {pageNumber, blob, width, height, embeddedText: '', embeddedLines: []}
   } finally {
     bitmap.close()
   }
@@ -301,8 +301,8 @@ export async function ocrPage(image: Blob, signal?: AbortSignal): Promise<OcrRes
 
   let data
   try {
-    ;({ data } = await untilCancelled(
-      worker.recognize(image, {}, { text: true, blocks: true }),
+    ;({data} = await untilCancelled(
+      worker.recognize(image, {}, {text: true, blocks: true}),
       signal,
     ))
   } catch (cause) {
@@ -324,7 +324,7 @@ export async function ocrPage(image: Blob, signal?: AbortSignal): Promise<OcrRes
     }
   }
 
-  return { text: data.text.replace(/\s+\n/g, '\n').trim(), lines }
+  return {text: data.text.replace(/\s+\n/g, '\n').trim(), lines}
 }
 
 export async function terminateOcr(): Promise<void> {

@@ -1,17 +1,17 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { PageHead } from '@/components/ui'
+import {redirect} from 'next/navigation'
+import {PageHead} from '@/components/ui'
 
-import { auth } from '@/auth'
-import { AiSetupPrompt } from '@/components/ui'
-import { getAiStatus, resolveProvider, shouldOfferAiSetup } from '@/lib/ai/resolve'
-import { db } from '@/lib/db'
-import { queueDepth, workerStatus } from '@/lib/queue'
-import { flattenTaxonomy } from '@/lib/taxonomy'
+import {auth} from '@/auth'
+import {AiSetupPrompt} from '@/components/ui'
+import {getAiStatus, resolveProvider, shouldOfferAiSetup} from '@/lib/ai/resolve'
+import {db} from '@/lib/db'
+import {queueDepth, workerStatus} from '@/lib/queue'
+import {flattenTaxonomy} from '@/lib/taxonomy'
 
-import UploadClient, { type SubjectGroup } from './upload-client'
+import UploadClient, {type SubjectGroup} from './upload-client'
 
-export const metadata = { title: 'Upload a Worksheet · StudyBuddy' }
+export const metadata = {title: 'Upload a Worksheet · StudyBuddy'}
 
 function subjectGroups(): SubjectGroup[] {
   const topics = flattenTaxonomy()
@@ -21,10 +21,10 @@ function subjectGroups(): SubjectGroup[] {
     .map((root) => ({
       label: root.name,
       options: [
-        { slug: root.slug, label: `All of ${root.name}` },
+        {slug: root.slug, label: `All of ${root.name}`},
         ...topics
           .filter((topic) => topic.depth === 1 && topic.parentSlug === root.slug)
-          .map((child) => ({ slug: child.slug, label: child.name })),
+          .map((child) => ({slug: child.slug, label: child.name})),
       ],
     }))
 }

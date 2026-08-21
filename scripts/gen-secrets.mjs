@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import {randomBytes} from 'node:crypto'
 
 const lines = [
   `AUTH_SECRET="${randomBytes(32).toString('base64')}"`,

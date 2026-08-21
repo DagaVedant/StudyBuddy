@@ -1,10 +1,10 @@
 import Link from 'next/link'
 
-import { MainRegion } from '@/components/ui'
+import {MainRegion} from '@/components/ui'
 
 export default function PublicLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: Readonly<{children: React.ReactNode}>) {
   return (
     <>
       <MainRegion>{children}</MainRegion>

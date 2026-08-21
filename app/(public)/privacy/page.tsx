@@ -1,8 +1,8 @@
 import Link from 'next/link'
 
-import { POLICY_UPDATED, contactEmail } from '@/lib/rate-limit'
+import {POLICY_UPDATED, contactEmail} from '@/lib/api'
 
-export const metadata = { title: 'Privacy · StudyBuddy' }
+export const metadata = {title: 'Privacy · StudyBuddy'}
 
 export default function PrivacyPage() {
   const contact = contactEmail()

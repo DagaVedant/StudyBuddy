@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from 'drizzle-orm'
+import {asc, eq, inArray} from 'drizzle-orm'
 
 import {
   answerChoices,
@@ -18,19 +18,19 @@ import {
   planDuplicateMerges,
   planNumberDuplicateMerges,
 } from '@/lib/questions/numbering'
-import { loadQuestionsWithChoices } from '@/lib/questions/queries'
-import { modalChoiceCount, validateQuestion } from '@/lib/questions/validate'
-import { refundTrial } from '@/lib/ai/resolve'
-import { sortWithinPage } from '@/lib/questions/text'
-import { type Db } from '@/lib/db'
-import { type JobStage, transitionWorksheet } from '@/lib/queue'
+import {loadQuestionsWithChoices} from '@/lib/questions/queries'
+import {modalChoiceCount, validateQuestion} from '@/lib/questions/validate'
+import {refundTrial} from '@/lib/ai/resolve'
+import {sortWithinPage} from '@/lib/questions/text'
+import {type Db} from '@/lib/db'
+import {type JobStage, transitionWorksheet} from '@/lib/queue'
 
 const RECOVERABLE = new Set(['multiple_choice', 'free_response'])
 
 export async function recoverCarriedChoices(
   db: Db,
   worksheetId: string,
-): Promise<{ recovered: number }> {
+): Promise<{recovered: number}> {
   const pages = await db
     .select({
       pageNumber: worksheetPages.pageNumber,
@@ -40,13 +40,13 @@ export async function recoverCarriedChoices(
     .where(eq(worksheetPages.worksheetId, worksheetId))
     .orderBy(asc(worksheetPages.pageNumber))
 
-  if (pages.length < 2) return { recovered: 0 }
+  if (pages.length < 2) return {recovered: 0}
 
   const rows = await loadQuestionsWithChoices(db, worksheetId)
 
-  if (rows.length === 0) return { recovered: 0 }
+  if (rows.length === 0) return {recovered: 0}
 
-  const candidates = rows.map((row) => ({ ...row, position: row.ordinal }))
+  const candidates = rows.map((row) => ({...row, position: row.ordinal}))
 
   const expectedCount = modalChoiceCount(candidates)
 
@@ -56,7 +56,7 @@ export async function recoverCarriedChoices(
     byPage.set(candidate.pageNumber, [...(byPage.get(candidate.pageNumber) ?? []), candidate])
   }
 
-  const fingerprint = (choices: { text: string }[]): string =>
+  const fingerprint = (choices: {text: string}[]): string =>
     choices.map((choice) => normalizeForCompare(choice.text)).join('|')
 
   let recovered = 0
@@ -82,7 +82,7 @@ export async function recoverCarriedChoices(
 
     const held = target.choices.map((choice) => choice.label)
 
-    const carried = parseCarriedChoices(page.ocrText ?? '', { expectedCount, held })
+    const carried = parseCarriedChoices(page.ocrText ?? '', {expectedCount, held})
     if (!carried) continue
 
     
@@ -145,16 +145,16 @@ export async function recoverCarriedChoices(
     )
   }
 
-  return { recovered }
+  return {recovered}
 }
 
 export async function mergeDuplicateQuestions(
   db: Db,
   worksheetId: string,
-): Promise<{ merged: number }> {
+): Promise<{merged: number}> {
   const rows = await loadQuestionsWithChoices(db, worksheetId)
 
-  if (rows.length < 2) return { merged: 0 }
+  if (rows.length < 2) return {merged: 0}
 
   const candidates = rows.map((row) => ({
     id: row.id,
@@ -234,7 +234,7 @@ export async function mergeDuplicateQuestions(
     if (plan.printedNumber !== null) {
       await db
         .update(questions)
-        .set({ printedNumber: plan.printedNumber })
+        .set({printedNumber: plan.printedNumber})
         .where(eq(questions.id, plan.keepId))
 
       const keptOldNumber = holderOf.get(plan.keepId)
@@ -258,7 +258,7 @@ export async function mergeDuplicateQuestions(
     merged += 1
   }
 
-  return { merged }
+  return {merged}
 }
 
 export interface Partitioned<T> {
@@ -266,7 +266,7 @@ export interface Partitioned<T> {
   held: T[]
 }
 
-export async function partitionByDeletability<T extends { id: string }>(
+export async function partitionByDeletability<T extends {id: string}>(
   db: Db,
   rows: T[],
 ): Promise<Partitioned<T>> {
@@ -288,11 +288,11 @@ export async function deletableQuestionIds(db: Db, ids: string[]): Promise<strin
 
   const [claimedByAttempt, claimedByCard] = await Promise.all([
     db
-      .select({ id: attempts.questionId })
+      .select({id: attempts.questionId})
       .from(attempts)
       .where(inArray(attempts.questionId, ids)),
     db
-      .select({ id: reviewCards.questionId })
+      .select({id: reviewCards.questionId})
       .from(reviewCards)
       .where(inArray(reviewCards.questionId, ids)),
   ])
@@ -342,7 +342,7 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
 
     case 'extract': {
       const [worksheet] = await db
-        .select({ tierUsed: worksheets.tierUsed })
+        .select({tierUsed: worksheets.tierUsed})
         .from(worksheets)
         .where(eq(worksheets.id, job.worksheetId))
         .limit(1)
@@ -355,7 +355,7 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
         db,
         job.worksheetId,
         ['queued', 'processing'],
-        { status: 'failed' },
+        {status: 'failed'},
       )
 
       if (failed) {
@@ -386,13 +386,13 @@ export async function recordUntagged(
 ): Promise<void> {
   await db
     .update(worksheets)
-    .set({ classificationError: reason })
+    .set({classificationError: reason})
     .where(eq(worksheets.id, worksheetId))
 }
 
 export async function clearUntagged(db: Db, worksheetId: string): Promise<void> {
   await db
     .update(worksheets)
-    .set({ classificationError: null })
+    .set({classificationError: null})
     .where(eq(worksheets.id, worksheetId))
 }

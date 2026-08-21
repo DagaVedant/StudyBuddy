@@ -1,16 +1,16 @@
-import { config } from 'dotenv'
+import {config} from 'dotenv'
 
-config({ path: '.env.local' })
+config({path: '.env.local'})
 
-import { eq } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/postgres-js'
+import {eq} from 'drizzle-orm'
+import {drizzle} from 'drizzle-orm/postgres-js'
 
 import * as schema from '../lib/db/schema'
-import { topics } from '../lib/db/schema'
-import type { Db } from '../lib/db'
-import { demoteParentsWithChildren } from '../lib/taxonomy'
-import { flattenTaxonomy } from '../lib/taxonomy'
-import { connect } from './db'
+import {topics} from '../lib/db/schema'
+import type {Db} from '../lib/db'
+import {demoteParentsWithChildren} from '../lib/taxonomy'
+import {flattenTaxonomy} from '../lib/taxonomy'
+import {connect} from './db'
 
 const dryRun = process.argv.includes('--dry-run')
 
@@ -18,9 +18,9 @@ async function main() {
   const flat = flattenTaxonomy()
 
   const leaves = flat.filter((t) => t.isLeaf)
-  const bySubject = new Map<string, { total: number; leaves: number }>()
+  const bySubject = new Map<string, {total: number; leaves: number}>()
   for (const t of flat) {
-    const entry = bySubject.get(t.subjectRoot) ?? { total: 0, leaves: 0 }
+    const entry = bySubject.get(t.subjectRoot) ?? {total: 0, leaves: 0}
     entry.total += 1
     if (t.isLeaf) entry.leaves += 1
     bySubject.set(t.subjectRoot, entry)
@@ -43,7 +43,7 @@ async function main() {
   }
 
   const sql = connect(url)
-  const db = drizzle(sql, { schema }) as unknown as Db
+  const db = drizzle(sql, {schema}) as unknown as Db
 
   const ordered = [...flat].sort((a, b) => a.depth - b.depth)
   const idBySlug = new Map<string, string>()
@@ -57,7 +57,7 @@ async function main() {
     }
 
     const existing = await db
-      .select({ id: topics.id })
+      .select({id: topics.id})
       .from(topics)
       .where(eq(topics.slug, node.slug))
       .limit(1)
@@ -88,7 +88,7 @@ async function main() {
           isLeaf: node.isLeaf,
           isCanonical: true,
         })
-        .returning({ id: topics.id })
+        .returning({id: topics.id})
       idBySlug.set(node.slug, row.id)
       inserted += 1
     }
@@ -98,7 +98,7 @@ async function main() {
 
   const currentSlugs = new Set(flat.map((node) => node.slug))
   const orphaned = await db
-    .select({ slug: topics.slug, name: topics.name })
+    .select({slug: topics.slug, name: topics.name})
     .from(topics)
     .where(eq(topics.isCanonical, true))
 

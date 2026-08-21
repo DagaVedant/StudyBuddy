@@ -1,8 +1,8 @@
 'use client'
 
-import { useId, useState } from 'react'
+import {useId, useState} from 'react'
 
-import type { SubjectTrend, TrendPoint } from '@/lib/dashboard'
+import type {SubjectTrend, TrendPoint} from '@/lib/dashboard'
 
 const WEEK_OF = new Intl.DateTimeFormat(undefined, {
   month: 'short',
@@ -73,15 +73,15 @@ export default function AccuracyChart({
               </span>
               <div
                 className="w-full rounded-t-sm bg-danger/70"
-                style={{ height: `${scale(point.wrong)}%` }}
+                style={{height: `${scale(point.wrong)}%`}}
               />
               <div
                 className="w-full bg-muted/50"
-                style={{ height: `${scale(point.unsure)}%` }}
+                style={{height: `${scale(point.unsure)}%`}}
               />
               <div
                 className="w-full bg-accent"
-                style={{ height: `${scale(point.correct)}%` }}
+                style={{height: `${scale(point.correct)}%`}}
               />
               <span className="sr-only">{total}</span>
             </div>

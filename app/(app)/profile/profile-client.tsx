@@ -1,11 +1,11 @@
 'use client'
-import { PageHead } from '@/components/ui'
+import {PageHead} from '@/components/ui'
 
-import { useId, useState } from 'react'
+import {useId, useState} from 'react'
 
-import { AccuracyLabel, Meter } from '@/components/ui'
-import type { AccountAccuracy } from '@/lib/dashboard'
-import { fetchJson } from '@/lib/client/http'
+import {AccuracyLabel, Meter} from '@/components/ui'
+import type {AccountAccuracy} from '@/lib/dashboard'
+import {fetchJson} from '@/lib/client/http'
 
 interface Props {
   name: string | null
@@ -87,7 +87,7 @@ export default function ProfileClient({
     try {
       const response = await fetchJson('/api/account/identity', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           name: nameValue.trim() || null,
           username: usernameValue.trim() || null,
@@ -95,7 +95,7 @@ export default function ProfileClient({
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        const body = (await response.json().catch(() => null)) as {error?: string} | null
         throw new Error(body?.error ?? 'Could not save your profile.')
       }
 

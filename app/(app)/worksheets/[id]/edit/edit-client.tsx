@@ -17,13 +17,13 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useRouter } from 'next/navigation'
+import {useRouter} from 'next/navigation'
 
-import { TopicPicker, type TopicChoice } from '@/components/topics'
-import { choiceLabel } from '@/lib/questions/shape'
-import { fetchJson } from '@/lib/client/http'
-import { reflowText } from '@/lib/questions/text'
-import { type BBox, type TextLine } from '@/lib/db/schema'
+import {TopicPicker, type TopicChoice} from '@/components/client'
+import {choiceLabel} from '@/lib/questions/shape'
+import {fetchJson} from '@/lib/client/http'
+import {reflowText} from '@/lib/questions/text'
+import {type BBox, type TextLine} from '@/lib/db/schema'
 export interface EditablePage {
   id: string
   pageNumber: number
@@ -49,16 +49,16 @@ export interface EditableQuestion {
   questionType: QuestionType
   bbox: BBox | null
   correctAnswer: string | null
-  choices: { id: string; label: string; text: string; isCorrect: boolean }[]
+  choices: {id: string; label: string; text: string; isCorrect: boolean}[]
   topicId: string | null
 }
 
-export const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
-  { value: 'multiple_choice', label: 'Multiple Choice' },
-  { value: 'free_response', label: 'Free Response' },
-  { value: 'true_false', label: 'True or False' },
-  { value: 'fill_blank', label: 'Fill in the Blank' },
-  { value: 'grid_in', label: 'Grid-In' },
+export const QUESTION_TYPES: {value: QuestionType; label: string}[] = [
+  {value: 'multiple_choice', label: 'Multiple Choice'},
+  {value: 'free_response', label: 'Free Response'},
+  {value: 'true_false', label: 'True or False'},
+  {value: 'fill_blank', label: 'Fill in the Blank'},
+  {value: 'grid_in', label: 'Grid-In'},
 ]
 
 export const CHOICE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
@@ -148,7 +148,7 @@ export function useQuestionEditor(
   const pendingRemovals = useRef(
     new Map<
       string,
-      { question: EditableQuestion; index: number; timer: ReturnType<typeof setTimeout> }
+      {question: EditableQuestion; index: number; timer: ReturnType<typeof setTimeout>}
     >(),
   )
 
@@ -177,7 +177,7 @@ export function useQuestionEditor(
       try {
         const response = await fetchJson(`/api/questions/${question.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(patchBody(question)),
           keepalive,
         })
@@ -275,7 +275,7 @@ export function useQuestionEditor(
       const current = questionsRef.current.find((question) => question.id === id)
       if (!current) return
 
-      const next = { ...current, ...patch }
+      const next = {...current, ...patch}
 
       if (patch.choices !== undefined && patch.correctAnswer === undefined) {
         next.correctAnswer = carriedAnswer(
@@ -323,12 +323,12 @@ export function useQuestionEditor(
       try {
         const response = await fetchJson(`/api/worksheets/${worksheetId}/questions`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(body),
         })
         if (!response.ok) throw new Error('Create failed')
 
-        const { questionId } = (await response.json()) as { questionId: string }
+        const {questionId} = (await response.json()) as {questionId: string}
 
         questionsRef.current = [
           ...questionsRef.current,
@@ -400,7 +400,7 @@ export function useQuestionEditor(
       const response = await fetchJson(`/api/worksheets/${worksheetId}/confirm`, {
         method: 'POST',
       })
-      const body = (await response.json()) as { next?: string; error?: string }
+      const body = (await response.json()) as {next?: string; error?: string}
       if (!response.ok) throw new Error(body.error ?? 'Could not confirm')
       router.push(body.next ?? '/dashboard')
     } catch (cause) {
@@ -468,7 +468,7 @@ export function PageCanvas({
   const [drawing, setDrawing] = useState(false)
 
   const imageRef = useRef<HTMLImageElement>(null)
-  const dragStart = useRef<{ x: number; y: number } | null>(null)
+  const dragStart = useRef<{x: number; y: number} | null>(null)
   const draftRef = useRef<BBox | null>(null)
 
   const endDrag = useCallback(() => {
@@ -478,9 +478,9 @@ export function PageCanvas({
   }, [])
 
   const toPageCoords = useCallback(
-    (event: React.PointerEvent): { x: number; y: number } => {
+    (event: React.PointerEvent): {x: number; y: number} => {
       const image = imageRef.current
-      if (!image) return { x: 0, y: 0 }
+      if (!image) return {x: 0, y: 0}
 
       const rect = image.getBoundingClientRect()
       return {
@@ -740,7 +740,7 @@ const QuestionCard = memo(function QuestionCard({
               className="field resize-y"
               value={question.promptText}
               onChange={(event) =>
-                onUpdate(question.id, { promptText: event.target.value })
+                onUpdate(question.id, {promptText: event.target.value})
               }
             />
           </div>
@@ -799,7 +799,7 @@ const QuestionCard = memo(function QuestionCard({
                         onUpdate(question.id, {
                           choices: question.choices.map((other) =>
                             other.id === choice.id
-                              ? { ...other, text: event.target.value }
+                              ? {...other, text: event.target.value}
                               : other,
                           ),
                         })
@@ -813,7 +813,7 @@ const QuestionCard = memo(function QuestionCard({
                         onUpdate(question.id, {
                           choices: question.choices
                             .filter((other) => other.id !== choice.id)
-                            .map((other, i) => ({ ...other, label: CHOICE_LABELS[i] })),
+                            .map((other, i) => ({...other, label: CHOICE_LABELS[i]})),
                         })
                       }
                     >
@@ -859,7 +859,7 @@ const QuestionCard = memo(function QuestionCard({
                 className="field"
                 value={question.correctAnswer ?? ''}
                 onChange={(event) =>
-                  onUpdate(question.id, { correctAnswer: event.target.value || null })
+                  onUpdate(question.id, {correctAnswer: event.target.value || null})
                 }
               />
             </div>
@@ -868,7 +868,7 @@ const QuestionCard = memo(function QuestionCard({
           <TopicPicker
             topics={topics}
             value={question.topicId}
-            onChange={(topicId) => onUpdate(question.id, { topicId })}
+            onChange={(topicId) => onUpdate(question.id, {topicId})}
           />
 
           <button
@@ -958,13 +958,13 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
       scrollToId: (id: string) => {
         if (!virtualize) return // every row is already mounted; nothing to do
         const index = questions.findIndex((q) => q.id === id)
-        if (index >= 0) virtualizer.scrollToIndex(index, { align: 'center' })
+        if (index >= 0) virtualizer.scrollToIndex(index, {align: 'center'})
       },
     }),
     [virtualize, questions, virtualizer],
   )
 
-  const card = (question: EditableQuestion, extra?: { style: CSSProperties; index: number }) => (
+  const card = (question: EditableQuestion, extra?: {style: CSSProperties; index: number}) => (
     <QuestionCard
       key={question.id}
       question={question}
@@ -987,7 +987,7 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
   }
 
   return (
-    <ul ref={listRef} style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
+    <ul ref={listRef} style={{position: 'relative', height: virtualizer.getTotalSize()}}>
       {virtualizer.getVirtualItems().map((virtualRow) =>
         card(questions[virtualRow.index], {
           index: virtualRow.index,
@@ -1044,7 +1044,7 @@ export default function EditClient({
 
     fetch(`/api/worksheets/${worksheetId}/pages/${current.id}/lines`)
       .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((body: { textLines: TextLine[] }) => {
+      .then((body: {textLines: TextLine[]}) => {
         if (cancelled) return
         setLinesByPage((prev) => new Map(prev).set(current.id, body.textLines))
       })
@@ -1065,7 +1065,7 @@ export default function EditClient({
     [topics],
   )
 
-  const { questions, update, removeQuestion, createQuestion } = editor
+  const {questions, update, removeQuestion, createQuestion} = editor
 
   const questionsRef = useRef(questions)
   useEffect(() => {
@@ -1083,7 +1083,7 @@ export default function EditClient({
       const index = pages.findIndex((p) => p.id === pageId)
       if (index >= 0) setPageIndex(index)
 
-      cardRefs.current.get(id)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      cardRefs.current.get(id)?.scrollIntoView({block: 'nearest', behavior: 'smooth'})
       questionListRef.current?.scrollToId(id)
     },
     [pages],
@@ -1097,14 +1097,14 @@ export default function EditClient({
     [focusQuestion],
   )
 
-  const [undoable, setUndoable] = useState<{ id: string; label: string } | null>(null)
+  const [undoable, setUndoable] = useState<{id: string; label: string} | null>(null)
 
   const remove = useCallback(
     (id: string) => {
       const going = questionsRef.current.find((question) => question.id === id)
 
       setSelectedId((current) => (current === id ? null : current))
-      setUndoable(going ? { id, label: `question ${questionLabel(going)}` } : null)
+      setUndoable(going ? {id, label: `question ${questionLabel(going)}`} : null)
       void removeQuestion(id)
     },
     [removeQuestion],
@@ -1138,7 +1138,7 @@ export default function EditClient({
   }
 
   const linesReady = linesByPage.has(page.id)
-  const pageWithLines = { ...page, textLines: linesByPage.get(page.id) ?? [] }
+  const pageWithLines = {...page, textLines: linesByPage.get(page.id) ?? []}
 
   const untagged = questions.filter((question) => !question.topicId).length
 

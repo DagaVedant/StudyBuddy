@@ -1,14 +1,14 @@
-import { config } from 'dotenv'
+import {config} from 'dotenv'
 
-config({ path: '.env.local' })
+config({path: '.env.local'})
 
-import { and, eq, isNull, ne } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/postgres-js'
+import {and, eq, isNull, ne} from 'drizzle-orm'
+import {drizzle} from 'drizzle-orm/postgres-js'
 
-import { questions, topics } from '../lib/db/schema'
-import { embed } from '../lib/embeddings'
-import { flattenTaxonomy } from '../lib/taxonomy'
-import { connect } from './db'
+import {questions, topics} from '../lib/db/schema'
+import {embed} from '../lib/embeddings'
+import {flattenTaxonomy} from '../lib/taxonomy'
+import {connect} from './db'
 
 type Db = ReturnType<typeof drizzle>
 
@@ -18,7 +18,7 @@ async function backfillTopics(db: Db): Promise<number> {
   const pathBySlug = new Map(flattenTaxonomy().map((topic) => [topic.slug, topic.path]))
 
   const pending = await db
-    .select({ id: topics.id, slug: topics.slug, name: topics.name })
+    .select({id: topics.id, slug: topics.slug, name: topics.name})
     .from(topics)
     .where(isNull(topics.embedding))
 
@@ -33,7 +33,7 @@ async function backfillTopics(db: Db): Promise<number> {
   for (const topic of pending) {
     const vector = await embed(pathBySlug.get(topic.slug) ?? topic.name)
 
-    await db.update(topics).set({ embedding: vector }).where(eq(topics.id, topic.id))
+    await db.update(topics).set({embedding: vector}).where(eq(topics.id, topic.id))
 
     done += 1
     if (done % REPORT_EVERY === 0) console.log(`  ${done}/${pending.length}`)
@@ -44,7 +44,7 @@ async function backfillTopics(db: Db): Promise<number> {
 
 async function backfillQuestions(db: Db): Promise<number> {
   const pending = await db
-    .select({ id: questions.id, promptText: questions.promptText })
+    .select({id: questions.id, promptText: questions.promptText})
     .from(questions)
     .where(and(isNull(questions.embedding), ne(questions.promptText, '')))
 
@@ -68,7 +68,7 @@ async function backfillQuestions(db: Db): Promise<number> {
 
     await db
       .update(questions)
-      .set({ embedding: vector })
+      .set({embedding: vector})
       .where(eq(questions.id, question.id))
 
     done += 1

@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import {createHash} from 'node:crypto'
+import {mkdir, readFile, writeFile} from 'node:fs/promises'
+import {dirname, join, resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -72,7 +72,7 @@ async function fetchFile(file) {
   }
 
   const destination = join(TARGET, file.path)
-  await mkdir(dirname(destination), { recursive: true })
+  await mkdir(dirname(destination), {recursive: true})
   await writeFile(destination, body)
 
   return body.length

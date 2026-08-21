@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import {NextResponse} from 'next/server'
+import {and, asc, eq, inArray, sql} from 'drizzle-orm'
 
-import { CHOICE_ORDER } from '@/lib/questions/queries'
-import { answerChoices, attempts, questions, worksheets } from '@/lib/db/schema'
-import { reflowText } from '@/lib/questions/text'
-import { type Db } from '@/lib/db'
+import {CHOICE_ORDER} from '@/lib/questions/queries'
+import {answerChoices, attempts, questions, worksheets} from '@/lib/db/schema'
+import {reflowText} from '@/lib/questions/text'
+import {type Db} from '@/lib/db'
 
 const MAX_ANSWERS = 4
 
@@ -44,7 +44,7 @@ export type SkipReason = 'no-prompt' | 'no-answer'
 export interface BlooketCsv {
   csv: string
   included: number
-  skipped: { questionId: string; reason: SkipReason }[]
+  skipped: {questionId: string; reason: SkipReason}[]
 }
 
 export function exportFilename(on: string, title?: string): string {
@@ -118,7 +118,7 @@ function shape(question: ExportQuestion): Row | SkipReason {
   if (!prompt) return 'no-prompt'
 
   const choices = question.choices
-    .map((choice) => ({ ...choice, text: cell(choice.text) }))
+    .map((choice) => ({...choice, text: cell(choice.text)}))
     .filter((choice) => choice.text)
 
   const marked = correctChoices(choices, question.correctAnswer)
@@ -139,11 +139,11 @@ function shape(question: ExportQuestion): Row | SkipReason {
   if (question.questionType === 'true_false') {
     const truth = /^(true|t)$/i.test(answer) ? 1 : /^(false|f)$/i.test(answer) ? 2 : 0
     if (truth > 0) {
-      return { prompt, answers: ['True', 'False'], correct: [truth], typed: false }
+      return {prompt, answers: ['True', 'False'], correct: [truth], typed: false}
     }
   }
 
-  return { prompt, answers: [answer], correct: [1], typed: true }
+  return {prompt, answers: [answer], correct: [1], typed: true}
 }
 
 export function toBlooketCsv(questions: ExportQuestion[]): BlooketCsv {
@@ -156,7 +156,7 @@ export function toBlooketCsv(questions: ExportQuestion[]): BlooketCsv {
     const row = shape(question)
 
     if (typeof row === 'string') {
-      skipped.push({ questionId: question.id, reason: row })
+      skipped.push({questionId: question.id, reason: row})
       continue
     }
 
@@ -178,21 +178,21 @@ export function toBlooketCsv(questions: ExportQuestion[]): BlooketCsv {
     )
   }
 
-  return { csv: `﻿${lines.join('\r\n')}\r\n`, included, skipped }
+  return {csv: `﻿${lines.join('\r\n')}\r\n`, included, skipped}
 }
 
 export function blooketDownload(
   missed: ExportQuestion[],
   title?: string,
 ): NextResponse {
-  const { csv, included, skipped } = toBlooketCsv(missed)
+  const {csv, included, skipped} = toBlooketCsv(missed)
 
   if (included === 0) {
     return new NextResponse(
       skipped.length > 0
         ? 'None of the questions you missed have an answer key, so there is nothing Blooket could score.'
         : 'Nothing to export yet.',
-      { status: 404 },
+      {status: 404},
     )
   }
 
@@ -239,7 +239,7 @@ export interface MissedFilter {
 export async function getMissedQuestions(
   db: Db,
   userId: string,
-  { worksheetId, limit = EXPORT_LIMIT }: MissedFilter = {},
+  {worksheetId, limit = EXPORT_LIMIT}: MissedFilter = {},
 ): Promise<ExportQuestion[]> {
   const rows = await db
     .select({
@@ -275,7 +275,7 @@ export async function getMissedQuestions(
   const choicesFor = new Map<string, ExportQuestion['choices']>()
   for (const choice of choices) {
     const list = choicesFor.get(choice.questionId)
-    const entry = { label: choice.label, text: choice.text, isCorrect: choice.isCorrect }
+    const entry = {label: choice.label, text: choice.text, isCorrect: choice.isCorrect}
     if (list) list.push(entry)
     else choicesFor.set(choice.questionId, [entry])
   }
@@ -295,7 +295,7 @@ export async function countMissedQuestions(
   worksheetId?: string,
 ): Promise<number> {
   const [row] = await db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({value: sql<number>`count(*)::int`})
     .from(questions)
     .where(missedBy(userId, worksheetId))
 

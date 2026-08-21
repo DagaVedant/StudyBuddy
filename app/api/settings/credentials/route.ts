@@ -1,13 +1,18 @@
-import { NextResponse } from 'next/server'
-import { z } from 'zod'
+import {NextResponse} from 'next/server'
+import {z} from 'zod'
 
-import { auth } from '@/auth'
-import { isAllowedOllamaUrl, sealApiKey } from '@/lib/ai/resolve'
-import { verifyCloudKey } from '@/lib/ai/resolve'
-import { CLOUD_PROVIDERS, deleteCredential, getCredentialSummary } from '@/lib/ai/resolve'
-import { db } from '@/lib/db'
-import { userAiCredentials } from '@/lib/db/schema'
-import { CREDENTIAL_LIMIT, guardRateLimit } from '@/lib/rate-limit'
+import {
+  CLOUD_PROVIDERS,
+  deleteCredential,
+  getCredentialSummary,
+  isAllowedOllamaUrl,
+  sealApiKey,
+  verifyCloudKey,
+} from '@/lib/ai/resolve'
+import {CREDENTIAL_LIMIT, guardRateLimit} from '@/lib/api'
+import {auth} from '@/auth'
+import {db} from '@/lib/db'
+import {userAiCredentials} from '@/lib/db/schema'
 
 const cloudSchema = z.object({
   provider: z.enum(CLOUD_PROVIDERS),
@@ -27,7 +32,7 @@ const bodySchema = z.union([cloudSchema, ollamaSchema])
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
   return NextResponse.json({
@@ -38,12 +43,12 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => ({})))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Check the values and try again.' }, { status: 400 })
+    return NextResponse.json({error: 'Check the values and try again.'}, {status: 400})
   }
 
   const userId = session.user.id
@@ -60,8 +65,8 @@ export async function POST(request: Request) {
   if (input.provider === 'ollama') {
     if (!isAllowedOllamaUrl(input.baseUrl)) {
       return NextResponse.json(
-        { error: 'Ollama must be on localhost. That is the only address your browser can reach.' },
-        { status: 400 },
+        {error: 'Ollama must be on localhost. That is the only address your browser can reach.'},
+        {status: 400},
       )
     }
 
@@ -84,7 +89,7 @@ export async function POST(request: Request) {
         },
       })
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ok: true})
   }
 
   let sealed
@@ -92,15 +97,15 @@ export async function POST(request: Request) {
     sealed = sealApiKey(input.apiKey)
   } catch {
     return NextResponse.json(
-      { error: 'Encryption is not configured on the server.' },
-      { status: 500 },
+      {error: 'Encryption is not configured on the server.'},
+      {status: 500},
     )
   }
 
   const verdict = await verifyCloudKey(input.provider, input.apiKey)
 
   if (verdict.status === 'rejected') {
-    return NextResponse.json({ error: verdict.reason }, { status: 400 })
+    return NextResponse.json({error: verdict.reason}, {status: 400})
   }
 
   await db
@@ -144,13 +149,13 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
   const provider = new URL(request.url).searchParams.get('provider')
   const deletable = z.enum([...CLOUD_PROVIDERS, 'ollama']).safeParse(provider)
   if (!deletable.success) {
-    return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
+    return NextResponse.json({error: 'Unknown provider'}, {status: 400})
   }
 
   const limited = await guardRateLimit(
@@ -163,5 +168,5 @@ export async function DELETE(request: Request) {
 
   await deleteCredential(db, session.user.id, deletable.data)
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ok: true})
 }

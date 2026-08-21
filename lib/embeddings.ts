@@ -1,7 +1,7 @@
-import { existsSync } from 'node:fs'
+import {existsSync} from 'node:fs'
 import path from 'node:path'
 
-import type { FeatureExtractionPipeline } from '@huggingface/transformers'
+import type {FeatureExtractionPipeline} from '@huggingface/transformers'
 
 import {
   EMBEDDING_DIMENSIONS,
@@ -15,7 +15,7 @@ let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
 
 async function getExtractor(): Promise<FeatureExtractionPipeline> {
   extractorPromise ??= import('@huggingface/transformers').then(
-    ({ env, pipeline }) => {
+    ({env, pipeline}) => {
       if (existsSync(VENDORED)) {
         env.localModelPath = VENDORED
         env.allowRemoteModels = false

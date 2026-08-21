@@ -1,12 +1,12 @@
-import { asc, eq } from 'drizzle-orm'
+import {asc, eq} from 'drizzle-orm'
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import {notFound, redirect} from 'next/navigation'
 
-import { auth } from '@/auth'
-import type { TopicChoice } from '@/components/topics'
-import { db } from '@/lib/db'
-import { CHOICE_ORDER } from '@/lib/questions/queries'
-import { roundLines } from '@/lib/questions/text'
+import {auth} from '@/auth'
+import type {TopicChoice} from '@/components/client'
+import {db} from '@/lib/db'
+import {CHOICE_ORDER} from '@/lib/questions/queries'
+import {roundLines} from '@/lib/questions/text'
 import {
   answerChoices,
   questionTopics,
@@ -15,31 +15,31 @@ import {
   worksheetPages,
   worksheets,
 } from '@/lib/db/schema'
-import { pathBySlug } from '@/lib/taxonomy'
+import {pathBySlug} from '@/lib/taxonomy'
 
-import EditClient, { type EditablePage, type EditableQuestion } from './edit-client'
+import EditClient, {type EditablePage, type EditableQuestion} from './edit-client'
 
-export const metadata = { title: 'Edit Questions · StudyBuddy' }
+export const metadata = {title: 'Edit Questions · StudyBuddy'}
 
 async function leafTopics(): Promise<TopicChoice[]> {
   const paths = pathBySlug()
 
   const rows = await db
-    .select({ id: topics.id, slug: topics.slug, name: topics.name })
+    .select({id: topics.id, slug: topics.slug, name: topics.name})
     .from(topics)
     .where(eq(topics.isLeaf, true))
 
   return rows
-    .map((row) => ({ ...row, path: paths.get(row.slug) ?? row.name }))
+    .map((row) => ({...row, path: paths.get(row.slug) ?? row.name}))
     .sort((a, b) => a.path.localeCompare(b.path))
 }
 
 export default async function EditPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{id: string}>
 }) {
-  const { id } = await params
+  const {id} = await params
 
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -116,8 +116,8 @@ export default async function EditPage({
   }))
 
   const choicesFor = new Map<string, EditableQuestion['choices']>()
-  for (const { questionId, id: choiceId, label, text, isCorrect } of choiceRows) {
-    const choice = { id: choiceId, label, text, isCorrect }
+  for (const {questionId, id: choiceId, label, text, isCorrect} of choiceRows) {
+    const choice = {id: choiceId, label, text, isCorrect}
     const list = choicesFor.get(questionId)
     if (list) list.push(choice)
     else choicesFor.set(questionId, [choice])

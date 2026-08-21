@@ -1,9 +1,9 @@
-import { asc, eq } from 'drizzle-orm'
+import {asc, eq} from 'drizzle-orm'
 
-import type { AIProvider, ExtractedQuestion } from '@/lib/ai/types'
-import type { Db } from '@/lib/db'
-import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
-import { isAnswerPage } from '@/lib/questions/text'
+import type {AIProvider, ExtractedQuestion} from '@/lib/ai/types'
+import type {Db} from '@/lib/db'
+import {answerChoices, questions, worksheetPages} from '@/lib/db/schema'
+import {isAnswerPage} from '@/lib/questions/text'
 import {
   foldLeadInChoices,
   hashQuestion,
@@ -11,12 +11,12 @@ import {
   normalizeForCompare,
   normalizeOptionText,
 } from '@/lib/questions/shape'
-import { normalizeMath } from '@/lib/questions/shape'
-import { reflowText, seamAround } from '@/lib/questions/text'
-import { printedNumbersFor } from '@/lib/questions/numbering'
-import { isOptionRun } from '@/lib/questions/validate'
-import { checkpointJob } from '@/lib/queue'
-import { storage } from '@/lib/storage'
+import {normalizeMath} from '@/lib/questions/shape'
+import {reflowText, seamAround} from '@/lib/questions/text'
+import {printedNumbersFor} from '@/lib/questions/numbering'
+import {isOptionRun} from '@/lib/questions/validate'
+import {checkpointJob} from '@/lib/queue'
+import {storage} from '@/lib/storage'
 
 export interface ExtractProgress {
   page: number
@@ -31,7 +31,7 @@ export interface ExtractOutcome {
 export async function runExtraction(
   db: Db,
   provider: AIProvider,
-  job: { id: string; worksheetId: string; userId: string; checkpoint: Record<string, unknown> | null },
+  job: {id: string; worksheetId: string; userId: string; checkpoint: Record<string, unknown> | null},
   onProgress?: (progress: ExtractProgress) => void,
 ): Promise<ExtractOutcome> {
   const pages = await db
@@ -60,7 +60,7 @@ export async function runExtraction(
       await checkpointJob(db, job.id, processed / pages.length, {
         lastPageNumber: page.pageNumber,
       })
-      onProgress?.({ page: page.pageNumber, total: pages.length })
+      onProgress?.({page: page.pageNumber, total: pages.length})
       console.log(
         `[extract] page ${page.pageNumber} is an answer key or solutions page; not extracted`,
       )
@@ -89,10 +89,10 @@ export async function runExtraction(
       lastPageNumber: page.pageNumber,
     })
 
-    onProgress?.({ page: page.pageNumber, total: pages.length })
+    onProgress?.({page: page.pageNumber, total: pages.length})
   }
 
-  return { pagesProcessed: processed, questionsCreated: created }
+  return {pagesProcessed: processed, questionsCreated: created}
 }
 
 function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[] {
@@ -107,7 +107,7 @@ function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[
     const seen = byPrompt.get(key)
 
     if (!seen) {
-      byPrompt.set(key, { ...question, choices: [...question.choices] })
+      byPrompt.set(key, {...question, choices: [...question.choices]})
       continue
     }
 
@@ -132,14 +132,14 @@ function mergeSplitQuestions(extracted: ExtractedQuestion[]): ExtractedQuestion[
 
 export async function persistQuestions(
   db: Db,
-  job: { worksheetId: string; userId: string },
+  job: {worksheetId: string; userId: string},
   pageId: string,
   raw: ExtractedQuestion[],
 ): Promise<number> {
   if (raw.length === 0) return 0
 
   const [page] = await db
-    .select({ ocrText: worksheetPages.ocrText, pageNumber: worksheetPages.pageNumber })
+    .select({ocrText: worksheetPages.ocrText, pageNumber: worksheetPages.pageNumber})
     .from(worksheetPages)
     .where(eq(worksheetPages.id, pageId))
     .limit(1)
@@ -179,7 +179,7 @@ export async function persistQuestions(
   )
 
   const existing = await db
-    .select({ ordinal: questions.ordinal, contentHash: questions.contentHash })
+    .select({ordinal: questions.ordinal, contentHash: questions.contentHash})
     .from(questions)
     .where(eq(questions.worksheetId, job.worksheetId))
 
@@ -193,7 +193,7 @@ export async function persistQuestions(
 
   const pending: {
     row: typeof questions.$inferInsert
-    choices: { label: string; text: string }[]
+    choices: {label: string; text: string}[]
   }[] = []
 
   for (const [index, raw] of extracted.entries()) {
@@ -248,7 +248,7 @@ export async function persistQuestions(
     const inserted = await tx
       .insert(questions)
       .values(pending.map((item) => item.row))
-      .returning({ id: questions.id })
+      .returning({id: questions.id})
 
     const choiceRows = pending.flatMap((item, index) =>
       item.choices.map((choice) => ({

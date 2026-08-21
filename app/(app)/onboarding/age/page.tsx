@@ -1,13 +1,13 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { useState, type FormEvent } from 'react'
+import {useSession} from 'next-auth/react'
+import {useState, type FormEvent} from 'react'
 
-import { submitDob } from '@/lib/auth/actions'
-import { MIN_AGE_YEARS } from '@/lib/auth/policy'
+import {submitDob} from '@/lib/auth/actions'
+import {MIN_AGE_YEARS} from '@/lib/auth/policy'
 
 export default function AgeGatePage() {
-  const { update } = useSession()
+  const {update} = useSession()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 

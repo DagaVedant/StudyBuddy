@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { Suspense, useActionState } from 'react'
+import {useSearchParams} from 'next/navigation'
+import {Suspense, useActionState} from 'react'
 
-import { GoogleButton } from '@/components/chrome'
-import { signInWithCredentials, signInWithGoogle } from '@/lib/auth/actions'
-import type { FormState } from '@/lib/auth/actions'
-import { safeNextPath } from '@/lib/auth/policy'
+import {GoogleButton} from '@/components/client'
+import {signInWithCredentials, signInWithGoogle} from '@/lib/auth/actions'
+import type {FormState} from '@/lib/auth/actions'
+import {safeNextPath} from '@/lib/auth/policy'
 
 const ERRORS: Record<string, string> = {
   OAuthAccountNotLinked: 'That email is already registered with a password. Sign in with your password instead.',

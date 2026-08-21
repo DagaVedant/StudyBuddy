@@ -1,14 +1,14 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import {useRouter} from 'next/navigation'
+import {useCallback, useEffect, useId, useRef, useState} from 'react'
 
-import { ingestWorksheet, type IngestProgress } from '@/lib/client/ingest'
-import { parsePageRange, parseQuestionCount } from '@/lib/upload'
+import {ingestWorksheet, type IngestProgress} from '@/lib/client/ingest'
+import {parsePageRange, parseQuestionCount} from '@/lib/upload'
 
 export interface SubjectGroup {
   label: string
-  options: { slug: string; label: string }[]
+  options: {slug: string; label: string}[]
 }
 
 interface Props {
@@ -38,7 +38,7 @@ function defaultTitle(files: File[]): string {
   return first.name.replace(/\.[^.]+$/, '').slice(0, 120)
 }
 
-export default function UploadClient({ subjects }: Props) {
+export default function UploadClient({subjects}: Props) {
   const router = useRouter()
   const titleId = useId()
   const subjectId = useId()
@@ -78,7 +78,7 @@ export default function UploadClient({ subjects }: Props) {
   useEffect(() => {
     return () => {
       abortRef.current?.abort()
-      void import('@/lib/client/rasterize').then(({ terminateOcr }) =>
+      void import('@/lib/client/rasterize').then(({terminateOcr}) =>
         terminateOcr().catch(() => {}),
       )
     }
@@ -115,7 +115,7 @@ export default function UploadClient({ subjects }: Props) {
 
     setNotice('Upload cancelled. Removing what had already gone up…')
 
-    fetch(`/api/worksheets/${started}`, { method: 'DELETE' })
+    fetch(`/api/worksheets/${started}`, {method: 'DELETE'})
       .then(() => setNotice('Upload cancelled. Nothing was kept.'))
       .catch(() => setNotice('Upload cancelled.'))
   }
@@ -426,7 +426,7 @@ export default function UploadClient({ subjects }: Props) {
           >
             <div
               className="h-full bg-accent transition-[width] duration-300"
-              style={{ width: `${pct}%` }}
+              style={{width: `${pct}%`}}
             />
           </div>
 

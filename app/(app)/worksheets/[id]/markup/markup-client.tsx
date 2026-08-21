@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import {useCallback, useEffect, useId, useMemo, useState} from 'react'
+import {useRouter} from 'next/navigation'
 
-import { fetchJson } from '@/lib/client/http'
-import { reflowText } from '@/lib/questions/text'
+import {fetchJson} from '@/lib/client/http'
+import {reflowText} from '@/lib/questions/text'
 
 import {
   clearMarkupDraft,
@@ -18,7 +18,7 @@ export interface MarkableQuestion {
   promptText: string
   questionType: string
   correctAnswer: string | null
-  choices: { id: string; label: string; text: string }[]
+  choices: {id: string; label: string; text: string}[]
 }
 
 
@@ -27,13 +27,13 @@ interface Props {
   questions: MarkableQuestion[]
 }
 
-const OUTCOMES: { value: Outcome; label: string; hint: string; key: string }[] = [
-  { value: 'correct', label: 'Got it', hint: 'Right, and I knew it', key: '1' },
-  { value: 'unsure', label: 'Unsure', hint: 'Right, but I guessed', key: '2' },
-  { value: 'wrong', label: 'Missed it', hint: 'Wrong answer', key: '3' },
+const OUTCOMES: {value: Outcome; label: string; hint: string; key: string}[] = [
+  {value: 'correct', label: 'Got it', hint: 'Right, and I knew it', key: '1'},
+  {value: 'unsure', label: 'Unsure', hint: 'Right, but I guessed', key: '2'},
+  {value: 'wrong', label: 'Missed it', hint: 'Wrong answer', key: '3'},
 ]
 
-export default function MarkupClient({ worksheetId, questions }: Props) {
+export default function MarkupClient({worksheetId, questions}: Props) {
   const router = useRouter()
 
   const [phase, setPhase] = useState<'outcomes' | 'answers'>('outcomes')
@@ -60,7 +60,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
 
   useEffect(() => {
     if (marked === 0) return
-    writeMarkupDraft(worksheetId, { outcomes, answers, cursor })
+    writeMarkupDraft(worksheetId, {outcomes, answers, cursor})
   }, [worksheetId, outcomes, answers, cursor, marked])
 
   useEffect(() => {
@@ -81,7 +81,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
 
   const mark = useCallback(
     (questionId: string, outcome: Outcome, index: number) => {
-      setOutcomes((current) => ({ ...current, [questionId]: outcome }))
+      setOutcomes((current) => ({...current, [questionId]: outcome}))
       setCursor(Math.min(index + 1, questions.length - 1))
     },
     [questions.length],
@@ -127,10 +127,10 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
     try {
       const response = await fetchJson(`/api/worksheets/${worksheetId}/attempts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marks }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({marks}),
       })
-      const body = (await response.json()) as { next?: string; error?: string }
+      const body = (await response.json()) as {next?: string; error?: string}
       if (response.status === 409) {
         clearMarkupDraft(worksheetId)
         router.push(body.next ?? '/dashboard')
@@ -294,7 +294,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
         >
           <div
             className="h-full bg-accent transition-[width] duration-200"
-            style={{ width: `${(marked / questions.length) * 100}%` }}
+            style={{width: `${(marked / questions.length) * 100}%`}}
           />
         </div>
       </div>
@@ -421,13 +421,13 @@ export interface MarkedQuestion {
   promptText: string
   outcome: Outcome
   selectedChoiceId: string | null
-  choices: { id: string; label: string; text: string }[]
+  choices: {id: string; label: string; text: string}[]
 }
 
-const CORRECTION_OUTCOMES: { value: Outcome; label: string }[] = [
-  { value: 'correct', label: 'Got it' },
-  { value: 'unsure', label: 'Unsure' },
-  { value: 'wrong', label: 'Missed it' },
+const CORRECTION_OUTCOMES: {value: Outcome; label: string}[] = [
+  {value: 'correct', label: 'Got it'},
+  {value: 'unsure', label: 'Unsure'},
+  {value: 'wrong', label: 'Missed it'},
 ]
 
 export function CorrectionsClient({
@@ -441,7 +441,7 @@ export function CorrectionsClient({
     Object.fromEntries(
       questions.map((question) => [
         question.id,
-        { outcome: question.outcome, selectedChoiceId: question.selectedChoiceId },
+        {outcome: question.outcome, selectedChoiceId: question.selectedChoiceId},
       ]),
     ),
   )
@@ -452,11 +452,11 @@ export function CorrectionsClient({
 
   async function correct(
     questionId: string,
-    next: { outcome: Outcome; selectedChoiceId: string | null },
+    next: {outcome: Outcome; selectedChoiceId: string | null},
   ) {
     const previous = marks[questionId]
 
-    setMarks((current) => ({ ...current, [questionId]: next }))
+    setMarks((current) => ({...current, [questionId]: next}))
     setSaving(questionId)
     setError(null)
     setSaved(null)
@@ -464,8 +464,8 @@ export function CorrectionsClient({
     try {
       const response = await fetchJson(`/api/worksheets/${worksheetId}/attempts`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId, ...next }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({questionId, ...next}),
       })
 
       if (!response.ok) {
@@ -477,7 +477,7 @@ export function CorrectionsClient({
 
       setSaved(questionId)
     } catch (cause) {
-      setMarks((current) => ({ ...current, [questionId]: previous }))
+      setMarks((current) => ({...current, [questionId]: previous}))
       setError((cause as Error).message)
     } finally {
       setSaving(null)

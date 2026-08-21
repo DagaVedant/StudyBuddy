@@ -27,12 +27,12 @@ export function meetsAgeRequirement(dob: Date, now: Date = new Date()): boolean 
   return ageInYears(dob, now) >= MIN_AGE_YEARS
 }
 
-export type AgeCheck = { ok: true; dob: Date } | { ok: false; reason: string }
+export type AgeCheck = {ok: true; dob: Date} | {ok: false; reason: string}
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 export function validateDob(input: string | Date | null | undefined): AgeCheck {
-  if (!input) return { ok: false, reason: 'Enter your date of birth.' }
+  if (!input) return {ok: false, reason: 'Enter your date of birth.'}
 
   const dob =
     input instanceof Date
@@ -42,13 +42,13 @@ export function validateDob(input: string | Date | null | undefined): AgeCheck {
         : new Date(Number.NaN)
 
   if (Number.isNaN(dob.getTime())) {
-    return { ok: false, reason: 'That date of birth is not valid.' }
+    return {ok: false, reason: 'That date of birth is not valid.'}
   }
 
   const now = new Date()
-  if (dob > now) return { ok: false, reason: 'That date of birth is in the future.' }
+  if (dob > now) return {ok: false, reason: 'That date of birth is in the future.'}
   if (ageInYears(dob, now) > 120) {
-    return { ok: false, reason: 'That date of birth is not valid.' }
+    return {ok: false, reason: 'That date of birth is not valid.'}
   }
   if (!meetsAgeRequirement(dob, now)) {
     return {
@@ -57,7 +57,7 @@ export function validateDob(input: string | Date | null | undefined): AgeCheck {
     }
   }
 
-  return { ok: true, dob }
+  return {ok: true, dob}
 }
 
 export const DEFAULT_AFTER_SIGNIN = '/dashboard'

@@ -1,9 +1,9 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import {useId, useRef, useState} from 'react'
+import {useRouter} from 'next/navigation'
 
-import { fetchJson } from '@/lib/client/http'
+import {fetchJson} from '@/lib/client/http'
 
 import {
   CLOUD_PROVIDERS,
@@ -21,20 +21,20 @@ interface Credential {
 
 interface Props {
   credentials: Credential[]
-  trial: { worksheetsRemaining: number; explanationsRemaining: number }
+  trial: {worksheetsRemaining: number; explanationsRemaining: number}
   workerOnline: boolean
   appUrl: string
 }
 
 type ProbeResult =
-  | { ok: true; models: string[]; hasVisionModel: boolean }
-  | { ok: false; message: string }
+  | {ok: true; models: string[]; hasVisionModel: boolean}
+  | {ok: false; message: string}
 
 const OLLAMA_VISION_MODEL = 'qwen2.5vl:7b'
 
 async function probeOllama(baseUrl: string, appUrl: string): Promise<ProbeResult> {
   try {
-    const { OllamaProvider } = await import('@/lib/ai/ollama')
+    const {OllamaProvider} = await import('@/lib/ai/ollama')
     const models = await new OllamaProvider({
       baseUrl,
       visionModel: OLLAMA_VISION_MODEL,
@@ -95,10 +95,10 @@ export default function SettingsClient({
     try {
       const response = await fetchJson('/api/settings/credentials', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body),
       })
-      const result = (await response.json()) as { error?: string; last4?: string }
+      const result = (await response.json()) as {error?: string; last4?: string}
       if (!response.ok) throw new Error(result.error ?? 'Could not save that.')
 
       setApiKey('')
@@ -124,7 +124,7 @@ export default function SettingsClient({
   async function remove(target: string) {
     setBusy(true)
     setError(null)
-    await fetchJson(`/api/settings/credentials?provider=${target}`, { method: 'DELETE' })
+    await fetchJson(`/api/settings/credentials?provider=${target}`, {method: 'DELETE'})
     setJustSaved(null)
     setNotice('Removed.')
     setBusy(false)
@@ -262,7 +262,7 @@ export default function SettingsClient({
               className="btn btn-primary sm:w-auto sm:px-6"
               disabled={busy || apiKey.trim().length < 10}
               onClick={() =>
-                void save({ provider, apiKey, model: model.trim() || null })
+                void save({provider, apiKey, model: model.trim() || null})
               }
             >
               {busy ? 'Saving…' : 'Save key'}
@@ -387,7 +387,7 @@ export default function SettingsClient({
   )
 }
 
-export function DeleteAccount({ email }: { email: string }) {
+export function DeleteAccount({email}: {email: string}) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const confirmId = useId()
 
@@ -404,12 +404,12 @@ export function DeleteAccount({ email }: { email: string }) {
     try {
       const response = await fetchJson('/api/account', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: typed.trim() }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: typed.trim()}),
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        const body = (await response.json().catch(() => null)) as {error?: string} | null
         throw new Error(body?.error ?? 'Could not delete the account')
       }
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
+import {and, asc, desc, eq, isNotNull, isNull, sql} from 'drizzle-orm'
 
 import {
   answerChoices,
@@ -25,10 +25,10 @@ import {
   type PracticeInput,
   type ProviderName,
 } from '@/lib/ai/types'
-import { pathBySlug } from '@/lib/taxonomy'
-import { storedProvider, type Tier } from '@/lib/ai/resolve'
-import { type Db } from '@/lib/db'
-import { validateQuestion, type ValidationFlag } from '@/lib/questions/validate'
+import {pathBySlug} from '@/lib/taxonomy'
+import {storedProvider, type Tier} from '@/lib/ai/resolve'
+import {type Db} from '@/lib/db'
+import {validateQuestion, type ValidationFlag} from '@/lib/questions/validate'
 
 export const PRACTICE_BATCH = 4
 
@@ -54,13 +54,13 @@ export interface PracticeRequest {
 
 export interface PracticeOutcome {
   created: number
-  rejected: { flags: PracticeFlag[] }[]
+  rejected: {flags: PracticeFlag[]}[]
   questionIds: string[]
 }
 
 async function findPracticeWorksheet(db: Db, userId: string): Promise<string | null> {
   const [existing] = await db
-    .select({ id: worksheets.id })
+    .select({id: worksheets.id})
     .from(worksheets)
     .where(and(eq(worksheets.userId, userId), eq(worksheets.origin, 'generated')))
     .limit(1)
@@ -83,7 +83,7 @@ export async function practiceWorksheetId(db: Db, userId: string): Promise<strin
         pageCount: 0,
         status: 'ready',
       })
-      .returning({ id: worksheets.id })
+      .returning({id: worksheets.id})
 
     return created.id
   } catch (error) {
@@ -96,7 +96,7 @@ export async function practiceWorksheetId(db: Db, userId: string): Promise<strin
 
 async function ownedStems(db: Db, userId: string, topicId: string): Promise<string[]> {
   const rows = await db
-    .select({ promptText: questions.promptText })
+    .select({promptText: questions.promptText})
     .from(questions)
     .innerJoin(questionTopics, eq(questionTopics.questionId, questions.id))
     .where(
@@ -122,7 +122,7 @@ async function ownedStems(db: Db, userId: string, topicId: string): Promise<stri
 
 async function ownedHashes(db: Db, userId: string): Promise<string[]> {
   const rows = await db
-    .select({ contentHash: questions.contentHash })
+    .select({contentHash: questions.contentHash})
     .from(questions)
     .where(and(eq(questions.userId, userId), isNotNull(questions.contentHash)))
     .orderBy(desc(questions.createdAt))
@@ -140,7 +140,7 @@ export async function practiceInput(
   request: PracticeRequest,
 ): Promise<PracticeInput> {
   const [topic] = await db
-    .select({ name: topics.name, slug: topics.slug })
+    .select({name: topics.name, slug: topics.slug})
     .from(topics)
     .where(eq(topics.id, request.topicId))
     .limit(1)
@@ -164,17 +164,17 @@ export async function acceptPractice(
   const count = batchSize(request.count)
   const hashes = await ownedHashes(db, request.userId)
 
-  const { kept, rejected } = siftPractice(written.slice(0, count), hashes)
+  const {kept, rejected} = siftPractice(written.slice(0, count), hashes)
 
   if (kept.length === 0) {
-    return { created: 0, rejected: rejected.map(({ flags }) => ({ flags })), questionIds: [] }
+    return {created: 0, rejected: rejected.map(({flags}) => ({flags})), questionIds: []}
   }
 
   const questionIds = await store(db, author, request, kept)
 
   return {
     created: questionIds.length,
-    rejected: rejected.map(({ flags }) => ({ flags })),
+    rejected: rejected.map(({flags}) => ({flags})),
     questionIds,
   }
 }
@@ -198,7 +198,7 @@ async function store(
   const worksheetId = await practiceWorksheetId(db, request.userId)
 
   const [highest] = await db
-    .select({ ordinal: sql<number>`coalesce(max(${questions.ordinal}), 0)::int` })
+    .select({ordinal: sql<number>`coalesce(max(${questions.ordinal}), 0)::int`})
     .from(questions)
     .where(eq(questions.worksheetId, worksheetId))
 
@@ -223,7 +223,7 @@ async function store(
           userVerified: false,
           contentHash: hashQuestion(question.prompt_text, question.choices),
         })
-        .returning({ id: questions.id })
+        .returning({id: questions.id})
 
       await tx.insert(answerChoices).values(
         question.choices.map((choice) => ({
@@ -279,7 +279,7 @@ export async function countGenerated(
   topicId?: string,
 ): Promise<number> {
   const query = db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({value: sql<number>`count(*)::int`})
     .from(questions)
     .where(and(eq(questions.userId, userId), eq(questions.origin, 'generated')))
 
@@ -289,7 +289,7 @@ export async function countGenerated(
   }
 
   const [row] = await db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({value: sql<number>`count(*)::int`})
     .from(questions)
     .innerJoin(questionTopics, eq(questionTopics.questionId, questions.id))
     .where(
@@ -529,7 +529,7 @@ export function validateGenerated(
       promptText: question.prompt_text,
       questionType: 'multiple_choice',
       choices: question.choices,
-    }).map((flag) => ({ ...flag })),
+    }).map((flag) => ({...flag})),
     ...checkLabels(question),
     ...checkAnswer(question),
     ...checkOptions(question),
@@ -566,7 +566,7 @@ export function isUsable(flags: PracticeFlag[]): boolean {
 
 export interface SiftedPractice {
   kept: GeneratedQuestion[]
-  rejected: { question: GeneratedQuestion; flags: PracticeFlag[] }[]
+  rejected: {question: GeneratedQuestion; flags: PracticeFlag[]}[]
 }
 
 export function siftPractice(
@@ -580,10 +580,10 @@ export function siftPractice(
   const rejected: SiftedPractice['rejected'] = []
 
   for (const question of questions) {
-    const flags = validateGenerated(question, { seenStems, ownedHashes: owned })
+    const flags = validateGenerated(question, {seenStems, ownedHashes: owned})
 
     if (!isUsable(flags)) {
-      rejected.push({ question, flags })
+      rejected.push({question, flags})
       continue
     }
 
@@ -592,14 +592,14 @@ export function siftPractice(
     kept.push(question)
   }
 
-  return { kept, rejected }
+  return {kept, rejected}
 }
 const SAMPLE_QUESTIONS = 5
 
 export interface StoredLesson {
   bodyMd: string
-  examples: { question: string; working: string; answer: string }[]
-  commonErrors: { mistake: string; why: string; fix: string }[]
+  examples: {question: string; working: string; answer: string}[]
+  commonErrors: {mistake: string; why: string; fix: string}[]
   model: string | null
   generatedAt: Date
 }
@@ -659,7 +659,7 @@ export async function getLesson(
 
 export async function lessonInput(db: Db, topicId: string): Promise<LessonInput> {
   const [topic] = await db
-    .select({ name: topics.name, slug: topics.slug })
+    .select({name: topics.name, slug: topics.slug})
     .from(topics)
     .where(eq(topics.id, topicId))
     .limit(1)
@@ -704,7 +704,7 @@ export async function storeLesson(
   await db
     .insert(topicLessons)
     .values(values)
-    .onConflictDoUpdate({ ...conflict, set: values })
+    .onConflictDoUpdate({...conflict, set: values})
 
   return {
     bodyMd: values.bodyMd,
@@ -719,7 +719,7 @@ export async function generateLesson(
   db: Db,
   provider: AIProvider,
   topicId: string,
-  options: { force?: boolean } = {},
+  options: {force?: boolean} = {},
 ): Promise<StoredLesson | null> {
   if (!options.force) {
     const existing = await getLesson(db, topicId, null)
@@ -733,7 +733,7 @@ export async function generateLesson(
 
 async function sampleQuestions(db: Db, topicId: string): Promise<string[]> {
   const rows = await db
-    .select({ promptText: questions.promptText })
+    .select({promptText: questions.promptText})
     .from(questions)
     .innerJoin(questionTopics, eq(questionTopics.questionId, questions.id))
     .where(and(eq(questionTopics.topicId, topicId), isNotNull(questions.promptText)))
@@ -746,8 +746,8 @@ async function sampleQuestions(db: Db, topicId: string): Promise<string[]> {
 export async function topicsNeedingLessons(
   db: Db,
   limit = 20,
-  options: { includeWritten?: boolean } = {},
-): Promise<{ topicId: string; name: string; attempts: number }[]> {
+  options: {includeWritten?: boolean} = {},
+): Promise<{topicId: string; name: string; attempts: number}[]> {
   const rows = await db
     .select({
       topicId: topics.id,
@@ -786,9 +786,9 @@ function sectionOf(line: string): Section | null {
   const match = SECTION_START.exec(line.trim())
   if (!match) return null
 
-  if (match[3] !== undefined) return { title: match[3].trim(), level: 99 }
+  if (match[3] !== undefined) return {title: match[3].trim(), level: 99}
 
-  return { title: (match[2] ?? '').trim(), level: match[1].length }
+  return {title: (match[2] ?? '').trim(), level: match[1].length}
 }
 
 export function trimLessonBody(bodyMd: string): string {
