@@ -257,21 +257,10 @@ async function pickHere(
         entry.candidates,
       )
 
-      const chosen =
-        classification.topic_slug && !classification.abstain
-          ? entry.candidates.find(
-              (candidate) => candidate.slug === classification.topic_slug,
-            )
-          : undefined
-
       results.push({
         questionId: entry.questionId,
         classification,
         candidates: entry.candidates,
-        proposalEmbedding:
-          chosen || !classification.suggested_name
-            ? undefined
-            : await embedInBrowser(classification.suggested_name),
       })
     } catch (error) {
       console.warn(`[tier-c] question ${entry.questionId} could not be sorted:`, error)

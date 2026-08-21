@@ -5,7 +5,6 @@ import { EmbeddingUnavailableError, classifyWorksheet } from '@/lib/classify'
 import type { Db } from '@/lib/db/types'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
-import { notifyWorksheet } from '@/lib/notifications'
 import { transitionWorksheet } from '@/lib/upload/claim'
 import { runExtraction } from '@/lib/worker/ingest'
 import { runRepairPasses } from '@/lib/worker/pipeline'
@@ -131,7 +130,6 @@ async function runOneServerJob(
     await completeJob(db, job.id)
 
     if (delivered) {
-      await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_ready')
     }
 
     await enqueueJob(db, {

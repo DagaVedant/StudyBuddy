@@ -7,7 +7,6 @@ import { CLASSIFYING_AT, UNTAGGED_REASON, VERIFYING_AT, applyPermanentFailure, r
 import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
 import { checkpointJob, completeJob, enqueueJob, failJob, touchJob } from '@/lib/queue'
 import { extractedQuestionSchema } from '@/lib/ai/types'
-import { notifyWorksheet } from '@/lib/notifications'
 import { partitionByDeletability } from '@/lib/worker/apply'
 import { persistQuestions } from '@/lib/worker/ingest'
 import { planPageReplacement } from '@/lib/worker/review'
@@ -262,7 +261,6 @@ export async function handleComplete(
       await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
     }
 
-    await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_ready')
   }
 
   if (job.stage === 'extract') {

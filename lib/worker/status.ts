@@ -1,6 +1,5 @@
 import { eq } from 'drizzle-orm'
 
-import { notifyWorksheet } from '@/lib/notifications'
 import { refundTrial } from '@/lib/ai/quota'
 import { transitionWorksheet } from '@/lib/upload/claim'
 import { type Db } from '@/lib/db/types'
@@ -62,7 +61,6 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
       )
 
       if (failed) {
-        await notifyWorksheet(db, job.userId, job.worksheetId, 'worksheet_failed')
       }
 
       return

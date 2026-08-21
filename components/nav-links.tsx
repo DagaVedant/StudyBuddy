@@ -11,15 +11,13 @@ const NAV = [
   { href: '/settings', label: 'Settings' },
 ]
 
-export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
+export default function NavLinks() {
   const pathname = usePathname()
-
-  const items = isAdmin ? [...NAV, { href: '/admin/topics', label: 'Admin' }] : NAV
 
   return (
     <nav aria-label="Main" className="min-w-0 flex-1">
       <ul className="flex flex-wrap items-center gap-1 text-sm md:justify-center">
-        {items.map((item) => {
+        {NAV.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`)
 

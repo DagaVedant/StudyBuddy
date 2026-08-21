@@ -120,6 +120,20 @@
       "when": 1786994713593,
       "tag": "0016_password_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787270842235,
+      "tag": "0017_fast_purifiers",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1787270942684,
+      "tag": "0018_tranquil_solo",
+      "breakpoints": true
     }
   ]
 }

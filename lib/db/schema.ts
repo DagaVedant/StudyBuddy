@@ -81,12 +81,6 @@ export const ocrEngine = pgEnum('ocr_engine', ['pdf_text', 'tesseract', 'vision'
 
 export const assignedBy = pgEnum('assigned_by', ['ai', 'user'])
 
-export const proposalStatus = pgEnum('proposal_status', [
-  'pending',
-  'merged',
-  'accepted',
-  'rejected',
-])
 
 export const attemptOutcome = pgEnum('attempt_outcome', ['correct', 'unsure', 'wrong'])
 
@@ -395,38 +389,6 @@ export const questionTopics = pgTable(
   ],
 )
 
-export const topicProposals = pgTable(
-  'topic_proposals',
-  {
-    id: id(),
-    proposedName: text('proposed_name').notNull(),
-    suggestedParentId: text('suggested_parent_id').references(() => topics.id, {
-      onDelete: 'set null',
-    }),
-    sourceQuestionId: text('source_question_id').references(() => questions.id, {
-      onDelete: 'cascade',
-    }),
-    userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
-    embedding: vector('embedding', { dimensions: 384 }),
-    status: proposalStatus('status').default('pending').notNull(),
-    mergedIntoTopicId: text('merged_into_topic_id').references(() => topics.id, {
-      onDelete: 'set null',
-    }),
-    createdAt: createdAt(),
-  },
-  (t) => [
-    index('topic_proposals_status_idx').on(t.status),
-    index('topic_proposals_source_question_idx').on(t.sourceQuestionId),
-    index('topic_proposals_user_idx').on(t.userId),
-    index('topic_proposals_suggested_parent_idx').on(t.suggestedParentId),
-    index('topic_proposals_merged_into_idx').on(t.mergedIntoTopicId),
-    index('topic_proposals_embedding_idx').using(
-      'hnsw',
-      t.embedding.op('vector_cosine_ops'),
-    ),
-  ],
-)
-
 export const attempts = pgTable(
   'attempts',
   {
@@ -696,54 +658,12 @@ export const rateLimits = pgTable('rate_limits', {
   windowStart: timestamp('window_start', { withTimezone: true }).defaultNow().notNull(),
 })
 
-export const notificationKind = pgEnum('notification_kind', [
-  'worksheet_ready',
-  'worksheet_failed',
-])
-
-export const notifications = pgTable(
-  'notifications',
-  {
-    id: id(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    kind: notificationKind('kind').notNull(),
-    title: text('title').notNull(),
-    body: text('body').notNull(),
-    href: text('href').notNull(),
-    readAt: timestamp('read_at', { withTimezone: true }),
-    createdAt: createdAt(),
-  },
-  (t) => [
-    index('notifications_user_created_idx').on(t.userId, t.createdAt),
-  ],
-)
-
-export const pushSubscriptions = pgTable(
-  'push_subscriptions',
-  {
-    id: id(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    endpoint: text('endpoint').notNull().unique(),
-    p256dh: text('p256dh').notNull(),
-    auth: text('auth').notNull(),
-    createdAt: createdAt(),
-  },
-  (t) => [index('push_subscriptions_user_idx').on(t.userId)],
-)
-
 export type User = typeof users.$inferSelect
-export type Notification = typeof notifications.$inferSelect
-export type PushSubscription = typeof pushSubscriptions.$inferSelect
 export type Worksheet = typeof worksheets.$inferSelect
 export type WorksheetPage = typeof worksheetPages.$inferSelect
 export type Question = typeof questions.$inferSelect
 export type AnswerChoice = typeof answerChoices.$inferSelect
 export type Topic = typeof topics.$inferSelect
-export type TopicProposal = typeof topicProposals.$inferSelect
 export type Attempt = typeof attempts.$inferSelect
 export type Explanation = typeof explanations.$inferSelect
 export type ReviewCard = typeof reviewCards.$inferSelect

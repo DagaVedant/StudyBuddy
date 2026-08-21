@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { classificationSchema } from '@/lib/ai/types'
-import { applyClassification, isEmbedding } from '@/lib/classify'
+import { applyClassification } from '@/lib/classify'
 import { pendingQuestions } from '@/lib/classify/pending'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
@@ -49,7 +49,6 @@ const resultsSchema = z.object({
         questionId: z.string().min(1),
         classification: classificationSchema,
         candidates: z.array(candidateSchema).max(64),
-        proposalEmbedding: z.array(z.number()).optional(),
       }),
     )
     .max(100),
@@ -101,7 +100,6 @@ export async function POST(request: Request, { params }: Params) {
         question,
         entry.candidates,
         entry.classification,
-        isEmbedding(entry.proposalEmbedding) ? entry.proposalEmbedding : undefined,
       )
       if (outcome.topicId) applied += 1
       if (outcome.coarse) coarse += 1

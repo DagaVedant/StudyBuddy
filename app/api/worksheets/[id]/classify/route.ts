@@ -43,8 +43,7 @@ const schema = z.union([
           questionId: z.string().min(1),
           classification: classificationSchema,
           candidates: z.array(candidateSchema).max(64),
-          proposalEmbedding: z.array(z.number()).optional(),
-        }),
+          }),
       )
       .max(BROWSER_CLASSIFY_BATCH),
   }),
@@ -187,7 +186,6 @@ export async function POST(request: Request, { params }: Params) {
           question,
           entry.candidates,
           entry.classification,
-          isEmbedding(entry.proposalEmbedding) ? entry.proposalEmbedding : undefined,
         )
 
         if (outcome.topicId) applied += 1

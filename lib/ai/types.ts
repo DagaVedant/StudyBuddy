@@ -133,7 +133,6 @@ export const classificationSchema = z.object({
   confidence: confidenceSchema.default(0),
   abstain: z.boolean().default(false),
 
-  suggested_name: z.string().max(120).nullable().default(null),
 })
 
 export type Classification = z.infer<typeof classificationSchema>

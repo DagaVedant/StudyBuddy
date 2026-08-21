@@ -377,13 +377,10 @@ async function classifyBatch(
     try {
       const classification = await provider.classifyTopic(promptText, entry.candidates)
 
-      const proposedName = classification.suggested_name ?? promptText.slice(0, 80)
-
       results.push({
         questionId: entry.questionId,
         classification,
         candidates: entry.candidates,
-        proposalEmbedding: await embed(proposedName),
       })
     } catch (error) {
       log(`  classify: question ${entry.questionId} failed: ${(error as Error).message}`)

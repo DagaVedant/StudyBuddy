@@ -68,7 +68,6 @@ export class MockProvider implements RawAIProvider {
         topic_slug: null,
         confidence: 0,
         abstain: true,
-        suggested_name: 'Unsorted',
       }
     }
 
@@ -98,7 +97,6 @@ export class MockProvider implements RawAIProvider {
         topic_slug: null,
         confidence: 0.1,
         abstain: true,
-        suggested_name: promptText.split(/\s+/).slice(0, 3).join(' '),
       }
     }
 
@@ -106,7 +104,6 @@ export class MockProvider implements RawAIProvider {
       topic_slug: best.slug,
       confidence: Math.min(0.5 + bestScore * 0.15, 0.95),
       abstain: false,
-      suggested_name: null,
     }
   }
 

@@ -4,7 +4,6 @@ import { auth, signOut } from '@/auth'
 
 import Mark from './mark'
 import NavLinks from './nav-links'
-import NotificationBell from './notification-bell'
 
 export default async function AppTopbar() {
   const session = await auth()
@@ -23,10 +22,9 @@ export default async function AppTopbar() {
           </span>
         </Link>
 
-        <NavLinks isAdmin={session.user.role === 'admin'} />
+        <NavLinks />
 
         <div className="flex shrink-0 items-center gap-2">
-          <NotificationBell />
           <form
             action={async () => {
               'use server'
