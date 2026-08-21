@@ -671,7 +671,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       })
     }
 
-    if (guard.role !== 'admin') {
+    if (guard.role !== 'admin' && tier === 'trial') {
       const ceiling = trialDailyCeiling()
 
       if ((await trialExtractionsToday(db)) >= ceiling) {
@@ -692,12 +692,12 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       }
     }
 
-    if (!(await claimForCompletion(worksheetId, 'queued', 'trial'))) {
+    if (!(await claimForCompletion(worksheetId, 'queued', tier))) {
       return alreadyCompleted(worksheetId)
     }
 
     const charge =
-      guard.role === 'admin'
+      guard.role === 'admin' || tier !== 'trial'
         ? ({ok: true, remaining: Number.POSITIVE_INFINITY} as const)
         : await consumeTrial(db, guard.userId, 'worksheets', 1)
 
@@ -729,7 +729,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
 
     return NextResponse.json({
       ok: true,
-      tier: 'trial',
+      tier,
       mode: 'queued',
       workerOnline: worker.online,
       trialWorksheetsRemaining: Number.isFinite(charge.remaining)

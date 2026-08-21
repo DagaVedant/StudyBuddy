@@ -3,7 +3,7 @@ import {auth, signOut} from '@/auth'
 import {BrowserDerivedRunner} from '@/components/client'
 import {NavLinks} from '@/components/client'
 import {MainRegion, Mark} from '@/components/ui'
-import {getCredentialSummary} from '@/lib/ai/resolve'
+import {browserTierEnabled, getCredentialSummary} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 
 async function AppTopbar() {
@@ -50,7 +50,7 @@ export default async function AppLayout({
 }: Readonly<{children: React.ReactNode}>) {
   const session = await auth()
 
-  const runsHere = session?.user?.id
+  const runsHere = browserTierEnabled() && session?.user?.id
     ? (await getCredentialSummary(db, session.user.id)).some(
         (row) => row.provider === 'ollama' && row.ollamaBaseUrl,
       )

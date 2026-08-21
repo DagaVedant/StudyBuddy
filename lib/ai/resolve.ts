@@ -42,6 +42,10 @@ export interface ResolvedProvider {
   executor: 'server' | 'browser' | 'operator_gpu' | 'none'
 }
 
+export function browserTierEnabled(): boolean {
+  return process.env.ENABLE_BROWSER_TIER === 'true'
+}
+
 export function mockEnabled(): boolean {
   return process.env.ENABLE_MOCK_AI === 'true'
 }
@@ -97,7 +101,11 @@ export async function resolveProvider(
       return {provider: validated(new MockProvider()), tier: 'ollama', executor: 'server'}
     }
 
-    return {provider: validated(new NullProvider()), tier: 'ollama', executor: 'browser'}
+    return {
+      provider: validated(new NullProvider()),
+      tier: 'ollama',
+      executor: browserTierEnabled() ? 'browser' : 'operator_gpu',
+    }
   }
 
   if (user?.role === 'admin') {
