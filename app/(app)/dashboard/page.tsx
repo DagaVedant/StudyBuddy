@@ -212,12 +212,6 @@ export default async function DashboardPage() {
               hasData={hasData}
             />
           </h1>
-          {!hasData && (
-            <p className="mt-3 text-pretty text-muted">
-              Upload a worksheet you have already done and mark which questions
-              you missed. Everything here fills in from that.
-            </p>
-          )}
         </div>
         <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-5">
           Upload a worksheet
@@ -541,9 +535,7 @@ export default async function DashboardPage() {
               </a>
               <p className="hint">
                 <span className="tabular-nums">{missed}</span>{' '}
-                {missed === 1 ? 'question' : 'questions'} to draw from. Any we do
-                not hold an answer key for are left out, since Blooket needs the
-                right answer to score a question.
+                {missed === 1 ? 'question' : 'questions'} to draw from.
               </p>
 
             </Callout>

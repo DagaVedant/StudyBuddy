@@ -27,7 +27,6 @@ export default async function SettingsPage() {
       <div className="mb-8">
         <PageHead
           title="How StudyBuddy thinks"
-          lede="Review, spaced repetition, and your dashboard work on every option below. This only changes how questions get pulled off the page and whether you get explanations."
         />
       </div>
 

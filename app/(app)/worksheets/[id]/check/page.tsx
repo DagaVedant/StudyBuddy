@@ -90,10 +90,7 @@ export default async function CheckPage({params}: Params) {
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
         Check your questions
       </h1>
-      <p className="hint mb-6 text-pretty">
-        {worksheet.title}. Compare each one against the page it came from and say
-        whether we read it correctly.
-      </p>
+      <p className="hint mb-6">{worksheet.title}</p>
 
       {worksheet.classificationError && (
         <div className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution">

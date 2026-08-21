@@ -194,7 +194,6 @@ export function CheckClient({
           All {questions.length}{' '}
           {questions.length === 1 ? 'question' : 'questions'} checked.
         </p>
-        <p className="hint mt-1">Nothing left to confirm on this worksheet.</p>
 
         {bulkUndo && (
           <p role="status" className="mt-3 flex flex-wrap items-center gap-x-2 text-sm">

@@ -59,7 +59,6 @@ export default async function UploadPage() {
       <div className="mb-8">
         <PageHead
           title="Upload a worksheet"
-          lede="Upload one you have already finished. You will mark which questions you got wrong in the next step."
         />
       </div>
 

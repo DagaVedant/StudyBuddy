@@ -111,7 +111,6 @@ export default function ProfileClient({
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <PageHead
         title="Profile"
-        lede="Your display name, username and picture, and what you have got through."
       />
 
       <div className="card mt-6 p-4">

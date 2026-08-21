@@ -315,7 +315,7 @@ export default function SettingsClient({
                 value={ollamaUrl}
                 onChange={(event) => setOllamaUrl(event.target.value)}
               />
-              <p className="hint">Must be localhost. That is all your browser can reach.</p>
+              <p className="hint">Must be localhost.</p>
             </div>
 
             <details className="text-sm">

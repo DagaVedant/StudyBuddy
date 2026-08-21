@@ -37,7 +37,6 @@ export default async function TopicsPage() {
       <div className="mb-6">
         <PageHead
           title="Topics"
-          lede="Everything StudyBuddy can sort a question into, with how you are doing on each. Open one to see the questions you have missed there, or to have a lesson written for it."
         />
       </div>
 
