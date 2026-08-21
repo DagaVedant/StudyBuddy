@@ -46,6 +46,10 @@ export function browserTierEnabled(): boolean {
   return process.env.ENABLE_BROWSER_TIER === 'true'
 }
 
+export function cloudExtractionEnabled(): boolean {
+  return process.env.ENABLE_CLOUD_EXTRACTION === 'true'
+}
+
 export function mockEnabled(): boolean {
   return process.env.ENABLE_MOCK_AI === 'true'
 }

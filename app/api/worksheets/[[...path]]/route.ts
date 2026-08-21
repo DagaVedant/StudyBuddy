@@ -46,6 +46,7 @@ import {
   WORKSHEET_WRITE_LIMIT,
 } from '@/lib/api'
 import {
+  cloudExtractionEnabled,
   consumeTrial,
   resolveProvider,
   trialExtractionsToday,
@@ -764,19 +765,23 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
     return alreadyCompleted(worksheetId)
   }
 
+  const onServer = cloudExtractionEnabled()
+
   await enqueueJob(db, {
     worksheetId,
     userId: guard.userId,
     stage: 'extract',
-    executor: 'server',
+    executor: onServer ? 'server' : 'operator_gpu',
     priority: guard.role === 'admin' ? 'low' : 'normal',
   })
 
-  after(() =>
-    drainServerQueue(db).catch((error: unknown) => {
-      console.error('[server-job] drain failed:', (error as Error).message)
-    }),
-  )
+  if (onServer) {
+    after(() =>
+      drainServerQueue(db).catch((error: unknown) => {
+        console.error('[server-job] drain failed:', (error as Error).message)
+      }),
+    )
+  }
 
   return NextResponse.json({
     ok: true,
