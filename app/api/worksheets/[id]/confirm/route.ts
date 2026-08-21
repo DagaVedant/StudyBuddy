@@ -4,8 +4,8 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
 import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
-import { transitionWorksheet } from '@/lib/upload/claim'
-import { guardWorksheet } from '@/lib/upload/guard'
+import { transitionWorksheet } from '@/lib/queue'
+import { guardWorksheet } from '@/lib/queue'
 
 type Params = { params: Promise<{ id: string }> }
 

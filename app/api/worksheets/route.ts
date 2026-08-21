@@ -7,8 +7,8 @@ import { resolveProvider } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { UPLOAD_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
-import { MAX_PAGES_PER_UPLOAD, pageCapFor } from '@/lib/upload/limits'
-import { sweepAbandonedUploads } from '@/lib/upload/sweep'
+import { MAX_PAGES_PER_UPLOAD, pageCapFor } from '@/lib/upload'
+import { sweepAbandonedUploads } from '@/lib/queue'
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(200),

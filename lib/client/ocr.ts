@@ -2,7 +2,7 @@ import { createWorker, type Worker } from 'tesseract.js'
 
 import type { TextLine } from '@/lib/db/schema'
 
-import { throwIfCancelled, untilCancelled } from './abort'
+import { throwIfCancelled, untilCancelled } from './http'
 
 let workerPromise: Promise<Worker> | null = null
 

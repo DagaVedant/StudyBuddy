@@ -5,8 +5,8 @@ import PageHead from '@/components/page-head'
 import { auth } from '@/auth'
 import TopicTree from '@/components/topic-tree'
 import { db } from '@/lib/db'
-import { getTopicStats } from '@/lib/dashboard/queries'
-import { buildTopicTree } from '@/lib/dashboard/topic-tree'
+import { getTopicStats } from '@/lib/dashboard'
+import { buildTopicTree } from '@/lib/dashboard'
 import { topics } from '@/lib/db/schema'
 
 export const metadata = { title: 'Topics · StudyBuddy' }

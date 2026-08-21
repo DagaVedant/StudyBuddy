@@ -1,4 +1,4 @@
-import { throwIfCancelled } from './abort'
+import { fetchJson, throwIfCancelled } from './http'
 import { ocrPage, preloadOcr } from './ocr'
 import {
   hasUsableTextLayer,
@@ -7,14 +7,12 @@ import {
   type RasterPage,
 } from './rasterize'
 
-import { MAX_SOURCE_BYTES } from '@/lib/upload/limits'
+import { MAX_SOURCE_BYTES } from '@/lib/upload'
 import {
   describePageRange,
   pageInRange,
   type PageRange,
-} from '@/lib/upload/page-range'
-
-import { fetchJson } from './fetch-json'
+} from '@/lib/upload'
 
 export type IngestStage =
   | 'reading'

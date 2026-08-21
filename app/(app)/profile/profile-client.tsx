@@ -4,8 +4,8 @@ import PageHead from '@/components/page-head'
 import { useId, useState } from 'react'
 
 import { AccuracyLabel, Meter } from '@/components/meter'
-import type { AccountAccuracy } from '@/lib/dashboard/queries'
-import { fetchJson } from '@/lib/client/fetch-json'
+import type { AccountAccuracy } from '@/lib/dashboard'
+import { fetchJson } from '@/lib/client/http'
 
 interface Props {
   name: string | null

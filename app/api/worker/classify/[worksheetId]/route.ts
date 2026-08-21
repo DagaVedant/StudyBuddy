@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { classificationSchema } from '@/lib/ai/types'
 import { applyClassification } from '@/lib/classify'
-import { pendingQuestions } from '@/lib/classify/pending'
+import { pendingQuestions } from '@/lib/classify'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/auth'

@@ -4,8 +4,8 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { processingJobs } from '@/lib/db/schema'
 import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
-import { guardWorksheet } from '@/lib/upload/guard'
-import { claimWorksheetForManualFallback } from '@/lib/upload/claim'
+import { guardWorksheet } from '@/lib/queue'
+import { claimWorksheetForManualFallback } from '@/lib/queue'
 import { applyPermanentFailure } from '@/lib/worker/status'
 
 type Params = { params: Promise<{ id: string }> }

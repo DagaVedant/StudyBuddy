@@ -3,7 +3,11 @@ import { asc, eq, inArray } from 'drizzle-orm'
 import { answerChoices, attempts, questions, reviewCards, worksheetPages } from '@/lib/db/schema'
 import { loadQuestionsWithChoices } from '@/lib/questions/queries'
 import { modalChoiceCount, validateQuestion } from '@/lib/questions/validate'
-import { parseCarriedChoices } from '@/lib/questions/duplicates'
+import {
+  parseCarriedChoices,
+  planDuplicateMerges,
+  planNumberDuplicateMerges,
+} from '@/lib/questions/duplicates'
 import { sortWithinPage } from '@/lib/questions/text'
 import { type Db } from '@/lib/db/types'
 
@@ -135,11 +139,6 @@ export async function recoverCarriedChoices(
 
   return { recovered }
 }
-
-import {
-  planDuplicateMerges,
-  planNumberDuplicateMerges,
-} from '@/lib/questions/duplicates'
 
 export async function mergeDuplicateQuestions(
   db: Db,

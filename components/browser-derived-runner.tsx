@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { OllamaProvider } from '@/lib/ai/ollama'
 import { validated } from '@/lib/ai/parse'
 import type { AIProvider } from '@/lib/ai/types'
-import { explainOllamaFailure } from '@/lib/client/ollama-error'
+import { explainOllamaFailure } from '@/lib/client/http'
 import { fetchPageImage } from '@/lib/client/page-image'
 
 const IDLE_POLL_MS = 5_000

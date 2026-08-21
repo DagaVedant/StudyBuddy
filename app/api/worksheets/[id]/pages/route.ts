@@ -6,13 +6,13 @@ import { db } from '@/lib/db'
 import { worksheetPages, worksheets } from '@/lib/db/schema'
 import { PAGE_UPLOAD_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 import { pageImageKey, storage } from '@/lib/storage'
-import { guardWorksheet } from '@/lib/upload/guard'
+import { guardWorksheet } from '@/lib/queue'
 import {
   MAX_DECODED_PIXELS,
   MAX_PAGE_BYTES,
   MAX_PAGE_DIMENSION,
   MAX_SOURCE_PAGE_NUMBER,
-} from '@/lib/upload/limits'
+} from '@/lib/upload'
 
 type Params = { params: Promise<{ id: string }> }
 

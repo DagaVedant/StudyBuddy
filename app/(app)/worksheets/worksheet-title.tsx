@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useId, useState } from 'react'
 
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 
 export default function WorksheetTitle({
   worksheetId,

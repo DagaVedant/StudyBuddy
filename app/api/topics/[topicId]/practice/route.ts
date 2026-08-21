@@ -18,7 +18,7 @@ import {
   acceptPractice,
   generatePractice,
   practiceInput,
-} from '@/lib/practice/generate'
+} from '@/lib/practice'
 import { PRACTICE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 
 type Params = { params: Promise<{ topicId: string }> }

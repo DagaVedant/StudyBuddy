@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { unverifyQuestions, verifyRemaining } from '@/lib/questions/queries'
 import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
-import { guardWorksheet } from '@/lib/upload/guard'
+import { guardWorksheet } from '@/lib/queue'
 
 type Params = { params: Promise<{ id: string }> }
 

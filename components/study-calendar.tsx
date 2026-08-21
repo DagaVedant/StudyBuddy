@@ -1,4 +1,4 @@
-import type { StudyDay } from '@/lib/dashboard/queries'
+import type { StudyDay } from '@/lib/dashboard'
 
 
 const DAY_MS = 86_400_000

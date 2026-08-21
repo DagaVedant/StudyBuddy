@@ -1,19 +1,18 @@
 import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 
-import type { Db } from '@/lib/db/types'
 import { CHOICE_ORDER } from '@/lib/questions/queries'
 import {
   answerChoices,
   attempts,
   explanations,
+  questionTopics,
   questions,
   reviewCards,
   topics,
-  questionTopics,
   worksheetPages,
 } from '@/lib/db/schema'
-import { evidenceFor, type QuestionEvidence } from '@/lib/questions/text'
-import { formatInterval, previewIntervals, type ReviewRating } from '@/lib/review/fsrs'
+import { type Db } from '@/lib/db/types'
+import { type QuestionEvidence, evidenceFor } from '@/lib/questions/text'
 
 function inTopic(topicId?: string | null) {
   if (!topicId) return undefined
@@ -250,4 +249,264 @@ export async function getDueCards(
       },
     }
   })
+}
+
+import {
+  createEmptyCard,
+  fsrs,
+  Rating,
+  State,
+  type Card,
+  type Grade,
+} from 'ts-fsrs'
+
+const scheduler = fsrs()
+
+export type Outcome = 'correct' | 'unsure' | 'wrong'
+export type CardStateName = 'new' | 'learning' | 'review' | 'relearning'
+
+const STATE_NAMES: CardStateName[] = ['new', 'learning', 'review', 'relearning']
+
+const GRADE_BY_OUTCOME: Record<Outcome, Grade> = {
+  wrong: Rating.Again,
+  unsure: Rating.Hard,
+  correct: Rating.Good,
+}
+
+export const REVIEW_GRADES = {
+  again: Rating.Again,
+  hard: Rating.Hard,
+  good: Rating.Good,
+  easy: Rating.Easy,
+} as const satisfies Record<string, Grade>
+
+export type ReviewRating = keyof typeof REVIEW_GRADES
+
+export interface StoredCard {
+  dueAt: Date
+  stability: number
+  difficulty: number
+  elapsedDays: number
+  scheduledDays: number
+  learningSteps: number
+  reps: number
+  lapses: number
+  state: CardStateName
+  lastReview: Date | null
+}
+
+export interface ScheduleResult {
+  card: StoredCard
+  log: {
+    rating: number
+    state: CardStateName
+    elapsedDays: number
+    scheduledDays: number
+  }
+}
+
+function toStateName(state: State): CardStateName {
+  return STATE_NAMES[state] ?? 'new'
+}
+
+function toStateValue(name: CardStateName): State {
+  const index = STATE_NAMES.indexOf(name)
+  return (index < 0 ? State.New : index) as State
+}
+
+function toFsrsCard(stored: StoredCard | null, now: Date): Card {
+  if (!stored) return createEmptyCard(now)
+
+  return {
+    due: stored.dueAt,
+    stability: stored.stability,
+    difficulty: stored.difficulty,
+    elapsed_days: stored.elapsedDays,
+    scheduled_days: stored.scheduledDays,
+    learning_steps: stored.learningSteps,
+    reps: stored.reps,
+    lapses: stored.lapses,
+    state: toStateValue(stored.state),
+    last_review: stored.lastReview ?? undefined,
+  }
+}
+
+function fromFsrsCard(card: Card): StoredCard {
+  return {
+    dueAt: card.due,
+    stability: card.stability,
+    difficulty: card.difficulty,
+    elapsedDays: card.elapsed_days,
+    scheduledDays: card.scheduled_days,
+    learningSteps: card.learning_steps,
+    reps: card.reps,
+    lapses: card.lapses,
+    state: toStateName(card.state),
+    lastReview: card.last_review ?? null,
+  }
+}
+
+function schedule(
+  stored: StoredCard | null,
+  grade: Grade,
+  now: Date,
+): ScheduleResult {
+  const { card, log } = scheduler.next(toFsrsCard(stored, now), now, grade)
+
+  return {
+    card: fromFsrsCard(card),
+    log: {
+      rating: log.rating,
+      state: toStateName(log.state),
+      elapsedDays: log.elapsed_days,
+      scheduledDays: log.scheduled_days,
+    },
+  }
+}
+
+export function scheduleFromOutcome(
+  stored: StoredCard | null,
+  outcome: Outcome,
+  now: Date = new Date(),
+): ScheduleResult {
+  return schedule(stored, GRADE_BY_OUTCOME[outcome], now)
+}
+
+export function scheduleFromReview(
+  stored: StoredCard,
+  rating: ReviewRating,
+  now: Date = new Date(),
+): ScheduleResult {
+  return schedule(stored, REVIEW_GRADES[rating], now)
+}
+
+export function previewIntervals(
+  stored: StoredCard,
+  now: Date = new Date(),
+): Record<ReviewRating, Date> {
+  const entries = Object.entries(REVIEW_GRADES) as [ReviewRating, Grade][]
+  return Object.fromEntries(
+    entries.map(([name, grade]) => [
+      name,
+      scheduler.next(toFsrsCard(stored, now), now, grade).card.due,
+    ]),
+  ) as Record<ReviewRating, Date>
+}
+
+export function formatInterval(due: Date, now: Date = new Date()): string {
+  const minutes = Math.round((due.getTime() - now.getTime()) / 60_000)
+
+  if (minutes < 1) return '<1 min'
+  if (minutes < 60) return `${minutes} min`
+
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} h`
+
+  const days = Math.round(hours / 24)
+  if (days < 30) return `${days} d`
+
+  const months = Math.round(days / 30)
+  if (months < 12) return `${months} mo`
+
+  return `${Math.round(days / 365)} y`
+}
+
+export interface Correction {
+  questionId: string
+  outcome: Outcome
+  selectedChoiceId?: string | null
+  freeTextAnswer?: string | null
+}
+
+export type CorrectionResult =
+  | { ok: true; outcome: Outcome; rescheduled: boolean }
+  | { ok: false; reason: 'no-question' | 'not-marked' }
+
+export async function correctMarkupAttempt(
+  db: Db,
+  userId: string,
+  worksheetId: string,
+  input: Correction,
+): Promise<CorrectionResult> {
+  const [question] = await db
+    .select({ id: questions.id })
+    .from(questions)
+    .where(
+      and(eq(questions.worksheetId, worksheetId), eq(questions.id, input.questionId)),
+    )
+    .limit(1)
+
+  if (!question) return { ok: false, reason: 'no-question' }
+
+  const [existing] = await db
+    .select({ id: attempts.id })
+    .from(attempts)
+    .where(
+      and(
+        eq(attempts.userId, userId),
+        eq(attempts.questionId, input.questionId),
+        eq(attempts.source, 'markup'),
+      ),
+    )
+    .limit(1)
+
+  if (!existing) return { ok: false, reason: 'not-marked' }
+
+  const [choice] = input.selectedChoiceId
+    ? await db
+        .select({ id: answerChoices.id })
+        .from(answerChoices)
+        .where(
+          and(
+            eq(answerChoices.id, input.selectedChoiceId),
+            eq(answerChoices.questionId, input.questionId),
+          ),
+        )
+        .limit(1)
+    : []
+
+  const now = new Date()
+  let rescheduled = false
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(attempts)
+      .set({
+        outcome: input.outcome,
+        selectedChoiceId: choice?.id ?? null,
+        freeTextAnswer: input.freeTextAnswer ?? null,
+      })
+      .where(eq(attempts.id, existing.id))
+
+    const [practised] = await tx
+      .select({ id: attempts.id })
+      .from(attempts)
+      .where(
+        and(
+          eq(attempts.userId, userId),
+          eq(attempts.questionId, input.questionId),
+          eq(attempts.source, 'review'),
+        ),
+      )
+      .limit(1)
+
+    if (practised) return
+
+    const { card } = scheduleFromOutcome(null, input.outcome, now)
+
+    await tx
+      .insert(reviewCards)
+      .values({ userId, questionId: input.questionId, ...card })
+      .onConflictDoUpdate({
+        target: [reviewCards.userId, reviewCards.questionId],
+        set: {
+          ...card,
+          retiredAt: null,
+        },
+      })
+
+    rescheduled = true
+  })
+
+  return { ok: true, outcome: input.outcome, rescheduled }
 }

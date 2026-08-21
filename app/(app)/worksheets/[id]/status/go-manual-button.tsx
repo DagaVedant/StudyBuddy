@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 
 export default function GoManualButton({ worksheetId }: { worksheetId: string }) {
   const router = useRouter()

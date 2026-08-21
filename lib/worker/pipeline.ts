@@ -1,15 +1,17 @@
 import { and, asc, eq, ne, sql } from 'drizzle-orm'
 
 import { answerChoices, questions, worksheetPages, worksheets } from '@/lib/db/schema'
-import { deletableQuestionIds } from '@/lib/worker/apply'
+import {
+  deletableQuestionIds,
+  mergeDuplicateQuestions,
+  recoverCarriedChoices,
+} from '@/lib/worker/apply'
 import { duplicatePrintedNumbers } from '@/lib/questions/duplicates'
 import { hashQuestion, normalizeChoiceLabel } from '@/lib/questions/shape'
 import { inferPrintedNumbers } from '@/lib/questions/numbering'
 import { loadQuestionsWithChoices } from '@/lib/questions/queries'
 import { mergeAnswerKeys, parseAnswerKey } from '@/lib/questions/answer-key'
-import { mergeDuplicateQuestions } from '@/lib/worker/apply'
 import { normalizeMath } from '@/lib/questions/math'
-import { recoverCarriedChoices } from '@/lib/worker/apply'
 import { type Db } from '@/lib/db/types'
 import { type SplitHalf, modalChoiceCount, planPageSplitJoins } from '@/lib/questions/validate'
 

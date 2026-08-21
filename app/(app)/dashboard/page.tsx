@@ -11,7 +11,7 @@ import {
 import AiSetupPrompt from '@/components/ai-setup-prompt'
 import TopicSorter from '@/components/topic-sorter'
 import { AccuracyLabel, Meter } from '@/components/meter'
-import { countMissedQuestions } from '@/lib/blooket/missed'
+import { countMissedQuestions } from '@/lib/blooket'
 import { db } from '@/lib/db'
 import TopicTree from '@/components/topic-tree'
 import {
@@ -25,7 +25,7 @@ import {
   getStudyCalendar,
   getStudyStreak,
   getTopicStats,
-} from '@/lib/dashboard/queries'
+} from '@/lib/dashboard'
 import StudyCalendar from '@/components/study-calendar'
 import { Underline } from '@/components/hand'
 import {
@@ -40,10 +40,10 @@ import {
   rankWeaknesses,
   summarize,
   type TopicTrend,
-} from '@/lib/dashboard/ranking'
-import { buildTopicTree, pruneToAttempted } from '@/lib/dashboard/topic-tree'
+} from '@/lib/dashboard'
+import { buildTopicTree, pruneToAttempted } from '@/lib/dashboard'
 import { topics } from '@/lib/db/schema'
-import { pathBySlug } from '@/lib/taxonomy/trees'
+import { pathBySlug } from '@/lib/taxonomy'
 import { destination } from '@/lib/worksheets'
 
 import AccuracyChart from './accuracy-chart'

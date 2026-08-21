@@ -82,15 +82,6 @@ export default async function WorksheetsPage({
       markedCount: sql<number>`count(distinct ${attempts.id}) filter (where ${attempts.source} = 'markup')::int`,
     })
     .from(worksheets)
-    // `questions` and `attempts` are a chain: attempts hang off a question, so
-    // this multiplies rows by attempts per question, which the `distinct`
-    // counts above already handle.
-    //
-    // `worksheet_pages` used to be joined here too, and it is not part of that
-    // chain: it hangs off the worksheet, so questions times pages was a
-    // cartesian product. A 45 question, 7 page worksheet produced 315 rows and
-    // ran the IS_QUESTION regex on every one of them, to compute a thumbnail
-    // that needs one row. It is its own query below.
     .leftJoin(questions, eq(questions.worksheetId, worksheets.id))
     .leftJoin(attempts, eq(attempts.questionId, questions.id))
     .where(and(...filters))
@@ -103,9 +94,6 @@ export default async function WorksheetsPage({
       worksheets.createdAt,
     )
     .orderBy(desc(worksheets.createdAt))
-    // One more than the page holds, purely to find out whether there is a next
-    // page. Counting the whole table to answer that costs a second query over
-    // every row, to render one link.
     .limit(WORKSHEETS_SHOWN + 1)
 
   const hasOlder = rows.length > WORKSHEETS_SHOWN

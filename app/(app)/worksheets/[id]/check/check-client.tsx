@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import ReportButton from '@/components/report-button'
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 
 const BULK_UNDO_WINDOW_MS = 12_000
 

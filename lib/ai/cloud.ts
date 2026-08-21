@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-import { appBaseUrl } from '@/lib/app-url'
+import { appBaseUrl } from '@/lib/request'
 
 import { parseModelJson } from './parse'
 import {

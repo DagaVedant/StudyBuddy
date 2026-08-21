@@ -6,7 +6,7 @@ import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { attempts, reviewCards, reviewLogs } from '@/lib/db/schema'
 import { REVIEW_LIMIT, guardRateLimit } from '@/lib/rate-limit'
-import { scheduleFromReview, type StoredCard } from '@/lib/review/fsrs'
+import { scheduleFromReview, type StoredCard } from '@/lib/review'
 
 const rateSchema = z.object({
   cardId: z.string().min(1),

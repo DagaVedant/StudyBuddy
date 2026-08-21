@@ -1,8 +1,17 @@
-import { and, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, lt, notExists, or, sql } from 'drizzle-orm'
+
+import { auth } from '@/auth'
+import { db } from '@/lib/db'
+import { storage } from '@/lib/storage'
 
 import { type Db, unwrapDriverRows } from '@/lib/db/types'
-import { processingJobs, gpuWorkers, users } from '@/lib/db/schema'
-import { transitionWorksheet } from '@/lib/upload/claim'
+import {
+  gpuWorkers,
+  processingJobs,
+  users,
+  worksheetPages,
+  worksheets,
+} from '@/lib/db/schema'
 
 export type JobExecutor = 'server' | 'browser' | 'operator_gpu'
 
@@ -456,4 +465,110 @@ export async function requeueJob(db: Db, jobId: string): Promise<boolean> {
   await transitionWorksheet(db, job.worksheetId, ['failed'], { status: 'queued' })
 
   return true
+}
+
+export type WorksheetStatus = (typeof worksheets.$inferSelect)['status']
+
+type CompletedStatus = 'queued' | 'awaiting_review'
+type Tier = 'trial' | 'free' | 'cloud' | 'ollama'
+
+export async function transitionWorksheet(
+  db: Db,
+  worksheetId: string,
+  from: readonly WorksheetStatus[],
+  set: Partial<typeof worksheets.$inferInsert> & { status: WorksheetStatus },
+): Promise<boolean> {
+  const claimed = await db
+    .update(worksheets)
+    .set(set)
+    .where(and(eq(worksheets.id, worksheetId), inArray(worksheets.status, [...from])))
+    .returning({ id: worksheets.id })
+
+  return claimed.length > 0
+}
+
+const BEFORE_COMPLETION = ['uploading', 'processing'] as const
+
+export async function claimWorksheetForCompletion(
+  db: Db,
+  worksheetId: string,
+  status: CompletedStatus,
+  tierUsed: Tier,
+): Promise<boolean> {
+  return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, { status, tierUsed })
+}
+
+export async function claimWorksheetForManualFallback(
+  db: Db,
+  worksheetId: string,
+): Promise<boolean> {
+  return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, { status: 'failed' })
+}
+
+export type Guarded =
+  | { ok: true; userId: string; role: 'student' | 'admin' }
+  | { ok: false; status: 401 | 404 }
+
+export async function guardWorksheet(worksheetId: string): Promise<Guarded> {
+  const session = await auth()
+  if (!session?.user?.id) return { ok: false, status: 401 }
+
+  const [worksheet] = await db
+    .select({ userId: worksheets.userId })
+    .from(worksheets)
+    .where(eq(worksheets.id, worksheetId))
+    .limit(1)
+
+  if (!worksheet || worksheet.userId !== session.user.id) {
+    return { ok: false, status: 404 }
+  }
+
+  return { ok: true, userId: session.user.id, role: session.user.role }
+}
+
+export const ABANDONED_AFTER_MS = 60 * 60_000
+
+export async function sweepAbandonedUploads(
+  db: Db,
+  userId: string,
+  now: Date = new Date(),
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - ABANDONED_AFTER_MS)
+
+  const stale = await db
+    .select({ id: worksheets.id })
+    .from(worksheets)
+    .where(
+      and(
+        eq(worksheets.userId, userId),
+        lt(worksheets.createdAt, cutoff),
+        or(
+          eq(worksheets.status, 'uploading'),
+          and(
+            eq(worksheets.status, 'processing'),
+            notExists(
+              db
+                .select({ one: sql`1` })
+                .from(processingJobs)
+                .where(eq(processingJobs.worksheetId, worksheets.id)),
+            ),
+          ),
+        ),
+      ),
+    )
+
+  if (stale.length === 0) return 0
+
+  for (const sheet of stale) {
+    const pages = await db
+      .select({ imageKey: worksheetPages.imageKey })
+      .from(worksheetPages)
+      .where(eq(worksheetPages.worksheetId, sheet.id))
+
+    await db.delete(worksheets).where(eq(worksheets.id, sheet.id))
+
+    await Promise.allSettled(pages.map((page) => storage.remove(page.imageKey)))
+  }
+
+  return stale.length
 }

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 import { AccuracyLabel } from '@/components/meter'
-import type { TopicTreeNode } from '@/lib/dashboard/topic-tree'
+import type { TopicTreeNode } from '@/lib/dashboard'
 
 export default function TopicTree({
   nodes,

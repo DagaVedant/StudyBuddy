@@ -1,5 +1,5 @@
 import { AccuracyLabel, Meter } from './meter'
-import { MIN_ATTEMPTS } from '@/lib/dashboard/ranking'
+import { MIN_ATTEMPTS } from '@/lib/dashboard'
 
 import styles from './dashboard-preview.module.css'
 

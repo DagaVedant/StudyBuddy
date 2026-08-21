@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 
 import { and, eq, gt, isNull } from 'drizzle-orm'
 
-import { appBaseUrl } from '@/lib/app-url'
+import { appBaseUrl } from '@/lib/request'
 import { passwordResetTokens, users } from '@/lib/db/schema'
 import { type Db } from '@/lib/db/types'
 

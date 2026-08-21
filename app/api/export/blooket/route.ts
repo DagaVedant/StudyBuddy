@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { blooketDownload } from '@/lib/blooket/download'
-import { getMissedQuestions } from '@/lib/blooket/missed'
+import { blooketDownload } from '@/lib/blooket'
+import { getMissedQuestions } from '@/lib/blooket'
 import { db } from '@/lib/db'
 import { EXPORT_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 

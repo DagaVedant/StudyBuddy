@@ -9,7 +9,7 @@ import {
   PROVIDER_COPY,
   type CloudProvider,
 } from '@/lib/ai/providers'
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 
 interface Credential {
   provider: string

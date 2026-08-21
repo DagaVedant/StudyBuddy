@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BBox } from '@/lib/db/schema'
 
 import type { EditableQuestion, QuestionType } from './types'
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 

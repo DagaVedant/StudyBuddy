@@ -7,7 +7,7 @@ import AiSetupPrompt from '@/components/ai-setup-prompt'
 import { getAiStatus, resolveProvider, shouldOfferAiSetup } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { queueDepth, workerStatus } from '@/lib/queue'
-import { flattenTaxonomy } from '@/lib/taxonomy/trees'
+import { flattenTaxonomy } from '@/lib/taxonomy'
 
 import UploadClient, { type SubjectGroup } from './upload-client'
 

@@ -8,8 +8,8 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import * as schema from '../lib/db/schema'
 import { topics } from '../lib/db/schema'
 import type { Db } from '../lib/db/types'
-import { demoteParentsWithChildren } from '../lib/taxonomy/leaves'
-import { flattenTaxonomy } from '../lib/taxonomy/trees'
+import { demoteParentsWithChildren } from '../lib/taxonomy'
+import { flattenTaxonomy } from '../lib/taxonomy'
 import { connect } from './db'
 
 const dryRun = process.argv.includes('--dry-run')

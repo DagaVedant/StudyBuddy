@@ -7,7 +7,7 @@ import { OllamaProvider } from '@/lib/ai/ollama'
 import type { AIProvider, TopicCandidate } from '@/lib/ai/types'
 import { validated } from '@/lib/ai/parse'
 import { embedInBrowser } from '@/lib/client/embeddings'
-import { explainOllamaFailure } from '@/lib/client/ollama-error'
+import { explainOllamaFailure } from '@/lib/client/http'
 
 export interface SortableWorksheet {
   id: string

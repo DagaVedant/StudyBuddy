@@ -15,7 +15,7 @@ import {
   worksheetPages,
   worksheets,
 } from '@/lib/db/schema'
-import { pathBySlug } from '@/lib/taxonomy/trees'
+import { pathBySlug } from '@/lib/taxonomy'
 
 import EditClient, { type EditablePage, type EditableQuestion } from './edit-client'
 

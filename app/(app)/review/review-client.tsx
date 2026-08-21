@@ -8,8 +8,8 @@ import ReportButton from '@/components/report-button'
 import { Tick } from '@/components/hand'
 import QuestionCrop from '@/components/question-crop'
 import { reflowText } from '@/lib/questions/text'
-import type { ReviewItem } from '@/lib/review/queue'
-import { fetchJson } from '@/lib/client/fetch-json'
+import type { ReviewItem } from '@/lib/review'
+import { fetchJson } from '@/lib/client/http'
 
 type Rating = 'again' | 'hard' | 'good' | 'easy'
 

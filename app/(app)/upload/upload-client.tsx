@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { ingestWorksheet, type IngestProgress } from '@/lib/client/ingest'
-import { parsePageRange, parseQuestionCount } from '@/lib/upload/page-range'
+import { parsePageRange, parseQuestionCount } from '@/lib/upload'
 
 export interface SubjectGroup {
   label: string

@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react'
 
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 
 export type Outcome = 'correct' | 'unsure' | 'wrong'
 

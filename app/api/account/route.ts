@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth, signOut } from '@/auth'
-import { deleteAccount } from '@/lib/account'
+import { deleteAccount } from '@/lib/auth/identity'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { ACCOUNT_LIMIT, guardRateLimit } from '@/lib/rate-limit'

@@ -1,4 +1,4 @@
-import { MIN_ATTEMPTS } from '@/lib/dashboard/ranking'
+import { MIN_ATTEMPTS } from '@/lib/dashboard'
 
 const PERCENT = new Intl.NumberFormat(undefined, {
   style: 'percent',

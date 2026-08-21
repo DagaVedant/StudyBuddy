@@ -6,7 +6,7 @@ import { QUESTION_WRITE_LIMIT, consumeRateLimit } from '@/lib/rate-limit'
 import { CHOICE_ORDER, checkReferences, referenceError } from '@/lib/questions/queries'
 import { answerChoices, questionTopics, questions } from '@/lib/db/schema'
 import { hashQuestion, questionInputSchema } from '@/lib/questions/shape'
-import { guardWorksheet } from '@/lib/upload/guard'
+import { guardWorksheet } from '@/lib/queue'
 
 type Params = { params: Promise<{ id: string }> }
 

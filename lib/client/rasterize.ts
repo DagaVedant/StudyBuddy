@@ -2,10 +2,10 @@ import type * as PdfjsModule from 'pdfjs-dist'
 import type { TextItem } from 'pdfjs-dist/types/src/display/api'
 
 import type { TextLine } from '@/lib/db/schema'
-import { RASTER_DPI, RASTER_MAX_EDGE } from '@/lib/upload/limits'
-import { countInRange, pageInRange, type PageRange } from '@/lib/upload/page-range'
+import { RASTER_DPI, RASTER_MAX_EDGE } from '@/lib/upload'
+import { countInRange, pageInRange, type PageRange } from '@/lib/upload'
 
-import { throwIfCancelled } from './abort'
+import { throwIfCancelled } from './http'
 
 const runtimeImport = new Function('url', 'return import(url)') as (
   url: string,

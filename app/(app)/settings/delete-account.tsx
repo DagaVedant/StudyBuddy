@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from 'react'
 
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 
 export default function DeleteAccount({ email }: { email: string }) {
   const dialogRef = useRef<HTMLDialogElement>(null)

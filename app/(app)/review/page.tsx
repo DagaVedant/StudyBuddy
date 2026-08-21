@@ -8,7 +8,7 @@ import { resolveProvider } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { topics } from '@/lib/db/schema'
 import { workerStatus } from '@/lib/queue'
-import { countReviewQueue, getDueCards } from '@/lib/review/queue'
+import { countReviewQueue, getDueCards } from '@/lib/review'
 
 import ReviewSession from './review-client'
 

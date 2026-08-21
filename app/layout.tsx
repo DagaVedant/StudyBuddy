@@ -4,7 +4,7 @@ import { Fraunces, Public_Sans, Space_Mono } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
 
 import AutoRefresh from '@/components/auto-refresh'
-import { appBaseUrl } from '@/lib/app-url'
+import { appBaseUrl } from '@/lib/request'
 
 import './globals.css'
 

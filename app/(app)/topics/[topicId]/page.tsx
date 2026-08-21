@@ -5,7 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { AccuracyLabel, Meter } from '@/components/meter'
 import { db } from '@/lib/db'
-import { summarize } from '@/lib/dashboard/ranking'
+import { summarize } from '@/lib/dashboard'
 import {
   answerChoices,
   attempts,
@@ -15,13 +15,13 @@ import {
   worksheets,
 } from '@/lib/db/schema'
 import { CHOICE_ORDER } from '@/lib/questions/queries'
-import { pathBySlug } from '@/lib/taxonomy/trees'
+import { pathBySlug } from '@/lib/taxonomy'
 import { getLesson } from '@/lib/topics'
 import Prose from '@/components/prose'
 import RevisitQuestion from '@/components/revisit-question'
 import GenerateLessonButton from '@/components/generate-lesson-button'
 import GeneratePracticeButton from '@/components/generate-practice-button'
-import { countGenerated } from '@/lib/practice/generate'
+import { countGenerated } from '@/lib/practice'
 
 export const metadata = { title: 'Topic · StudyBuddy' }
 export const dynamic = 'force-dynamic'

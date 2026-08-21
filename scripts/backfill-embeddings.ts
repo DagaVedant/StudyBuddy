@@ -7,7 +7,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 
 import { questions, topics } from '../lib/db/schema'
 import { embed } from '../lib/embeddings'
-import { flattenTaxonomy } from '../lib/taxonomy/trees'
+import { flattenTaxonomy } from '../lib/taxonomy'
 import { connect } from './db'
 
 type Db = ReturnType<typeof drizzle>

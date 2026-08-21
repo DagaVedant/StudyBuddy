@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 
 type Target =
   | { kind: 'worksheet'; worksheetId: string }

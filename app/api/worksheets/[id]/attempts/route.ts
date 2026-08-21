@@ -11,9 +11,9 @@ import {
   reviewLogs,
 } from '@/lib/db/schema'
 import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
-import { correctMarkupAttempt } from '@/lib/review/correct-mark'
-import { scheduleFromOutcome, type StoredCard } from '@/lib/review/fsrs'
-import { guardWorksheet } from '@/lib/upload/guard'
+import { correctMarkupAttempt } from '@/lib/review'
+import { scheduleFromOutcome, type StoredCard } from '@/lib/review'
+import { guardWorksheet } from '@/lib/queue'
 
 type Params = { params: Promise<{ id: string }> }
 

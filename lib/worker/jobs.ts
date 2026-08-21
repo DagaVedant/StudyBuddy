@@ -11,7 +11,7 @@ import { partitionByDeletability } from '@/lib/worker/apply'
 import { persistQuestions } from '@/lib/worker/ingest'
 import { planPageReplacement } from '@/lib/worker/review'
 import { promoteDerivedAnswer } from '@/lib/worker/solutions'
-import { transitionWorksheet } from '@/lib/upload/claim'
+import { transitionWorksheet } from '@/lib/queue'
 import { type Db } from '@/lib/db/types'
 
 export const bodySchema = z.discriminatedUnion('action', [

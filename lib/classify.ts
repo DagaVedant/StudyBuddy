@@ -1,10 +1,10 @@
-import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, count, eq, isNotNull, notExists, sql } from 'drizzle-orm'
 
-import type { AIProvider, TopicCandidate } from '@/lib/ai/types'
-import type { Db } from '@/lib/db/types'
-import { questionTopics, questions, topics } from '@/lib/db/schema'
 import { EMBEDDING_DIMENSIONS, embed } from '@/lib/embeddings'
-import { pathBySlug } from '@/lib/taxonomy/trees'
+import { pathBySlug } from '@/lib/taxonomy'
+import { questionTopics, questions, topics } from '@/lib/db/schema'
+import { type AIProvider, type TopicCandidate } from '@/lib/ai/types'
+import { type Db } from '@/lib/db/types'
 
 export const SHORTLIST_SIZE = 25
 
@@ -213,4 +213,48 @@ export async function classifyWorksheet(
   }
 
   return { classified, coarse, failed }
+}
+
+export const PENDING_PAGE_SIZE = 100
+
+export interface PendingQuestion {
+  id: string
+  promptText: string
+}
+
+function untagged(db: Db, worksheetId: string) {
+  return and(
+    eq(questions.worksheetId, worksheetId),
+    notExists(
+      db
+        .select({ questionId: questionTopics.questionId })
+        .from(questionTopics)
+        .where(eq(questionTopics.questionId, questions.id)),
+    ),
+  )
+}
+
+export async function pendingQuestions(
+  db: Db,
+  worksheetId: string,
+  limit: number = PENDING_PAGE_SIZE,
+): Promise<PendingQuestion[]> {
+  return db
+    .select({ id: questions.id, promptText: questions.promptText })
+    .from(questions)
+    .where(untagged(db, worksheetId))
+    .orderBy(asc(questions.ordinal), asc(questions.id))
+    .limit(limit)
+}
+
+export async function pendingQuestionCount(
+  db: Db,
+  worksheetId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(questions)
+    .where(untagged(db, worksheetId))
+
+  return Number(row?.value ?? 0)
 }

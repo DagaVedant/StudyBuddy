@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { OllamaProvider } from '@/lib/ai/ollama'
 import type { LessonInput } from '@/lib/ai/types'
 import { validated } from '@/lib/ai/parse'
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 
 interface LessonResponse {
   error?: string

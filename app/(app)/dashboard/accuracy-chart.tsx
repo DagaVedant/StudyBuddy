@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react'
 
-import type { SubjectTrend, TrendPoint } from '@/lib/dashboard/queries'
+import type { SubjectTrend, TrendPoint } from '@/lib/dashboard'
 
 const WEEK_OF = new Intl.DateTimeFormat(undefined, {
   month: 'short',

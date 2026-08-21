@@ -13,8 +13,8 @@ import {
   workerStatus,
 } from '@/lib/queue'
 import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
-import { claimWorksheetForCompletion, transitionWorksheet } from '@/lib/upload/claim'
-import { guardWorksheet } from '@/lib/upload/guard'
+import { claimWorksheetForCompletion, transitionWorksheet } from '@/lib/queue'
+import { guardWorksheet } from '@/lib/queue'
 import { drainServerQueue } from '@/lib/worker/server-job'
 
 export const maxDuration = 300

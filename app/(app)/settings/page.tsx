@@ -4,7 +4,7 @@ import PageHead from '@/components/page-head'
 
 import { auth } from '@/auth'
 import { getTrialState } from '@/lib/ai/quota'
-import { appBaseUrl } from '@/lib/app-url'
+import { appBaseUrl } from '@/lib/request'
 import { getCredentialSummary } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { workerStatus } from '@/lib/queue'

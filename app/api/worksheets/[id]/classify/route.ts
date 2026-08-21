@@ -6,10 +6,10 @@ import { ollamaConfig } from '@/lib/ai/ollama-config'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { classificationSchema } from '@/lib/ai/types'
 import { applyClassification, isEmbedding, shortlistByVector } from '@/lib/classify'
-import { pendingQuestionCount, pendingQuestions } from '@/lib/classify/pending'
+import { pendingQuestionCount, pendingQuestions } from '@/lib/classify'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
-import { guardWorksheet } from '@/lib/upload/guard'
+import { guardWorksheet } from '@/lib/queue'
 import { clearUntagged } from '@/lib/worker/status'
 
 export const maxDuration = 300

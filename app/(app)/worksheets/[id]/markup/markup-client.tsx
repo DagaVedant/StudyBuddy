@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { reflowText } from '@/lib/questions/text'
-import { fetchJson } from '@/lib/client/fetch-json'
+import { fetchJson } from '@/lib/client/http'
 import {
   clearMarkupDraft,
   readMarkupDraft,
@@ -47,8 +47,7 @@ export default function MarkupClient({ worksheetId, questions }: Props) {
     const draft = readMarkupDraft(worksheetId)
     if (Object.keys(draft.outcomes).length === 0) return
 
-    /* eslint-disable react-hooks/set-state-in-effect -- reading browser-only
-       storage after hydration; see the note above. */
+    /* eslint-disable react-hooks/set-state-in-effect */
     setOutcomes(draft.outcomes)
     setAnswers(draft.answers)
     setCursor(Math.min(draft.cursor, questions.length - 1))
