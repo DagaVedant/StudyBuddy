@@ -4,7 +4,7 @@ import {notFound, redirect} from 'next/navigation'
 
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
-import {attempts, processingJobs, questions, worksheets} from '@/lib/db/schema'
+import {attempts, processingJobs, questions, worksheets} from '@/lib/schema'
 import {queueDepth, workerStatus} from '@/lib/queue'
 import {phaseFor} from '@/lib/worker/apply'
 import {destination} from '@/lib/upload'

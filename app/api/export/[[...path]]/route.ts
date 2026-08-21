@@ -6,7 +6,7 @@ import {blooketDownload, getMissedQuestions} from '@/lib/blooket'
 import {db} from '@/lib/db'
 import {endpoints, EXPORT_LIMIT, guardRateLimit} from '@/lib/api'
 import {guardWorksheet} from '@/lib/queue'
-import {worksheets} from '@/lib/db/schema'
+import {worksheets} from '@/lib/schema'
 
 async function getBlooketWorksheetid(
   _request: Request,

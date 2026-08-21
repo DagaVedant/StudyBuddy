@@ -5,8 +5,8 @@ config({path: '.env.local'})
 import {and, eq, isNull, ne} from 'drizzle-orm'
 import {drizzle} from 'drizzle-orm/postgres-js'
 
-import {questions, topics} from '../lib/db/schema'
-import {embed} from '../lib/embeddings'
+import {questions, topics} from '../lib/schema'
+import {embed} from '../lib/taxonomy'
 import {flattenTaxonomy} from '../lib/taxonomy'
 import {connect} from './db'
 

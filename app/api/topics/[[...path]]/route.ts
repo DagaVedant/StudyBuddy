@@ -26,7 +26,7 @@ import {db} from '@/lib/db'
 import {endpoints, guardRateLimit, LESSON_LIMIT, PRACTICE_LIMIT} from '@/lib/api'
 import {ollamaConfig} from '@/lib/ai/ollama'
 import {resolveProvider} from '@/lib/ai/resolve'
-import {topics} from '@/lib/db/schema'
+import {topics} from '@/lib/schema'
 
 function serialize(lesson: StoredLesson) {
   return {

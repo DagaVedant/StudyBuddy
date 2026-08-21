@@ -1,6 +1,6 @@
 import {and, asc, eq, inArray, isNotNull, ne, notInArray, sql} from 'drizzle-orm'
 
-import {type BBox, answerChoices, attempts, questions, topics, worksheetPages, worksheets} from '@/lib/db/schema'
+import {type BBox, answerChoices, attempts, questions, topics, worksheetPages, worksheets} from '@/lib/schema'
 import {type Db} from '@/lib/db'
 
 export const IS_QUESTION = sql`(

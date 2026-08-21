@@ -6,7 +6,7 @@ import {PageHead} from '@/components/ui'
 import {auth} from '@/auth'
 import {resolveProvider} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
-import {topics} from '@/lib/db/schema'
+import {topics} from '@/lib/schema'
 import {workerStatus} from '@/lib/queue'
 import {countReviewQueue, getDueCards} from '@/lib/review'
 

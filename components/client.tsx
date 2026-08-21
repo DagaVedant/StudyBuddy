@@ -13,12 +13,12 @@ import {
 } from '@/lib/ai/types'
 import {AccuracyLabel} from '@/components/ui'
 import {OllamaProvider} from '@/lib/ai/ollama'
-import {embedInBrowser} from '@/lib/client/embeddings'
+import {embedInBrowser} from '@/lib/client/ingest'
 import {explainOllamaFailure, fetchJson} from '@/lib/client/http'
 import {fetchPageImage} from '@/lib/client/ingest'
-import {reflowText} from '@/lib/questions/text'
+import {reflowText} from '@/lib/questions/shape'
 import {type TopicTreeNode} from '@/lib/ranking'
-import {validated} from '@/lib/ai/parse'
+import {validated} from '@/lib/ai/types'
 export interface TopicChoice {
   id: string
   slug: string

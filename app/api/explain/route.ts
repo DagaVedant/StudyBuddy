@@ -2,13 +2,7 @@ import {NextResponse} from 'next/server'
 import {and, desc, eq} from 'drizzle-orm'
 import {z} from 'zod'
 
-import {
-  answerChoices,
-  attempts,
-  explanations,
-  processingJobs,
-  questions,
-} from '@/lib/db/schema'
+import {answerChoices, attempts, explanations, processingJobs, questions} from '@/lib/schema'
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {ProviderRefused, ProviderUnavailable} from '@/lib/ai/types'
 import {auth} from '@/auth'

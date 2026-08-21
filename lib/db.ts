@@ -1,8 +1,8 @@
 import postgres from 'postgres'
-import {drizzle} from 'drizzle-orm/postgres-js'
-import {type PgDatabase, type PgQueryResultHKT} from 'drizzle-orm/pg-core'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import { type PgDatabase, type PgQueryResultHKT } from 'drizzle-orm/pg-core'
 
-import * as schema from './schema'
+import * as tables from './schema'
 
 const globalForDb = globalThis as unknown as {
   __sql?: ReturnType<typeof postgres>
@@ -29,9 +29,9 @@ const client =
 
 globalForDb.__sql = client
 
-export const db = drizzle(client, {schema}) as unknown as Db
-export {client, schema}
-export type Db = PgDatabase<PgQueryResultHKT, typeof schema>
+export const db = drizzle(client, {schema: tables}) as unknown as Db
+export {client}
+export type Db = PgDatabase<PgQueryResultHKT, typeof tables>
 
 export function isUniqueViolation(error: unknown): boolean {
   const codes = [error, (error as {cause?: unknown} | null)?.cause]

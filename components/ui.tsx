@@ -2,7 +2,7 @@ import Link from 'next/link'
 import {Fragment, type ReactNode} from 'react'
 
 import {MIN_ATTEMPTS} from '@/lib/upload'
-import {type QuestionEvidence} from '@/lib/questions/text'
+import {type QuestionEvidence} from '@/lib/questions/shape'
 import {type StudyDay} from '@/lib/dashboard'
 
 import styles from './styles.module.css'

@@ -1,17 +1,6 @@
 import {and, asc, desc, eq, isNotNull, isNull, sql} from 'drizzle-orm'
 
-import {
-  answerChoices,
-  attempts,
-  questions,
-  questionSolutions,
-  questionTopics,
-  reviewCards,
-  topicLessons,
-  topics,
-  usageEvents,
-  worksheets,
-} from '@/lib/db/schema'
+import {answerChoices, attempts, questions, questionSolutions, questionTopics, reviewCards, topicLessons, topics, usageEvents, worksheets} from '@/lib/schema'
 import {
   hashQuestion,
   normalizeForCompare,
@@ -28,7 +17,7 @@ import {
 import {pathBySlug} from '@/lib/taxonomy'
 import {storedProvider, type Tier} from '@/lib/ai/resolve'
 import {type Db} from '@/lib/db'
-import {validateQuestion, type ValidationFlag} from '@/lib/questions/validate'
+import {validateQuestion, type ValidationFlag} from '@/lib/questions/numbering'
 
 export const PRACTICE_BATCH = 4
 

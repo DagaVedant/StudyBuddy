@@ -6,15 +6,8 @@ import {auth} from '@/auth'
 import type {TopicChoice} from '@/components/client'
 import {db} from '@/lib/db'
 import {CHOICE_ORDER} from '@/lib/questions/queries'
-import {roundLines} from '@/lib/questions/text'
-import {
-  answerChoices,
-  questionTopics,
-  questions,
-  topics,
-  worksheetPages,
-  worksheets,
-} from '@/lib/db/schema'
+import {roundLines} from '@/lib/questions/shape'
+import {answerChoices, questionTopics, questions, topics, worksheetPages, worksheets} from '@/lib/schema'
 import {pathBySlug} from '@/lib/taxonomy'
 
 import EditClient, {type EditablePage, type EditableQuestion} from './edit-client'

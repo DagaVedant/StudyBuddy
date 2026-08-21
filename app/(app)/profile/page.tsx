@@ -4,7 +4,7 @@ import {redirect} from 'next/navigation'
 
 import {auth, signOut} from '@/auth'
 import {db} from '@/lib/db'
-import {users} from '@/lib/db/schema'
+import {users} from '@/lib/schema'
 import {getAccountAccuracy, getOverview, getStudyStreak} from '@/lib/dashboard'
 
 import ProfileClient from './profile-client'

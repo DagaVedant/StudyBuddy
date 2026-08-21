@@ -3,7 +3,7 @@ import {NextResponse} from 'next/server'
 import {applyPermanentFailure} from '@/lib/worker/apply'
 import {authenticateCron} from '@/lib/api'
 import {db} from '@/lib/db'
-import {drainServerQueue} from '@/lib/worker/server-job'
+import {drainServerQueue} from '@/lib/worker/jobs'
 import {reapAbandonedJobs} from '@/lib/queue'
 
 export const maxDuration = 300

@@ -2,20 +2,14 @@ import {createHash, randomBytes, timingSafeEqual} from 'node:crypto'
 
 import {and, eq, gt, isNull} from 'drizzle-orm'
 
-import {
-  accounts,
-  passwordResetTokens,
-  users,
-  worksheetPages,
-  worksheets,
-} from '@/lib/db/schema'
+import {accounts, passwordResetTokens, users, worksheetPages, worksheets} from '@/lib/schema'
 import {
   consumeRateLimit,
   SIGNIN_EMAIL_LIMIT,
   SIGNIN_IP_LIMIT,
 } from '@/lib/api'
 import {appBaseUrl, callerIp} from '@/lib/api'
-import {storage} from '@/lib/storage'
+import {storage} from '@/lib/queue'
 import {type Db, isUniqueViolation} from '@/lib/db'
 
 import {isAdminEmail} from './policy'

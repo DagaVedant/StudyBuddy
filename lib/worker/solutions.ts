@@ -1,18 +1,12 @@
 import {and, asc, desc, eq, inArray, notExists, sql} from 'drizzle-orm'
 
-import {
-  answerChoices,
-  attempts,
-  questions,
-  questionSolutions,
-  worksheetPages,
-} from '@/lib/db/schema'
+import {answerChoices, attempts, questions, questionSolutions, worksheetPages} from '@/lib/schema'
 import {
   modalChoiceCount,
   type ValidatableQuestion,
   validateQuestion,
   worthRereading,
-} from '@/lib/questions/validate'
+} from '@/lib/questions/numbering'
 import {
   type AIProvider,
   type QuestionReview,

@@ -26,21 +26,16 @@ import {
   queueDepth,
   reapAbandonedJobs,
 } from '@/lib/queue'
-import {
-  processingJobs,
-  questions,
-  worksheetPages,
-  worksheets,
-} from '@/lib/db/schema'
+import {processingJobs, questions, worksheetPages, worksheets} from '@/lib/schema'
 import {applyPermanentFailure, clearUntagged} from '@/lib/worker/apply'
 import {classificationSchema} from '@/lib/ai/types'
-import {countQuestionStarts, isAnswerPage} from '@/lib/questions/text'
+import {countQuestionStarts, isAnswerPage} from '@/lib/questions/shape'
 import {db} from '@/lib/db'
 import {endpoints} from '@/lib/api'
 import {explainInput, unsolvedQuestions} from '@/lib/worker/solutions'
 import {loadQuestionsWithChoices} from '@/lib/questions/queries'
-import {pagesForJob} from '@/lib/worker/ingest'
-import {storage} from '@/lib/storage'
+import {pagesForJob} from '@/lib/worker/pipeline'
+import {storage} from '@/lib/queue'
 
 const claimSchema = z.object({
   workerName: z.string().trim().min(1).max(100),

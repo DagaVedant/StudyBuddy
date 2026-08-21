@@ -5,7 +5,7 @@ import {notFound, redirect} from 'next/navigation'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
 import {CHOICE_ORDER} from '@/lib/questions/queries'
-import {answerChoices, attempts, questions, worksheets} from '@/lib/db/schema'
+import {answerChoices, attempts, questions, worksheets} from '@/lib/schema'
 
 import MarkupClient, {
   CorrectionsClient,

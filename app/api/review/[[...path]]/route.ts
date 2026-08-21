@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server'
 import {and, eq} from 'drizzle-orm'
 import {z} from 'zod'
 
-import {attempts, reviewCards, reviewLogs} from '@/lib/db/schema'
+import {attempts, reviewCards, reviewLogs} from '@/lib/schema'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
 import {endpoints, guardRateLimit, REVIEW_LIMIT} from '@/lib/api'

@@ -4,7 +4,7 @@ import {z} from 'zod'
 import {auth} from '@/auth'
 import {consumeRateLimit, REPORT_LIMIT} from '@/lib/api'
 import {db} from '@/lib/db'
-import {recordReport} from '@/lib/reports'
+import {recordReport} from '@/lib/mail'
 
 const schema = z.discriminatedUnion('kind', [
   z.object({

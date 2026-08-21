@@ -6,7 +6,7 @@ import {ACCOUNT_LIMIT, endpoints, guardRateLimit} from '@/lib/api'
 import {auth, signOut} from '@/auth'
 import {db} from '@/lib/db'
 import {deleteAccount, saveIdentity} from '@/lib/auth/identity'
-import {users} from '@/lib/db/schema'
+import {users} from '@/lib/schema'
 
 const bodySchema = z.object({
   name: z.string().trim().max(80).nullable(),

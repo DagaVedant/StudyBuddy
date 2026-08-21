@@ -10,17 +10,7 @@ import {
   MAX_SOURCE_PAGE_NUMBER,
   pageCapFor,
 } from '@/lib/upload'
-import {
-  answerChoices,
-  attempts,
-  processingJobs,
-  questions,
-  questionTopics,
-  reviewCards,
-  reviewLogs,
-  worksheetPages,
-  worksheets,
-} from '@/lib/db/schema'
+import {answerChoices, attempts, processingJobs, questions, questionTopics, reviewCards, reviewLogs, worksheetPages, worksheets} from '@/lib/schema'
 import {
   applyClassification,
   isEmbedding,
@@ -69,11 +59,11 @@ import {applyPermanentFailure, clearUntagged} from '@/lib/worker/apply'
 import {auth} from '@/auth'
 import {classificationSchema, trialDailyCeiling} from '@/lib/ai/types'
 import {db} from '@/lib/db'
-import {drainServerQueue} from '@/lib/worker/server-job'
+import {drainServerQueue} from '@/lib/worker/jobs'
 import {hashQuestion, questionInputSchema} from '@/lib/questions/shape'
 import {ollamaConfig} from '@/lib/ai/ollama'
-import {pageImageKey, storage} from '@/lib/storage'
-import {roundLines} from '@/lib/questions/text'
+import {pageImageKey, storage} from '@/lib/queue'
+import {roundLines} from '@/lib/questions/shape'
 
 export const maxDuration = 300
 const markSchema = z.object({

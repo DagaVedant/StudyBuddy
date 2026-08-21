@@ -4,7 +4,7 @@ import {useCallback, useEffect, useId, useMemo, useState} from 'react'
 import {useRouter} from 'next/navigation'
 
 import {fetchJson} from '@/lib/client/http'
-import {reflowText} from '@/lib/questions/text'
+import {reflowText} from '@/lib/questions/shape'
 
 import {
   clearMarkupDraft,

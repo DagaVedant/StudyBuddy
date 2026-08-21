@@ -1,7 +1,7 @@
 import {and, eq} from 'drizzle-orm'
 
 import {type Db} from '@/lib/db'
-import {userAiCredentials} from '@/lib/db/schema'
+import {userAiCredentials} from '@/lib/schema'
 
 import {
   ANSWER_JSON_SCHEMA,
@@ -38,7 +38,7 @@ import {
   type ReviewCandidate,
   type TopicCandidate,
 } from './types'
-import {parseModelJson} from './parse'
+import {parseModelJson} from './types'
 
 function toBase64(bytes: Uint8Array): string {
   if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')

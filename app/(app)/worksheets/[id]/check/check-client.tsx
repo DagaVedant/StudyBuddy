@@ -1,7 +1,7 @@
 'use client'
 
 import {QuestionCrop} from '@/components/ui'
-import {type QuestionEvidence, reflowText} from '@/lib/questions/text'
+import {type QuestionEvidence, reflowText} from '@/lib/questions/shape'
 
 import Link from 'next/link'
 import {useCallback, useEffect, useMemo, useState} from 'react'

@@ -12,7 +12,7 @@ import {
 import {CREDENTIAL_LIMIT, guardRateLimit} from '@/lib/api'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
-import {userAiCredentials} from '@/lib/db/schema'
+import {userAiCredentials} from '@/lib/schema'
 
 const cloudSchema = z.object({
   provider: z.enum(CLOUD_PROVIDERS),

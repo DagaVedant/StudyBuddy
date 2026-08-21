@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 
 import {appBaseUrl} from '@/lib/api'
 
-import {parseModelJson} from './parse'
+import {parseModelJson} from './types'
 import {
   ANSWER_JSON_SCHEMA,
   ANSWER_SYSTEM,

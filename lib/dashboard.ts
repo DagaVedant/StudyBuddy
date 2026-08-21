@@ -5,14 +5,7 @@ import {inReviewQueue} from '@/lib/review'
 import {type Db, unwrapDriverRows as rows} from '@/lib/db'
 import {MIN_ATTEMPTS, type TopicStats} from '@/lib/ranking'
 
-import {
-  attempts,
-  questionTopics,
-  questions,
-  reviewCards,
-  topics,
-  worksheets,
-} from '@/lib/db/schema'
+import {attempts, questionTopics, questions, reviewCards, topics, worksheets} from '@/lib/schema'
 
 
 const TREND_BAND = 0.1

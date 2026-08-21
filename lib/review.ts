@@ -1,18 +1,9 @@
 import {and, asc, desc, eq, inArray, isNull, lte, or, sql} from 'drizzle-orm'
 
 import {CHOICE_ORDER} from '@/lib/questions/queries'
-import {
-  answerChoices,
-  attempts,
-  explanations,
-  questionTopics,
-  questions,
-  reviewCards,
-  topics,
-  worksheetPages,
-} from '@/lib/db/schema'
+import {answerChoices, attempts, explanations, questionTopics, questions, reviewCards, topics, worksheetPages} from '@/lib/schema'
 import {type Db} from '@/lib/db'
-import {type QuestionEvidence, evidenceFor} from '@/lib/questions/text'
+import {type QuestionEvidence, evidenceFor} from '@/lib/questions/shape'
 
 function inTopic(topicId?: string | null) {
   if (!topicId) return undefined

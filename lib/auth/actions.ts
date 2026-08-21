@@ -9,7 +9,7 @@ import {AuthError} from 'next-auth'
 
 import {auth, signIn} from '@/auth'
 import {db} from '@/lib/db'
-import {users} from '@/lib/db/schema'
+import {users} from '@/lib/schema'
 import {mailConfigured, sendMail} from '@/lib/mail'
 import {
   RESET_ATTEMPT_LIMIT,

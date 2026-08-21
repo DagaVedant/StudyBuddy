@@ -9,7 +9,7 @@ import {
   RASTER_DPI,
   RASTER_MAX_EDGE,
 } from '@/lib/upload'
-import {type TextLine} from '@/lib/db/schema'
+import {type TextLine} from '@/lib/schema'
 
 import {throwIfCancelled, untilCancelled} from './http'
 

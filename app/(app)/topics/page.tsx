@@ -7,7 +7,7 @@ import {TopicTree} from '@/components/client'
 import {db} from '@/lib/db'
 import {getTopicStats} from '@/lib/dashboard'
 import {buildTopicTree} from '@/lib/ranking'
-import {topics} from '@/lib/db/schema'
+import {topics} from '@/lib/schema'
 
 export const metadata = {title: 'Topics · StudyBuddy'}
 

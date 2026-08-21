@@ -17,8 +17,8 @@ import {db} from '@/lib/db'
 import {endpoints} from '@/lib/api'
 import {explainInput, unsolvedQuestions} from '@/lib/worker/solutions'
 import {ollamaConfig} from '@/lib/ai/ollama'
-import {pagesForJob} from '@/lib/worker/ingest'
-import {processingJobs, worksheets} from '@/lib/db/schema'
+import {pagesForJob} from '@/lib/worker/pipeline'
+import {processingJobs, worksheets} from '@/lib/schema'
 
 async function postJobid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const session = await auth()

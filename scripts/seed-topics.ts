@@ -5,8 +5,8 @@ config({path: '.env.local'})
 import {eq} from 'drizzle-orm'
 import {drizzle} from 'drizzle-orm/postgres-js'
 
-import * as schema from '../lib/db/schema'
-import {topics} from '../lib/db/schema'
+import * as schema from '../lib/schema'
+import {topics} from '../lib/schema'
 import type {Db} from '../lib/db'
 import {demoteParentsWithChildren} from '../lib/taxonomy'
 import {flattenTaxonomy} from '../lib/taxonomy'

@@ -6,7 +6,7 @@ import {
   CHOICE_ORDER,
   referenceError,
 } from '@/lib/questions/queries'
-import {answerChoices, questions, questionTopics} from '@/lib/db/schema'
+import {answerChoices, questions, questionTopics} from '@/lib/schema'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
 import {hashQuestion, questionInputSchema} from '@/lib/questions/shape'

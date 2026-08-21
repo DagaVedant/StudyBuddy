@@ -22,8 +22,8 @@ import {useRouter} from 'next/navigation'
 import {TopicPicker, type TopicChoice} from '@/components/client'
 import {choiceLabel} from '@/lib/questions/shape'
 import {fetchJson} from '@/lib/client/http'
-import {reflowText} from '@/lib/questions/text'
-import {type BBox, type TextLine} from '@/lib/db/schema'
+import {reflowText} from '@/lib/questions/shape'
+import {type BBox, type TextLine} from '@/lib/schema'
 export interface EditablePage {
   id: string
   pageNumber: number

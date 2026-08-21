@@ -1,13 +1,6 @@
 import {asc, eq, inArray} from 'drizzle-orm'
 
-import {
-  answerChoices,
-  attempts,
-  questions,
-  reviewCards,
-  worksheetPages,
-  worksheets,
-} from '@/lib/db/schema'
+import {answerChoices, attempts, questions, reviewCards, worksheetPages, worksheets} from '@/lib/schema'
 import {
   hashQuestion,
   normalizeChoiceLabel,
@@ -19,9 +12,9 @@ import {
   planNumberDuplicateMerges,
 } from '@/lib/questions/numbering'
 import {loadQuestionsWithChoices} from '@/lib/questions/queries'
-import {modalChoiceCount, validateQuestion} from '@/lib/questions/validate'
+import {modalChoiceCount, validateQuestion} from '@/lib/questions/numbering'
 import {refundTrial} from '@/lib/ai/resolve'
-import {sortWithinPage} from '@/lib/questions/text'
+import {sortWithinPage} from '@/lib/questions/shape'
 import {type Db} from '@/lib/db'
 import {type JobStage, transitionWorksheet} from '@/lib/queue'
 

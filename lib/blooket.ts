@@ -2,8 +2,8 @@ import {NextResponse} from 'next/server'
 import {and, asc, eq, inArray, sql} from 'drizzle-orm'
 
 import {CHOICE_ORDER} from '@/lib/questions/queries'
-import {answerChoices, attempts, questions, worksheets} from '@/lib/db/schema'
-import {reflowText} from '@/lib/questions/text'
+import {answerChoices, attempts, questions, worksheets} from '@/lib/schema'
+import {reflowText} from '@/lib/questions/shape'
 import {type Db} from '@/lib/db'
 
 const MAX_ANSWERS = 4

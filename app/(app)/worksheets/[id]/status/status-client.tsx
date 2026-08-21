@@ -5,10 +5,10 @@ import {useRouter} from 'next/navigation'
 
 import {OllamaProvider} from '@/lib/ai/ollama'
 import {fetchJson} from '@/lib/client/http'
-import {isAnswerPage} from '@/lib/questions/text'
-import {seamAround} from '@/lib/questions/text'
+import {isAnswerPage} from '@/lib/questions/shape'
+import {seamAround} from '@/lib/questions/shape'
 import {toPngBytes} from '@/lib/client/ingest'
-import {validated} from '@/lib/ai/parse'
+import {validated} from '@/lib/ai/types'
 
 interface ClaimedPage {
   id: string

@@ -20,7 +20,7 @@ import {Underline} from '@/components/ui'
 import {Callout, MarginNote, Note, PageFoot, SectionHead} from '@/components/ui'
 import {rankFragile, rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
 import {buildTopicTree, pruneToAttempted} from '@/lib/ranking'
-import {topics} from '@/lib/db/schema'
+import {topics} from '@/lib/schema'
 import {pathBySlug} from '@/lib/taxonomy'
 import {destination} from '@/lib/upload'
 

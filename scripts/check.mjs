@@ -3,7 +3,7 @@ import {spawn} from 'node:child_process'
 
 function checkDocs() {
 
-  const schema = readFileSync('lib/db/schema.ts', 'utf8')
+  const schema = readFileSync('lib/schema.ts', 'utf8')
   const tableCount = (schema.match(/=\s*pgTable\(/g) ?? []).length
 
   const files = ['README.md']

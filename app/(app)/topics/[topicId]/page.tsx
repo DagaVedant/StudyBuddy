@@ -6,14 +6,7 @@ import {auth} from '@/auth'
 import {AccuracyLabel, Meter} from '@/components/ui'
 import {db} from '@/lib/db'
 import {summarize} from '@/lib/ranking'
-import {
-  answerChoices,
-  attempts,
-  questionTopics,
-  questions,
-  topics,
-  worksheets,
-} from '@/lib/db/schema'
+import {answerChoices, attempts, questionTopics, questions, topics, worksheets} from '@/lib/schema'
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {pathBySlug} from '@/lib/taxonomy'
 import {getLesson} from '@/lib/practice'

@@ -1,22 +1,18 @@
+import sharp from 'sharp'
 import {config} from 'dotenv'
 
-config({path: '.env.local'})
-
-import sharp from 'sharp'
-
-import {OllamaProvider} from '../lib/ai/ollama'
-import type {ExtractedQuestion} from '../lib/ai/types'
-import {validated} from '../lib/ai/parse'
-import {embed} from '../lib/embeddings'
-import {isAnswerPage} from '../lib/questions/text'
-import {seamAround} from '../lib/questions/text'
-import {auditExtraction} from '../lib/worker/pipeline'
 import {
   MAX_REREAD_SHARE,
   planReview,
   type ReviewableQuestion,
 } from '../lib/worker/solutions'
+import {OllamaProvider} from '../lib/ai/ollama'
+import {auditExtraction} from '../lib/worker/pipeline'
+import {embed} from '../lib/taxonomy'
+import {isAnswerPage, seamAround} from '../lib/questions/shape'
+import {type ExtractedQuestion, validated} from '../lib/ai/types'
 
+config({path: '.env.local'})
 const API = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
 const TOKEN = process.env.WORKER_API_TOKEN ?? ''
 const WORKER_NAME = process.env.WORKER_NAME ?? 'local-gpu'

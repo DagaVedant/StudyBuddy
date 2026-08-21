@@ -24,7 +24,7 @@ if [ "$pushing_main" -eq 0 ]; then
   exit 0
 fi
 
-if npx tsx scripts/inspect/check-migrations.ts; then
+if npx tsx scripts/migrate.ts --check; then
   exit 0
 fi
 

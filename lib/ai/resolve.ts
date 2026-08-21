@@ -2,14 +2,7 @@ import {createCipheriv, createDecipheriv, randomBytes} from 'node:crypto'
 
 import {and, desc, eq, gte, inArray, sql} from 'drizzle-orm'
 
-import {
-  aiProvider,
-  processingJobs,
-  usageEvents,
-  userAiCredentials,
-  users,
-  worksheets,
-} from '@/lib/db/schema'
+import {aiProvider, processingJobs, usageEvents, userAiCredentials, users, worksheets} from '@/lib/schema'
 import {type Db} from '@/lib/db'
 
 import {
@@ -19,16 +12,24 @@ import {
   OpenRouterProvider,
 } from './cloud'
 import {
+  type AIProvider,
+  type AnswerInput,
   CLOUD_PROVIDERS,
   type CloudProvider,
   DEFAULT_CLOUD_MODEL,
+  type ExplainInput,
   isCloudProvider,
+  type LessonInput,
+  type PageInput,
+  type PracticeInput,
+  type ProviderName,
+  ProviderUnavailable,
+  type RawAIProvider,
+  type TopicCandidate,
   TRIAL_EXPLANATION_LIMIT,
   TRIAL_WORKSHEET_LIMIT,
 } from './types'
-import {MockProvider, NullProvider} from './mock'
-import {type AIProvider, type ProviderName, type RawAIProvider} from './types'
-import {validated} from './parse'
+import {validated} from './types'
 
 export {CLOUD_PROVIDERS, DEFAULT_CLOUD_MODEL, type CloudProvider}
 
@@ -572,5 +573,202 @@ export async function verifyCloudKey(
   return {
     status: 'unreachable',
     reason: `${provider} answered ${response.status}.`,
+  }
+}
+export class MockProvider implements RawAIProvider {
+  readonly name = 'mock' as const
+  readonly model = 'mock' as const
+  readonly answeringModel = 'mock' as const
+  readonly supportsVision = true
+  readonly executionSite = 'server' as const
+
+  async extractQuestions(page: PageInput): Promise<unknown> {
+
+    const lines = page.text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => /^\s*\d+[.)]\s+/.test(line))
+      .slice(0, 40)
+
+    if (lines.length === 0) {
+      return {
+        questions: [
+          {
+            ordinal: 1,
+            prompt_text: `Sample question from page ${page.pageNumber}`,
+            question_type: 'multiple_choice',
+            choices: [
+              {label: 'A', text: 'First option'},
+              {label: 'B', text: 'Second option'},
+            ],
+            bbox: [0, 0, Math.min(page.width, 100), Math.min(page.height, 100)],
+            has_figure: false,
+          },
+        ],
+      }
+    }
+
+    return {
+      questions: lines.map((line, index) => ({
+        ordinal: index + 1,
+        prompt_text: line.replace(/^\s*\d+[.)]\s+/, ''),
+        question_type: 'multiple_choice' as const,
+        choices: [
+          {label: 'A', text: 'Option A'},
+          {label: 'B', text: 'Option B'},
+          {label: 'C', text: 'Option C'},
+          {label: 'D', text: 'Option D'},
+        ],
+        bbox: null,
+        has_figure: false,
+      })),
+    }
+  }
+
+  async classifyTopic(
+    promptText: string,
+    candidates: TopicCandidate[],
+  ): Promise<unknown> {
+    if (candidates.length === 0) {
+      return {
+        topic_slug: null,
+        confidence: 0,
+        abstain: true,
+      }
+    }
+
+    const words = new Set(
+      promptText
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((word) => word.length > 3),
+    )
+
+    let best = candidates[0]
+    let bestScore = -1
+
+    for (const candidate of candidates) {
+      const score = candidate.name
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((word) => words.has(word)).length
+      if (score > bestScore) {
+        best = candidate
+        bestScore = score
+      }
+    }
+
+    if (bestScore <= 0) {
+      return {
+        topic_slug: null,
+        confidence: 0.1,
+        abstain: true,
+      }
+    }
+
+    return {
+      topic_slug: best.slug,
+      confidence: Math.min(0.5 + bestScore * 0.15, 0.95),
+      abstain: false,
+    }
+  }
+
+  async answerQuestion(input: AnswerInput): Promise<unknown> {
+    const answer = input.choices[0]?.label ?? '42'
+
+    return {
+      answer,
+      working: `Mock working for: ${input.promptText.slice(0, 60)}`,
+      traps: input.choices.slice(1).map((choice) => ({
+        label: choice.label,
+        why: `Mock trap for ${choice.label}.`,
+      })),
+      confidence: 0.9,
+    }
+  }
+
+  async teachTopic(input: LessonInput): Promise<unknown> {
+    return {
+      body_md: `## ${input.topicName}
+
+Mock lesson for ${input.topicPath}.`,
+      examples: [
+        {question: 'Mock example one', working: 'Step one.', answer: '1'},
+        {question: 'Mock example two', working: 'Step one.', answer: '2'},
+      ],
+      common_errors: [
+        {mistake: 'Mock mistake', why: 'Mock reason', fix: 'Mock fix'},
+      ],
+    }
+  }
+
+  async writePractice(input: PracticeInput): Promise<unknown> {
+    const wanted = Math.max(1, Math.min(input.count, 10))
+
+    return {
+      questions: Array.from({length: wanted}, (_, index) => {
+        const first = index + 2
+        const second = index + 3
+
+        return {
+          prompt_text: `A shelf holds ${first} boxes and each box holds ${second} pens. How many pens are on the shelf?`,
+          choices: [
+            {label: 'A', text: String(first * second)},
+            {label: 'B', text: String(first + second)},
+            {label: 'C', text: String(first * second - first)},
+            {label: 'D', text: String(first * second + second)},
+          ],
+          correct_label: 'A',
+          working: `Multiply the number of boxes by the pens in each box: ${first} x ${second} = ${first * second}.`,
+        }
+      }),
+    }
+  }
+
+  async explain(input: ExplainInput): Promise<unknown> {
+    const chosen = input.studentAnswer
+    const correct = input.correctAnswer ?? 'not recorded'
+
+    return {
+      body_md: chosen
+        ? `You answered **${chosen}**, but the correct answer is **${correct}**. Work back through the question and check which step produced ${chosen} instead.`
+        : `The correct answer is **${correct}**.`,
+      misconception_note: chosen ? `Chose ${chosen} instead of ${correct}.` : null,
+    }
+  }
+}
+
+export class NullProvider implements RawAIProvider {
+  readonly name = 'null' as const
+  readonly model = 'none' as const
+  readonly answeringModel = 'none' as const
+  readonly supportsVision = false
+  readonly executionSite = 'none' as const
+
+  async extractQuestions(_page: PageInput): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async classifyTopic(
+    _promptText: string,
+    _candidates: TopicCandidate[],
+  ): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async answerQuestion(_input: AnswerInput): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async teachTopic(_input: LessonInput): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async writePractice(_input: PracticeInput): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async explain(_input: ExplainInput): Promise<unknown> {
+    throw new ProviderUnavailable()
   }
 }

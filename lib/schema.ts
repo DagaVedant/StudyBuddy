@@ -1,6 +1,5 @@
-import {sql} from 'drizzle-orm'
-import type {AnyPgColumn} from 'drizzle-orm/pg-core'
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -15,7 +14,8 @@ import {
   uniqueIndex,
   vector,
 } from 'drizzle-orm/pg-core'
-import type {AdapterAccountType} from 'next-auth/adapters'
+import { sql } from 'drizzle-orm'
+import { type AdapterAccountType } from 'next-auth/adapters'
 
 export type BBox = [number, number, number, number]
 
@@ -80,7 +80,6 @@ export const answerSource = pgEnum('answer_source', [
 export const ocrEngine = pgEnum('ocr_engine', ['pdf_text', 'tesseract', 'vision'])
 
 export const assignedBy = pgEnum('assigned_by', ['ai', 'user'])
-
 
 export const attemptOutcome = pgEnum('attempt_outcome', ['correct', 'unsure', 'wrong'])
 

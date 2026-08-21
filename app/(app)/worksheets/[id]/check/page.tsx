@@ -5,10 +5,10 @@ import {auth} from '@/auth'
 import {canSortTopicsHere, getCredentialSummary} from '@/lib/ai/resolve'
 import {TopicSorter} from '@/components/client'
 import {db} from '@/lib/db'
-import {worksheetPages, worksheets} from '@/lib/db/schema'
-import {evidenceFor} from '@/lib/questions/text'
+import {worksheetPages, worksheets} from '@/lib/schema'
+import {evidenceFor} from '@/lib/questions/shape'
 import {findLibraryDuplicates, loadQuestionsWithChoices} from '@/lib/questions/queries'
-import {modalChoiceCount, validateQuestion, worthRereading} from '@/lib/questions/validate'
+import {modalChoiceCount, validateQuestion, worthRereading} from '@/lib/questions/numbering'
 
 import {CheckClient, type CheckableQuestion} from './check-client'
 
