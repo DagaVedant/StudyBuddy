@@ -101,7 +101,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
   )
 
   const loadSample = useCallback(
-    async (slug: string) => {
+    async (slug: string, keepACopy: boolean) => {
       const sample = findSample(slug)
       if (!sample) return
 
@@ -113,9 +113,24 @@ export default function UploadClient({subjects, initialSample}: Props) {
         if (!response.ok) throw new Error(String(response.status))
 
         const blob = await response.blob()
-        addFiles([
-          new File([blob], `${sample.title}.pdf`, {type: 'application/pdf'}),
-        ])
+        const name = `${sample.title}.pdf`
+
+        addFiles([new File([blob], name, {type: 'application/pdf'})])
+
+        setPageFrom('1')
+        setPageTo(String(sample.pages))
+        setQuestionCount(String(sample.questions))
+
+        if (keepACopy) {
+          const href = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = href
+          link.download = name
+          document.body.append(link)
+          link.click()
+          link.remove()
+          setTimeout(() => URL.revokeObjectURL(href), 60_000)
+        }
       } catch {
         setError('Could not load that sample worksheet. Try again.')
       } finally {
@@ -130,7 +145,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
   useEffect(() => {
     if (requested.current || !initialSample) return
     requested.current = true
-    void loadSample(initialSample)
+    void loadSample(initialSample, false)
   }, [initialSample, loadSample])
 
   function removeFile(index: number) {
@@ -291,7 +306,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
               <button
                 type="button"
                 disabled={busy || loadingSample !== null}
-                onClick={() => void loadSample(sample.slug)}
+                onClick={() => void loadSample(sample.slug, true)}
                 className="underline underline-offset-2 hover:text-fg disabled:opacity-60"
               >
                 {sample.questions} questions
