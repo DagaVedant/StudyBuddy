@@ -9,9 +9,8 @@ const reportOnlyCsp = [
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
-    "/api/worksheets/*/complete": ["./models/**/*"],
-
-    "/api/worksheets/*/pages": [
+    "/api/worksheets/*": [
+      "./models/**/*",
       "./node_modules/@img/sharp-linux-x64/**/*",
       "./node_modules/@img/sharp-libvips-linux-x64/**/*",
     ],
