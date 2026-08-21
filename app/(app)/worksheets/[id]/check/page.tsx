@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { canSortTopicsHere, getCredentialSummary } from '@/lib/ai/resolve'
-import TopicSorter from '@/components/topic-sorter'
+import { TopicSorter } from '@/components/topics'
 import { db } from '@/lib/db'
 import { worksheetPages, worksheets } from '@/lib/db/schema'
 import { evidenceFor } from '@/lib/questions/text'

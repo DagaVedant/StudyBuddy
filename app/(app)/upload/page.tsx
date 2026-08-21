@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import PageHead from '@/components/page-head'
+import { PageHead } from '@/components/ui'
 
 import { auth } from '@/auth'
-import AiSetupPrompt from '@/components/ai-setup-prompt'
+import { AiSetupPrompt } from '@/components/ui'
 import { getAiStatus, resolveProvider, shouldOfferAiSetup } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { queueDepth, workerStatus } from '@/lib/queue'

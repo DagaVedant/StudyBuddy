@@ -7,7 +7,7 @@ import { applyClassification } from '@/lib/classify'
 import { pendingQuestions } from '@/lib/classify'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
-import { authenticateWorker } from '@/lib/worker/auth'
+import { authenticateWorker } from '@/lib/worker/jobs'
 import { clearUntagged } from '@/lib/worker/status'
 
 type Params = { params: Promise<{ worksheetId: string }> }

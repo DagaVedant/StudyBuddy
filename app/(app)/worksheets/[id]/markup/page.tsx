@@ -7,8 +7,11 @@ import { db } from '@/lib/db'
 import { CHOICE_ORDER } from '@/lib/questions/queries'
 import { answerChoices, attempts, questions, worksheets } from '@/lib/db/schema'
 
-import CorrectionsClient, { type MarkedQuestion } from './corrections-client'
-import MarkupClient, { type MarkableQuestion } from './markup-client'
+import MarkupClient, {
+  CorrectionsClient,
+  type MarkableQuestion,
+  type MarkedQuestion,
+} from './markup-client'
 
 export const metadata = { title: 'Mark Your Answers · StudyBuddy' }
 

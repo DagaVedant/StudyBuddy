@@ -1,4 +1,4 @@
-import { normalizeMath } from './math'
+import { normalizeMath } from './shape'
 
 export interface PageOption {
   label: string

@@ -1,9 +1,9 @@
 import { asc, eq } from 'drizzle-orm'
 
 import type { AIProvider, ExtractedQuestion } from '@/lib/ai/types'
-import type { Db } from '@/lib/db/types'
+import type { Db } from '@/lib/db'
 import { answerChoices, questions, worksheetPages } from '@/lib/db/schema'
-import { isAnswerPage } from '@/lib/questions/answer-key'
+import { isAnswerPage } from '@/lib/questions/text'
 import {
   foldLeadInChoices,
   hashQuestion,
@@ -11,7 +11,7 @@ import {
   normalizeForCompare,
   normalizeOptionText,
 } from '@/lib/questions/shape'
-import { normalizeMath } from '@/lib/questions/math'
+import { normalizeMath } from '@/lib/questions/shape'
 import { reflowText, seamAround } from '@/lib/questions/text'
 import { printedNumbersFor } from '@/lib/questions/numbering'
 import { isOptionRun } from '@/lib/questions/validate'

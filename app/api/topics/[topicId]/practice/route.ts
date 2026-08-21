@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
-import { ollamaConfig } from '@/lib/ai/ollama-config'
+import { ollamaConfig } from '@/lib/ai/ollama'
 import { resolveProvider } from '@/lib/ai/resolve'
 import {
   ProviderRefused,

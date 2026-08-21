@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { questions, worksheetPages, worksheets } from '@/lib/db/schema'
-import { isAnswerPage } from '@/lib/questions/answer-key'
+import { isAnswerPage } from '@/lib/questions/text'
 import { countQuestionStarts } from '@/lib/questions/text'
-import { authenticateWorker } from '@/lib/worker/auth'
+import { authenticateWorker } from '@/lib/worker/jobs'
 
 type Params = { params: Promise<{ worksheetId: string }> }
 

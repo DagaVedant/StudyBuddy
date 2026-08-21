@@ -2,7 +2,7 @@ import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 
 import type { AIProvider, Lesson, LessonInput } from '@/lib/ai/types'
 import { questionTopics, questions, topicLessons, topics } from '@/lib/db/schema'
-import type { Db } from '@/lib/db/types'
+import type { Db } from '@/lib/db'
 import { pathBySlug } from '@/lib/taxonomy'
 
 const SAMPLE_QUESTIONS = 5

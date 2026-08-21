@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import { db } from '@/lib/db'
 import { heartbeat, markWorkerOffline, queueDepth } from '@/lib/queue'
-import { authenticateWorker } from '@/lib/worker/auth'
+import { authenticateWorker } from '@/lib/worker/jobs'
 
 const schema = z.object({
   workerName: z.string().trim().min(1).max(100),

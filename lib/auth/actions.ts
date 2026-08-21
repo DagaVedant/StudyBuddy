@@ -28,7 +28,7 @@ import {
   inviteRequired,
   issueResetToken,
   resetLink,
-} from './reset'
+} from './identity'
 
 export interface FormState {
   error?: string

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import MainRegion from '@/components/main-region'
+import { MainRegion } from '@/components/ui'
 
 export default function PublicLayout({
   children,

@@ -1,4 +1,40 @@
+import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
+
+function checkDocs() {
+
+  const schema = readFileSync('lib/db/schema.ts', 'utf8')
+  const tableCount = (schema.match(/=\s*pgTable\(/g) ?? []).length
+
+  const files = ['README.md']
+  let bad = false
+
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8')
+    const match = text.match(/creates (\d+) tables/)
+
+    if (!match) {
+      console.log(`  skip  ${file}: no "creates N tables" line found`)
+      continue
+    }
+
+    const stated = Number(match[1])
+    if (stated === tableCount) {
+      console.log(`  ok    ${file}: says ${stated}, schema has ${tableCount}`)
+    } else {
+      bad = true
+      console.log(`  BAD   ${file}: says ${stated}, schema has ${tableCount}`)
+    }
+  }
+
+  if (bad) {
+    console.log(`\nUpdate the stale figure(s) above.`)
+    return false
+  }
+
+  console.log(`\nAll table counts match the schema (${tableCount} tables).`)
+}
+
 
 const TASKS = [
   { name: 'tsc', script: 'node_modules/typescript/bin/tsc', args: ['--noEmit'] },
@@ -7,8 +43,9 @@ const TASKS = [
     script: 'node_modules/eslint/bin/eslint.js',
     args: ['--cache', '--cache-location', '.eslintcache', '--max-warnings', '0'],
   },
-  { name: 'docs', script: 'scripts/check-docs.mjs', args: [] },
 ]
+
+const docsOk = checkDocs()
 
 const started = Date.now()
 
@@ -41,4 +78,4 @@ for (const result of failed) {
 
 console.log(`\n${((Date.now() - started) / 1000).toFixed(1)}s total`)
 
-process.exit(failed.length > 0 ? 1 : 0)
+process.exit(failed.length > 0 || !docsOk ? 1 : 0)

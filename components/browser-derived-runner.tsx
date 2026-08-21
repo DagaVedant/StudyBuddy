@@ -6,7 +6,7 @@ import { OllamaProvider } from '@/lib/ai/ollama'
 import { validated } from '@/lib/ai/parse'
 import type { AIProvider } from '@/lib/ai/types'
 import { explainOllamaFailure } from '@/lib/client/http'
-import { fetchPageImage } from '@/lib/client/page-image'
+import { fetchPageImage } from '@/lib/client/ingest'
 
 const IDLE_POLL_MS = 5_000
 

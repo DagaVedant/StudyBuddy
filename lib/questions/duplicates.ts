@@ -1,6 +1,6 @@
 import { firstQuestionAt } from './text'
 import { normalizeForCompare } from './shape'
-import { normalizeMath } from './math'
+import { normalizeMath } from './shape'
 
 export interface DuplicateCandidate {
   id: string

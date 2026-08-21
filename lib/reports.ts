@@ -1,6 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm'
 
-import type { Db } from '@/lib/db/types'
+import type { Db } from '@/lib/db'
 import { explanations, questions, reports, worksheets } from '@/lib/db/schema'
 
 export type ReportInput =

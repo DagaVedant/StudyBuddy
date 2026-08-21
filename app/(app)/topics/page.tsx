@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import PageHead from '@/components/page-head'
+import { PageHead } from '@/components/ui'
 
 import { auth } from '@/auth'
-import TopicTree from '@/components/topic-tree'
+import { TopicTree } from '@/components/topics'
 import { db } from '@/lib/db'
 import { getTopicStats } from '@/lib/dashboard'
-import { buildTopicTree } from '@/lib/dashboard'
+import { buildTopicTree } from '@/lib/ranking'
 import { topics } from '@/lib/db/schema'
 
 export const metadata = { title: 'Topics · StudyBuddy' }

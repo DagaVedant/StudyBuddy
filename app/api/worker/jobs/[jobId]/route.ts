@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
 import { processingJobs } from '@/lib/db/schema'
-import { authenticateWorker } from '@/lib/worker/auth'
+import { authenticateWorker } from '@/lib/worker/jobs'
 
 import {
   handleComplete,

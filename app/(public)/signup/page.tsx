@@ -1,4 +1,4 @@
-import { inviteRequired } from '@/lib/auth/reset'
+import { inviteRequired } from '@/lib/auth/identity'
 
 import SignUpForm from './signup-form'
 

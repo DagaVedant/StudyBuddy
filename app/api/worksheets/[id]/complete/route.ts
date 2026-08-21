@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { after, NextResponse } from 'next/server'
 
-import { trialDailyCeiling } from '@/lib/ai/providers'
-import { consumeTrial, trialExtractionsToday } from '@/lib/ai/quota'
+import { trialDailyCeiling } from '@/lib/ai/types'
+import { consumeTrial, trialExtractionsToday } from '@/lib/ai/resolve'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'

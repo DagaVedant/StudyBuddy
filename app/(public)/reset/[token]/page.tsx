@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { findResetTarget } from '@/lib/auth/reset'
+import { findResetTarget } from '@/lib/auth/identity'
 import { db } from '@/lib/db'
 
 import ResetForm from './reset-form'

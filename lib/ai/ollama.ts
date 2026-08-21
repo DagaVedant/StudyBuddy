@@ -1,3 +1,8 @@
+import { and, eq } from 'drizzle-orm'
+
+import { type Db } from '@/lib/db'
+import { userAiCredentials } from '@/lib/db/schema'
+
 import {
   ANSWER_JSON_SCHEMA,
   ANSWER_SYSTEM,
@@ -21,10 +26,9 @@ import {
   REVIEW_SYSTEM,
   reviewUserText,
 } from './prompts'
-import { parseModelJson } from './parse'
 import {
-  type ExecutionSite,
   type AnswerInput,
+  type ExecutionSite,
   type ExplainInput,
   type LessonInput,
   type PageInput,
@@ -34,6 +38,7 @@ import {
   type ReviewCandidate,
   type TopicCandidate,
 } from './types'
+import { parseModelJson } from './parse'
 
 function toBase64(bytes: Uint8Array): string {
   if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')
@@ -333,5 +338,37 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     if (!response.ok) throw new Error(`Ollama responded ${response.status}`)
     const body = (await response.json()) as { models?: { name: string }[] }
     return (body.models ?? []).map((model) => model.name)
+  }
+}
+export const OLLAMA_FALLBACK_MODEL = 'qwen2.5vl:7b'
+
+export interface OllamaConfig {
+  baseUrl: string
+  visionModel: string
+  textModel: string
+}
+
+export async function ollamaConfig(
+  db: Db,
+  userId: string,
+): Promise<OllamaConfig | null> {
+  const [credential] = await db
+    .select({
+      baseUrl: userAiCredentials.ollamaBaseUrl,
+      visionModel: userAiCredentials.visionModelName,
+      textModel: userAiCredentials.modelName,
+    })
+    .from(userAiCredentials)
+    .where(
+      and(eq(userAiCredentials.userId, userId), eq(userAiCredentials.provider, 'ollama')),
+    )
+    .limit(1)
+
+  if (!credential?.baseUrl) return null
+
+  return {
+    baseUrl: credential.baseUrl,
+    visionModel: credential.visionModel ?? OLLAMA_FALLBACK_MODEL,
+    textModel: credential.textModel ?? OLLAMA_FALLBACK_MODEL,
   }
 }

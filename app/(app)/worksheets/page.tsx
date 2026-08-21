@@ -1,16 +1,15 @@
 import { and, desc, eq, ilike, inArray, lt, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import PageHead from '@/components/page-head'
+import { PageHead } from '@/components/ui'
 
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { attempts, questions, worksheetPages, worksheets } from '@/lib/db/schema'
 import { IS_QUESTION } from '@/lib/questions/queries'
-import { destination } from '@/lib/worksheets'
+import { destination } from '@/lib/upload'
 
-import DeleteWorksheetButton from './delete-worksheet-button'
-import WorksheetTitle from './worksheet-title'
+import { DeleteWorksheetButton, WorksheetTitle } from './worksheets-client'
 
 export const metadata = { title: 'Worksheets · StudyBuddy' }
 export const dynamic = 'force-dynamic'

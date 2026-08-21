@@ -11,7 +11,7 @@ import {
   topics,
   worksheetPages,
 } from '@/lib/db/schema'
-import { type Db } from '@/lib/db/types'
+import { type Db } from '@/lib/db'
 import { type QuestionEvidence, evidenceFor } from '@/lib/questions/text'
 
 function inTopic(topicId?: string | null) {

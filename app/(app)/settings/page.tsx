@@ -1,16 +1,15 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import PageHead from '@/components/page-head'
+import { PageHead } from '@/components/ui'
 
 import { auth } from '@/auth'
-import { getTrialState } from '@/lib/ai/quota'
+import { getTrialState } from '@/lib/ai/resolve'
 import { appBaseUrl } from '@/lib/request'
 import { getCredentialSummary } from '@/lib/ai/resolve'
 import { db } from '@/lib/db'
 import { workerStatus } from '@/lib/queue'
 
-import DeleteAccount from './delete-account'
-import SettingsClient from './settings-client'
+import SettingsClient, { DeleteAccount } from './settings-client'
 
 export const metadata = { title: 'Settings · StudyBuddy' }
 

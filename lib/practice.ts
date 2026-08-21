@@ -2,7 +2,7 @@ import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 
 import { hashQuestion, normalizeForCompare, normalizeOptionText } from '@/lib/questions/shape'
 import { pathBySlug } from '@/lib/taxonomy'
-import { type Db } from '@/lib/db/types'
+import { type Db } from '@/lib/db'
 import {
   type AIProvider,
   type GeneratedQuestion,

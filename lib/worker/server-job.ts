@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 
 import { resolveProvider, type ResolvedProvider } from '@/lib/ai/resolve'
 import { EmbeddingUnavailableError, classifyWorksheet } from '@/lib/classify'
-import type { Db } from '@/lib/db/types'
+import type { Db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
 import { transitionWorksheet } from '@/lib/queue'

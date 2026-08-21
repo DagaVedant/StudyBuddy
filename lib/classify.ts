@@ -4,7 +4,7 @@ import { EMBEDDING_DIMENSIONS, embed } from '@/lib/embeddings'
 import { pathBySlug } from '@/lib/taxonomy'
 import { questionTopics, questions, topics } from '@/lib/db/schema'
 import { type AIProvider, type TopicCandidate } from '@/lib/ai/types'
-import { type Db } from '@/lib/db/types'
+import { type Db } from '@/lib/db'
 
 export const SHORTLIST_SIZE = 25
 

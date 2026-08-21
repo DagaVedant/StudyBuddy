@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useActionState } from 'react'
 
-import GoogleButton from '@/components/google-button'
-import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/providers'
+import { GoogleButton } from '@/components/chrome'
+import { TRIAL_WORKSHEET_LIMIT } from '@/lib/ai/types'
 import { type FormState, signInWithGoogle, signUp } from '@/lib/auth/actions'
 import { MIN_AGE_YEARS } from '@/lib/auth/policy'
 

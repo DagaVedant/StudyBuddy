@@ -2,7 +2,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { consumeTrial } from '@/lib/ai/quota'
+import { consumeTrial } from '@/lib/ai/resolve'
 import { resolveProvider, storedProvider } from '@/lib/ai/resolve'
 import { CHOICE_ORDER } from '@/lib/questions/queries'
 import { ProviderRefused, ProviderUnavailable } from '@/lib/ai/types'

@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm'
 
-import { refundTrial } from '@/lib/ai/quota'
+import { refundTrial } from '@/lib/ai/resolve'
 import { transitionWorksheet } from '@/lib/queue'
-import { type Db } from '@/lib/db/types'
+import { type Db } from '@/lib/db'
 import { type JobStage } from '@/lib/queue'
 import { worksheets } from '@/lib/db/schema'
 

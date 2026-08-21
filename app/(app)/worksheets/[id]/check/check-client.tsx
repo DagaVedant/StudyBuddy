@@ -1,12 +1,12 @@
 'use client'
 
-import QuestionCrop from '@/components/question-crop'
+import { QuestionCrop } from '@/components/ui'
 import { type QuestionEvidence, reflowText } from '@/lib/questions/text'
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import ReportButton from '@/components/report-button'
+import { ReportButton } from '@/components/actions'
 import { fetchJson } from '@/lib/client/http'
 
 const BULK_UNDO_WINDOW_MS = 12_000

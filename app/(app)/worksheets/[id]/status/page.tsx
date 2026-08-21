@@ -7,10 +7,9 @@ import { db } from '@/lib/db'
 import { attempts, processingJobs, questions, worksheets } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
 import { phaseFor } from '@/lib/worker/status'
-import { destination } from '@/lib/worksheets'
+import { destination } from '@/lib/upload'
 
-import BrowserRunner from './browser-runner'
-import GoManualButton from './go-manual-button'
+import { BrowserRunner, GoManualButton } from './status-client'
 
 export const metadata = { title: 'Processing · StudyBuddy' }
 

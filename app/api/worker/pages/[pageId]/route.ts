@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { processingJobs, worksheetPages } from '@/lib/db/schema'
 import { storage } from '@/lib/storage'
-import { authenticateWorker } from '@/lib/worker/auth'
+import { authenticateWorker } from '@/lib/worker/jobs'
 
 type Params = { params: Promise<{ pageId: string }> }
 

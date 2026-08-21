@@ -9,7 +9,7 @@ import {
   planNumberDuplicateMerges,
 } from '@/lib/questions/duplicates'
 import { sortWithinPage } from '@/lib/questions/text'
-import { type Db } from '@/lib/db/types'
+import { type Db } from '@/lib/db'
 
 import {
   hashQuestion,

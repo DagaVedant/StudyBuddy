@@ -3,9 +3,9 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { AccuracyLabel, Meter } from '@/components/meter'
+import { AccuracyLabel, Meter } from '@/components/ui'
 import { db } from '@/lib/db'
-import { summarize } from '@/lib/dashboard'
+import { summarize } from '@/lib/ranking'
 import {
   answerChoices,
   attempts,
@@ -17,10 +17,10 @@ import {
 import { CHOICE_ORDER } from '@/lib/questions/queries'
 import { pathBySlug } from '@/lib/taxonomy'
 import { getLesson } from '@/lib/topics'
-import Prose from '@/components/prose'
-import RevisitQuestion from '@/components/revisit-question'
-import GenerateLessonButton from '@/components/generate-lesson-button'
-import GeneratePracticeButton from '@/components/generate-practice-button'
+import { Prose } from '@/components/ui'
+import { RevisitQuestion } from '@/components/actions'
+import { GenerateLessonButton } from '@/components/actions'
+import { GeneratePracticeButton } from '@/components/actions'
 import { countGenerated } from '@/lib/practice'
 
 export const metadata = { title: 'Topic · StudyBuddy' }

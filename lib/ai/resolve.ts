@@ -1,7 +1,16 @@
-import { and, eq } from 'drizzle-orm'
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 
-import type { Db } from '@/lib/db/types'
-import { aiProvider, userAiCredentials, users } from '@/lib/db/schema'
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm'
+
+import {
+  aiProvider,
+  processingJobs,
+  usageEvents,
+  userAiCredentials,
+  users,
+  worksheets,
+} from '@/lib/db/schema'
+import { type Db } from '@/lib/db'
 
 import {
   AnthropicProvider,
@@ -9,16 +18,16 @@ import {
   OpenAIProvider,
   OpenRouterProvider,
 } from './cloud'
-import { openApiKey } from './crypto'
 import {
   CLOUD_PROVIDERS,
   type CloudProvider,
   DEFAULT_CLOUD_MODEL,
-  TRIAL_WORKSHEET_LIMIT,
   isCloudProvider,
-} from './providers'
+  TRIAL_EXPLANATION_LIMIT,
+  TRIAL_WORKSHEET_LIMIT,
+} from './types'
 import { MockProvider, NullProvider } from './mock'
-import type { AIProvider, ProviderName, RawAIProvider } from './types'
+import { type AIProvider, type ProviderName, type RawAIProvider } from './types'
 import { validated } from './parse'
 
 export { CLOUD_PROVIDERS, DEFAULT_CLOUD_MODEL, type CloudProvider }
@@ -237,4 +246,331 @@ export function storedProvider(name: ProviderName): StoredProvider | null {
 
 function isStored(name: string): name is StoredProvider {
   return (aiProvider.enumValues as readonly string[]).includes(name)
+}
+export { TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT }
+
+export type TrialKind = 'worksheets' | 'explanations'
+
+export interface TrialState {
+  worksheetsUsed: number
+  worksheetsRemaining: number
+  explanationsUsed: number
+  explanationsRemaining: number
+  exhausted: boolean
+}
+
+export async function getTrialState(db: Db, userId: string): Promise<TrialState> {
+  const [row] = await db
+    .select({
+      worksheetsUsed: users.trialWorksheetsUsed,
+      explanationsUsed: users.trialExplanationsUsed,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  const worksheetsUsed = row?.worksheetsUsed ?? 0
+  const explanationsUsed = row?.explanationsUsed ?? 0
+
+  const worksheetsRemaining = Math.max(0, TRIAL_WORKSHEET_LIMIT - worksheetsUsed)
+  const explanationsRemaining = Math.max(
+    0,
+    TRIAL_EXPLANATION_LIMIT - explanationsUsed,
+  )
+
+  return {
+    worksheetsUsed,
+    worksheetsRemaining,
+    explanationsUsed,
+    explanationsRemaining,
+    exhausted: worksheetsRemaining === 0 && explanationsRemaining === 0,
+  }
+}
+
+export type ConsumeResult =
+  | { ok: true; remaining: number }
+  | { ok: false; remaining: number; reason: string }
+
+function columnFor(kind: TrialKind) {
+  return kind === 'worksheets' ? users.trialWorksheetsUsed : users.trialExplanationsUsed
+}
+
+function fieldFor(kind: TrialKind) {
+  return kind === 'worksheets' ? 'trialWorksheetsUsed' : 'trialExplanationsUsed'
+}
+
+function limitFor(kind: TrialKind) {
+  return kind === 'worksheets' ? TRIAL_WORKSHEET_LIMIT : TRIAL_EXPLANATION_LIMIT
+}
+
+function eventKindFor(kind: TrialKind) {
+  return kind === 'worksheets' ? 'extract_page' : 'explain'
+}
+
+export async function consumeTrial(
+  db: Db,
+  userId: string,
+  kind: TrialKind,
+  amount = 1,
+): Promise<ConsumeResult> {
+  if (amount <= 0) return { ok: true, remaining: 0 }
+
+  const column = columnFor(kind)
+  const limit = limitFor(kind)
+
+  const updated = await db
+    .update(users)
+    .set({ [fieldFor(kind)]: sql`${column} + ${amount}` })
+    .where(and(eq(users.id, userId), sql`${column} + ${amount} <= ${limit}`))
+    .returning({
+      worksheetsUsed: users.trialWorksheetsUsed,
+      explanationsUsed: users.trialExplanationsUsed,
+    })
+
+  if (updated.length === 0) {
+    const state = await getTrialState(db, userId)
+    const remaining =
+      kind === 'worksheets' ? state.worksheetsRemaining : state.explanationsRemaining
+
+    return {
+      ok: false,
+      remaining,
+      reason:
+        kind === 'worksheets'
+          ? `Your free trial covers ${TRIAL_WORKSHEET_LIMIT} worksheets and you have ${remaining} left. Add an API key or connect Ollama in settings to keep going.`
+          : `Your free trial covers ${TRIAL_EXPLANATION_LIMIT} explanations and you have ${remaining} left. Add an API key or connect Ollama in settings to keep going.`,
+    }
+  }
+
+  const used =
+    kind === 'worksheets' ? updated[0].worksheetsUsed : updated[0].explanationsUsed
+
+  await db.insert(usageEvents).values({
+    userId,
+    kind: eventKindFor(kind),
+    tierUsed: 'trial',
+    quantity: amount,
+  })
+
+  return { ok: true, remaining: Math.max(0, limit - used) }
+}
+
+export async function refundTrial(
+  db: Db,
+  userId: string,
+  kind: TrialKind,
+  amount = 1,
+): Promise<void> {
+  if (amount <= 0) return
+
+  const column = columnFor(kind)
+
+  await db
+    .update(users)
+    .set({ [fieldFor(kind)]: sql`greatest(${column} - ${amount}, 0)` })
+    .where(eq(users.id, userId))
+
+  const pending = await db
+    .select({ id: usageEvents.id, quantity: usageEvents.quantity })
+    .from(usageEvents)
+    .where(
+      and(
+        eq(usageEvents.userId, userId),
+        eq(usageEvents.kind, eventKindFor(kind)),
+        eq(usageEvents.tierUsed, 'trial'),
+        eq(usageEvents.refunded, false),
+      ),
+    )
+    .orderBy(desc(usageEvents.createdAt))
+
+  const refunding: string[] = []
+  let covered = 0
+
+  for (const event of pending) {
+    if (covered >= amount) break
+    refunding.push(event.id)
+    covered += event.quantity
+  }
+
+  if (refunding.length > 0) {
+    await db
+      .update(usageEvents)
+      .set({ refunded: true })
+      .where(inArray(usageEvents.id, refunding))
+  }
+}
+
+const DAY_MS = 24 * 3600_000
+
+export async function trialExtractionsToday(
+  db: Db,
+  now: Date = new Date(),
+): Promise<number> {
+  const since = new Date(now.getTime() - DAY_MS)
+
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(processingJobs)
+    .innerJoin(worksheets, eq(worksheets.id, processingJobs.worksheetId))
+    .where(
+      and(
+        eq(processingJobs.stage, 'extract'),
+        eq(processingJobs.executor, 'operator_gpu'),
+        eq(worksheets.tierUsed, 'trial'),
+        gte(processingJobs.createdAt, since),
+      ),
+    )
+
+  return Number(row?.value ?? 0)
+}
+const ALGORITHM = 'aes-256-gcm'
+const IV_BYTES = 12
+
+export interface SealedKey {
+  ciphertext: string
+  iv: string
+  authTag: string
+  last4: string
+}
+
+function masterKey(): Buffer {
+  const raw = process.env.CREDENTIALS_ENC_KEY
+  if (!raw) {
+    throw new Error('CREDENTIALS_ENC_KEY is not set; cannot handle API keys.')
+  }
+
+  const key = Buffer.from(raw, 'base64')
+  if (key.length !== 32) {
+    throw new Error(
+      'CREDENTIALS_ENC_KEY must be 32 bytes base64-encoded. Generate one with: ' +
+        'node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))"',
+    )
+  }
+
+  return key
+}
+
+export function sealApiKey(plaintext: string): SealedKey {
+  const trimmed = plaintext.trim()
+  if (!trimmed) throw new Error('Cannot store an empty API key.')
+
+  const iv = randomBytes(IV_BYTES)
+  const cipher = createCipheriv(ALGORITHM, masterKey(), iv)
+
+  const ciphertext = Buffer.concat([
+    cipher.update(trimmed, 'utf8'),
+    cipher.final(),
+  ])
+
+  return {
+    ciphertext: ciphertext.toString('base64'),
+    iv: iv.toString('base64'),
+    authTag: cipher.getAuthTag().toString('base64'),
+    last4: trimmed.slice(-4),
+  }
+}
+
+export function openApiKey(sealed: Omit<SealedKey, 'last4'>): string {
+  const decipher = createDecipheriv(
+    ALGORITHM,
+    masterKey(),
+    Buffer.from(sealed.iv, 'base64'),
+  )
+  decipher.setAuthTag(Buffer.from(sealed.authTag, 'base64'))
+
+  return Buffer.concat([
+    decipher.update(Buffer.from(sealed.ciphertext, 'base64')),
+    decipher.final(),
+  ]).toString('utf8')
+}
+
+export function isAllowedOllamaUrl(value: string): boolean {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
+
+  const host = url.hostname.toLowerCase()
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    host.endsWith('.localhost')
+  )
+}
+const VERIFY_TIMEOUT_MS = 10_000
+
+export type KeyVerdict =
+  | { status: 'ok' }
+  | { status: 'rejected'; reason: string }
+  | { status: 'unreachable'; reason: string }
+
+function probe(provider: CloudProvider, apiKey: string): [string, RequestInit] {
+  switch (provider) {
+    case 'anthropic':
+      return [
+        'https://api.anthropic.com/v1/models?limit=1',
+        { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } },
+      ]
+    case 'openai':
+      return [
+        'https://api.openai.com/v1/models',
+        { headers: { authorization: `Bearer ${apiKey}` } },
+      ]
+    case 'openrouter':
+      return [
+        'https://openrouter.ai/api/v1/key',
+        { headers: { authorization: `Bearer ${apiKey}` } },
+      ]
+    case 'google':
+      return [
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=1`,
+        {},
+      ]
+  }
+}
+
+export async function verifyCloudKey(
+  provider: CloudProvider,
+  apiKey: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<KeyVerdict> {
+  if (mockEnabled()) {
+    return { status: 'unreachable', reason: 'mock mode is on, so nothing was checked' }
+  }
+
+  const [url, init] = probe(provider, apiKey)
+
+  let response: Response
+  try {
+    response = await fetchImpl(url, {
+      ...init,
+      method: 'GET',
+      signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
+    })
+  } catch (error) {
+    return {
+      status: 'unreachable',
+      reason: error instanceof Error ? error.message : 'the provider did not answer',
+    }
+  }
+
+  if (response.ok) return { status: 'ok' }
+
+  if (response.status === 401 || response.status === 403) {
+    return {
+      status: 'rejected',
+      reason: `${provider} did not accept that key.`,
+    }
+  }
+
+  return {
+    status: 'unreachable',
+    reason: `${provider} answered ${response.status}.`,
+  }
 }

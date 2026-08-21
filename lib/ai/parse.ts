@@ -1,4 +1,4 @@
-import { ESCAPE_COLLIDING_COMMANDS } from '@/lib/questions/math'
+import { ESCAPE_COLLIDING_COMMANDS } from '@/lib/questions/shape'
 
 import {
   canReview,

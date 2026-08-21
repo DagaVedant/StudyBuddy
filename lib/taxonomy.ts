@@ -2,7 +2,7 @@ import { alias } from 'drizzle-orm/pg-core'
 import { and, eq, exists, sql } from 'drizzle-orm'
 
 import { topics } from '@/lib/db/schema'
-import { type Db } from '@/lib/db/types'
+import { type Db } from '@/lib/db'
 
 export interface TopicNode {
   name: string

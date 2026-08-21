@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { ollamaConfig } from '@/lib/ai/ollama-config'
+import { ollamaConfig } from '@/lib/ai/ollama'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { classificationSchema } from '@/lib/ai/types'
 import { applyClassification, isEmbedding, shortlistByVector } from '@/lib/classify'

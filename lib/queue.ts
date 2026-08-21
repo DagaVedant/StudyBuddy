@@ -4,7 +4,7 @@ import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { storage } from '@/lib/storage'
 
-import { type Db, unwrapDriverRows } from '@/lib/db/types'
+import { type Db, unwrapDriverRows } from '@/lib/db'
 import {
   gpuWorkers,
   processingJobs,

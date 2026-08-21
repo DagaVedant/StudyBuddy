@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { ollamaConfig } from '@/lib/ai/ollama-config'
+import { ollamaConfig } from '@/lib/ai/ollama'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, queueDepth, type JobStage } from '@/lib/queue'

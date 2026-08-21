@@ -1,9 +1,9 @@
 'use client'
-import PageHead from '@/components/page-head'
+import { PageHead } from '@/components/ui'
 
 import { useId, useState } from 'react'
 
-import { AccuracyLabel, Meter } from '@/components/meter'
+import { AccuracyLabel, Meter } from '@/components/ui'
 import type { AccountAccuracy } from '@/lib/dashboard'
 import { fetchJson } from '@/lib/client/http'
 

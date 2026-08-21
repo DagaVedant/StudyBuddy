@@ -8,43 +8,21 @@ import {
   getCredentialSummary,
   shouldOfferAiSetup,
 } from '@/lib/ai/resolve'
-import AiSetupPrompt from '@/components/ai-setup-prompt'
-import TopicSorter from '@/components/topic-sorter'
-import { AccuracyLabel, Meter } from '@/components/meter'
+import { AiSetupPrompt } from '@/components/ui'
+import { TopicSorter } from '@/components/topics'
+import { AccuracyLabel, Meter } from '@/components/ui'
 import { countMissedQuestions } from '@/lib/blooket'
 import { db } from '@/lib/db'
-import TopicTree from '@/components/topic-tree'
-import {
-  getAccuracyTrend,
-  getAccuracyTrendBySubject,
-  getDistractorPatterns,
-  getOverview,
-  getRecentWorksheets,
-  getReviewForecast,
-  listUntaggedWorksheets,
-  getStudyCalendar,
-  getStudyStreak,
-  getTopicStats,
-} from '@/lib/dashboard'
+import { TopicTree } from '@/components/topics'
+import { getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getOverview, getRecentWorksheets, getReviewForecast, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats } from '@/lib/dashboard'
 import StudyCalendar from '@/components/study-calendar'
-import { Underline } from '@/components/hand'
-import {
-  Callout,
-  MarginNote,
-  Note,
-  PageFoot,
-  SectionHead,
-} from '@/components/textbook'
-import {
-  rankFragile,
-  rankWeaknesses,
-  summarize,
-  type TopicTrend,
-} from '@/lib/dashboard'
-import { buildTopicTree, pruneToAttempted } from '@/lib/dashboard'
+import { Underline } from '@/components/ui'
+import { Callout, MarginNote, Note, PageFoot, SectionHead } from '@/components/ui'
+import { rankFragile, rankWeaknesses, summarize, type TopicTrend } from '@/lib/ranking'
+import { buildTopicTree, pruneToAttempted } from '@/lib/ranking'
 import { topics } from '@/lib/db/schema'
 import { pathBySlug } from '@/lib/taxonomy'
-import { destination } from '@/lib/worksheets'
+import { destination } from '@/lib/upload'
 
 import AccuracyChart from './accuracy-chart'
 

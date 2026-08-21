@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
 
-import { type Db, unwrapDriverRows } from '@/lib/db/types'
+import { type Db, unwrapDriverRows } from '@/lib/db'
 
 export interface LimitDecision {
   ok: boolean

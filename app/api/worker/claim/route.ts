@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, heartbeat, queueDepth, reapAbandonedJobs } from '@/lib/queue'
-import { authenticateWorker } from '@/lib/worker/auth'
+import { authenticateWorker } from '@/lib/worker/jobs'
 import { applyPermanentFailure } from '@/lib/worker/status'
 import { pagesForJob } from '@/lib/worker/ingest'
 

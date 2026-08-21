@@ -1,18 +1,46 @@
+import { timingSafeEqual } from 'node:crypto'
+
 import { NextResponse } from 'next/server'
 import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 
+import {
+  FINAL_PASSES,
+  runRepairPasses,
+  VERIFYING_PASSES,
+} from '@/lib/worker/pipeline'
+import {
+  answerChoices,
+  explanations,
+  processingJobs,
+  questions,
+  questionSolutions,
+  worksheetPages,
+} from '@/lib/db/schema'
+import {
+  applyPermanentFailure,
+  CLASSIFYING_AT,
+  readingProgress,
+  recordUntagged,
+  UNTAGGED_REASON,
+  VERIFYING_AT,
+} from '@/lib/worker/status'
+import {
+  checkpointJob,
+  completeJob,
+  enqueueJob,
+  failJob,
+  touchJob,
+  transitionWorksheet,
+} from '@/lib/queue'
 import { CHOICE_ORDER } from '@/lib/questions/queries'
-import { CLASSIFYING_AT, UNTAGGED_REASON, VERIFYING_AT, applyPermanentFailure, readingProgress, recordUntagged } from '@/lib/worker/status'
-import { FINAL_PASSES, VERIFYING_PASSES, runRepairPasses } from '@/lib/worker/pipeline'
-import { checkpointJob, completeJob, enqueueJob, failJob, touchJob } from '@/lib/queue'
+import { clientIp } from '@/lib/request'
 import { extractedQuestionSchema } from '@/lib/ai/types'
 import { partitionByDeletability } from '@/lib/worker/apply'
 import { persistQuestions } from '@/lib/worker/ingest'
-import { planPageReplacement } from '@/lib/worker/review'
+import { planPageReplacement } from '@/lib/worker/solutions'
 import { promoteDerivedAnswer } from '@/lib/worker/solutions'
-import { transitionWorksheet } from '@/lib/queue'
-import { type Db } from '@/lib/db/types'
+import { type Db } from '@/lib/db'
 
 export const bodySchema = z.discriminatedUnion('action', [
   z.object({
@@ -55,16 +83,6 @@ export const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('complete') }),
   z.object({ action: z.literal('fail'), message: z.string().max(2000) }),
 ])
-
-import {
-  answerChoices,
-  explanations,
-  processingJobs,
-  questionSolutions,
-  questions,
-  worksheetPages,
-} from '@/lib/db/schema'
-
 
 export type Job = typeof processingJobs.$inferSelect
 type Body = z.infer<typeof bodySchema>
@@ -309,4 +327,53 @@ export async function handlePageResult(
     created,
     duplicates: body.questions.length - created,
   })
+}
+function safeEquals(a: string, b: string): boolean {
+  const left = Buffer.from(a)
+  const right = Buffer.from(b)
+  if (left.length !== right.length) return false
+  return timingSafeEqual(left, right)
+}
+
+export type WorkerAuth =
+  | { ok: true }
+  | { ok: false; status: 401 | 403; message: string }
+
+export function authenticateWorker(request: Request): WorkerAuth {
+  const expected = process.env.WORKER_API_TOKEN
+  if (!expected) {
+    return { ok: false, status: 403, message: 'Worker API is not configured.' }
+  }
+
+  const header = request.headers.get('authorization') ?? ''
+  const token = header.startsWith('Bearer ') ? header.slice(7) : ''
+
+  if (!token || !safeEquals(token, expected)) {
+    return { ok: false, status: 401, message: 'Bad worker credential.' }
+  }
+
+  const configured = (process.env.WORKER_ALLOWED_IPS ?? '').trim()
+
+  if (!configured) {
+    return {
+      ok: false,
+      status: 403,
+      message:
+        'WORKER_ALLOWED_IPS is not set. List the worker addresses, or set it to * to allow any.',
+    }
+  }
+
+  if (configured !== '*') {
+    const allowed = configured
+      .split(',')
+      .map((ip) => ip.trim())
+      .filter(Boolean)
+
+    const ip = clientIp(request.headers)
+    if (!ip || !allowed.includes(ip)) {
+      return { ok: false, status: 403, message: 'Worker credential not valid from here.' }
+    }
+  }
+
+  return { ok: true }
 }

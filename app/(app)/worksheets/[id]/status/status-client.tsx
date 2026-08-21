@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { OllamaProvider } from '@/lib/ai/ollama'
-import { validated } from '@/lib/ai/parse'
-import { toPngBytes } from '@/lib/client/page-image'
-import { isAnswerPage } from '@/lib/questions/answer-key'
+import { fetchJson } from '@/lib/client/http'
+import { isAnswerPage } from '@/lib/questions/text'
 import { seamAround } from '@/lib/questions/text'
+import { toPngBytes } from '@/lib/client/ingest'
+import { validated } from '@/lib/ai/parse'
 
 interface ClaimedPage {
   id: string
@@ -36,7 +37,7 @@ type Phase =
   | { kind: 'done' }
   | { kind: 'error'; message: string }
 
-export default function BrowserRunner({ worksheetId }: { worksheetId: string }) {
+export function BrowserRunner({ worksheetId }: { worksheetId: string }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const router = useRouter()
 
@@ -187,5 +188,51 @@ export default function BrowserRunner({ worksheetId }: { worksheetId: string }) 
       here rather than on our servers, so closing it stops the reading. Nothing is
       lost if you do: it carries on from the last finished page.
     </p>
+  )
+}
+
+export function GoManualButton({ worksheetId }: { worksheetId: string }) {
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function start() {
+    setBusy(true)
+    setError(null)
+
+    try {
+      const response = await fetchJson(`/api/worksheets/${worksheetId}/go-manual`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(body?.error ?? 'Could not switch to manual entry.')
+      }
+
+      const body = (await response.json()) as { next: string }
+      router.push(body.next)
+    } catch (err) {
+      setBusy(false)
+      setError(err instanceof Error ? err.message : 'Could not switch to manual entry.')
+    }
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={start}
+        disabled={busy}
+        className="btn btn-secondary sm:w-auto sm:px-6"
+      >
+        {busy ? 'Switching…' : 'Add questions manually instead'}
+      </button>
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-danger">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }

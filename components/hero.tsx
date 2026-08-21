@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import Mark from './mark'
+import { Mark } from '@/components/ui'
 
 import styles from './hero.module.css'
 
