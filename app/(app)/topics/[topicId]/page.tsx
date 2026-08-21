@@ -16,7 +16,7 @@ import {
 } from '@/lib/db/schema'
 import { CHOICE_ORDER } from '@/lib/questions/queries'
 import { pathBySlug } from '@/lib/taxonomy'
-import { getLesson } from '@/lib/topics'
+import { getLesson } from '@/lib/practice'
 import { Prose } from '@/components/ui'
 import { RevisitQuestion } from '@/components/actions'
 import { GenerateLessonButton } from '@/components/actions'

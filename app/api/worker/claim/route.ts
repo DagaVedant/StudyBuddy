@@ -6,7 +6,7 @@ import { db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, heartbeat, queueDepth, reapAbandonedJobs } from '@/lib/queue'
 import { authenticateWorker } from '@/lib/worker/jobs'
-import { applyPermanentFailure } from '@/lib/worker/status'
+import { applyPermanentFailure } from '@/lib/worker/apply'
 import { pagesForJob } from '@/lib/worker/ingest'
 
 const claimSchema = z.object({

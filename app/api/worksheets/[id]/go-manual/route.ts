@@ -6,7 +6,7 @@ import { processingJobs } from '@/lib/db/schema'
 import { WORKSHEET_WRITE_LIMIT, guardRateLimit } from '@/lib/rate-limit'
 import { guardWorksheet } from '@/lib/queue'
 import { claimWorksheetForManualFallback } from '@/lib/queue'
-import { applyPermanentFailure } from '@/lib/worker/status'
+import { applyPermanentFailure } from '@/lib/worker/apply'
 
 type Params = { params: Promise<{ id: string }> }
 

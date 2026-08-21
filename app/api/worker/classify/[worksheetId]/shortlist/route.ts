@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { isEmbedding, shortlistByVector } from '@/lib/classify'
+import { isEmbedding, shortlistByVector } from '@/lib/taxonomy'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/jobs'

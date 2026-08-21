@@ -12,7 +12,7 @@ import {
   type RasterPage,
 } from './rasterize'
 import { fetchJson, throwIfCancelled } from './http'
-import { ocrPage, preloadOcr } from './ocr'
+import { ocrPage, preloadOcr } from './rasterize'
 
 export type IngestStage =
   | 'reading'

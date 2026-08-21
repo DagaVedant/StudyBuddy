@@ -78,7 +78,7 @@ export default function UploadClient({ subjects }: Props) {
   useEffect(() => {
     return () => {
       abortRef.current?.abort()
-      void import('@/lib/client/ocr').then(({ terminateOcr }) =>
+      void import('@/lib/client/rasterize').then(({ terminateOcr }) =>
         terminateOcr().catch(() => {}),
       )
     }

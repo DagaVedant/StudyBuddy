@@ -6,7 +6,7 @@ import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { attempts, processingJobs, questions, worksheets } from '@/lib/db/schema'
 import { queueDepth, workerStatus } from '@/lib/queue'
-import { phaseFor } from '@/lib/worker/status'
+import { phaseFor } from '@/lib/worker/apply'
 import { destination } from '@/lib/upload'
 
 import { BrowserRunner, GoManualButton } from './status-client'

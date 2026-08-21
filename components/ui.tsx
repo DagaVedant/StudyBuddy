@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Fragment, type ReactNode } from 'react'
 
-import { MIN_ATTEMPTS } from '@/lib/ranking'
+import { MIN_ATTEMPTS } from '@/lib/upload'
 import { type QuestionEvidence } from '@/lib/questions/text'
 export function Mark({ className }: { className?: string }) {
   return (

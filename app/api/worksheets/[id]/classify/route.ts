@@ -5,12 +5,12 @@ import { z } from 'zod'
 import { ollamaConfig } from '@/lib/ai/ollama'
 import { resolveProvider } from '@/lib/ai/resolve'
 import { classificationSchema } from '@/lib/ai/types'
-import { applyClassification, isEmbedding, shortlistByVector } from '@/lib/classify'
-import { pendingQuestionCount, pendingQuestions } from '@/lib/classify'
+import { applyClassification, isEmbedding, shortlistByVector } from '@/lib/taxonomy'
+import { pendingQuestionCount, pendingQuestions } from '@/lib/taxonomy'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
 import { guardWorksheet } from '@/lib/queue'
-import { clearUntagged } from '@/lib/worker/status'
+import { clearUntagged } from '@/lib/worker/apply'
 
 export const maxDuration = 300
 

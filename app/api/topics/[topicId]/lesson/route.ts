@@ -16,7 +16,7 @@ import {
   lessonInput,
   storeLesson,
   type StoredLesson,
-} from '@/lib/topics'
+} from '@/lib/practice'
 
 type Params = { params: Promise<{ topicId: string }> }
 

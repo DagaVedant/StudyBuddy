@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm'
 
 import { resolveProvider, type ResolvedProvider } from '@/lib/ai/resolve'
-import { EmbeddingUnavailableError, classifyWorksheet } from '@/lib/classify'
+import { EmbeddingUnavailableError, classifyWorksheet } from '@/lib/taxonomy'
 import type { Db } from '@/lib/db'
 import { worksheets } from '@/lib/db/schema'
 import { claimJob, completeJob, enqueueJob, failJob } from '@/lib/queue'
 import { transitionWorksheet } from '@/lib/queue'
 import { runExtraction } from '@/lib/worker/ingest'
 import { runRepairPasses } from '@/lib/worker/pipeline'
-import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/status'
+import { UNTAGGED_REASON, recordUntagged } from '@/lib/worker/apply'
 import { deriveSolutions } from '@/lib/worker/solutions'
 
 type Resolver = (db: Db, userId: string) => Promise<ResolvedProvider>

@@ -4,7 +4,7 @@ import {
   EMBEDDING_DIMENSIONS,
   EMBEDDING_INPUT_LIMIT,
   EMBEDDING_MODEL,
-} from '@/lib/embeddings/model'
+} from '@/lib/upload'
 
 let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
 

@@ -24,7 +24,7 @@ import {
   recordUntagged,
   UNTAGGED_REASON,
   VERIFYING_AT,
-} from '@/lib/worker/status'
+} from '@/lib/worker/apply'
 import {
   checkpointJob,
   completeJob,
@@ -34,7 +34,7 @@ import {
   transitionWorksheet,
 } from '@/lib/queue'
 import { CHOICE_ORDER } from '@/lib/questions/queries'
-import { clientIp } from '@/lib/request'
+import { clientIp } from '@/lib/rate-limit'
 import { extractedQuestionSchema } from '@/lib/ai/types'
 import { partitionByDeletability } from '@/lib/worker/apply'
 import { persistQuestions } from '@/lib/worker/ingest'

@@ -14,7 +14,7 @@ import {
   SIGNIN_EMAIL_LIMIT,
   SIGNIN_IP_LIMIT,
 } from '@/lib/rate-limit'
-import { appBaseUrl, callerIp } from '@/lib/request'
+import { appBaseUrl, callerIp } from '@/lib/rate-limit'
 import { storage } from '@/lib/storage'
 import { type Db, isUniqueViolation } from '@/lib/db'
 

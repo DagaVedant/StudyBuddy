@@ -7,9 +7,7 @@ import {
   EMBEDDING_DIMENSIONS,
   EMBEDDING_INPUT_LIMIT,
   EMBEDDING_MODEL,
-} from './model'
-
-export { EMBEDDING_DIMENSIONS, EMBEDDING_INPUT_LIMIT, EMBEDDING_MODEL }
+} from '@/lib/upload'
 
 const VENDORED = path.join(process.cwd(), 'models')
 

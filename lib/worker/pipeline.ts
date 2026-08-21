@@ -16,7 +16,7 @@ import {
   planPageSplitJoins,
   type SplitHalf,
 } from '@/lib/questions/validate'
-import { duplicatePrintedNumbers } from '@/lib/questions/duplicates'
+import { duplicatePrintedNumbers } from '@/lib/questions/numbering'
 import { hashQuestion, normalizeChoiceLabel } from '@/lib/questions/shape'
 import { inferPrintedNumbers } from '@/lib/questions/numbering'
 import { loadQuestionsWithChoices } from '@/lib/questions/queries'

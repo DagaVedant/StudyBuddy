@@ -3,12 +3,12 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { classificationSchema } from '@/lib/ai/types'
-import { applyClassification } from '@/lib/classify'
-import { pendingQuestions } from '@/lib/classify'
+import { applyClassification } from '@/lib/taxonomy'
+import { pendingQuestions } from '@/lib/taxonomy'
 import { db } from '@/lib/db'
 import { questions, worksheets } from '@/lib/db/schema'
 import { authenticateWorker } from '@/lib/worker/jobs'
-import { clearUntagged } from '@/lib/worker/status'
+import { clearUntagged } from '@/lib/worker/apply'
 
 type Params = { params: Promise<{ worksheetId: string }> }
 

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { POLICY_UPDATED, contactEmail } from '@/lib/request'
+import { POLICY_UPDATED, contactEmail } from '@/lib/rate-limit'
 
 export const metadata = { title: 'Terms · StudyBuddy' }
 
