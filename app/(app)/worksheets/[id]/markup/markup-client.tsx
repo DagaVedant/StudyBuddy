@@ -191,7 +191,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
                           className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm touch-manipulation has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
                 active
                               ? 'border-accent bg-accent/10'
-                              : ' hover:border-accent'
+                              : 'border-rule hover:border-accent hover:bg-accent/5'
                           }`}
                         >
                           <input
@@ -327,7 +327,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
                     key={outcome.value}
                     type="button"
                     title={outcome.hint}
-                    className="flex flex-col items-center rounded-xl px-2 py-3 text-center text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="flex min-h-11 flex-col items-center rounded-xl border border-rule bg-surface px-2 py-3 text-center text-sm touch-manipulation hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     onClick={() => mark(currentQuestion.id, outcome.value, cursor)}
                   >
                     {outcome.label}
@@ -523,7 +523,7 @@ export function CorrectionsClient({
                         className={
                           isCurrent
                             ? 'min-h-11 rounded-xl border border-accent bg-accent/10 px-2 py-2 text-sm font-medium touch-manipulation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
-                            : 'min-h-11 rounded-xl  px-2 py-2 text-sm touch-manipulation hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60'
+                            : 'min-h-11 rounded-xl border border-rule bg-surface px-2 py-2 text-sm touch-manipulation hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60'
                         }
                         onClick={() =>
                           void correct(question.id, {
