@@ -697,14 +697,55 @@ async function processExtractionJob(job: ClaimedJob, pages: WorkerPage[]): Promi
   }
 }
 
-async function heartbeatLoop(): Promise<void> {
-  while (!shuttingDown) {
-    await api('/api/worker/heartbeat', {
-      method: 'POST',
-      body: JSON.stringify({workerName: WORKER_NAME, modelName: VISION_MODEL, jobsInFlight}),
-    }).catch(() => {})
+class WorkerRefused extends Error {}
 
+async function heartbeat(extra: Record<string, unknown> = {}): Promise<void> {
+  const response = await api('/api/worker/heartbeat', {
+    method: 'POST',
+    body: JSON.stringify({
+      workerName: WORKER_NAME,
+      modelName: VISION_MODEL,
+      jobsInFlight,
+      ...extra,
+    }),
+  })
+
+  if (response.ok) return
+
+  const detail = (await response.text().catch(() => '')).slice(0, 200)
+
+  if (response.status === 401 || response.status === 403) {
+    throw new WorkerRefused(
+      `${API} refused this worker (${response.status}). ${detail || 'Check WORKER_API_TOKEN here and WORKER_ALLOWED_IPS on the server.'}`,
+    )
+  }
+
+  throw new Error(`heartbeat got ${response.status}. ${detail}`)
+}
+
+async function heartbeatLoop(): Promise<void> {
+  let failures = 0
+
+  while (!shuttingDown) {
     await new Promise((resolve) => setTimeout(resolve, HEARTBEAT_MS))
+    if (shuttingDown) return
+
+    try {
+      await heartbeat()
+      if (failures > 0) {
+        log(`heartbeat recovered after ${failures} failure(s)`)
+        failures = 0
+      }
+    } catch (error) {
+      if (error instanceof WorkerRefused) {
+        log(error.message)
+        shuttingDown = true
+        return
+      }
+
+      failures += 1
+      log(`heartbeat failed (${failures}): ${(error as Error).message}`)
+    }
   }
 }
 
@@ -727,6 +768,9 @@ async function main(): Promise<void> {
   if (!models.includes(VISION_MODEL)) {
     throw new Error(`${VISION_MODEL} is not pulled. Run: ollama pull ${VISION_MODEL}`)
   }
+
+  await heartbeat()
+  log(`  registered with ${API}`)
 
   void heartbeatLoop()
 
@@ -768,10 +812,9 @@ async function main(): Promise<void> {
     }
   }
 
-  await api('/api/worker/heartbeat', {
-    method: 'POST',
-    body: JSON.stringify({workerName: WORKER_NAME, shuttingDown: true}),
-  }).catch(() => {})
+  await heartbeat({shuttingDown: true}).catch((error: unknown) => {
+    log(`could not report shutdown: ${(error as Error).message}`)
+  })
 
   log('worker stopped')
 }
@@ -784,7 +827,13 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   })
 }
 
-main().catch((error) => {
+main().catch((error: unknown) => {
+  if (error instanceof WorkerRefused) {
+    log(error.message)
+    process.exitCode = 1
+    return
+  }
+
   console.error(error)
   process.exit(1)
 })
