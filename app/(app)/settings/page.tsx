@@ -5,7 +5,11 @@ import {PageHead} from '@/components/ui'
 import {auth} from '@/auth'
 import {getTrialState} from '@/lib/ai/resolve'
 import {appBaseUrl} from '@/lib/api'
-import {getCredentialSummary} from '@/lib/ai/resolve'
+import {
+  browserTierEnabled,
+  cloudExtractionEnabled,
+  getCredentialSummary,
+} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 import {workerStatus} from '@/lib/queue'
 
@@ -31,6 +35,8 @@ export default async function SettingsPage() {
       </div>
 
       <SettingsClient
+        showCloud={cloudExtractionEnabled()}
+        showOllama={browserTierEnabled()}
         credentials={credentials.map((row) => ({
           provider: row.provider,
           keyLast4: row.keyLast4,

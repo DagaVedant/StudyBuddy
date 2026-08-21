@@ -55,9 +55,7 @@ export default function TermsPage() {
           The free trial is read on hardware the operator pays for, so it is
           capped: a few worksheets per account, and a daily ceiling across
           everybody. Do not automate uploads or open extra accounts to get past
-          those caps. If you want more, connect your own AI provider in
-          settings, which spends your own key rather than somebody else&rsquo;s
-          electricity.
+          those caps.
         </p>
 
         <h2 className="pt-4 text-base font-medium">Your data, and stopping</h2>

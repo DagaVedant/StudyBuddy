@@ -65,17 +65,9 @@ export default async function UploadPage() {
       {waiting && (
         <div className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution">
           <p role="status" className="text-pretty">
-            The machine that reads papers on the free trial is not running just
-            now. Upload anyway if you like: your paper waits in the queue and is
-            read as soon as it is back, and the bell tells you when it is done.
-            There is no way to say how long that will be.
-          </p>
-          <p className="mt-2 text-pretty">
-            To not wait, connect your own AI in{' '}
-            <Link href="/settings" className="underline underline-offset-2">
-              settings
-            </Link>
-            , or upload and type the questions in yourself.
+            The machine that reads papers is not running just now. Upload
+            anyway and your paper waits in the queue, or type the questions in
+            yourself.
           </p>
         </div>
       )}

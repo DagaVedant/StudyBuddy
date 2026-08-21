@@ -686,8 +686,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
           mode: 'manual',
           message:
             'The free trial has hit its limit for today, so this one was not counted ' +
-            'against yours. Add its questions here, come back tomorrow, or connect ' +
-            'your own AI in settings.',
+            'against yours. Add its questions here, or come back tomorrow.',
           next: `/worksheets/${worksheetId}/edit`,
         })
       }

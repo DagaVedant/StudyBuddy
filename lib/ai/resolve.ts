@@ -174,6 +174,7 @@ export interface AiStatus {
 }
 
 export function shouldOfferAiSetup(status: AiStatus): boolean {
+  if (!browserTierEnabled() && !cloudExtractionEnabled()) return false
   return status.trialWorksheetsRemaining === 1
 }
 

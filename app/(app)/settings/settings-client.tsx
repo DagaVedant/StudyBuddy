@@ -20,6 +20,8 @@ interface Credential {
 }
 
 interface Props {
+  showCloud: boolean
+  showOllama: boolean
   credentials: Credential[]
   trial: {worksheetsRemaining: number; explanationsRemaining: number}
   workerOnline: boolean
@@ -64,6 +66,8 @@ export default function SettingsClient({
   trial,
   workerOnline,
   appUrl,
+  showCloud,
+  showOllama,
 }: Props) {
   const router = useRouter()
   const cloudId = useId()
@@ -166,6 +170,7 @@ export default function SettingsClient({
         </p>
       </section>
 
+      {showCloud && (
       <section
         aria-labelledby="cloud-heading"
         className="card p-4"
@@ -270,7 +275,9 @@ export default function SettingsClient({
           </div>
         )}
       </section>
+      )}
 
+      {showOllama && (
       <section
         aria-labelledby="ollama-heading"
         className="card p-4"
@@ -383,6 +390,7 @@ export default function SettingsClient({
           </div>
         )}
       </section>
+      )}
     </div>
   )
 }
