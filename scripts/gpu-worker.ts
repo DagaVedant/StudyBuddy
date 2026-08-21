@@ -775,6 +775,7 @@ async function main(): Promise<void> {
   void heartbeatLoop()
 
   let backoff = IDLE_POLL_MS
+  let idle = false
 
   while (!shuttingDown) {
     try {
@@ -795,10 +796,16 @@ async function main(): Promise<void> {
       backoff = IDLE_POLL_MS
 
       if (!claim.job) {
+        if (!idle) {
+          idle = true
+          log(`no work; checking every ${IDLE_POLL_MS / 1000}s`)
+        }
+
         await new Promise((resolve) => setTimeout(resolve, IDLE_POLL_MS))
         continue
       }
 
+      idle = false
       jobsInFlight += 1
       try {
         await processJob(claim)
