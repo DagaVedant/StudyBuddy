@@ -2,11 +2,11 @@
 
 :root {
   color-scheme: light;
-  --bg: oklch(94.2% 0.015 82);
+  --bg: oklch(100% 0 0);
   --fg: oklch(21% 0.014 62);
   --muted: oklch(43% 0.016 62);
   --surface: oklch(99.5% 0.004 88);
-  --wash: oklch(88.6% 0.022 80);
+  --wash: oklch(96% 0.014 240);
   --wash-strong: oklch(84.5% 0.025 78);
   --accent: oklch(42% 0.155 258);
   --accent-fg: oklch(99% 0.004 88);
@@ -22,7 +22,7 @@
   --tint-peach: oklch(92% 0.045 62);
   --tint-lavender: oklch(92% 0.032 250);
   --tint-butter: oklch(93% 0.055 98);
-  --rule: oklch(79% 0.02 74);
+  --rule: oklch(66% 0.035 240);
   --rule-heavy: oklch(30% 0.016 64);
 
   --radius: 3px;
@@ -68,7 +68,7 @@
   --radius-2xl: var(--radius-lg);
 }
 body {
-  background: var(--bg) url('/paper.svg') repeat;
+  background: var(--bg) url('/paper.png') no-repeat top center / cover fixed;
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -187,10 +187,12 @@ h3 {
   }
   .card {
     position: relative;
+    border: 1px solid var(--rule);
     border-radius: var(--radius-lg);
     background: var(--surface);
   }
   .card-sunk {
+    border: 1px solid var(--rule);
     border-radius: var(--radius-lg);
     background: var(--wash);
   }
