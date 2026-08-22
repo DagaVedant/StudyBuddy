@@ -40,7 +40,6 @@ import {
   type TopicCandidate,
 } from './types'
 
-// the browser tier runs this in a page, where Buffer does not exist
 function toBase64(bytes: Uint8Array): string {
   if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')
 
@@ -318,7 +317,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   }
 }
 
-export const OLLAMA_FALLBACK_MODEL = 'qwen2.5vl:7b'
+const OLLAMA_FALLBACK_MODEL = 'qwen2.5vl:7b'
 
 export interface OllamaConfig {
   baseUrl: string

@@ -368,11 +368,8 @@ export async function refundTrial(
 
 const DAY_MS = 24 * 3600_000
 
-export async function trialExtractionsToday(
-  db: Db,
-  now: Date = new Date(),
-): Promise<number> {
-  const since = new Date(now.getTime() - DAY_MS)
+export async function trialExtractionsToday(db: Db): Promise<number> {
+  const since = new Date(Date.now() - DAY_MS)
 
   const [row] = await db
     .select({value: sql<number>`count(*)::int`})
@@ -434,7 +431,7 @@ export function sealApiKey(plaintext: string): SealedKey {
   }
 }
 
-export function openApiKey(sealed: Omit<SealedKey, 'last4'>): string {
+function openApiKey(sealed: {ciphertext: string; iv: string; authTag: string}): string {
   const decipher = createDecipheriv(
     ALGORITHM,
     masterKey(),
@@ -531,7 +528,7 @@ export async function verifyCloudKey(
   return {status: 'unreachable', reason: `${provider} answered ${response.status}.`}
 }
 
-export class MockProvider implements RawAIProvider {
+class MockProvider implements RawAIProvider {
   readonly name = 'mock' as const
   readonly model = 'mock' as const
   readonly answeringModel = 'mock' as const
@@ -680,7 +677,7 @@ Mock lesson for ${input.topicPath}.`,
   }
 }
 
-export class NullProvider implements RawAIProvider {
+class NullProvider implements RawAIProvider {
   readonly name = 'null' as const
   readonly model = 'none' as const
   readonly answeringModel = 'none' as const
