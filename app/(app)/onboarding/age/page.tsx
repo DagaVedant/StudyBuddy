@@ -13,7 +13,6 @@ export default function AgeGatePage() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (pending) return
 
     const formData = new FormData(event.currentTarget)
 
