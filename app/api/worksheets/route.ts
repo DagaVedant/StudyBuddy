@@ -1,0 +1,111 @@
+import {after, NextResponse} from 'next/server'
+import {desc, eq} from 'drizzle-orm'
+import {z} from 'zod'
+import {MAX_PAGES_PER_UPLOAD, pageCapFor} from '@/lib/upload'
+import {worksheets} from '@/lib/schema'
+import {sweepAbandonedUploads} from '@/lib/queue'
+import {consumeRateLimit, UPLOAD_LIMIT} from '@/lib/api'
+import {resolveProvider} from '@/lib/ai/resolve'
+import {auth} from '@/auth'
+import {db} from '@/lib/db'
+
+const createSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  sourceType: z.enum(['pdf_digital', 'pdf_scanned', 'photo', 'image']),
+  subjectHint: z.string().trim().max(100).nullish(),
+  pageCount: z.number().int().min(1).max(2000),
+  expectedQuestionCount: z.number().int().min(1).max(2000).nullish(),
+})
+
+async function postRoot(request: Request) {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401})
+  }
+
+  const allowance = await consumeRateLimit(
+    db,
+    UPLOAD_LIMIT,
+    `user:${session.user.id}`,
+  )
+
+  if (!allowance.ok) {
+    return NextResponse.json(
+      {error: "That's a lot of uploads in one go. Try again shortly."},
+      {status: 429, headers: {'Retry-After': String(allowance.retryAfter)}},
+    )
+  }
+
+  const parsed = createSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json({error: 'Invalid request'}, {status: 400})
+  }
+
+  const {title, sourceType, subjectHint, pageCount, expectedQuestionCount} =
+    parsed.data
+
+  const cap = pageCapFor(session.user.role)
+  if (pageCount > cap) {
+    return NextResponse.json(
+      {
+        error: `That upload is ${pageCount} pages. The limit is ${MAX_PAGES_PER_UPLOAD} pages per upload.`,
+      },
+      {status: 413},
+    )
+  }
+
+  const {tier} = await resolveProvider(db, session.user.id)
+
+  const [worksheet] = await db
+    .insert(worksheets)
+    .values({
+      userId: session.user.id,
+      title,
+      sourceType,
+      subjectHint: subjectHint ?? null,
+      pageCount,
+      expectedQuestionCount: expectedQuestionCount ?? null,
+      status: 'uploading',
+      tierUsed: tier,
+    })
+    .returning({id: worksheets.id})
+
+  after(async () => {
+    try {
+      const swept = await sweepAbandonedUploads(db, session.user.id)
+      if (swept > 0) {
+        console.log(`[upload] swept ${swept} abandoned upload(s) for ${session.user.id}`)
+      }
+    } catch (error) {
+      console.error('[upload] sweep failed:', (error as Error).message)
+    }
+  })
+
+  return NextResponse.json({worksheetId: worksheet.id}, {status: 201})
+}
+
+async function getRoot() {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401})
+  }
+
+  const rows = await db
+    .select({
+      id: worksheets.id,
+      title: worksheets.title,
+      status: worksheets.status,
+      pageCount: worksheets.pageCount,
+      createdAt: worksheets.createdAt,
+    })
+    .from(worksheets)
+    .where(eq(worksheets.userId, session.user.id))
+    .orderBy(desc(worksheets.createdAt))
+    .limit(50)
+
+  return NextResponse.json({worksheets: rows})
+}
+
+export {postRoot as POST}
+
+export {getRoot as GET}
