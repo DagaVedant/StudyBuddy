@@ -57,9 +57,12 @@ function blocksOf(markdown: string): Block[] {
     if (match) {
       const ordered = Boolean(numbered)
 
-      // a paragraph is only ever open when no list is, so neither flush eats the other
       if (list && list.ordered !== ordered) flush()
-      if (paragraph.length > 0) flush()
+
+      if (paragraph.length > 0) {
+        blocks.push({kind: 'paragraph', text: paragraph.join(' ')})
+        paragraph = []
+      }
 
       list = list ?? {ordered, items: []}
       list.items.push(match[1])

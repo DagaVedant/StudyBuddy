@@ -491,6 +491,12 @@ function PageCanvas({
   const pctX = (v: number) => `${(v / page.width) * 100}%`
   const pctY = (v: number) => `${(v / page.height) * 100}%`
 
+  const boxHint = () => {
+    if (!linesReady) return 'Loading this page’s text…'
+    if (drawing) return 'Drag around the question you want to add.'
+    return 'Missed one? Draw a box around it.'
+  }
+
   return (
     <section aria-labelledby="page-heading" className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -601,13 +607,7 @@ function PageCanvas({
         >
           {drawing ? 'Cancel' : 'Draw a Box'}
         </button>
-        <span className="text-sm text-muted">
-          {!linesReady
-            ? 'Loading this page’s text…'
-            : drawing
-              ? 'Drag around the question you want to add.'
-              : 'Missed one? Draw a box around it.'}
-        </span>
+        <span className="text-sm text-muted">{boxHint()}</span>
       </div>
     </section>
   )

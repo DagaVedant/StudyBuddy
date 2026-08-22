@@ -20,9 +20,6 @@
   --rule: oklch(66% 0.035 240);
   --rule-heavy: oklch(30% 0.016 64);
 
-  /* Bare `rounded` is Tailwind's own 0.25rem and is not on this scale. It
-     lines up with rounded-lg/xl/2xl only because 4px is 0.25rem, so changing
-     --radius-lg splits the bare-rounded call sites off from the rest. */
   --radius: 3px;
   --radius-lg: 4px;
   --google-bg: #ffffff;
