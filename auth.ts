@@ -89,9 +89,8 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
   callbacks: {
     async signIn({user, account, profile}) {
       if (account?.provider === 'google' && user.id) {
-        const verified = (profile as {email_verified?: boolean} | undefined)
-          ?.email_verified
-        if (verified) {
+        const google = profile as {email_verified?: boolean} | undefined
+        if (google?.email_verified) {
           await db
             .update(users)
             .set({emailVerified: new Date()})
