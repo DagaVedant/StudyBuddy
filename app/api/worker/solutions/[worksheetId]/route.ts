@@ -3,7 +3,7 @@ import {authenticateWorker} from '@/lib/worker/jobs'
 import {db} from '@/lib/db'
 import {unsolvedQuestions} from '@/lib/worker/solutions'
 
-async function getSolutionsWorksheetid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(request: Request, {params}: {params: Promise<{worksheetId: string}>}) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -13,5 +13,3 @@ async function getSolutionsWorksheetid(request: Request, {params}: {params: Prom
 
   return NextResponse.json({questions: await unsolvedQuestions(db, worksheetId)})
 }
-
-export {getSolutionsWorksheetid as GET}

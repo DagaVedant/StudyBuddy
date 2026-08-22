@@ -4,7 +4,7 @@ import {blooketDownload, getMissedQuestions} from '@/lib/blooket'
 import {db} from '@/lib/db'
 import {EXPORT_LIMIT, guardRateLimit} from '@/lib/api'
 
-async function getBlooket() {
+export async function GET() {
   const session = await auth()
   if (!session?.user?.id) {
     return new NextResponse('Unauthorized', {status: 401})
@@ -18,7 +18,7 @@ async function getBlooket() {
   )
   if (limited) return limited
 
-  return blooketDownload(await getMissedQuestions(db, session.user.id))
-}
+  const missed = await getMissedQuestions(db, session.user.id)
 
-export {getBlooket as GET}
+  return blooketDownload(missed)
+}

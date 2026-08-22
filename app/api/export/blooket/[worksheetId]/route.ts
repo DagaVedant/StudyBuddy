@@ -6,17 +6,16 @@ import {EXPORT_LIMIT, guardRateLimit} from '@/lib/api'
 import {guardWorksheet} from '@/lib/queue'
 import {worksheets} from '@/lib/schema'
 
-async function getBlooketWorksheetid(
+export async function GET(
   _request: Request,
-  {params}: {params: Promise<Record<string, string>>},
+  {params}: {params: Promise<{worksheetId: string}>},
 ) {
   const {worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
   if (!guard.ok) {
-    return new NextResponse(guard.status === 401 ? 'Unauthorized' : 'Not found', {
-      status: guard.status,
-    })
+    const message = guard.status === 401 ? 'Unauthorized' : 'Not found'
+    return new NextResponse(message, {status: guard.status})
   }
 
   const limited = await guardRateLimit(
@@ -35,7 +34,5 @@ async function getBlooketWorksheetid(
 
   const missed = await getMissedQuestions(db, guard.userId, {worksheetId})
 
-  return blooketDownload(missed, worksheet?.title)
+  return blooketDownload(missed, worksheet.title)
 }
-
-export {getBlooketWorksheetid as GET}
