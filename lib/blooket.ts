@@ -39,7 +39,7 @@ export interface BlooketCsv {
   skipped: {questionId: string; reason: SkipReason}[]
 }
 
-export function exportFilename(on: string, title?: string): string {
+function exportFilename(on: string, title?: string): string {
   const slug = (title ?? '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -144,7 +144,7 @@ function shape(question: ExportQuestion): Row | SkipReason {
   return {prompt, answers: [answer], correct: [1], typed: true}
 }
 
-export function toBlooketCsv(questions: ExportQuestion[]): BlooketCsv {
+function toBlooketCsv(questions: ExportQuestion[]): BlooketCsv {
   const skipped: BlooketCsv['skipped'] = []
   const lines = [line(BANNER), line(HEADERS)]
 

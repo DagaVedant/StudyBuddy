@@ -167,7 +167,7 @@ const competitionMath = n(
   ),
 )
 
-export const TAXONOMY: TopicNode[] = [satMath, satReadingWriting, competitionMath]
+const TAXONOMY: TopicNode[] = [satMath, satReadingWriting, competitionMath]
 
 export interface FlatTopic {
   slug: string
@@ -268,7 +268,7 @@ export async function demoteParentsWithChildren(db: Db): Promise<string[]> {
   return corrected.map((row) => row.slug)
 }
 
-export const SHORTLIST_SIZE = 25
+const SHORTLIST_SIZE = 25
 
 export interface ClassifyOutcome {
   topicId: string | null
@@ -330,7 +330,7 @@ export class EmbeddingUnavailableError extends Error {
   }
 }
 
-export async function shortlistTopics(
+async function shortlistTopics(
   db: Db,
   questionId: string,
   questionText: string,
@@ -348,7 +348,7 @@ export async function shortlistTopics(
   return shortlistByVector(db, vector, {subjectHint})
 }
 
-export async function classifyQuestion(
+async function classifyQuestion(
   db: Db,
   provider: AIProvider,
   question: {id: string; promptText: string; userId: string},
@@ -460,7 +460,7 @@ export async function classifyWorksheet(
   return {classified, coarse, failed}
 }
 
-export const PENDING_PAGE_SIZE = 100
+const PENDING_PAGE_SIZE = 100
 
 export interface PendingQuestion {
   id: string
