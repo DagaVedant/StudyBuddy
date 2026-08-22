@@ -46,7 +46,6 @@ interface ClaimedJob {
 interface ClaimResponse {
   job: ClaimedJob | null
   pages?: WorkerPage[]
-  depth?: {pending: number; running: number}
 }
 
 const ollama = new OllamaProvider({
@@ -126,6 +125,36 @@ async function toOllamaImage(
   return {image: new Uint8Array(png), mediaType: 'image/png'}
 }
 
+async function pageImage(
+  pageId: string,
+): Promise<{image: Uint8Array; mediaType: string} | null> {
+  const response = await api(`/api/worker/pages/${pageId}`)
+  if (!response.ok) return null
+
+  const raw = new Uint8Array(await response.arrayBuffer())
+  return toOllamaImage(raw, response.headers.get('content-type') ?? 'image/webp')
+}
+
+async function rereadPage(
+  page: WorkerPage,
+  pages: WorkerPage[],
+  expect: number[],
+): Promise<ExtractedQuestion[] | null> {
+  const fetched = await pageImage(page.id)
+  if (!fetched) return null
+
+  return provider.extractQuestions({
+    image: fetched.image,
+    mediaType: fetched.mediaType,
+    text: page.ocrText ?? '',
+    width: page.width ?? 0,
+    height: page.height ?? 0,
+    pageNumber: page.pageNumber,
+    ...seamAround(pages, pages.indexOf(page)),
+    expect,
+  })
+}
+
 interface PendingQuestion {
   id: string
   promptText: string
@@ -181,31 +210,14 @@ async function reviewExtractedQuestions(
       .map((suspect) => suspect.id)
 
     try {
-      const imageResponse = await api(`/api/worker/pages/${page.id}`)
-      if (!imageResponse.ok) continue
-
-      const raw = new Uint8Array(await imageResponse.arrayBuffer())
-      const {image, mediaType} = await toOllamaImage(
-        raw,
-        imageResponse.headers.get('content-type') ?? 'image/webp',
-      )
-
-      const questions = await provider.extractQuestions({
-        image,
-        mediaType,
-        text: page.ocrText ?? '',
-        width: page.width ?? 0,
-        height: page.height ?? 0,
-        pageNumber: page.pageNumber,
-        ...seamAround(pages, pages.indexOf(page)),
-        expect: target.expect,
-      })
+      const extracted = await rereadPage(page, pages, target.expect)
+      if (extracted === null) continue
 
       const result = await postJob(job.id, {
         action: 'page_review',
         pageId: page.id,
         replace,
-        questions,
+        questions: extracted,
       })
 
       const outcome = (await result.json().catch(() => null)) as {
@@ -280,25 +292,8 @@ async function recoverMissingQuestions(
     if (isAnswerPage(page.ocrText ?? '')) continue
 
     try {
-      const imageResponse = await api(`/api/worker/pages/${page.id}`)
-      if (!imageResponse.ok) continue
-
-      const raw = new Uint8Array(await imageResponse.arrayBuffer())
-      const {image, mediaType} = await toOllamaImage(
-        raw,
-        imageResponse.headers.get('content-type') ?? 'image/webp',
-      )
-
-      const questions = await provider.extractQuestions({
-        image,
-        mediaType,
-        text: page.ocrText ?? '',
-        width: page.width ?? 0,
-        height: page.height ?? 0,
-        pageNumber: page.pageNumber,
-        ...seamAround(pages, pages.indexOf(page)),
-        expect: target.expect,
-      })
+      const questions = await rereadPage(page, pages, target.expect)
+      if (questions === null) continue
 
       await postJob(job.id, {
         action: 'page_result',
@@ -458,20 +453,14 @@ async function processAnswerJob(job: {id: string; worksheetId: string}): Promise
       })
 
       if (solution.answer === null && question.pageId) {
-        const page = await api(`/api/worker/pages/${question.pageId}`)
+        const page = await pageImage(question.pageId)
 
-        if (page.ok) {
-          const image = new Uint8Array(await page.arrayBuffer())
-          const {image: converted, mediaType} = await toOllamaImage(
-            image,
-            page.headers.get('content-type') ?? 'image/webp',
-          )
-
+        if (page) {
           solution = await provider.answerQuestion({
             promptText: question.promptText,
             choices: question.choices,
-            image: converted,
-            mediaType,
+            image: page.image,
+            mediaType: page.mediaType,
           })
 
           if (solution.answer !== null) looked += 1
@@ -541,44 +530,22 @@ async function processExplainJob(job: {id: string}): Promise<void> {
   log(`explained ${input.questionId}`)
 }
 
-async function processJob(claim: ClaimResponse): Promise<void> {
-  const job = claim.job!
-  const pages = claim.pages ?? []
-
-  if (job.stage === 'answer_key') return processAnswerKeyJob(job)
-  if (job.stage === 'explain') return processExplainStageJob(job)
-  if (job.stage === 'classify') return processClassifyStageJob(job)
-  return processExtractionJob(job, pages)
-}
-
-async function processClassifyStageJob(job: ClaimedJob): Promise<void> {
-  log(`claimed ${job.id}: sorting into topics (attempt ${job.attemptCount})`)
+async function processJob(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
   try {
-    await classifyWorksheet(job.worksheetId)
-    await postJob(job.id, {action: 'complete'})
-  } catch (error) {
-    const message = (error as Error).message
-    log(`failed ${job.id}: ${message}`)
-    await postJob(job.id, {action: 'fail', message}).catch(() => {})
-  }
-}
-
-async function processAnswerKeyJob(job: ClaimedJob): Promise<void> {
-  log(`claimed ${job.id}: answers (attempt ${job.attemptCount})`)
-  try {
-    await processAnswerJob(job)
-    await postJob(job.id, {action: 'complete'})
-  } catch (error) {
-    const message = (error as Error).message
-    log(`failed ${job.id}: ${message}`)
-    await postJob(job.id, {action: 'fail', message}).catch(() => {})
-  }
-}
-
-async function processExplainStageJob(job: ClaimedJob): Promise<void> {
-  log(`claimed ${job.id}: explanation (attempt ${job.attemptCount})`)
-  try {
-    await processExplainJob(job)
+    if (job.stage === 'answer_key') {
+      log(`claimed ${job.id}: answers (attempt ${job.attemptCount})`)
+      await processAnswerJob(job)
+      await postJob(job.id, {action: 'complete'})
+    } else if (job.stage === 'explain') {
+      log(`claimed ${job.id}: explanation (attempt ${job.attemptCount})`)
+      await processExplainJob(job)
+    } else if (job.stage === 'classify') {
+      log(`claimed ${job.id}: sorting into topics (attempt ${job.attemptCount})`)
+      await classifyWorksheet(job.worksheetId)
+      await postJob(job.id, {action: 'complete'})
+    } else {
+      await processExtractionJob(job, pages)
+    }
   } catch (error) {
     const message = (error as Error).message
     log(`failed ${job.id}: ${message}`)
@@ -697,23 +664,17 @@ async function processExtractionJob(job: ClaimedJob, pages: WorkerPage[]): Promi
     (page) => !done.has(page.pageNumber) && page.pageNumber > legacyHighWater,
   )
 
-  try {
-    const read = await readJobPages(job, pages, todo, done)
-    if (read.interrupted) return
+  const read = await readJobPages(job, pages, todo, done)
+  if (read.interrupted) return
 
-    if (read.attempted > 0 && read.pageFailures === read.attempted) {
-      throw new Error(
-        `Extraction failed on all ${read.attempted} pages. Last error: ${read.lastError}`,
-      )
-    }
-
-    await finishExtraction(job, pages)
-    log(`completed ${job.id}`)
-  } catch (error) {
-    const message = (error as Error).message
-    log(`failed ${job.id}: ${message}`)
-    await postJob(job.id, {action: 'fail', message}).catch(() => {})
+  if (read.attempted > 0 && read.pageFailures === read.attempted) {
+    throw new Error(
+      `Extraction failed on all ${read.attempted} pages. Last error: ${read.lastError}`,
+    )
   }
+
+  await finishExtraction(job, pages)
+  log(`completed ${job.id}`)
 }
 
 class WorkerRefused extends Error {}
@@ -828,7 +789,7 @@ async function main(): Promise<void> {
       idle = false
       jobsInFlight += 1
       try {
-        await processJob(claim)
+        await processJob(claim.job, claim.pages ?? [])
       } finally {
         jobsInFlight -= 1
       }

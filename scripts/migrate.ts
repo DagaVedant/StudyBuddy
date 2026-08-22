@@ -7,24 +7,6 @@ import {migrate} from 'drizzle-orm/postgres-js/migrator'
 
 import {connect} from './db'
 
-export interface MigrateEnv {
-  VERCEL_ENV?: string
-  MIGRATE_ON_BUILD?: string
-}
-
-export function shouldSkipBuildMigration(
-  env: MigrateEnv = process.env as MigrateEnv,
-): boolean {
-  if (!env.VERCEL_ENV) return false
-  return env.MIGRATE_ON_BUILD !== '1'
-}
-
-export function missingDatabaseUrlIsFatal(
-  env: {VERCEL_ENV?: string} = process.env as {VERCEL_ENV?: string},
-): boolean {
-  return Boolean(env.VERCEL_ENV)
-}
-
 config({path: '.env.local'})
 
 async function applyMigrations() {
@@ -34,8 +16,9 @@ async function applyMigrations() {
   }
 
   const fromBuild = process.argv.includes('--if-configured')
+  const onVercel = Boolean(process.env.VERCEL_ENV)
 
-  if (fromBuild && shouldSkipBuildMigration()) {
+  if (fromBuild && onVercel && process.env.MIGRATE_ON_BUILD !== '1') {
     console.log(
       `Vercel ${process.env.VERCEL_ENV} deployment: not migrating from the build.\n` +
         'Run `npm run db:migrate` against production first, then deploy.\n' +
@@ -48,7 +31,7 @@ async function applyMigrations() {
 
   if (!url) {
     if (fromBuild) {
-      if (missingDatabaseUrlIsFatal()) {
+      if (onVercel) {
         throw new Error(
           `DATABASE_URL is not set on this ${process.env.VERCEL_ENV} deployment. ` +
             'Add it in the Vercel project settings before deploying.',
@@ -70,9 +53,10 @@ async function applyMigrations() {
   console.log('Migrations applied.')
 }
 
-config({path: '.env.local', quiet: true})
-interface Journal {
-  entries: {idx: number; when: number; tag: string}[]
+interface JournalEntry {
+  idx: number
+  when: number
+  tag: string
 }
 
 function describe(url: string): string {
@@ -83,10 +67,10 @@ function describe(url: string): string {
   }
 }
 
-async function readJournal(): Promise<Journal['entries']> {
+async function readJournal(): Promise<JournalEntry[]> {
   const journal = JSON.parse(
     await readFile(resolve(process.cwd(), 'drizzle/meta/_journal.json'), 'utf8'),
-  ) as Journal
+  ) as {entries: JournalEntry[]}
 
   return [...journal.entries].sort((a, b) => a.when - b.when)
 }

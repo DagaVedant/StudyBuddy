@@ -25,7 +25,7 @@ async function hooks() {
   execFileSync('git', ['config', 'core.hooksPath', '.githooks'], {stdio: 'inherit'})
 }
 
-async function pdf_worker() {
+async function pdfWorker() {
   const require = createRequire(import.meta.url)
 
   const build = join(dirname(require.resolve('pdfjs-dist/package.json')), 'build')
@@ -40,7 +40,7 @@ async function pdf_worker() {
   console.log('pdf.min.mjs + pdf.worker.min.mjs -> public/')
 }
 
-async function embedding_model() {
+async function embeddingModel() {
   const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
   const MODEL = 'Xenova/all-MiniLM-L6-v2'
@@ -147,10 +147,10 @@ async function embedding_model() {
 }
 
 const TASKS = {
-  'secrets': secrets,
-  'hooks': hooks,
-  'pdf-worker': pdf_worker,
-  'embedding-model': embedding_model,
+  secrets,
+  hooks,
+  'pdf-worker': pdfWorker,
+  'embedding-model': embeddingModel,
 }
 
 const task = process.argv[2]

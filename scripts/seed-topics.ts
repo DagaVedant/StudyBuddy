@@ -8,8 +8,7 @@ import {drizzle} from 'drizzle-orm/postgres-js'
 import * as schema from '../lib/schema'
 import {topics} from '../lib/schema'
 import type {Db} from '../lib/db'
-import {demoteParentsWithChildren} from '../lib/taxonomy'
-import {flattenTaxonomy} from '../lib/taxonomy'
+import {demoteParentsWithChildren, flattenTaxonomy} from '../lib/taxonomy'
 import {connect} from './db'
 
 const dryRun = process.argv.includes('--dry-run')
@@ -97,12 +96,12 @@ async function main() {
   const demoted = await demoteParentsWithChildren(db)
 
   const currentSlugs = new Set(flat.map((node) => node.slug))
-  const orphaned = await db
+  const canonical = await db
     .select({slug: topics.slug, name: topics.name})
     .from(topics)
     .where(eq(topics.isCanonical, true))
 
-  const stale = orphaned.filter((row) => !currentSlugs.has(row.slug))
+  const stale = canonical.filter((row) => !currentSlugs.has(row.slug))
 
   await sql.end()
 
