@@ -8,7 +8,7 @@ import {embedInBrowser} from '@/lib/client/ingest'
 import {explainOllamaFailure} from '@/lib/client/http'
 import {type AIProvider, type TopicCandidate, validated} from '@/lib/ai/types'
 
-export interface SortableWorksheet {
+interface SortableWorksheet {
   id: string
   title: string
 }
@@ -22,7 +22,6 @@ interface OllamaSettings {
 interface PendingResponse {
   supported: boolean
   executor: 'server' | 'browser' | 'operator_gpu' | 'none'
-  batchSize: number
   remaining: number
   questions: {id: string; promptText: string}[]
   ollama: OllamaSettings | null
@@ -38,8 +37,6 @@ interface ShortlistResponse {
 
 interface AppliedResponse {
   applied: number
-  coarse: number
-  failed: number
   done: boolean
 }
 
@@ -60,7 +57,7 @@ async function pending(worksheetId: string): Promise<PendingResponse> {
     throw new Error('Could not ask the server which questions still need a topic.')
   }
 
-  return response.json() as Promise<PendingResponse>
+  return response.json()
 }
 
 async function send(worksheetId: string, body: unknown): Promise<unknown> {
@@ -77,7 +74,7 @@ async function send(worksheetId: string, body: unknown): Promise<unknown> {
     throw new Error(detail?.error ?? 'The server refused a batch of questions.')
   }
 
-  return response.json() as Promise<unknown>
+  return response.json()
 }
 
 export function TopicSorter({
@@ -94,7 +91,7 @@ export function TopicSorter({
 
   const run = useCallback(async () => {
     let total = 0
-    let executor: PendingResponse['executor'] = 'server'
+    let runsHere = false
     let ollama: OllamaSettings | null = null
 
     for (const worksheet of worksheets) {
@@ -102,9 +99,9 @@ export function TopicSorter({
 
       if (!first.supported) throw new Error(NO_PROVIDER)
 
-      executor = first.executor
+      runsHere = first.executor === 'browser'
       ollama = first.ollama
-      if (first.ollama) ollamaBaseUrl.current = first.ollama.baseUrl
+      if (ollama) ollamaBaseUrl.current = ollama.baseUrl
       total += first.remaining
     }
 
@@ -116,7 +113,7 @@ export function TopicSorter({
 
     let provider: AIProvider | null = null
 
-    if (executor === 'browser') {
+    if (runsHere) {
       if (!ollama) throw new Error(NO_PROVIDER)
 
       provider = validated(
@@ -132,6 +129,7 @@ export function TopicSorter({
     setPhase({kind: 'sorting', done: 0, total})
 
     let sorted = 0
+    let seen = 0
 
     for (const worksheet of worksheets) {
       const attempted = new Set<string>()
@@ -156,11 +154,8 @@ export function TopicSorter({
           : ((await send(worksheet.id, {items})) as AppliedResponse)
 
         sorted += applied.applied
-        setPhase((current) =>
-          current.kind === 'sorting'
-            ? {kind: 'sorting', done: Math.min(current.done + items.length, total), total}
-            : current,
-        )
+        seen = Math.min(seen + items.length, total)
+        setPhase({kind: 'sorting', done: seen, total})
 
         if (applied.done) break
       }
@@ -264,7 +259,7 @@ async function pickHere(
   }
 
   if (results.length === 0) {
-    return {applied: 0, coarse: 0, failed: batch.length, done: false}
+    return {applied: 0, done: false}
   }
 
   return (await send(worksheetId, {action: 'apply', results})) as AppliedResponse

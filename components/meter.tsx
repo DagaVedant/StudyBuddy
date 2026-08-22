@@ -28,13 +28,13 @@ export function Meter({
 
   const measured = ranked
     ? {
-        role: 'meter' as const,
+        role: 'meter',
         'aria-valuenow': pct,
         'aria-valuemin': 0,
         'aria-valuemax': 100,
         'aria-label': `${label}: ${PERCENT.format(accuracy)} correct`,
       }
-    : {'aria-hidden': true as const}
+    : {'aria-hidden': true}
 
   return (
     <div
