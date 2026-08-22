@@ -14,6 +14,8 @@ import ReviewSession from './review-client'
 
 export const metadata = {title: 'Review · StudyBuddy'}
 
+const SITTING = 20
+
 export default async function ReviewPage({
   searchParams,
 }: {
@@ -21,8 +23,6 @@ export default async function ReviewPage({
 }) {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
-
-  const SITTING = 20
 
   const raw = (await searchParams).topic
   const requested = Array.isArray(raw) ? raw[0] : raw
@@ -46,18 +46,16 @@ export default async function ReviewPage({
   const writerOffline =
     resolved.executor === 'operator_gpu' && !(await workerStatus(db)).online
 
+  let heading = 'Nothing due today'
+  if (topic) {
+    heading = topic.name
+  } else if (waiting > 0) {
+    heading = `${waiting} ${waiting === 1 ? 'question' : 'questions'} due`
+  }
+
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
-      <PageHead
-        eyebrow="Review"
-        title={
-          topic
-            ? topic.name
-            : waiting > 0
-              ? `${waiting} ${waiting === 1 ? 'question' : 'questions'} due`
-              : 'Nothing due today'
-        }
-      />
+      <PageHead eyebrow="Review" title={heading} />
 
       {topic && (
         <p className="hint text-pretty">

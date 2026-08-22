@@ -66,9 +66,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
   const [loadingSample, setLoadingSample] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
-
   const runningRef = useRef(false)
-
   const worksheetRef = useRef<string | null>(null)
 
   const busy = progress !== null && progress.stage !== 'done'
@@ -432,7 +430,6 @@ export default function UploadClient({subjects, initialSample}: Props) {
               onChange={(event) => setPageTo(event.target.value)}
             />
           </div>
-
         </fieldset>
 
         <div className="rounded-2xl bg-tint-butter p-4">

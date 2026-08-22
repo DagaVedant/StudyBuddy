@@ -19,24 +19,28 @@ interface Props {
 
 function subjectGroups(): SubjectGroup[] {
   const topics = flattenTaxonomy()
+  const roots = topics.filter((topic) => topic.depth === 0)
 
-  return topics
-    .filter((topic) => topic.depth === 0)
-    .map((root) => ({
+  return roots.map((root) => {
+    const children = topics.filter(
+      (topic) => topic.depth === 1 && topic.parentSlug === root.slug,
+    )
+
+    return {
       label: root.name,
       options: [
         {slug: root.slug, label: `All of ${root.name}`},
-        ...topics
-          .filter((topic) => topic.depth === 1 && topic.parentSlug === root.slug)
-          .map((child) => ({slug: child.slug, label: child.name})),
+        ...children.map((child) => ({slug: child.slug, label: child.name})),
       ],
-    }))
+    }
+  })
 }
 
 export default async function UploadPage({searchParams}: Props) {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
+  const {sample} = await searchParams
   const resolved = await resolveProvider(db, session.user.id)
 
   const onOperatorGpu = resolved.executor === 'operator_gpu'
@@ -59,9 +63,7 @@ export default async function UploadPage({searchParams}: Props) {
       </nav>
 
       <div className="mb-8">
-        <PageHead
-          title="Upload a worksheet"
-        />
+        <PageHead title="Upload a worksheet" />
       </div>
 
       {waiting && (
@@ -83,7 +85,7 @@ export default async function UploadPage({searchParams}: Props) {
 
       <UploadClient
         subjects={subjectGroups()}
-        initialSample={findSample((await searchParams).sample)?.slug}
+        initialSample={findSample(sample)?.slug}
       />
     </main>
   )

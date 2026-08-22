@@ -4,7 +4,6 @@ import {useId, useRef, useState} from 'react'
 import {useRouter} from 'next/navigation'
 
 import {fetchJson} from '@/lib/client/http'
-
 import {
   CLOUD_PROVIDERS,
   DEFAULT_CLOUD_MODEL,
@@ -43,10 +42,12 @@ async function probeOllama(baseUrl: string, appUrl: string): Promise<ProbeResult
       textModel: OLLAMA_VISION_MODEL,
     }).listModels()
 
+    const family = OLLAMA_VISION_MODEL.split(':')[0]
+
     return {
       ok: true,
       models,
-      hasVisionModel: models.some((name) => name.startsWith(OLLAMA_VISION_MODEL.split(':')[0])),
+      hasVisionModel: models.some((name) => name.startsWith(family)),
     }
   } catch (cause) {
     const reason = (cause as Error).message
@@ -59,6 +60,17 @@ async function probeOllama(baseUrl: string, appUrl: string): Promise<ProbeResult
         `include ${appUrl}, and Ollama has to be restarted after setting it.`,
     }
   }
+}
+
+function probeMessage(probe: ProbeResult): string {
+  if (!probe.ok) return probe.message
+
+  if (!probe.hasVisionModel) {
+    return `Connected, but ${OLLAMA_VISION_MODEL} is not pulled. Run "ollama pull ${OLLAMA_VISION_MODEL}" first: it is the model that reads your pages.`
+  }
+
+  const count = probe.models.length
+  return `Connected. ${count} model${count === 1 ? '' : 's'} available.`
 }
 
 export default function SettingsClient({
@@ -148,10 +160,7 @@ export default function SettingsClient({
         </p>
       )}
 
-      <section
-        aria-labelledby="trial-heading"
-        className="card p-4"
-      >
+      <section aria-labelledby="trial-heading" className="card p-4">
         <h2 id="trial-heading" className="text-sm font-medium">
           Free trial
         </h2>
@@ -171,10 +180,7 @@ export default function SettingsClient({
       </section>
 
       {showCloud && (
-      <section
-        aria-labelledby="cloud-heading"
-        className="card p-4"
-      >
+      <section aria-labelledby="cloud-heading" className="card p-4">
         <h2 id="cloud-heading" className="text-sm font-medium">
           Your own API key
         </h2>
@@ -278,10 +284,7 @@ export default function SettingsClient({
       )}
 
       {showOllama && (
-      <section
-        aria-labelledby="ollama-heading"
-        className="card p-4"
-      >
+      <section aria-labelledby="ollama-heading" className="card p-4">
         <h2 id="ollama-heading" className="text-sm font-medium">
           Your own GPU (Ollama)
         </h2>
@@ -343,15 +346,11 @@ export default function SettingsClient({
                 role="status"
                 className={
                   probe.ok
-                    ? 'rounded-xl  bg-surface px-3 py-2 text-sm'
+                    ? 'rounded-xl bg-surface px-3 py-2 text-sm'
                     : 'rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger'
                 }
               >
-                {probe.ok
-                  ? probe.hasVisionModel
-                    ? `Connected. ${probe.models.length} model${probe.models.length === 1 ? '' : 's'} available.`
-                    : `Connected, but ${OLLAMA_VISION_MODEL} is not pulled. Run "ollama pull ${OLLAMA_VISION_MODEL}" first: it is the model that reads your pages.`
-                  : probe.message}
+                {probeMessage(probe)}
               </p>
             )}
 

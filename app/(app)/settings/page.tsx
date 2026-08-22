@@ -3,12 +3,12 @@ import {redirect} from 'next/navigation'
 import {PageHead} from '@/components/page-head'
 
 import {auth} from '@/auth'
-import {getTrialState} from '@/lib/ai/resolve'
 import {appBaseUrl} from '@/lib/api'
 import {
   browserTierEnabled,
   cloudExtractionEnabled,
   getCredentialSummary,
+  getTrialState,
 } from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 import {workerStatus} from '@/lib/queue'
@@ -21,17 +21,18 @@ export default async function SettingsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
 
+  const userId = session.user.id
+
   const [credentials, trial, worker] = await Promise.all([
-    getCredentialSummary(db, session.user.id), getTrialState(db, session.user.id),
+    getCredentialSummary(db, userId),
+    getTrialState(db, userId),
     workerStatus(db),
   ])
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
       <div className="mb-8">
-        <PageHead
-          title="How StudyBuddy thinks"
-        />
+        <PageHead title="How StudyBuddy thinks" />
       </div>
 
       <SettingsClient

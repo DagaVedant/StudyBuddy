@@ -24,11 +24,7 @@ type Tally = Record<Rating, number>
 
 const NO_TALLY: Tally = {again: 0, hard: 0, good: 0, easy: 0}
 
-function extendsRun(rating: Rating): boolean {
-  return rating !== 'again'
-}
-
-const RUN_COLOUR: Record<Rating, string> = {
+const RATING_COLOUR: Record<Rating, string> = {
   again: 'bg-danger',
   hard: 'bg-caution',
   good: 'bg-success',
@@ -116,10 +112,6 @@ export default function ReviewSession({
     setIndex(0)
     setRevealed(false)
     setRefreshing(false)
-  }
-
-  function explanationFor(entry: ReviewItem): string | null {
-    return generated[entry.questionId] ?? entry.explanation?.body ?? null
   }
 
   async function waitForExplanation(
@@ -277,7 +269,7 @@ export default function ReviewSession({
 
         setTally((current) => ({...current, [rating]: current[rating] + 1}))
         setRun((current) => {
-          const next = extendsRun(rating) ? current + 1 : 0
+          const next = rating === 'again' ? 0 : current + 1
           setBestRun((best) => Math.max(best, next))
           return next
         })
@@ -386,6 +378,16 @@ export default function ReviewSession({
 
   const chosen = item.choices.find((choice) => choice.id === item.lastChoiceId)
   const correctChoice = item.choices.find((choice) => choice.isCorrect)
+  const explanation = generated[item.questionId] ?? item.explanation?.body ?? null
+
+  let explainLabel = 'Explain this'
+  if (explaining) explainLabel = 'Writing…'
+  else if (writerOffline) explainLabel = 'Ask for one'
+
+  let explainHint = 'Generated once, then saved. It uses your answer to target the mistake.'
+  if (writerOffline) explainHint = WRITER_OFFLINE_AHEAD
+  if (explainNotice !== null) explainHint = explainNotice
+  if (explainError !== null) explainHint = explainError
 
   return (
     <div className="space-y-4">
@@ -434,26 +436,28 @@ export default function ReviewSession({
 
         {item.choices.length > 0 && (
           <ul className="mt-4 space-y-1.5">
-            {item.choices.map((choice) => (
-              <li
-                key={choice.id}
-                className={`flex gap-2 rounded-xl px-3 py-2 text-sm ${
-                  revealed && choice.isCorrect
-                    ? 'bg-success/12 text-success'
-                    : revealed && choice.id === item.lastChoiceId
-                      ? 'bg-danger/12 text-danger'
-                      : ''
-                }`}
-              >
-                {revealed && choice.isCorrect && (
-                  <Tick className="mt-[0.15rem] size-4 shrink-0" />
-                )}
-                <span>
-                  <span className="font-medium">{choice.label}.</span>{' '}
-                  {choice.text}
-                </span>
-              </li>
-            ))}
+            {item.choices.map((choice) => {
+              let tone = ''
+              if (revealed) {
+                if (choice.isCorrect) tone = 'bg-success/12 text-success'
+                else if (choice.id === item.lastChoiceId) tone = 'bg-danger/12 text-danger'
+              }
+
+              return (
+                <li
+                  key={choice.id}
+                  className={`flex gap-2 rounded-xl px-3 py-2 text-sm ${tone}`}
+                >
+                  {revealed && choice.isCorrect && (
+                    <Tick className="mt-[0.15rem] size-4 shrink-0" />
+                  )}
+                  <span>
+                    <span className="font-medium">{choice.label}.</span>{' '}
+                    {choice.text}
+                  </span>
+                </li>
+              )
+            })}
           </ul>
         )}
 
@@ -493,10 +497,10 @@ export default function ReviewSession({
 
             <div>
               <h2 className="eyebrow">Explanation</h2>
-              {explanationFor(item) ? (
+              {explanation ? (
                 <>
                   <p className="mt-1 whitespace-pre-line text-pretty text-sm">
-                    {explanationFor(item)}
+                    {explanation}
                   </p>
                   <div className="mt-2">
                     <ReportButton
@@ -514,14 +518,10 @@ export default function ReviewSession({
                     disabled={explaining}
                     onClick={() => void explain(item)}
                   >
-                    {explaining ? 'Writing…' : writerOffline ? 'Ask for one' : 'Explain this'}
+                    {explainLabel}
                   </button>
                   <p aria-live="polite" className="hint">
-                    {explainError ??
-                      explainNotice ??
-                      (writerOffline
-                        ? WRITER_OFFLINE_AHEAD
-                        : 'Generated once, then saved. It uses your answer to target the mistake.')}
+                    {explainHint}
                   </p>
                 </div>
               )}
@@ -612,19 +612,14 @@ function Recap({
 
       {rated > 0 && (
         <>
-          <div
-            aria-hidden="true"
-            className="mt-5 flex h-2.5 w-full overflow-hidden "
-          >
-            {RATINGS.filter((rating) => tally[rating.value] > 0).map(
-              (rating) => (
-                <span
-                  key={rating.value}
-                  className={RUN_COLOUR[rating.value]}
-                  style={{width: `${Math.max((tally[rating.value] / rated) * 100, 4)}%`}}
-                />
-              ),
-            )}
+          <div aria-hidden="true" className="mt-5 flex h-2.5 overflow-hidden">
+            {RATINGS.filter((rating) => tally[rating.value] > 0).map((rating) => (
+              <span
+                key={rating.value}
+                className={RATING_COLOUR[rating.value]}
+                style={{width: `${Math.max((tally[rating.value] / rated) * 100, 4)}%`}}
+              />
+            ))}
           </div>
 
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
@@ -632,7 +627,7 @@ function Recap({
               <div key={rating.value} className="flex items-baseline gap-2">
                 <span
                   aria-hidden="true"
-                  className={`size-2 shrink-0 ${RUN_COLOUR[rating.value]}`}
+                  className={`size-2 shrink-0 ${RATING_COLOUR[rating.value]}`}
                 />
                 <dt className="flex-1 text-sm text-muted">{rating.label}</dt>
                 <dd className="font-mono text-sm font-bold tabular-nums">
