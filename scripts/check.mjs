@@ -158,11 +158,28 @@ function checkRoutes() {
 }
 
 const TASKS = [
-  {name: 'tsc', script: 'node_modules/typescript/bin/tsc', args: ['--noEmit']},
+  {name: 'tsc', args: ['node_modules/typescript/bin/tsc', '--noEmit']},
   {
     name: 'eslint',
-    script: 'node_modules/eslint/bin/eslint.js',
-    args: ['--cache', '--cache-location', '.eslintcache', '--max-warnings', '0'],
+    args: [
+      'node_modules/eslint/bin/eslint.js',
+      '--cache',
+      '--cache-location',
+      '.eslintcache',
+      '--max-warnings',
+      '0',
+    ],
+  },
+  {
+    name: 'test',
+    args: [
+      '--test',
+      '--import',
+      'tsx',
+      '--import',
+      './tests/support/env.ts',
+      'tests/*.test.ts',
+    ],
   },
 ]
 
@@ -175,7 +192,7 @@ const started = Date.now()
 const runs = TASKS.map(
   (task) =>
     new Promise((resolve) => {
-      const child = spawn(process.execPath, [task.script, ...task.args], {
+      const child = spawn(process.execPath, task.args, {
         stdio: ['ignore', 'pipe', 'pipe'],
       })
 
