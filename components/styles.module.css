@@ -223,11 +223,6 @@
   border-radius: var(--radius);
 }
 
-.caption {
-  max-width: 30rem;
-  margin: 3rem 0 0;
-}
-
 .section {
   max-width: 66rem;
   margin: 0 auto;
@@ -240,11 +235,6 @@
   line-height: 1.05;
   letter-spacing: -0.03em;
   text-wrap: balance;
-}
-
-.lede {
-  max-width: 36rem;
-  margin: 0.875rem 0 0;
 }
 
 .stage {
@@ -264,48 +254,3 @@
   box-shadow: 0 32px 64px -40px oklch(0% 0 0 / 0.45);
 }
 
-.pin {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 1.125rem;
-  height: 1.125rem;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.notes {
-  display: grid;
-  gap: 1.25rem;
-  margin: 2.25rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-@media (min-width: 48rem) {
-  .notes {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2.25rem;
-    margin-top: 3rem;
-  }
-}
-
-.note {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.625rem;
-}
-.note .pin {
-  margin-top: 0.1875rem;
-}
-
-.term {
-  font-weight: 600;
-  color: var(--fg);
-}

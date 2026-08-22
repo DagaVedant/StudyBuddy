@@ -466,11 +466,6 @@ export function Hero({children}: {children: React.ReactNode}) {
         </div>
 
         {children}
-
-        <p className={`${styles.caption} text-sm text-pretty text-muted`}>
-          Then the ones you missed are waiting in review, spaced to the day you
-          are about to forget them. That is the curve behind this page.
-        </p>
       </div>
 
       <div className={styles.axis} aria-hidden="true">
@@ -506,36 +501,12 @@ function Curve() {
     </div>
   )
 }
-const NOTES = [
-  {
-    term: 'Every question',
-    detail:
-      'Not just the ones you got wrong. 218 counted is what makes 43% on nonlinear functions mean something instead of nothing.',
-  },
-  {
-    term: 'Sorted by topic',
-    detail:
-      'Each question lands somewhere in a subject tree, so the grey line under a row names a skill rather than the worksheet it came from.',
-  },
-  {
-    term: 'Scheduled to stick',
-    detail:
-      'Spaced repetition sets the day each question comes back. Twelve of them are due today, and that number is the whole to-do list.',
-  },
-] as const
-
 export function DashboardPreview() {
   return (
     <section className={styles.section} aria-labelledby="preview-title">
-      <p className="eyebrow">The dashboard</p>
       <h2 id="preview-title" className={styles.title}>
         After eighteen worksheets, it looks like this.
       </h2>
-      <p className={`${styles.lede} text-pretty text-muted`}>
-        Every question you have marked, rolled up into the topics that are
-        actually costing you marks, and a queue of what to review today.
-      </p>
-
       <div className={styles.stage}>
         <Image
           src="/dashboard.png"
@@ -547,19 +518,6 @@ export function DashboardPreview() {
           className={styles.shot}
         />
       </div>
-
-      <ol className={styles.notes}>
-        {NOTES.map((note, index) => (
-          <li key={note.term} className={styles.note}>
-            <span aria-hidden="true" className={styles.pin}>
-              {index + 1}
-            </span>
-            <p className="text-sm text-pretty text-muted">
-              <b className={styles.term}>{note.term}.</b> {note.detail}
-            </p>
-          </li>
-        ))}
-      </ol>
     </section>
   )
 }
