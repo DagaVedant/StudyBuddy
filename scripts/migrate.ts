@@ -18,11 +18,12 @@ async function applyMigrations() {
   const fromBuild = process.argv.includes('--if-configured')
   const onVercel = Boolean(process.env.VERCEL_ENV)
 
-  if (fromBuild && onVercel && process.env.MIGRATE_ON_BUILD !== '1') {
+  if (fromBuild && process.env.MIGRATE_ON_BUILD !== '1') {
+    const where = process.env.VERCEL_ENV ?? 'local'
     console.log(
-      `Vercel ${process.env.VERCEL_ENV} deployment: not migrating from the build.\n` +
-        'Run `npm run db:migrate` against production first, then deploy.\n' +
-        'Set MIGRATE_ON_BUILD=1 to restore the old behaviour.',
+      `Not migrating from a ${where} build.\n` +
+        'Run `npm run db:migrate` against the target database first, then build.\n' +
+        'Set MIGRATE_ON_BUILD=1 to migrate from the build anyway.',
     )
     return
   }
