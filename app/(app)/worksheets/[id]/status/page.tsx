@@ -77,7 +77,8 @@ export default async function StatusPage({
     .limit(1)
 
   const [worker, depth] = await Promise.all([
-    workerStatus(db), queueDepth(db, job?.executor ?? 'operator_gpu'),
+    workerStatus(db),
+    queueDepth(db, job?.executor ?? 'operator_gpu'),
   ])
 
   const failed = worksheet.status === 'failed' || job?.status === 'failed'
@@ -91,6 +92,20 @@ export default async function StatusPage({
 
   const runsHere = job?.executor === 'browser'
   const isOnline = job?.executor === 'server' || runsHere || worker.online
+
+  let progressNote: string
+  if (!isOnline) {
+    progressNote =
+      'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page; the worksheet will be waiting on your dashboard.'
+  } else if (stillReading) {
+    const noun = found.length === 1 ? 'question' : 'questions'
+    progressNote = `Reading your worksheet. ${found.length} ${noun} found so far.`
+  } else if (phase === 'classifying') {
+    progressNote = 'Sorting the questions into topics.'
+  } else {
+    progressNote =
+      'Checking every question was picked up, and going back over anything that was missed.'
+  }
 
   return (
     <main className="mx-auto w-full max-w-xl px-6 py-16">
@@ -139,13 +154,7 @@ export default async function StatusPage({
           ) : (
             <>
               <p aria-live="polite" className="hint text-pretty">
-                {isOnline
-                  ? stillReading
-                    ? `Reading your worksheet. ${found.length} ${found.length === 1 ? 'question' : 'questions'} found so far.`
-                    : phase === 'classifying'
-                      ? 'Sorting the questions into topics.'
-                      : 'Checking every question was picked up, and going back over anything that was missed.'
-                  : 'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page; the worksheet will be waiting on your dashboard.'}
+                {progressNote}
                 {depth.pending > 1 && ` ${depth.pending} worksheets ahead of yours.`}
               </p>
 

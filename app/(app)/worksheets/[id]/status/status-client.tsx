@@ -5,8 +5,7 @@ import {useRouter} from 'next/navigation'
 
 import {OllamaProvider} from '@/lib/ai/ollama'
 import {fetchJson} from '@/lib/client/http'
-import {isAnswerPage} from '@/lib/questions/shape'
-import {seamAround} from '@/lib/questions/shape'
+import {isAnswerPage, seamAround} from '@/lib/questions/shape'
 import {toPngBytes} from '@/lib/client/ingest'
 import {validated} from '@/lib/ai/types'
 
@@ -64,14 +63,10 @@ export function BrowserRunner({worksheetId}: {worksheetId: string}) {
       method: 'POST',
     })
 
-    if (claimResponse.status === 409) {
-      return
-    }
-
+    if (claimResponse.status === 409) return
     if (!claimResponse.ok) throw new Error('Could not ask the server for work.')
 
-    const claim = (await claimResponse.json()) as Claim
-    const {job, pages, ollama} = claim
+    const {job, pages, ollama} = (await claimResponse.json()) as Claim
     if (!job || !pages || !ollama) return
 
     if (job.worksheetId !== worksheetId) return
@@ -276,6 +271,13 @@ export function SampleRunner({
     Math.floor((progress / READING_UNTIL) * questionCount),
   )
 
+  let message = 'Sorting the questions into topics.'
+  if (progress < READING_UNTIL) {
+    message = `Reading your worksheet. ${found} ${found === 1 ? 'question' : 'questions'} found so far.`
+  } else if (progress < VERIFYING_UNTIL) {
+    message = 'Checking every question was picked up, and going back over anything that was missed.'
+  }
+
   return (
     <>
       <div
@@ -293,11 +295,7 @@ export function SampleRunner({
       </div>
 
       <p aria-live="polite" className="hint mt-4 text-pretty">
-        {progress < READING_UNTIL
-          ? `Reading your worksheet. ${found} ${found === 1 ? 'question' : 'questions'} found so far.`
-          : progress < VERIFYING_UNTIL
-            ? 'Checking every question was picked up, and going back over anything that was missed.'
-            : 'Sorting the questions into topics.'}
+        {message}
       </p>
     </>
   )

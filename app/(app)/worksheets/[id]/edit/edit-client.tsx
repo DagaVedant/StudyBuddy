@@ -20,10 +20,10 @@ import {
 import {useRouter} from 'next/navigation'
 
 import {TopicPicker, type TopicChoice} from '@/components/topic-picker'
-import {choiceLabel} from '@/lib/questions/shape'
+import {choiceLabel, reflowText} from '@/lib/questions/shape'
 import {fetchJson} from '@/lib/client/http'
-import {reflowText} from '@/lib/questions/shape'
 import {type BBox, type TextLine} from '@/lib/schema'
+
 export interface EditablePage {
   id: string
   pageNumber: number
@@ -53,22 +53,23 @@ export interface EditableQuestion {
   topicId: string | null
 }
 
-export const QUESTION_TYPES: {value: QuestionType; label: string}[] = [
+const QUESTION_TYPES: {value: QuestionType; label: string}[] = [
   {value: 'multiple_choice', label: 'Multiple Choice'},
   {value: 'free_response', label: 'Free Response'},
   {value: 'true_false', label: 'True or False'},
-  {value: 'fill_blank', label: 'Fill in the Blank'}, {value: 'grid_in', label: 'Grid-In'},
+  {value: 'fill_blank', label: 'Fill in the Blank'},
+  {value: 'grid_in', label: 'Grid-In'},
 ]
 
-export const CHOICE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
+const CHOICE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
 
-export function questionLabel(question: EditableQuestion): number {
+function questionLabel(question: EditableQuestion): number {
   return question.printedNumber ?? question.ordinal
 }
 
-export type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-export interface QuestionEditor {
+interface QuestionEditor {
   questions: EditableQuestion[]
   saveState: SaveState
   error: string | null
@@ -87,7 +88,7 @@ export interface QuestionEditor {
 
 const SAVE_DEBOUNCE_MS = 600
 
-export const UNDO_WINDOW_MS = 8000
+const UNDO_WINDOW_MS = 8000
 
 const SAVE_FAILED = 'Could not save that change. Check your connection and try again.'
 
@@ -127,7 +128,7 @@ function carriedAnswer(
   return null
 }
 
-export function useQuestionEditor(
+function useQuestionEditor(
   worksheetId: string,
   initialQuestions: EditableQuestion[],
 ): QuestionEditor {
@@ -418,7 +419,7 @@ export function useQuestionEditor(
 
 const MIN_DRAG_PX = 12
 
-export function textInside(lines: TextLine[], box: BBox): string {
+function textInside(lines: TextLine[], box: BBox): string {
   const [bx0, by0, bx1, by1] = box
 
   return lines
@@ -434,7 +435,7 @@ export function textInside(lines: TextLine[], box: BBox): string {
     .trim()
 }
 
-export function PageCanvas({
+function PageCanvas({
   page,
   linesReady,
   pageNumber,
@@ -476,15 +477,12 @@ export function PageCanvas({
       if (!image) return {x: 0, y: 0}
 
       const rect = image.getBoundingClientRect()
+      const x = (event.clientX - rect.left) * (page.width / rect.width)
+      const y = (event.clientY - rect.top) * (page.height / rect.height)
+
       return {
-        x: Math.max(
-          0,
-          Math.min(page.width, (event.clientX - rect.left) * (page.width / rect.width)),
-        ),
-        y: Math.max(
-          0,
-          Math.min(page.height, (event.clientY - rect.top) * (page.height / rect.height)),
-        ),
+        x: Math.max(0, Math.min(page.width, x)),
+        y: Math.max(0, Math.min(page.height, y)),
       }
     },
     [page.width, page.height],
@@ -614,6 +612,7 @@ export function PageCanvas({
     </section>
   )
 }
+
 let choiceKeySeq = 0
 const nextChoiceKey = () => `new-choice-${(choiceKeySeq += 1)}`
 
@@ -628,9 +627,7 @@ interface CardProps {
   onFocus: (id: string, pageId: string | null) => void
   onToggleExpanded: (id: string, pageId: string | null) => void
   registerRef: (id: string, node: HTMLLIElement | null) => void
-  measureRef?: (node: HTMLLIElement | null) => void
   style?: CSSProperties
-  dataIndex?: number
 }
 
 const QuestionCard = memo(function QuestionCard({
@@ -644,9 +641,7 @@ const QuestionCard = memo(function QuestionCard({
   onFocus,
   onToggleExpanded,
   registerRef,
-  measureRef,
   style,
-  dataIndex,
 }: CardProps) {
   const correct = question.choices.find((choice) => choice.isCorrect)
 
@@ -654,12 +649,10 @@ const QuestionCard = memo(function QuestionCard({
     <li
       ref={(node) => {
         registerRef(question.id, node)
-        measureRef?.(node)
       }}
       style={style}
-      data-index={dataIndex}
       className={`rounded-2xl border bg-surface shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)] ${
-          selected ? 'bg-accent/10' : ''
+        selected ? 'bg-accent/10' : ''
       }`}
     >
       <div className="p-3">
@@ -684,7 +677,7 @@ const QuestionCard = memo(function QuestionCard({
               <li
                 key={choice.id}
                 className={`flex gap-1.5 ${
-              choice.isCorrect ? 'text-success' : 'text-muted'
+                  choice.isCorrect ? 'text-success' : 'text-muted'
                 }`}
               >
                 <span className="shrink-0 font-medium">{choiceLabel(choice.label)}.</span>
@@ -877,7 +870,7 @@ const VIRTUALIZE_THRESHOLD = 40
 
 const ESTIMATED_ROW_HEIGHT = 132
 
-export interface QuestionListHandle {
+interface QuestionListHandle {
   scrollToId: (id: string) => void
 }
 
@@ -953,7 +946,7 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
     [virtualize, questions, virtualizer],
   )
 
-  const card = (question: EditableQuestion, extra?: {style: CSSProperties; index: number}) => (
+  const card = (question: EditableQuestion, style?: CSSProperties) => (
     <QuestionCard
       key={question.id}
       question={question}
@@ -966,8 +959,7 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
       onFocus={onFocus}
       onToggleExpanded={onToggleExpanded}
       registerRef={registerRef}
-      style={extra?.style}
-      dataIndex={extra?.index}
+      style={style}
     />
   )
 
@@ -979,20 +971,16 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
     <ul ref={listRef} style={{position: 'relative', height: virtualizer.getTotalSize()}}>
       {virtualizer.getVirtualItems().map((virtualRow) =>
         card(questions[virtualRow.index], {
-          index: virtualRow.index,
-          style: {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            transform: `translateY(${virtualRow.start - scrollMargin}px)`,
-          },
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          transform: `translateY(${virtualRow.start - scrollMargin}px)`,
         }),
       )}
     </ul>
   )
 })
-
 
 interface Props {
   worksheetId: string
@@ -1130,6 +1118,7 @@ export default function EditClient({
   const pageWithLines = {...page, textLines: linesByPage.get(page.id) ?? []}
 
   const untagged = questions.filter((question) => !question.topicId).length
+  const noun = questions.length === 1 ? 'question' : 'questions'
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
@@ -1149,8 +1138,7 @@ export default function EditClient({
       <section aria-labelledby="questions-heading" className="min-w-0 space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="questions-heading" className="text-sm font-medium">
-            <span className="tabular-nums">{questions.length}</span>{' '}
-            {questions.length === 1 ? 'question found' : 'questions found'}
+            <span className="tabular-nums">{questions.length}</span> {noun} found
           </h2>
           <span aria-live="polite" className="text-sm text-muted">
             {editor.saveState === 'saving' && 'Saving…'}
@@ -1231,9 +1219,7 @@ export default function EditClient({
           >
             {editor.confirming
               ? 'Confirming…'
-              : `Looks right, mark ${questions.length} ${
-                  questions.length === 1 ? 'question' : 'questions'
-                }`}
+              : `Looks right, mark ${questions.length} ${noun}`}
           </button>
         </div>
       </section>

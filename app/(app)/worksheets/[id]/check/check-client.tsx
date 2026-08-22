@@ -1,13 +1,12 @@
 'use client'
 
-import {QuestionCrop} from '@/components/question-crop'
-import {type QuestionEvidence, reflowText} from '@/lib/questions/shape'
-
 import Link from 'next/link'
-import {useCallback, useEffect, useMemo, useState} from 'react'
+import {useCallback, useEffect, useState} from 'react'
 
+import {QuestionCrop} from '@/components/question-crop'
 import {ReportButton} from '@/components/report-button'
 import {fetchJson} from '@/lib/client/http'
+import {type QuestionEvidence, reflowText} from '@/lib/questions/shape'
 
 const BULK_UNDO_WINDOW_MS = 12_000
 
@@ -45,13 +44,9 @@ export function CheckClient({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmingBulk, setConfirmingBulk] = useState(false)
-  const [bulkUndo, setBulkUndo] = useState<{ids: string[]; count: number} | null>(null)
+  const [bulkUndo, setBulkUndo] = useState<string[] | null>(null)
 
-  const remaining = useMemo(
-    () => questions.filter((q) => !verified.has(q.id)).length,
-    [questions, verified],
-  )
-
+  const remaining = questions.filter((q) => !verified.has(q.id)).length
   const question = questions[index]
   const done = verified.size
 
@@ -114,7 +109,7 @@ export function CheckClient({
       if (!response.ok) {
         rollBack(ids)
       } else {
-        setBulkUndo({ids, count: ids.length})
+        setBulkUndo(ids)
       }
     } catch {
       rollBack(ids)
@@ -125,7 +120,7 @@ export function CheckClient({
 
   const undoBulkAccept = useCallback(async () => {
     if (!bulkUndo) return
-    const {ids} = bulkUndo
+    const ids = bulkUndo
 
     setBulkUndo(null)
     setVerified((current) => {
@@ -198,7 +193,7 @@ export function CheckClient({
         {bulkUndo && (
           <p role="status" className="mt-3 flex flex-wrap items-center gap-x-2 text-sm">
             <span className="text-muted">
-              {bulkUndo.count} {bulkUndo.count === 1 ? 'question' : 'questions'} accepted.
+              {bulkUndo.length} {bulkUndo.length === 1 ? 'question' : 'questions'} accepted.
             </span>
             <button
               type="button"
@@ -242,7 +237,7 @@ export function CheckClient({
       </div>
 
       <div
-        className="h-1.5 w-full overflow-hidden bg-wash-strong"
+        className="h-1.5 overflow-hidden bg-wash-strong"
         role="progressbar"
         aria-valuenow={done}
         aria-valuemin={0}
@@ -359,7 +354,7 @@ export function CheckClient({
       {bulkUndo ? (
         <p role="status" className="flex flex-wrap items-center gap-x-2 text-sm">
           <span className="text-muted">
-            {bulkUndo.count} {bulkUndo.count === 1 ? 'question' : 'questions'} accepted.
+            {bulkUndo.length} {bulkUndo.length === 1 ? 'question' : 'questions'} accepted.
           </span>
           <button
             type="button"

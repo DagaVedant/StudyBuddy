@@ -24,13 +24,17 @@ export function WorksheetTitle({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  function cancel() {
+    setEditing(false)
+    setDraft(current)
+    setError(null)
+  }
+
   async function save() {
     const next = draft.trim()
 
     if (!next || next === current) {
-      setEditing(false)
-      setDraft(current)
-      setError(null)
+      cancel()
       return
     }
 
@@ -101,11 +105,7 @@ export function WorksheetTitle({
         disabled={saving}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            setEditing(false)
-            setDraft(current)
-            setError(null)
-          }
+          if (event.key === 'Escape') cancel()
         }}
       />
 
@@ -127,11 +127,7 @@ export function WorksheetTitle({
           type="button"
           disabled={saving}
           className="btn btn-secondary sm:w-auto sm:px-4"
-          onClick={() => {
-            setEditing(false)
-            setDraft(current)
-            setError(null)
-          }}
+          onClick={cancel}
         >
           Cancel
         </button>
@@ -140,12 +136,13 @@ export function WorksheetTitle({
   )
 }
 
-interface Props {
+export function DeleteWorksheetButton({
+  worksheetId,
+  title,
+}: {
   worksheetId: string
   title: string
-}
-
-export function DeleteWorksheetButton({worksheetId, title}: Props) {
+}) {
   const router = useRouter()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [deleting, setDeleting] = useState(false)

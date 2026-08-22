@@ -1,16 +1,17 @@
 'use client'
 
-import {useCallback, useEffect, useId, useMemo, useState} from 'react'
+import {useCallback, useEffect, useId, useState} from 'react'
 import {useRouter} from 'next/navigation'
-
-import {fetchJson} from '@/lib/client/http'
-import {reflowText} from '@/lib/questions/shape'
 
 import {
   clearMarkupDraft,
+  fetchJson,
   readMarkupDraft,
   writeMarkupDraft,
 } from '@/lib/client/http'
+import {reflowText} from '@/lib/questions/shape'
+
+export type Outcome = 'correct' | 'unsure' | 'wrong'
 
 export interface MarkableQuestion {
   id: string
@@ -20,7 +21,6 @@ export interface MarkableQuestion {
   correctAnswer: string | null
   choices: {id: string; label: string; text: string}[]
 }
-
 
 interface Props {
   worksheetId: string
@@ -69,15 +69,12 @@ export default function MarkupClient({worksheetId, questions}: Props) {
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [marked, submitting])
+
   const currentQuestion = questions[cursor]
-  const unresolved = useMemo(
-    () =>
-      questions.filter((question) => {
-        const outcome = outcomes[question.id]
-        return outcome === 'wrong' || outcome === 'unsure'
-      }),
-    [questions, outcomes],
-  )
+  const unresolved = questions.filter((question) => {
+    const outcome = outcomes[question.id]
+    return outcome === 'wrong' || outcome === 'unsure'
+  })
 
   const mark = useCallback(
     (questionId: string, outcome: Outcome, index: number) => {
@@ -131,12 +128,10 @@ export default function MarkupClient({worksheetId, questions}: Props) {
         body: JSON.stringify({marks}),
       })
       const body = (await response.json()) as {next?: string; error?: string}
-      if (response.status === 409) {
-        clearMarkupDraft(worksheetId)
-        router.push(body.next ?? '/dashboard')
-        return
+      if (!response.ok && response.status !== 409) {
+        throw new Error(body.error ?? 'Could not save')
       }
-      if (!response.ok) throw new Error(body.error ?? 'Could not save')
+
       clearMarkupDraft(worksheetId)
       router.push(body.next ?? '/dashboard')
     } catch (cause) {
@@ -166,10 +161,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
 
         <ul className="space-y-4">
           {unresolved.map((question) => (
-            <li
-              key={question.id}
-              className="card p-4"
-            >
+            <li key={question.id} className="card p-4">
               <p className="text-sm">
                 <span className="tabular-nums text-muted">{question.ordinal}. </span>
                 <span className="whitespace-pre-line">
@@ -189,7 +181,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
                         <label
                           key={choice.id}
                           className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm touch-manipulation has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
-                active
+                            active
                               ? 'border-accent bg-accent/10'
                               : 'border-rule hover:border-accent hover:bg-accent/5'
                           }`}
@@ -272,9 +264,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
 
   return (
     <div className="space-y-6">
-      <div
-        className="inset-safe-top -mx-6 bg-bg px-6 py-3"
-      >
+      <div className="inset-safe-top -mx-6 bg-bg px-6 py-3">
         <div className="flex items-baseline justify-between gap-3">
           <p className="text-sm font-medium">
             <span className="tabular-nums">{marked}</span> of{' '}
@@ -413,8 +403,6 @@ export default function MarkupClient({worksheetId, questions}: Props) {
   )
 }
 
-export type Outcome = 'correct' | 'unsure' | 'wrong'
-
 export interface MarkedQuestion {
   id: string
   ordinal: number
@@ -425,7 +413,8 @@ export interface MarkedQuestion {
 }
 
 const CORRECTION_OUTCOMES: {value: Outcome; label: string}[] = [
-  {value: 'correct', label: 'Got it'}, {value: 'unsure', label: 'Unsure'},
+  {value: 'correct', label: 'Got it'},
+  {value: 'unsure', label: 'Unsure'},
   {value: 'wrong', label: 'Missed it'},
 ]
 

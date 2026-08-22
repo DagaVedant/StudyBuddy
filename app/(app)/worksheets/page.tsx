@@ -1,9 +1,9 @@
 import {and, desc, eq, ilike, inArray, lt, sql} from 'drizzle-orm'
 import Link from 'next/link'
 import {redirect} from 'next/navigation'
-import {PageHead} from '@/components/page-head'
 
 import {auth} from '@/auth'
+import {PageHead} from '@/components/page-head'
 import {db} from '@/lib/db'
 import {attempts, questions, worksheetPages, worksheets} from '@/lib/schema'
 import {IS_QUESTION} from '@/lib/questions/queries'
@@ -117,11 +117,36 @@ export default async function WorksheetsPage({
 
   const thumbnailFor = new Map(thumbnails.map((row) => [row.worksheetId, row.imageKey]))
 
+  let emptyMessage: React.ReactNode = null
+  if (rows.length === 0) {
+    if (query) {
+      emptyMessage = (
+        <>
+          Nothing matches “{query}”.{' '}
+          <Link href="/worksheets" className="text-accent underline underline-offset-2">
+            Show all worksheets
+          </Link>
+          .
+        </>
+      )
+    } else if (cursor) {
+      emptyMessage = (
+        <>
+          Nothing older to show.{' '}
+          <Link href="/worksheets" className="text-accent underline underline-offset-2">
+            Back to the newest
+          </Link>
+          .
+        </>
+      )
+    } else {
+      emptyMessage = 'Nothing uploaded yet. Your worksheets will appear here once you add one.'
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      <PageHead
-        title="Your worksheets"
-      >
+      <PageHead title="Your worksheets">
         <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-4">
           Upload a worksheet
         </Link>
@@ -150,25 +175,9 @@ export default async function WorksheetsPage({
         )}
       </form>
 
-      {rows.length === 0 && query ? (
+      {emptyMessage ? (
         <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">
-          Nothing matches “{query}”.{' '}
-          <Link href="/worksheets" className="text-accent underline underline-offset-2">
-            Show all worksheets
-          </Link>
-          .
-        </p>
-      ) : rows.length === 0 && cursor ? (
-        <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">
-          Nothing older to show.{' '}
-          <Link href="/worksheets" className="text-accent underline underline-offset-2">
-            Back to the newest
-          </Link>
-          .
-        </p>
-      ) : rows.length === 0 ? (
-        <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">
-          Nothing uploaded yet. Your worksheets will appear here once you add one.
+          {emptyMessage}
         </p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -220,7 +229,7 @@ export default async function WorksheetsPage({
                       <dt className="text-muted">Questions</dt>
                       <dd className="font-medium tabular-nums">{sheet.questionCount}</dd>
                     </div>
-                    {sheet.uncheckedCount > 0 && sheet.questionCount > 0 && (
+                    {sheet.uncheckedCount > 0 && (
                       <div className="flex gap-1.5">
                         <dt className="text-muted">Unchecked</dt>
                         <dd className="font-medium tabular-nums">{sheet.uncheckedCount}</dd>

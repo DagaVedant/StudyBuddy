@@ -15,6 +15,33 @@ import MarkupClient, {
 
 export const metadata = {title: 'Mark Your Answers · StudyBuddy'}
 
+function loadChoices(worksheetId: string) {
+  return db
+    .select({
+      id: answerChoices.id,
+      questionId: answerChoices.questionId,
+      label: answerChoices.label,
+      text: answerChoices.text,
+    })
+    .from(answerChoices)
+    .innerJoin(questions, eq(answerChoices.questionId, questions.id))
+    .where(eq(questions.worksheetId, worksheetId))
+    .orderBy(...CHOICE_ORDER)
+}
+
+function Breadcrumb() {
+  return (
+    <nav aria-label="Breadcrumb" className="mb-4 text-sm">
+      <Link
+        href="/dashboard"
+        className="text-muted underline underline-offset-2 hover:text-fg"
+      >
+        Dashboard
+      </Link>
+    </nav>
+  )
+}
+
 export default async function MarkupPage({
   params,
 }: {
@@ -62,17 +89,7 @@ export default async function MarkupPage({
       .where(eq(questions.worksheetId, id))
       .orderBy(asc(questions.ordinal))
 
-    const markedChoices = await db
-      .select({
-        id: answerChoices.id,
-        questionId: answerChoices.questionId,
-        label: answerChoices.label,
-        text: answerChoices.text,
-      })
-      .from(answerChoices)
-      .innerJoin(questions, eq(answerChoices.questionId, questions.id))
-      .where(eq(questions.worksheetId, id))
-      .orderBy(...CHOICE_ORDER)
+    const markedChoices = await loadChoices(id)
 
     const corrections: MarkedQuestion[] = markedRows
       .filter((question) => markByQuestion.has(question.id))
@@ -93,14 +110,7 @@ export default async function MarkupPage({
 
     return (
       <main className="mx-auto w-full max-w-2xl px-6 py-10">
-        <nav aria-label="Breadcrumb" className="mb-4 text-sm">
-          <Link
-            href="/dashboard"
-            className="text-muted underline underline-offset-2 hover:text-fg"
-          >
-            Dashboard
-          </Link>
-        </nav>
+        <Breadcrumb />
 
         <h1 className="text-balance text-2xl font-semibold tracking-tight">
           What you recorded
@@ -136,17 +146,7 @@ export default async function MarkupPage({
     .where(eq(questions.worksheetId, id))
     .orderBy(asc(questions.ordinal))
 
-  const choiceRows = await db
-    .select({
-      id: answerChoices.id,
-      questionId: answerChoices.questionId,
-      label: answerChoices.label,
-      text: answerChoices.text,
-    })
-    .from(answerChoices)
-    .innerJoin(questions, eq(answerChoices.questionId, questions.id))
-    .where(eq(questions.worksheetId, id))
-    .orderBy(...CHOICE_ORDER)
+  const choiceRows = await loadChoices(id)
 
   const markable: MarkableQuestion[] = questionRows.map((question) => ({
     ...question,
@@ -175,14 +175,7 @@ export default async function MarkupPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
-      <nav aria-label="Breadcrumb" className="mb-4 text-sm">
-        <Link
-          href="/dashboard"
-          className="text-muted underline underline-offset-2 hover:text-fg"
-        >
-          Dashboard
-        </Link>
-      </nav>
+      <Breadcrumb />
 
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
         How did you do?

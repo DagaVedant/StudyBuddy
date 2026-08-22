@@ -160,10 +160,7 @@ export default async function EditPage({
           role="status"
           className="mb-6 rounded-xl border border-caution/50 px-3 py-2 text-sm text-pretty"
         >
-          That is{' '}
-          <span className="font-medium tabular-nums">
-            {overCount} more
-          </span>{' '}
+          That is <span className="font-medium tabular-nums">{overCount} more</span>{' '}
           than the {worksheet.expectedQuestionCount} you said this paper has, so
           one was probably picked up twice or had its number misread. Deleting
           the wrong one would lose a real question, so nothing was removed.
