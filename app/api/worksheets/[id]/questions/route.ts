@@ -3,11 +3,11 @@ import {asc, eq} from 'drizzle-orm'
 import {answerChoices, questions, questionTopics} from '@/lib/schema'
 import {checkReferences, CHOICE_ORDER, referenceError} from '@/lib/questions/queries'
 import {guardWorksheet} from '@/lib/queue'
-import {consumeRateLimit, QUESTION_WRITE_LIMIT} from '@/lib/api'
+import {guardRateLimit, QUESTION_WRITE_LIMIT} from '@/lib/api'
 import {db} from '@/lib/db'
 import {hashQuestion, questionInputSchema} from '@/lib/questions/shape'
 
-async function getIdQuestions(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -34,11 +34,12 @@ async function getIdQuestions(_request: Request, {params}: {params: Promise<Reco
     .innerJoin(questions, eq(questionTopics.questionId, questions.id))
     .where(eq(questions.worksheetId, worksheetId))
 
-  const choicesFor = new Map<string, (typeof choices)[number]['answer_choices'][]>()
+  const choicesFor = new Map<string, (typeof answerChoices.$inferSelect)[]>()
   for (const row of choices) {
-    const list = choicesFor.get(row.answer_choices.questionId)
-    if (list) list.push(row.answer_choices)
-    else choicesFor.set(row.answer_choices.questionId, [row.answer_choices])
+    const choice = row.answer_choices
+    const list = choicesFor.get(choice.questionId) ?? []
+    list.push(choice)
+    choicesFor.set(choice.questionId, list)
   }
 
   const topicFor = new Map<string, string>()
@@ -57,7 +58,7 @@ async function getIdQuestions(_request: Request, {params}: {params: Promise<Reco
   })
 }
 
-async function postIdQuestions(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function POST(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -65,18 +66,15 @@ async function postIdQuestions(request: Request, {params}: {params: Promise<Reco
     return NextResponse.json({error: 'Not found'}, {status: guard.status})
   }
 
-  const allowance = await consumeRateLimit(db, QUESTION_WRITE_LIMIT, `user:${guard.userId}`)
-
-  if (!allowance.ok) {
-    return NextResponse.json(
-      {error: "That's a lot of questions in one go. Try again shortly."},
-      {status: 429, headers: {'Retry-After': String(allowance.retryAfter)}},
-    )
-  }
-
-  const parsed = questionInputSchema.safeParse(
-    await request.json().catch(() => null),
+  const limited = await guardRateLimit(
+    db,
+    QUESTION_WRITE_LIMIT,
+    `user:${guard.userId}`,
+    "That's a lot of questions in one go. Try again shortly.",
   )
+  if (limited) return limited
+
+  const parsed = questionInputSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json(
       {error: parsed.error.issues[0]?.message ?? 'Invalid question'},
@@ -141,7 +139,3 @@ async function postIdQuestions(request: Request, {params}: {params: Promise<Reco
 
   return NextResponse.json({questionId}, {status: 201})
 }
-
-export {getIdQuestions as GET}
-
-export {postIdQuestions as POST}

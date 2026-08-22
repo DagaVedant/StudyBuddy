@@ -14,10 +14,8 @@ function wantedStages(request: Request): JobStage[] | null {
   const asked = new URL(request.url).searchParams.get('stages')
   if (!asked) return null
 
-  const wanted = asked
-    .split(',')
-    .map((stage) => stage.trim())
-    .filter((stage): stage is JobStage => (STAGES as string[]).includes(stage))
+  const names = asked.split(',').map((name) => name.trim())
+  const wanted = STAGES.filter((stage) => names.includes(stage))
 
   return wanted.length > 0 ? wanted : null
 }
@@ -53,7 +51,7 @@ async function postClaim(request: Request) {
 
   const questionId = (job.checkpoint as {questionId?: string} | null)?.questionId
 
-  return NextResponse.json({
+  const payload: Record<string, unknown> = {
     job: {
       id: job.id,
       worksheetId: job.worksheetId,
@@ -63,17 +61,23 @@ async function postClaim(request: Request) {
       expectedQuestionCount: worksheet?.expectedQuestionCount ?? null,
       checkpoint: job.checkpoint,
     },
-    ...(job.stage === 'extract'
-      ? {pages: await pagesForJob(db, job.worksheetId)}
-      : {}),
-    ...(job.stage === 'answer_key'
-      ? {solve: await unsolvedQuestions(db, job.worksheetId)}
-      : {}),
-    ...(job.stage === 'explain' && questionId
-      ? {explain: await explainInput(db, userId, questionId)}
-      : {}),
-    ollama,
-  })
+  }
+
+  if (job.stage === 'extract') {
+    payload.pages = await pagesForJob(db, job.worksheetId)
+  }
+
+  if (job.stage === 'answer_key') {
+    payload.solve = await unsolvedQuestions(db, job.worksheetId)
+  }
+
+  if (job.stage === 'explain' && questionId) {
+    payload.explain = await explainInput(db, userId, questionId)
+  }
+
+  payload.ollama = ollama
+
+  return NextResponse.json(payload)
 }
 
 export {postClaim as POST}

@@ -5,7 +5,10 @@ import {processingJobs, worksheetPages} from '@/lib/schema'
 import {db} from '@/lib/db'
 import {storage} from '@/lib/queue'
 
-async function getPagesPageid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(
+  request: Request,
+  {params}: {params: Promise<{pageId: string}>},
+) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -53,5 +56,3 @@ async function getPagesPageid(request: Request, {params}: {params: Promise<Recor
 
   return new NextResponse(object.stream, {headers})
 }
-
-export {getPagesPageid as GET}

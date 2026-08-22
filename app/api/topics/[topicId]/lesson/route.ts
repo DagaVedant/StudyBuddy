@@ -166,6 +166,4 @@ async function putTopicidLesson(request: Request, {params}: {params: Promise<Rec
   return NextResponse.json({lesson: serialize(lesson)})
 }
 
-export {postTopicidLesson as POST}
-
-export {putTopicidLesson as PUT}
+export {postTopicidLesson as POST, putTopicidLesson as PUT}

@@ -106,18 +106,22 @@ export async function POST(request: Request) {
     return NextResponse.json({error: verdict.reason}, {status: 400})
   }
 
+  const verified = verdict.status === 'ok'
+  const verifiedAt = verified ? new Date() : null
+  const model = input.model ?? null
+
   await db
     .insert(userAiCredentials)
     .values({
       userId,
       provider: input.provider,
-      verifiedAt: verdict.status === 'ok' ? new Date() : null,
+      verifiedAt,
       encryptedKey: sealed.ciphertext,
       keyIv: sealed.iv,
       keyAuthTag: sealed.authTag,
       keyLast4: sealed.last4,
-      modelName: input.model ?? null,
-      visionModelName: input.model ?? null,
+      modelName: model,
+      visionModelName: model,
     })
     .onConflictDoUpdate({
       target: [userAiCredentials.userId, userAiCredentials.provider],
@@ -126,9 +130,9 @@ export async function POST(request: Request) {
         keyIv: sealed.iv,
         keyAuthTag: sealed.authTag,
         keyLast4: sealed.last4,
-        modelName: input.model ?? null,
-        visionModelName: input.model ?? null,
-        verifiedAt: verdict.status === 'ok' ? new Date() : null,
+        modelName: model,
+        visionModelName: model,
+        verifiedAt,
         updatedAt: new Date(),
       },
     })
@@ -136,11 +140,10 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     last4: sealed.last4,
-    verified: verdict.status === 'ok',
-    message:
-      verdict.status === 'ok'
-        ? undefined
-        : `Saved, but ${input.provider} could not be reached to check it.`,
+    verified,
+    message: verified
+      ? undefined
+      : `Saved, but ${input.provider} could not be reached to check it.`,
   })
 }
 

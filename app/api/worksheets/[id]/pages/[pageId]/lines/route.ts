@@ -5,7 +5,10 @@ import {guardWorksheet} from '@/lib/queue'
 import {db} from '@/lib/db'
 import {roundLines} from '@/lib/questions/shape'
 
-async function getIdPagesPageidLines(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(
+  _request: Request,
+  {params}: {params: Promise<{id: string; pageId: string}>},
+) {
   const {id: worksheetId, pageId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -25,5 +28,3 @@ async function getIdPagesPageidLines(_request: Request, {params}: {params: Promi
 
   return NextResponse.json({textLines: roundLines(row.textLines)})
 }
-
-export {getIdPagesPageidLines as GET}

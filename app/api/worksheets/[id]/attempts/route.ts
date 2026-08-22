@@ -8,27 +8,15 @@ import {correctMarkupAttempt, scheduleFromOutcome, type StoredCard} from '@/lib/
 import {db} from '@/lib/db'
 
 const markSchema = z.object({
-  marks: z
-    .array(
-      z.object({
-        questionId: z.string().min(1),
-        outcome: z.enum(['correct', 'unsure', 'wrong']),
-        selectedChoiceId: z.string().min(1).nullish(),
-        freeTextAnswer: z.string().trim().max(2000).nullish(),
-      }),
-    )
-    .min(1)
-    .max(500),
-})
-
-const correctionSchema = z.object({
   questionId: z.string().min(1),
   outcome: z.enum(['correct', 'unsure', 'wrong']),
   selectedChoiceId: z.string().min(1).nullish(),
   freeTextAnswer: z.string().trim().max(2000).nullish(),
 })
 
-async function patchIdAttempts(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+const batchSchema = z.object({marks: z.array(markSchema).min(1).max(500)})
+
+export async function PATCH(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -36,7 +24,7 @@ async function patchIdAttempts(request: Request, {params}: {params: Promise<Reco
     return NextResponse.json({error: 'Not found'}, {status: guard.status})
   }
 
-  const parsed = correctionSchema.safeParse(await request.json().catch(() => null))
+  const parsed = markSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -66,7 +54,7 @@ async function patchIdAttempts(request: Request, {params}: {params: Promise<Reco
   return NextResponse.json({ok: true, outcome: result.outcome})
 }
 
-async function postIdAttempts(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function POST(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -74,7 +62,7 @@ async function postIdAttempts(request: Request, {params}: {params: Promise<Recor
     return NextResponse.json({error: 'Not found'}, {status: guard.status})
   }
 
-  const parsed = markSchema.safeParse(await request.json().catch(() => null))
+  const parsed = batchSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -150,20 +138,22 @@ async function postIdAttempts(request: Request, {params}: {params: Promise<Recor
 
     const scheduled = accepted.map((mark) => {
       const current = cardByQuestion.get(mark.questionId)
-      const stored: StoredCard | null = current
-        ? {
-            dueAt: current.dueAt,
-            stability: current.stability,
-            difficulty: current.difficulty,
-            elapsedDays: current.elapsedDays,
-            scheduledDays: current.scheduledDays,
-            learningSteps: current.learningSteps,
-            reps: current.reps,
-            lapses: current.lapses,
-            state: current.state,
-            lastReview: current.lastReview,
-          }
-        : null
+      let stored: StoredCard | null = null
+
+      if (current) {
+        stored = {
+          dueAt: current.dueAt,
+          stability: current.stability,
+          difficulty: current.difficulty,
+          elapsedDays: current.elapsedDays,
+          scheduledDays: current.scheduledDays,
+          learningSteps: current.learningSteps,
+          reps: current.reps,
+          lapses: current.lapses,
+          state: current.state,
+          lastReview: current.lastReview,
+        }
+      }
 
       return {mark, ...scheduleFromOutcome(stored, mark.outcome, now)}
     })
@@ -171,18 +161,20 @@ async function postIdAttempts(request: Request, {params}: {params: Promise<Recor
     await tx
       .insert(attempts)
       .values(
-        accepted.map((mark) => ({
-          userId: guard.userId,
-          questionId: mark.questionId,
-          outcome: mark.outcome,
-          selectedChoiceId:
-            mark.selectedChoiceId &&
-            choiceOwner.get(mark.selectedChoiceId) === mark.questionId
-              ? mark.selectedChoiceId
-              : null,
-          freeTextAnswer: mark.freeTextAnswer ?? null,
-          source: 'markup' as const,
-        })),
+        accepted.map((mark) => {
+          const choiceId = mark.selectedChoiceId ?? null
+          const ownsChoice =
+            choiceId !== null && choiceOwner.get(choiceId) === mark.questionId
+
+          return {
+            userId: guard.userId,
+            questionId: mark.questionId,
+            outcome: mark.outcome,
+            selectedChoiceId: ownsChoice ? choiceId : null,
+            freeTextAnswer: mark.freeTextAnswer ?? null,
+            source: 'markup' as const,
+          }
+        }),
       )
       .onConflictDoNothing()
 
@@ -214,26 +206,22 @@ async function postIdAttempts(request: Request, {params}: {params: Promise<Recor
 
     const cardIdByQuestion = new Map(saved.map((row) => [row.questionId, row.id]))
 
-    const logs = scheduled
-      .map(({mark, log}) => {
-        const cardId = cardIdByQuestion.get(mark.questionId)
-        if (!cardId) return null
-        return {
-          cardId,
-          rating: log.rating,
-          state: log.state,
-          elapsedDays: log.elapsedDays,
-          scheduledDays: log.scheduledDays,
-        }
+    const logs = []
+    for (const {mark, log} of scheduled) {
+      const cardId = cardIdByQuestion.get(mark.questionId)
+      if (!cardId) continue
+
+      logs.push({
+        cardId,
+        rating: log.rating,
+        state: log.state,
+        elapsedDays: log.elapsedDays,
+        scheduledDays: log.scheduledDays,
       })
-      .filter((row) => row !== null)
+    }
 
     if (logs.length > 0) await tx.insert(reviewLogs).values(logs)
   })
 
   return NextResponse.json({ok: true, recorded: accepted.length, next: '/dashboard'})
 }
-
-export {patchIdAttempts as PATCH}
-
-export {postIdAttempts as POST}

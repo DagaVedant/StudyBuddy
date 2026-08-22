@@ -3,7 +3,7 @@ import {eq} from 'drizzle-orm'
 import {worksheets} from '@/lib/schema'
 import {claimWorksheetForCompletion, enqueueJob, guardWorksheet, inFlightExtractCount, MAX_IN_FLIGHT_EXTRACTS, transitionWorksheet, workerStatus} from '@/lib/queue'
 import {guardRateLimit, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
-import {cloudExtractionEnabled, consumeTrial, resolveProvider, trialExtractionsToday} from '@/lib/ai/resolve'
+import {cloudExtractionEnabled, consumeTrial, resolveProvider, type Tier, trialExtractionsToday} from '@/lib/ai/resolve'
 import {trialDailyCeiling} from '@/lib/ai/types'
 import {db} from '@/lib/db'
 import {applyCachedSample, findMatchingSample} from '@/lib/samples'
@@ -14,7 +14,7 @@ export const maxDuration = 300
 const claimForCompletion = (
   worksheetId: string,
   status: 'queued' | 'awaiting_review',
-  tierUsed: 'trial' | 'free' | 'cloud' | 'ollama',
+  tierUsed: Tier,
 ) => claimWorksheetForCompletion(db, worksheetId, status, tierUsed)
 
 async function alreadyCompleted(worksheetId: string) {
@@ -176,7 +176,6 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       userId: guard.userId,
       stage: 'extract',
       executor: 'operator_gpu',
-
       priority: guard.role === 'admin' ? 'low' : 'normal',
     })
 

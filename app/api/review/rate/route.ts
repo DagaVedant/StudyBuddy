@@ -12,7 +12,7 @@ const rateSchema = z.object({
   rating: z.enum(['again', 'hard', 'good', 'easy']),
 })
 
-async function postRate(request: Request) {
+export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
@@ -59,6 +59,10 @@ async function postRate(request: Request) {
 
   const {card: next, log} = scheduleFromReview(stored, rating)
 
+  let outcome: 'correct' | 'unsure' | 'wrong' = 'correct'
+  if (rating === 'again') outcome = 'wrong'
+  else if (rating === 'hard') outcome = 'unsure'
+
   await db.transaction(async (tx) => {
     await tx.update(reviewCards).set(next).where(eq(reviewCards.id, cardId))
 
@@ -73,12 +77,10 @@ async function postRate(request: Request) {
     await tx.insert(attempts).values({
       userId,
       questionId: card.questionId,
-      outcome: rating === 'again' ? 'wrong' : rating === 'hard' ? 'unsure' : 'correct',
+      outcome,
       source: 'review',
     })
   })
 
   return NextResponse.json({ok: true, dueAt: next.dueAt.toISOString()})
 }
-
-export {postRate as POST}

@@ -17,7 +17,7 @@ const createSchema = z.object({
   expectedQuestionCount: z.number().int().min(1).max(2000).nullish(),
 })
 
-async function postRoot(request: Request) {
+export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
@@ -84,7 +84,7 @@ async function postRoot(request: Request) {
   return NextResponse.json({worksheetId: worksheet.id}, {status: 201})
 }
 
-async function getRoot() {
+export async function GET() {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
@@ -105,7 +105,3 @@ async function getRoot() {
 
   return NextResponse.json({worksheets: rows})
 }
-
-export {postRoot as POST}
-
-export {getRoot as GET}

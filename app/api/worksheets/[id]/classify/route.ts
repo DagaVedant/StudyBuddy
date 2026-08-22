@@ -36,14 +36,14 @@ const schema = z.union([
           questionId: z.string().min(1),
           classification: classificationSchema,
           candidates: z.array(candidateSchema).max(64),
-          }),
+        }),
       )
       .max(BROWSER_CLASSIFY_BATCH),
   }),
   z.object({items: itemsSchema}),
 ])
 
-type Body = z.infer<typeof schema>
+type Params = {params: Promise<{id: string}>}
 
 async function ownedQuestion(worksheetId: string, userId: string, questionId: string) {
   const [question] = await db
@@ -71,7 +71,7 @@ async function finish(worksheetId: string) {
   return remaining.length === 0
 }
 
-async function getIdClassify(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(_request: Request, {params}: Params) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -98,7 +98,7 @@ async function getIdClassify(_request: Request, {params}: {params: Promise<Recor
   })
 }
 
-async function postIdClassify(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function POST(request: Request, {params}: Params) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -111,7 +111,7 @@ async function postIdClassify(request: Request, {params}: {params: Promise<Recor
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
 
-  const body: Body = parsed.data
+  const body = parsed.data
   const {provider, executor} = await resolveProvider(db, guard.userId)
 
   const [worksheet] = await db
@@ -254,7 +254,3 @@ async function postIdClassify(request: Request, {params}: {params: Promise<Recor
 
   return NextResponse.json({applied, coarse, failed, done: await finish(worksheetId)})
 }
-
-export {getIdClassify as GET}
-
-export {postIdClassify as POST}

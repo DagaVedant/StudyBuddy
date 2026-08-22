@@ -5,7 +5,7 @@ import {worksheetPages} from '@/lib/schema'
 import {db} from '@/lib/db'
 import {loadQuestionsWithChoices} from '@/lib/questions/queries'
 
-async function getQuestionsWorksheetid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -20,23 +20,22 @@ async function getQuestionsWorksheetid(request: Request, {params}: {params: Prom
     .orderBy(asc(worksheetPages.pageNumber))
 
   const rows = await loadQuestionsWithChoices(db, worksheetId)
-
-  if (rows.length === 0) return NextResponse.json({questions: []})
-
   const pageNumberFor = new Map(pages.map((page) => [page.id, page.pageNumber]))
 
-  return NextResponse.json({
-    questions: rows
-      .filter((row) => row.pageId && pageNumberFor.has(row.pageId))
-      .map((row) => ({
-        id: row.id,
-        pageNumber: pageNumberFor.get(row.pageId as string) as number,
-        printedNumber: row.printedNumber,
-        promptText: row.promptText,
-        questionType: row.questionType,
-        choices: row.choices.map((choice) => ({label: choice.label, text: choice.text})),
-      })),
-  })
-}
+  const payload = []
+  for (const row of rows) {
+    const pageNumber = row.pageId ? pageNumberFor.get(row.pageId) : undefined
+    if (pageNumber === undefined) continue
 
-export {getQuestionsWorksheetid as GET}
+    payload.push({
+      id: row.id,
+      pageNumber,
+      printedNumber: row.printedNumber,
+      promptText: row.promptText,
+      questionType: row.questionType,
+      choices: row.choices.map((choice) => ({label: choice.label, text: choice.text})),
+    })
+  }
+
+  return NextResponse.json({questions: payload})
+}

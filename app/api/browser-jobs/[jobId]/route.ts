@@ -23,11 +23,7 @@ async function postJobid(request: Request, {params}: {params: Promise<Record<str
     .where(eq(processingJobs.id, jobId))
     .limit(1)
 
-  if (!job || job.userId !== session.user.id) {
-    return NextResponse.json({error: 'Not found'}, {status: 404})
-  }
-
-  if (job.executor !== 'browser') {
+  if (!job || job.userId !== session.user.id || job.executor !== 'browser') {
     return NextResponse.json({error: 'Not found'}, {status: 404})
   }
 

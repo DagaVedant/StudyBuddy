@@ -1,10 +1,23 @@
 import {NextResponse} from 'next/server'
 import {eq} from 'drizzle-orm'
-import {authenticateWorker, bodySchema, handleComplete, handleExplanation, handleFail, handlePageResult, handlePageReview, handlePhase, handleSolution} from '@/lib/worker/jobs'
+import {
+  authenticateWorker,
+  bodySchema,
+  handleComplete,
+  handleExplanation,
+  handleFail,
+  handlePageResult,
+  handlePageReview,
+  handlePhase,
+  handleSolution,
+} from '@/lib/worker/jobs'
 import {processingJobs} from '@/lib/schema'
 import {db} from '@/lib/db'
 
-async function postJobsJobid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function POST(
+  request: Request,
+  {params}: {params: Promise<{jobId: string}>},
+) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -52,5 +65,3 @@ async function postJobsJobid(request: Request, {params}: {params: Promise<Record
       return handlePageResult(db, jobId, job, body)
   }
 }
-
-export {postJobsJobid as POST}

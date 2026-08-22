@@ -5,7 +5,10 @@ import {processingJobs} from '@/lib/schema'
 import {db} from '@/lib/db'
 import {explainInput} from '@/lib/worker/solutions'
 
-async function getExplainJobid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(
+  request: Request,
+  {params}: {params: Promise<{jobId: string}>},
+) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -35,5 +38,3 @@ async function getExplainJobid(request: Request, {params}: {params: Promise<Reco
 
   return NextResponse.json(input)
 }
-
-export {getExplainJobid as GET}

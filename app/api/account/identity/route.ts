@@ -10,7 +10,7 @@ const bodySchema = z.object({
   username: z.string().trim().max(80).nullable(),
 })
 
-async function patchIdentity(request: Request) {
+export async function PATCH(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
@@ -30,12 +30,9 @@ async function patchIdentity(request: Request) {
   if (limited) return limited
 
   const result = await saveIdentity(db, session.user.id, parsed.data)
-
   if (!result.ok) {
     return NextResponse.json({error: result.reason}, {status: result.status})
   }
 
   return NextResponse.json({ok: true, name: result.name, username: result.username})
 }
-
-export {patchIdentity as PATCH}

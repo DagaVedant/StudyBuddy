@@ -176,6 +176,4 @@ async function putTopicidPractice(request: Request, {params}: {params: Promise<R
   return NextResponse.json({created: outcome.created, rejected: outcome.rejected.length})
 }
 
-export {postTopicidPractice as POST}
-
-export {putTopicidPractice as PUT}
+export {postTopicidPractice as POST, putTopicidPractice as PUT}

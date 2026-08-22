@@ -14,7 +14,10 @@ const schema = z.object({
     .max(100),
 })
 
-async function postClassifyWorksheetidShortlist(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function POST(
+  request: Request,
+  {params}: {params: Promise<{worksheetId: string}>},
+) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -58,5 +61,3 @@ async function postClassifyWorksheetidShortlist(request: Request, {params}: {par
 
   return NextResponse.json({batch})
 }
-
-export {postClassifyWorksheetidShortlist as POST}

@@ -26,7 +26,7 @@ async function postIdConfirm(_request: Request, {params}: {params: Promise<Recor
     .from(questions)
     .where(eq(questions.worksheetId, worksheetId))
 
-  if (!tally || tally.value === 0) {
+  if (tally.value === 0) {
     return NextResponse.json(
       {error: 'Add at least one question before continuing.'},
       {status: 400},

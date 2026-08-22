@@ -14,7 +14,7 @@ const claimSchema = z.object({
   jobsInFlight: z.number().int().min(0).max(64).default(0),
 })
 
-async function postClaim(request: Request) {
+export async function POST(request: Request) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -64,5 +64,3 @@ async function postClaim(request: Request) {
     pages: await pagesForJob(db, job.worksheetId),
   })
 }
-
-export {postClaim as POST}

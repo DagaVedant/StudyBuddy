@@ -5,7 +5,7 @@ import {questions, worksheetPages, worksheets} from '@/lib/schema'
 import {countQuestionStarts, isAnswerPage} from '@/lib/questions/shape'
 import {db} from '@/lib/db'
 
-async function getCoverageWorksheetid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -58,5 +58,3 @@ async function getCoverageWorksheetid(request: Request, {params}: {params: Promi
     }),
   })
 }
-
-export {getCoverageWorksheetid as GET}

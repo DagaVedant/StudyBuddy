@@ -6,7 +6,6 @@ import {db} from '@/lib/db'
 import {storage} from '@/lib/queue'
 import {worksheets} from '@/lib/schema'
 
-
 export async function GET(
   _request: Request,
   {params}: {params: Promise<{key: string[]}>},

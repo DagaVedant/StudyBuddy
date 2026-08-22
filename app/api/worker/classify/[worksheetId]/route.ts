@@ -8,7 +8,7 @@ import {clearUntagged} from '@/lib/worker/apply'
 import {classificationSchema} from '@/lib/ai/types'
 import {db} from '@/lib/db'
 
-async function getClassifyWorksheetid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -50,7 +50,7 @@ const resultsSchema = z.object({
     .max(100),
 })
 
-async function postClassifyWorksheetid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function POST(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -104,14 +104,9 @@ async function postClassifyWorksheetid(request: Request, {params}: {params: Prom
   }
 
   const remaining = await pendingQuestions(db, worksheetId, 1)
+  const done = remaining.length === 0
 
-  if (remaining.length === 0) {
-    await clearUntagged(db, worksheetId)
-  }
+  if (done) await clearUntagged(db, worksheetId)
 
-  return NextResponse.json({ok: true, applied, coarse, done: remaining.length === 0})
+  return NextResponse.json({ok: true, applied, coarse, done})
 }
-
-export {getClassifyWorksheetid as GET}
-
-export {postClassifyWorksheetid as POST}

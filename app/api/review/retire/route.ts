@@ -8,7 +8,7 @@ import {guardRateLimit, REVIEW_LIMIT} from '@/lib/api'
 
 const schema = z.object({cardId: z.string().min(1)})
 
-async function postRetire(request: Request) {
+export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
@@ -41,5 +41,3 @@ async function postRetire(request: Request) {
 
   return NextResponse.json({ok: true})
 }
-
-export {postRetire as POST}

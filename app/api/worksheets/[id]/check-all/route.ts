@@ -9,7 +9,7 @@ const verifyAllSchema = z.object({
   exclude: z.array(z.string().min(1).max(64)).max(500).optional(),
 })
 
-async function postIdCheckAll(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function POST(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -37,7 +37,7 @@ async function postIdCheckAll(request: Request, {params}: {params: Promise<Recor
 
 const unverifySchema = z.object({ids: z.array(z.string().min(1).max(64)).min(1).max(500)})
 
-async function deleteIdCheckAll(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function DELETE(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -62,7 +62,3 @@ async function deleteIdCheckAll(request: Request, {params}: {params: Promise<Rec
 
   return NextResponse.json({unverified: updated.length})
 }
-
-export {postIdCheckAll as POST}
-
-export {deleteIdCheckAll as DELETE}

@@ -38,9 +38,9 @@ async function deleteRoot(request: Request) {
     return NextResponse.json({error: 'Not found'}, {status: 404})
   }
 
-  if (
-    parsed.data.email.trim().toLowerCase() !== (account.email ?? '').toLowerCase()
-  ) {
+  const typed = parsed.data.email.trim().toLowerCase()
+
+  if (typed !== account.email.toLowerCase()) {
     return NextResponse.json(
       {error: 'That is not the email on this account.'},
       {status: 400},

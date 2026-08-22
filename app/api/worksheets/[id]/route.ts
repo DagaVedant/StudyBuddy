@@ -9,7 +9,9 @@ import {storage} from '@/lib/queue'
 
 const renameSchema = z.object({title: z.string().trim().min(1).max(200)})
 
-async function patchId(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+type Params = {params: Promise<{id: string}>}
+
+export async function PATCH(request: Request, {params}: Params) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
@@ -46,7 +48,7 @@ async function patchId(request: Request, {params}: {params: Promise<Record<strin
   return NextResponse.json({ok: true, title: updated.title})
 }
 
-async function deleteId(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function DELETE(_request: Request, {params}: Params) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
@@ -83,7 +85,3 @@ async function deleteId(_request: Request, {params}: {params: Promise<Record<str
 
   return NextResponse.json({ok: true})
 }
-
-export {patchId as PATCH}
-
-export {deleteId as DELETE}

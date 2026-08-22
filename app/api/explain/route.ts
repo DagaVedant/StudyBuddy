@@ -6,7 +6,7 @@ import {answerChoices, attempts, explanations, processingJobs, questions} from '
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {ProviderRefused, ProviderUnavailable} from '@/lib/ai/types'
 import {auth} from '@/auth'
-import {consumeRateLimit, EXPLAIN_LIMIT} from '@/lib/api'
+import {EXPLAIN_LIMIT, guardRateLimit} from '@/lib/api'
 import {consumeTrial, resolveProvider, storedProvider} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 import {enqueueJob, pendingExplainJob, workerStatus} from '@/lib/queue'
@@ -60,12 +60,7 @@ export async function GET(request: Request) {
     })
   }
 
-  const pending = await pendingExplainJob(
-    db,
-    session.user.id,
-    question.id,
-  )
-
+  const pending = await pendingExplainJob(db, session.user.id, question.id)
   if (!pending) return NextResponse.json({status: 'none'})
 
   return NextResponse.json({status: 'queued', ...(await writerStatus(pending))})
@@ -110,13 +105,13 @@ export async function POST(request: Request) {
     })
   }
 
-  const allowance = await consumeRateLimit(db, EXPLAIN_LIMIT, `user:${userId}`)
-  if (!allowance.ok) {
-    return NextResponse.json(
-      {error: 'You have asked for a lot of explanations. Try again shortly.'},
-      {status: 429, headers: {'Retry-After': String(allowance.retryAfter)}},
-    )
-  }
+  const limited = await guardRateLimit(
+    db,
+    EXPLAIN_LIMIT,
+    `user:${userId}`,
+    'You have asked for a lot of explanations. Try again shortly.',
+  )
+  if (limited) return limited
 
   const choices = await db
     .select()

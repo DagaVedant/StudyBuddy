@@ -10,7 +10,9 @@ import {pageImageKey, storage} from '@/lib/queue'
 
 export const maxDuration = 300
 
-async function postIdPages(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+type Params = {params: Promise<{id: string}>}
+
+export async function POST(request: Request, {params}: Params) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -78,40 +80,35 @@ async function postIdPages(request: Request, {params}: {params: Promise<Record<s
     )
   }
 
-  let encoded: Buffer
-  let realWidth: number
-  let realHeight: number
-
   const {default: sharp} = await import('sharp')
 
+  let image
   try {
-    const result = await sharp(Buffer.from(await file.arrayBuffer()), {
+    image = await sharp(Buffer.from(await file.arrayBuffer()), {
       limitInputPixels: MAX_DECODED_PIXELS,
     })
       .rotate()
       .webp({quality: 82})
       .toBuffer({resolveWithObject: true})
-
-    encoded = result.data
-    realWidth = result.info.width
-    realHeight = result.info.height
   } catch {
     return NextResponse.json({error: 'Not an image'}, {status: 415})
   }
 
-  if (realWidth > MAX_PAGE_DIMENSION || realHeight > MAX_PAGE_DIMENSION) {
+  const {width, height} = image.info
+
+  if (width > MAX_PAGE_DIMENSION || height > MAX_PAGE_DIMENSION) {
     return NextResponse.json({error: 'Page image is too large'}, {status: 413})
   }
 
   const key = pageImageKey(worksheetId, pageNumber)
-  await storage.put(key, encoded, 'image/webp')
+  await storage.put(key, image.data, 'image/webp')
 
   const [page] = await db
     .insert(worksheetPages)
-    .values({worksheetId, pageNumber, imageKey: key, width: realWidth, height: realHeight})
+    .values({worksheetId, pageNumber, imageKey: key, width, height})
     .onConflictDoUpdate({
       target: [worksheetPages.worksheetId, worksheetPages.pageNumber],
-      set: {imageKey: key, width: realWidth, height: realHeight},
+      set: {imageKey: key, width, height},
     })
     .returning({id: worksheetPages.id})
 
@@ -142,7 +139,7 @@ const ocrSchema = z.object({
     .optional(),
 })
 
-async function patchIdPages(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function PATCH(request: Request, {params}: Params) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -169,7 +166,3 @@ async function patchIdPages(request: Request, {params}: {params: Promise<Record<
 
   return NextResponse.json({ok: true})
 }
-
-export {postIdPages as POST}
-
-export {patchIdPages as PATCH}

@@ -81,16 +81,17 @@ export async function PATCH(request: Request, {params}: Params) {
           .where(eq(answerChoices.questionId, questionId))
           .orderBy(...CHOICE_ORDER))
 
-      const promptText =
-        input.promptText ??
-        (
-          await tx
-            .select({promptText: questions.promptText})
-            .from(questions)
-            .where(eq(questions.id, questionId))
-            .limit(1)
-        )[0]?.promptText ??
-        ''
+      let promptText = input.promptText
+
+      if (promptText === undefined) {
+        const [row] = await tx
+          .select({promptText: questions.promptText})
+          .from(questions)
+          .where(eq(questions.id, questionId))
+          .limit(1)
+
+        promptText = row?.promptText ?? ''
+      }
 
       patch.contentHash = hashQuestion(promptText, choices)
     }

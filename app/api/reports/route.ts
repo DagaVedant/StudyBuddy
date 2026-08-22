@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server'
 import {z} from 'zod'
 
 import {auth} from '@/auth'
-import {consumeRateLimit, REPORT_LIMIT} from '@/lib/api'
+import {guardRateLimit, REPORT_LIMIT} from '@/lib/api'
 import {db} from '@/lib/db'
 import {recordReport} from '@/lib/mail'
 
@@ -25,13 +25,13 @@ export async function POST(request: Request) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
-  const allowance = await consumeRateLimit(db, REPORT_LIMIT, `user:${session.user.id}`)
-  if (!allowance.ok) {
-    return NextResponse.json(
-      {error: "That's a lot of reports at once. Try again shortly."},
-      {status: 429, headers: {'Retry-After': String(allowance.retryAfter)}},
-    )
-  }
+  const limited = await guardRateLimit(
+    db,
+    REPORT_LIMIT,
+    `user:${session.user.id}`,
+    "That's a lot of reports at once. Try again shortly.",
+  )
+  if (limited) return limited
 
   const parsed = schema.safeParse(await request.json().catch(() => ({})))
   if (!parsed.success) {
@@ -39,17 +39,12 @@ export async function POST(request: Request) {
   }
 
   const outcome = await recordReport(db, session.user.id, parsed.data)
-
   if (!outcome.ok) {
-    return NextResponse.json(
-      {
-        error:
-          outcome.reason === 'nothing_to_report'
-            ? 'There is no explanation on that question yet.'
-            : 'Not found',
-      },
-      {status: 404},
-    )
+    const error =
+      outcome.reason === 'nothing_to_report'
+        ? 'There is no explanation on that question yet.'
+        : 'Not found'
+    return NextResponse.json({error}, {status: 404})
   }
 
   return NextResponse.json({ok: true}, {status: 201})

@@ -6,7 +6,7 @@ import {guardRateLimit, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
 import {applyPermanentFailure} from '@/lib/worker/apply'
 import {db} from '@/lib/db'
 
-async function postIdGoManual(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function POST(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const {id: worksheetId} = await params
 
   const guard = await guardWorksheet(worksheetId)
@@ -28,7 +28,7 @@ async function postIdGoManual(_request: Request, {params}: {params: Promise<Reco
   }
 
   const openJobs = await db
-    .select({id: processingJobs.id, stage: processingJobs.stage})
+    .select({id: processingJobs.id})
     .from(processingJobs)
     .where(
       and(
@@ -47,13 +47,7 @@ async function postIdGoManual(_request: Request, {params}: {params: Promise<Reco
       .where(eq(processingJobs.id, job.id))
   }
 
-  await applyPermanentFailure(db, {
-    stage: openJobs.find((job) => job.stage === 'extract')?.stage ?? 'extract',
-    userId: guard.userId,
-    worksheetId,
-  })
+  await applyPermanentFailure(db, {stage: 'extract', userId: guard.userId, worksheetId})
 
   return NextResponse.json({ok: true, next: `/worksheets/${worksheetId}/edit`})
 }
-
-export {postIdGoManual as POST}
