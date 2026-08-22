@@ -26,11 +26,11 @@ export type JobStage = 'extract' | 'explain' | 'answer_key' | 'classify'
 
 export type JobPriority = 'high' | 'normal' | 'low'
 
-export const MAX_ATTEMPTS = 3
+const MAX_ATTEMPTS = 3
 
 export const CLAIM_TTL_MS = 15 * 60_000
 
-export const HEARTBEAT_TTL_MS = 90_000
+const HEARTBEAT_TTL_MS = 90_000
 
 export interface EnqueueArgs {
   worksheetId: string
@@ -251,10 +251,8 @@ export interface AbandonedJob {
   worksheetId: string
 }
 
-export async function reapAbandonedJobs(
-  db: Db,
-  now: Date = new Date(),
-): Promise<AbandonedJob[]> {
+export async function reapAbandonedJobs(db: Db): Promise<AbandonedJob[]> {
+  const now = new Date()
   const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS)
 
   const reaped = await db
@@ -337,10 +335,9 @@ export interface WorkerStatus {
 
 const WORKERS_CONSIDERED = 50
 
-export async function workerStatus(
-  db: Db,
-  now: Date = new Date(),
-): Promise<WorkerStatus> {
+export async function workerStatus(db: Db): Promise<WorkerStatus> {
+  const now = new Date()
+
   const rows = await db
     .select()
     .from(gpuWorkers)
@@ -431,13 +428,10 @@ export async function guardWorksheet(worksheetId: string): Promise<Guarded> {
   return {ok: true, userId: session.user.id, role: session.user.role}
 }
 
-export const ABANDONED_AFTER_MS = 60 * 60_000
+const ABANDONED_AFTER_MS = 60 * 60_000
 
-export async function sweepAbandonedUploads(
-  db: Db,
-  userId: string,
-  now: Date = new Date(),
-): Promise<number> {
+export async function sweepAbandonedUploads(db: Db, userId: string): Promise<number> {
+  const now = new Date()
   const cutoff = new Date(now.getTime() - ABANDONED_AFTER_MS)
 
   const stale = await db

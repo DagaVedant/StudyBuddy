@@ -110,10 +110,10 @@ export async function consumeRateLimit(
   db: Db,
   rule: LimitRule,
   subject: string,
-  now: Date = new Date(),
 ): Promise<LimitDecision> {
   if (!limitsEnforced()) return {ok: true, remaining: rule.limit, retryAfter: 0}
 
+  const now = new Date()
   const key = `${rule.action}:${subject.slice(0, 180)}`
   const nowIso = now.toISOString()
 

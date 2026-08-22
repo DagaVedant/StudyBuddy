@@ -137,7 +137,7 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
   }
 }
 
-export const UNTAGGED_WORKSHEETS_SHOWN = 20
+const UNTAGGED_WORKSHEETS_SHOWN = 20
 
 export interface UntaggedWorksheet {
   id: string
@@ -166,11 +166,9 @@ export interface ForecastRow {
   dueThisWeek: number
 }
 
-export async function getReviewForecast(
-  db: Db,
-  userId: string,
-  now: Date = new Date(),
-): Promise<ForecastRow[]> {
+export async function getReviewForecast(db: Db, userId: string): Promise<ForecastRow[]> {
+  const now = new Date()
+
   const endOfToday = new Date(now)
   endOfToday.setHours(23, 59, 59, 999)
 
@@ -484,11 +482,9 @@ export async function getAccountAccuracy(db: Db, userId: string): Promise<Accoun
   }
 }
 
-export async function getStudyStreak(
-  db: Db,
-  userId: string,
-  now: Date = new Date(),
-): Promise<number> {
+export async function getStudyStreak(db: Db, userId: string): Promise<number> {
+  const now = new Date()
+
   const days = rows<{day: string}>(
     await db.execute(sql`
       select distinct to_char(date_trunc('day', ${attempts.createdAt}), 'YYYY-MM-DD') as day
