@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import {redirect} from 'next/navigation'
-import {PageHead} from '@/components/ui'
+import {PageHead} from '@/components/page-head'
 
 import {auth} from '@/auth'
 import {getTrialState} from '@/lib/ai/resolve'

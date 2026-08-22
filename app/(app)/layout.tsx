@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import {auth, signOut} from '@/auth'
-import {BrowserDerivedRunner} from '@/components/client'
-import {NavLinks} from '@/components/client'
-import {MainRegion, Mark} from '@/components/ui'
+import {BrowserDerivedRunner} from '@/components/browser-runner'
+import {NavLinks} from '@/components/nav-links'
+import {Mark} from '@/components/mark'
+import {MainRegion} from '@/components/page-head'
 import {browserTierEnabled, getCredentialSummary} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 

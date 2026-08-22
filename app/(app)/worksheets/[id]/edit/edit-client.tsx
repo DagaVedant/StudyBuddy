@@ -19,7 +19,7 @@ import {
 } from 'react'
 import {useRouter} from 'next/navigation'
 
-import {TopicPicker, type TopicChoice} from '@/components/client'
+import {TopicPicker, type TopicChoice} from '@/components/topic-picker'
 import {choiceLabel} from '@/lib/questions/shape'
 import {fetchJson} from '@/lib/client/http'
 import {reflowText} from '@/lib/questions/shape'

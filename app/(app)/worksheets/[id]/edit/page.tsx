@@ -3,7 +3,7 @@ import Link from 'next/link'
 import {notFound, redirect} from 'next/navigation'
 
 import {auth} from '@/auth'
-import type {TopicChoice} from '@/components/client'
+import type {TopicChoice} from '@/components/topic-picker'
 import {db} from '@/lib/db'
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {roundLines} from '@/lib/questions/shape'

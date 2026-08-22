@@ -4,7 +4,7 @@ import Link from 'next/link'
 import {useSearchParams} from 'next/navigation'
 import {Suspense, useActionState} from 'react'
 
-import {GoogleButton} from '@/components/client'
+import {GoogleButton} from '@/components/google-button'
 import {signInWithCredentials, signInWithGoogle} from '@/lib/auth/actions'
 import type {FormState} from '@/lib/auth/actions'
 import {safeNextPath} from '@/lib/auth/policy'

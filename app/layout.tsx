@@ -3,7 +3,7 @@ import type {Metadata, Viewport} from 'next'
 import {Fraunces, Public_Sans, Space_Mono} from 'next/font/google'
 import {SessionProvider} from 'next-auth/react'
 
-import {AutoRefresh} from '@/components/client'
+import {AutoRefresh} from '@/components/auto-refresh'
 import {appBaseUrl} from '@/lib/api'
 
 import './globals.css'
