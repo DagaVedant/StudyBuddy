@@ -126,17 +126,10 @@ h3 {
   .btn-primary {
     background: var(--fg);
     color: var(--bg);
-    box-shadow: 2px 2px 0 0 color-mix(in oklch, var(--fg) 32%, transparent);
   }
 
   .btn-primary:hover {
-    translate: 1px 1px;
-    box-shadow: 1px 1px 0 0 color-mix(in oklch, var(--fg) 26%, transparent);
-  }
-
-  .btn-primary:active {
-    translate: 2px 2px;
-    box-shadow: 0 0 0 0 transparent;
+    background: color-mix(in oklch, var(--fg) 88%, transparent);
   }
 
   .btn-secondary {
