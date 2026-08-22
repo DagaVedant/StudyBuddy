@@ -249,77 +249,19 @@
 
 .stage {
   margin-top: 2.5rem;
+  overflow-x: auto;
 }
 
-.mock {
-  pointer-events: none;
-  padding: 1rem;
-  border: 1px solid var(--border);
+.shot {
+  display: block;
+  width: 100%;
+
+  /* below this the dashboard text stops being readable, so scroll instead */
+  min-width: 44rem;
+  height: auto;
+  border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
-  background: var(--bg);
   box-shadow: 0 32px 64px -40px oklch(0% 0 0 / 0.45);
-}
-
-@media (min-width: 48rem) {
-  .mock {
-    padding: 1.5rem;
-  }
-}
-.bar {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.screen {
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-}
-.actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
-}
-
-.cta {
-  padding: 0.4375rem 0.875rem;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.ctaAside {
-  font-size: 0.75rem;
-  color: var(--muted);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  white-space: nowrap;
-}
-
-@media (min-width: 48rem) {
-  .screen {
-    font-size: 1.5rem;
-  }
-
-  .cta {
-    padding: 0.5rem 1rem;
-    font-size: 0.9375rem;
-  }
-}
-.aside {
-  display: none;
-}
-
-@media (min-width: 48rem) {
-  .aside {
-    display: block;
-  }
 }
 
 .pin {
