@@ -331,7 +331,7 @@ export const UNTAGGED_REASON = {
     'These questions are not sorted into topics yet. The model that sorts them cannot run on our server, so they are queued for the machine that runs it. Sorting them here instead keeps them on your own machine, and is quicker.',
 } as const
 
-export type UntaggedReason = (typeof UNTAGGED_REASON)[keyof typeof UNTAGGED_REASON]
+type UntaggedReason = (typeof UNTAGGED_REASON)[keyof typeof UNTAGGED_REASON]
 
 export async function recordUntagged(
   db: Db,

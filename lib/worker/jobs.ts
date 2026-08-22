@@ -43,54 +43,76 @@ import {type AIProvider, extractedQuestionSchema} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 import {resolveProvider} from '@/lib/ai/resolve'
 
+const pageResultSchema = z.object({
+  action: z.literal('page_result'),
+  pageId: z.string().min(1),
+  pageNumber: z.number().int().min(1),
+  totalPages: z.number().int().min(1),
+  questions: z.array(extractedQuestionSchema).max(100),
+})
+
+const phaseSchema = z.object({
+  action: z.literal('phase'),
+  phase: z.enum(['verifying', 'classifying']),
+})
+
+const pageReviewSchema = z.object({
+  action: z.literal('page_review'),
+  pageId: z.string().min(1),
+  replace: z.array(z.string().uuid()).max(100),
+  questions: z.array(extractedQuestionSchema).max(100),
+})
+
+const explanationSchema = z.object({
+  action: z.literal('explanation'),
+  questionId: z.string().uuid(),
+  attemptId: z.string().uuid().nullish(),
+  bodyMd: z.string().min(1).max(6000),
+  misconceptionNote: z.string().max(400).nullish(),
+  model: z.string().max(200),
+})
+
+const solutionSchema = z.object({
+  action: z.literal('solution'),
+  questionId: z.string().uuid(),
+  answer: z.string().max(400).nullable(),
+  workingMd: z.string().max(8000),
+  traps: z
+    .array(z.object({label: z.string().max(8).nullable(), why: z.string().max(600)}))
+    .max(12)
+    .default([]),
+  confidence: z.number().min(0).max(1),
+  model: z.string().max(200),
+})
+
+const completeSchema = z.object({action: z.literal('complete')})
+
+const failSchema = z.object({action: z.literal('fail'), message: z.string().max(2000)})
+
 export const bodySchema = z.discriminatedUnion('action', [
-  z.object({
-    action: z.literal('page_result'),
-    pageId: z.string().min(1),
-    pageNumber: z.number().int().min(1),
-    totalPages: z.number().int().min(1),
-    questions: z.array(extractedQuestionSchema).max(100),
-  }),
-  z.object({action: z.literal('phase'), phase: z.enum(['verifying', 'classifying'])}),
-  z.object({
-    action: z.literal('page_review'),
-    pageId: z.string().min(1),
-    replace: z.array(z.string().uuid()).max(100),
-    questions: z.array(extractedQuestionSchema).max(100),
-  }),
-  z.object({
-    action: z.literal('explanation'),
-    questionId: z.string().uuid(),
-    attemptId: z.string().uuid().nullish(),
-    bodyMd: z.string().min(1).max(6000),
-    misconceptionNote: z.string().max(400).nullish(),
-    model: z.string().max(200),
-  }),
-  z.object({
-    action: z.literal('solution'),
-    questionId: z.string().uuid(),
-    answer: z.string().max(400).nullable(),
-    workingMd: z.string().max(8000),
-    traps: z
-      .array(z.object({label: z.string().max(8).nullable(), why: z.string().max(600)}))
-      .max(12)
-      .default([]),
-    confidence: z.number().min(0).max(1),
-    model: z.string().max(200),
-  }),
-  z.object({action: z.literal('complete')}),
-  z.object({action: z.literal('fail'), message: z.string().max(2000)}),
+  pageResultSchema,
+  phaseSchema,
+  pageReviewSchema,
+  explanationSchema,
+  solutionSchema,
+  completeSchema,
+  failSchema,
 ])
 
 export type Job = typeof processingJobs.$inferSelect
-type Body = z.infer<typeof bodySchema>
-type Action<Name extends Body['action']> = Extract<Body, {action: Name}>
+
+type PageResultBody = z.infer<typeof pageResultSchema>
+type PhaseBody = z.infer<typeof phaseSchema>
+type PageReviewBody = z.infer<typeof pageReviewSchema>
+type ExplanationBody = z.infer<typeof explanationSchema>
+type SolutionBody = z.infer<typeof solutionSchema>
+type FailBody = z.infer<typeof failSchema>
 
 export async function handleFail(
   db: Db,
   jobId: string,
   job: Job,
-  body: Action<'fail'>,
+  body: FailBody,
 ): Promise<NextResponse> {
   const {permanent} = await failJob(db, jobId, body.message)
 
@@ -105,7 +127,7 @@ export async function handlePhase(
   db: Db,
   jobId: string,
   job: Job,
-  body: Action<'phase'>,
+  body: PhaseBody,
 ): Promise<NextResponse> {
   await runRepairPasses(db, job.worksheetId, {
     only: body.phase === 'classifying' ? FINAL_PASSES : VERIFYING_PASSES,
@@ -124,7 +146,7 @@ export async function handlePhase(
 export async function handlePageReview(
   db: Db,
   job: Job,
-  body: Action<'page_review'>,
+  body: PageReviewBody,
 ): Promise<NextResponse> {
   const [target] = await db
     .select({
@@ -183,7 +205,7 @@ export async function handlePageReview(
 export async function handleExplanation(
   db: Db,
   job: Job,
-  body: Action<'explanation'>,
+  body: ExplanationBody,
 ): Promise<NextResponse> {
   const [question] = await db
     .select({id: questions.id})
@@ -211,7 +233,7 @@ export async function handleSolution(
   db: Db,
   jobId: string,
   job: Job,
-  body: Action<'solution'>,
+  body: SolutionBody,
 ): Promise<NextResponse> {
   const [question] = await db
     .select({
@@ -293,7 +315,7 @@ export async function handlePageResult(
   db: Db,
   jobId: string,
   job: Job,
-  body: Action<'page_result'>,
+  body: PageResultBody,
 ): Promise<NextResponse> {
   const [page] = await db
     .select({id: worksheetPages.id, worksheetId: worksheetPages.worksheetId})

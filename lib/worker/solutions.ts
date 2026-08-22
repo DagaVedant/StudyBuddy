@@ -19,7 +19,7 @@ import {type Db} from '@/lib/db'
 
 const PROMOTE_ABOVE = 0.6
 
-export const UNSOLVED_PAGE_SIZE = 500
+const UNSOLVED_PAGE_SIZE = 500
 
 export interface UnsolvedQuestion {
   id: string
@@ -164,8 +164,6 @@ export async function deriveSolutions(
           provider: storedProviderName(provider.name),
           model: provider.answeringModel,
         })
-        
-        
         .onConflictDoNothing({target: questionSolutions.questionId})
 
       if (solution.answer === null) {
@@ -226,7 +224,7 @@ export async function promoteDerivedAnswer(
   return updated.length > 0
 }
 
-export function storedAnswer(
+function storedAnswer(
   answer: string,
   choices: {label: string; text: string}[],
 ): string | null {
@@ -384,7 +382,7 @@ export const MAX_REREAD_SHARE = 0.3
 export async function planReview(
   questions: ReviewableQuestion[],
   review?: ReviewFn,
-  options: {maxRereadShare?: number} = {},
+  maxRereadShare = MAX_REREAD_SHARE,
 ): Promise<ReviewPlan> {
   const expectedChoiceCount = modalChoiceCount(questions)
 
@@ -411,8 +409,6 @@ export async function planReview(
     }
   }
 
-  
-  
   const unreviewed = questions.filter(
     (q) => !suspects.has(q.id) && q.printedNumber !== null,
   )
@@ -450,7 +446,7 @@ export async function planReview(
   }
 
   const pages = new Set(questions.map((q) => q.pageNumber))
-  const cap = Math.max(1, Math.ceil(pages.size * (options.maxRereadShare ?? MAX_REREAD_SHARE)))
+  const cap = Math.max(1, Math.ceil(pages.size * maxRereadShare))
 
   const byPage = new Map<number, number[]>()
   for (const suspect of suspects.values()) {
