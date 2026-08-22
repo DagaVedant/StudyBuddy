@@ -591,7 +591,10 @@ export function DashboardPreview() {
         <div className={styles.mock} aria-hidden="true">
           <div className={styles.bar}>
             <span className={styles.screen}>Dashboard</span>
-            <span className={styles.cta}>Upload a worksheet</span>
+            <span className={styles.actions}>
+              <span className={styles.cta}>Upload a worksheet</span>
+              <span className={styles.ctaAside}>or start with a sample</span>
+            </span>
           </div>
 
           <dl className="mt-5 grid grid-cols-2 sm:grid-cols-[1.3fr_1.3fr_1fr_1fr]">
@@ -624,7 +627,7 @@ export function DashboardPreview() {
           <div className="card mt-4 p-4">
             <h3 className="flex items-center gap-1.5 text-sm font-medium">
               <span className={styles.pin}>2</span>
-              Weakest topics
+              What is costing you marks
             </h3>
             <p className="hint mb-3 text-pretty">
               Ranked by how confident we can be that the misses are real, not by
@@ -664,7 +667,7 @@ export function DashboardPreview() {
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="card p-4">
-              <h3 className="text-sm font-medium">By subject</h3>
+              <h3 className="text-sm font-medium">Subject by subject</h3>
               <p className="hint mb-3">
                 Rolled up from every question you have marked.
               </p>
