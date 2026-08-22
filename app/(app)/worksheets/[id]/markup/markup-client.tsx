@@ -298,7 +298,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
         </div>
       ) : (
         currentQuestion && (
-          <div className="rounded-2xl border-2 border-accent bg-surface p-4 shadow-[0_8px_20px_-14px_oklch(0%_0_0_/_0.35)]">
+          <div className="card border-2 border-accent p-4">
             <p className="text-sm text-muted">
               Question <span className="tabular-nums">{currentQuestion.ordinal}</span> of{' '}
               <span className="tabular-nums">{questions.length}</span>
@@ -317,7 +317,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
                     key={outcome.value}
                     type="button"
                     title={outcome.hint}
-                    className="flex min-h-11 flex-col items-center rounded-xl border border-rule bg-surface px-2 py-3 text-center text-sm touch-manipulation hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="flex min-h-11 flex-col items-center card px-2 py-3 text-center text-sm touch-manipulation hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     onClick={() => mark(currentQuestion.id, outcome.value, cursor)}
                   >
                     {outcome.label}
@@ -512,7 +512,7 @@ export function CorrectionsClient({
                         className={
                           isCurrent
                             ? 'min-h-11 rounded-xl border border-accent bg-accent/10 px-2 py-2 text-sm font-medium touch-manipulation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
-                            : 'min-h-11 rounded-xl border border-rule bg-surface px-2 py-2 text-sm touch-manipulation hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60'
+                            : 'min-h-11 card px-2 py-2 text-sm touch-manipulation hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60'
                         }
                         onClick={() =>
                           void correct(question.id, {

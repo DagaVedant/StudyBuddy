@@ -514,7 +514,7 @@ export default function ReviewSession({
                 <div className="mt-1">
                   <button
                     type="button"
-                    className="rounded-xl border border-rule bg-surface px-3 py-1.5 text-sm hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+                    className="card px-3 py-1.5 text-sm hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
                     disabled={explaining}
                     onClick={() => void explain(item)}
                   >
@@ -549,7 +549,7 @@ export default function ReviewSession({
                 type="button"
                 disabled={busy}
                 onClick={() => void rate(rating.value)}
-                className="flex min-h-11 flex-col items-center rounded-xl border border-rule bg-surface px-2 py-2 text-sm touch-manipulation hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+                className="flex min-h-11 flex-col items-center card px-2 py-2 text-sm touch-manipulation hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
               >
                 <span className="font-medium">{rating.label}</span>
                 <span className="text-xs text-muted">{rating.hint}</span>
