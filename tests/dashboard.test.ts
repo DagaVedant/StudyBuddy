@@ -2,11 +2,10 @@ import {strict as assert} from 'node:assert'
 import test from 'node:test'
 
 import {getOverview, getTopicStats} from '@/lib/dashboard'
+import {type Db} from '@/lib/db'
 import {attempts, questionTopics, questions, topics} from '@/lib/schema'
 
 import {freshDb, makeUser, makeWorksheet, uid} from './support/db'
-
-type Db = Awaited<ReturnType<typeof freshDb>>
 
 async function topic(db: Db, name: string) {
   const id = uid('topic')
@@ -22,7 +21,7 @@ async function topic(db: Db, name: string) {
 
 let ordinal = 0
 
-/** One extracted question, answered once, filed under every topic given. */
+// one extracted question, answered once, filed under every topic given
 async function answeredQuestion(db: Db, userId: string, worksheetId: string, topicIds: string[]) {
   const id = uid('q')
   await db.insert(questions).values({

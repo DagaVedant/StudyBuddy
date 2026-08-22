@@ -1,9 +1,10 @@
 import {strict as assert} from 'node:assert'
 import test from 'node:test'
 
+import {eq} from 'drizzle-orm'
+
 import {claimWorksheetForCompletion} from '@/lib/queue'
 import {worksheets} from '@/lib/schema'
-import {eq} from 'drizzle-orm'
 
 import {freshDb, makeUser, makeWorksheet} from './support/db'
 

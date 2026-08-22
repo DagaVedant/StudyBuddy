@@ -1,12 +1,13 @@
 import {strict as assert} from 'node:assert'
 import test from 'node:test'
 
+import {type Db} from '@/lib/db'
 import {CLAIM_TTL_MS, claimJob} from '@/lib/queue'
 import {processingJobs} from '@/lib/schema'
 
 import {freshDb, makeUser, makeWorksheet, uid} from './support/db'
 
-async function pendingJob(db: Awaited<ReturnType<typeof freshDb>>) {
+async function pendingJob(db: Db) {
   const userId = await makeUser(db)
   const worksheetId = await makeWorksheet(db, userId)
   const id = uid('job')
@@ -52,11 +53,12 @@ test('a job is abandoned for good once it has burned its attempts', async () => 
   await pendingJob(db)
   const start = Date.now()
 
+  const rounds = 12
   let claims = 0
-  for (let i = 0; i < 12; i += 1) {
+  for (let i = 0; i < rounds; i += 1) {
     const at = new Date(start + i * (CLAIM_TTL_MS + 1_000))
     if (await claimJob(db, 'operator_gpu', null, at)) claims += 1
   }
 
-  assert.ok(claims < 12, 'a stale job was reclaimed forever')
+  assert.ok(claims < rounds, 'a stale job was reclaimed forever')
 })
