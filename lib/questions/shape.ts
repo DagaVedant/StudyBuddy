@@ -17,7 +17,7 @@ export function normalizeChoiceLabel(label: string): string {
   return (letterOnly?.[1] ?? (cleaned || label.trim())).slice(0, 8)
 }
 
-export const choiceSchema = z.object({
+const choiceSchema = z.object({
   label: z.string().trim().min(1).max(2000).transform(normalizeChoiceLabel),
   text: z.string().trim().max(2000),
   isCorrect: z.boolean().default(false),
@@ -195,7 +195,7 @@ export interface QuestionStart {
   bodyFrom: number
 }
 
-export function questionStartsOn(text: string): QuestionStart[] {
+function questionStartsOn(text: string): QuestionStart[] {
   QUESTION_START.lastIndex = 0
 
   const starts: QuestionStart[] = []

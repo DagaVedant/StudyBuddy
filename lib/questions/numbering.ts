@@ -33,7 +33,7 @@ function nextLabelInside(body: string, code: number): boolean {
   )
 }
 
-export function questionsOnPage(pageText: string): PageQuestion[] {
+function questionsOnPage(pageText: string): PageQuestion[] {
   const starts: { number: number; at: number; bodyFrom: number }[] = []
   NUMBERED_LINE.lastIndex = 0
 
@@ -375,7 +375,7 @@ export function duplicatePrintedNumbers(
     .sort((a, b) => a - b)
 }
 
-export function promptSimilarity(left: string, right: string): number {
+function promptSimilarity(left: string, right: string): number {
   const a = new Set(normalizeForCompare(left).split(' ').filter(Boolean))
   const b = new Set(normalizeForCompare(right).split(' ').filter(Boolean))
 

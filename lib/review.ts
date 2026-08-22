@@ -245,7 +245,6 @@ const scheduler = fsrs()
 export type Outcome = 'correct' | 'unsure' | 'wrong'
 export type CardStateName = 'new' | 'learning' | 'review' | 'relearning'
 
-// order matches the ts-fsrs State enum, so both conversions below are just index math
 const STATE_NAMES: CardStateName[] = ['new', 'learning', 'review', 'relearning']
 
 const GRADE_BY_OUTCOME: Record<Outcome, Grade> = {
@@ -254,7 +253,7 @@ const GRADE_BY_OUTCOME: Record<Outcome, Grade> = {
   correct: Rating.Good,
 }
 
-export const REVIEW_GRADES = {
+const REVIEW_GRADES = {
   again: Rating.Again,
   hard: Rating.Hard,
   good: Rating.Good,
@@ -360,7 +359,7 @@ export function scheduleFromReview(
   return schedule(stored, REVIEW_GRADES[rating], now)
 }
 
-export function previewIntervals(
+function previewIntervals(
   stored: StoredCard,
   now: Date = new Date(),
 ): Record<ReviewRating, Date> {
@@ -375,7 +374,7 @@ export function previewIntervals(
   }
 }
 
-export function formatInterval(due: Date, now: Date = new Date()): string {
+function formatInterval(due: Date, now: Date = new Date()): string {
   const minutes = Math.round((due.getTime() - now.getTime()) / 60_000)
 
   if (minutes < 1) return '<1 min'
