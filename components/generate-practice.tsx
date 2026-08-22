@@ -68,10 +68,10 @@ export function GeneratePracticeButton({topicId}: {topicId: string}) {
         throw new Error(body.error ?? 'Could not write practice questions. Try again.')
       }
 
-      const created =
-        body.runsHere && body.input && body.ollama
-          ? await writeHere(body.input, body.ollama)
-          : (body.created ?? 0)
+      let created = body.created ?? 0
+      if (body.runsHere && body.input && body.ollama) {
+        created = await writeHere(body.input, body.ollama)
+      }
 
       setMessage(
         `${created} new ${created === 1 ? 'question' : 'questions'} added to your review queue.`,

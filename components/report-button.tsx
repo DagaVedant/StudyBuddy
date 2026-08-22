@@ -10,12 +10,12 @@ type Target =
 
 export function ReportButton({
   target,
-  label = 'Report a problem',
-  placeholder = 'What went wrong?',
+  label,
+  placeholder,
 }: {
   target: Target
-  label?: string
-  placeholder?: string
+  label: string
+  placeholder: string
 }) {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')

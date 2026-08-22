@@ -4,8 +4,10 @@ import Link from 'next/link'
 import {usePathname} from 'next/navigation'
 
 const NAV = [
-  {href: '/dashboard', label: 'Dashboard'}, {href: '/worksheets', label: 'Worksheets'},
-  {href: '/review', label: 'Review'}, {href: '/topics', label: 'Topics'},
+  {href: '/dashboard', label: 'Dashboard'},
+  {href: '/worksheets', label: 'Worksheets'},
+  {href: '/review', label: 'Review'},
+  {href: '/topics', label: 'Topics'},
   {href: '/settings', label: 'Settings'},
 ]
 
@@ -16,8 +18,7 @@ export function NavLinks() {
     <nav aria-label="Main" className="min-w-0 flex-1">
       <ul className="flex flex-wrap items-center gap-1 text-sm md:justify-center">
         {NAV.map((item) => {
-          const active =
-            pathname === item.href || pathname.startsWith(`${item.href}/`)
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
 
           return (
             <li key={item.href}>

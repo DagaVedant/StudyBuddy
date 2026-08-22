@@ -20,7 +20,7 @@ const OUTCOME_LABEL: Record<string, string> = {
 
 type Choice = {label: string; text: string}
 
-export interface RevisitQuestionProps {
+interface RevisitQuestionProps {
   promptText: string
   outcome: string
   answeredAt: Date

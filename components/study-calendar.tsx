@@ -12,7 +12,7 @@ function key(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-function level(total: number): 0 | 1 | 2 | 3 | 4 {
+function level(total: number): number {
   if (total === 0) return 0
   if (total < 5) return 1
   if (total < 15) return 2
@@ -20,31 +20,24 @@ function level(total: number): 0 | 1 | 2 | 3 | 4 {
   return 4
 }
 
-const CAL_FILL: Record<number, string> = {
-  0: 'bg-fg/10',
-  1: 'bg-marker/30',
-  2: 'bg-marker/55',
-  3: 'bg-marker/80',
-  4: 'bg-marker',
-}
+const FILLS = ['bg-fg/10', 'bg-marker/30', 'bg-marker/55', 'bg-marker/80', 'bg-marker']
 
 export function StudyCalendar({
   days,
   streak,
-  weeks = 26,
+  weeks,
 }: {
   days: StudyDay[]
   streak: number
-  weeks?: number
+  weeks: number
 }) {
-  const WEEKS = weeks
   const byDay = new Map(days.map((day) => [day.day, day]))
 
   const today = new Date()
   const end = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
   )
-  const start = new Date(end.getTime() - (WEEKS * 7 - 1) * DAY_MS)
+  const start = new Date(end.getTime() - (weeks * 7 - 1) * DAY_MS)
   start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7))
 
   const columns: {date: Date; day: StudyDay | undefined}[][] = []
@@ -56,7 +49,7 @@ export function StudyCalendar({
     const weekday = (cursor.getUTCDay() + 6) % 7
     if (weekday === 0) columns.push([])
     const date = new Date(cursor)
-    columns[columns.length - 1]?.push({date, day: byDay.get(key(date))})
+    columns[columns.length - 1].push({date, day: byDay.get(key(date))})
   }
 
   let lastLabelAt = -99
@@ -70,7 +63,7 @@ export function StudyCalendar({
       <dl className="mb-3 flex flex-wrap gap-x-6 gap-y-1">
         <Figure label="Current run" value={streak} unit="days" />
         <Figure label="Best run" value={best} unit="days" />
-        <Figure label="Days studied" value={studied} unit={`of ${WEEKS * 7}`} />
+        <Figure label="Days studied" value={studied} unit={`of ${weeks * 7}`} />
       </dl>
 
       <div className="-mx-1 overflow-x-auto px-1 pb-1">
@@ -92,18 +85,17 @@ export function StudyCalendar({
           <div>
             <div className="flex gap-[3px]">
               {columns.map((week, index) => {
-                const first = week[0]?.date
-                const previous = columns[index - 1]?.[0]?.date
+                const first = week[0].date
+                const previous = columns[index - 1]?.[0].date
                 const isNewMonth =
-                  first &&
-                  (!previous || previous.getUTCMonth() !== first.getUTCMonth())
+                  !previous || previous.getUTCMonth() !== first.getUTCMonth()
                 const roomSinceLast = index - lastLabelAt >= 3
                 const showLabel = isNewMonth && roomSinceLast
                 if (showLabel) lastLabelAt = index
 
                 return (
                   <span
-                    key={first ? key(first) : index}
+                    key={key(first)}
                     aria-hidden="true"
                     className="w-[12px] font-mono text-[9px] leading-[12px] text-muted"
                   >
@@ -120,9 +112,7 @@ export function StudyCalendar({
                     <span
                       key={key(date)}
                       title={describe(date, day)}
-                      className={`size-[12px] ${
-                        CAL_FILL[level(day?.total ?? 0)]
-                      }`}
+                      className={`size-[12px] ${FILLS[level(day?.total ?? 0)]}`}
                     />
                   ))}
                 </div>
@@ -133,7 +123,7 @@ export function StudyCalendar({
       </div>
 
       <p className="sr-only">
-        You have studied on {studied} of the last {WEEKS * 7} days, {total}{' '}
+        You have studied on {studied} of the last {weeks * 7} days, {total}{' '}
         questions in total. Your current run is {streak}{' '}
         {streak === 1 ? 'day' : 'days'} and your best run in this period is{' '}
         {best} {best === 1 ? 'day' : 'days'}.
@@ -146,11 +136,8 @@ export function StudyCalendar({
         <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
           Lighter
         </span>
-        {[0, 1, 2, 3, 4].map((step) => (
-          <span
-            key={step}
-            className={`size-[10px] ${CAL_FILL[step]}`}
-          />
+        {FILLS.map((fill) => (
+          <span key={fill} className={`size-[10px] ${fill}`} />
         ))}
         <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
           Heavier
@@ -181,7 +168,7 @@ function Figure({
 }
 
 function describe(date: Date, day: StudyDay | undefined): string {
-  const when = date.toISOString().slice(0, 10)
+  const when = key(date)
   if (!day) return `${when}: nothing`
   return `${when}: ${day.total} answered, ${day.correct} right, ${day.wrong} missed`
 }

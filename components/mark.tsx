@@ -1,4 +1,3 @@
-
 export function Mark({className}: {className?: string}) {
   return (
     <svg

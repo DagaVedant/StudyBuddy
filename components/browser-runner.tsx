@@ -152,7 +152,7 @@ export function BrowserDerivedRunner() {
       {method: 'POST'},
     )
 
-    if (response.status === 409 || !response.ok) return
+    if (!response.ok) return
 
     const {job, solve: pending, explain: input, ollama} = (await response.json()) as Claim
     if (!job || !ollama) return

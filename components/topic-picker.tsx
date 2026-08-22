@@ -13,7 +13,6 @@ interface Props {
   topics: TopicChoice[]
   value: string | null
   onChange: (topicId: string | null) => void
-  disabled?: boolean
 }
 
 const MAX_RESULTS = 40
@@ -29,7 +28,7 @@ function score(topic: TopicChoice, query: string): number {
   return Number.POSITIVE_INFINITY
 }
 
-export function TopicPicker({topics, value, onChange, disabled}: Props) {
+export function TopicPicker({topics, value, onChange}: Props) {
   const inputId = useId()
   const listId = useId()
 
@@ -97,7 +96,6 @@ export function TopicPicker({topics, value, onChange, disabled}: Props) {
           <button
             type="button"
             className="btn-compact shrink-0 rounded px-2 text-sm text-muted underline underline-offset-2 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            disabled={disabled}
             onClick={() => {
               setOpen(true)
               requestAnimationFrame(() => document.getElementById(inputId)?.focus())
@@ -118,7 +116,6 @@ export function TopicPicker({topics, value, onChange, disabled}: Props) {
           aria-activedescendant={open && results[active] ? `${listId}-${active}` : undefined}
           autoComplete="off"
           spellCheck={false}
-          disabled={disabled}
           placeholder="Search topics, e.g. triangles…"
           className="field"
           value={query}
@@ -182,15 +179,13 @@ export function TopicPicker({topics, value, onChange, disabled}: Props) {
           </div>
 
           {selected && (
-            <div className="">
-              <button
-                type="button"
-                className="block w-full px-3 py-2 text-left text-sm text-muted hover:text-danger"
-                onClick={() => commit(null)}
-              >
-                Clear topic
-              </button>
-            </div>
+            <button
+              type="button"
+              className="block w-full px-3 py-2 text-left text-sm text-muted hover:text-danger"
+              onClick={() => commit(null)}
+            >
+              Clear topic
+            </button>
           )}
         </div>
       )}

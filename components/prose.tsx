@@ -52,20 +52,17 @@ function blocksOf(markdown: string): Block[] {
 
     const bullet = /^[-*]\s+(.*)$/.exec(line)
     const numbered = /^\d+[.)]\s+(.*)$/.exec(line)
+    const match = bullet ?? numbered
 
-    if (bullet || numbered) {
+    if (match) {
       const ordered = Boolean(numbered)
-      const item = (bullet ?? numbered)![1]
 
+      // a paragraph is only ever open when no list is, so neither flush eats the other
       if (list && list.ordered !== ordered) flush()
-
-      if (paragraph.length > 0) {
-        blocks.push({kind: 'paragraph', text: paragraph.join(' ')})
-        paragraph = []
-      }
+      if (paragraph.length > 0) flush()
 
       list = list ?? {ordered, items: []}
-      list.items.push(item)
+      list.items.push(match[1])
       continue
     }
 
@@ -86,11 +83,15 @@ export function Prose({markdown}: {markdown: string}) {
         const key = `b-${index}`
 
         if (block.kind === 'heading') {
-          return block.level === 2 ? (
-            <h3 key={key} className="mt-5 text-sm font-semibold tracking-tight">
-              {inline(block.text, key)}
-            </h3>
-          ) : (
+          if (block.level === 2) {
+            return (
+              <h3 key={key} className="mt-5 text-sm font-semibold tracking-tight">
+                {inline(block.text, key)}
+              </h3>
+            )
+          }
+
+          return (
             <h4 key={key} className="mt-4 text-sm font-medium">
               {inline(block.text, key)}
             </h4>
@@ -104,11 +105,15 @@ export function Prose({markdown}: {markdown: string}) {
             </li>
           ))
 
-          return block.ordered ? (
-            <ol key={key} className="ml-5 list-decimal space-y-1.5">
-              {items}
-            </ol>
-          ) : (
+          if (block.ordered) {
+            return (
+              <ol key={key} className="ml-5 list-decimal space-y-1.5">
+                {items}
+              </ol>
+            )
+          }
+
+          return (
             <ul key={key} className="ml-5 list-disc space-y-1.5">
               {items}
             </ul>

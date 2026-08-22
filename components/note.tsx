@@ -1,4 +1,3 @@
-
 export function Note({
   labelledBy,
   className = '',

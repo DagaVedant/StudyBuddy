@@ -1,4 +1,3 @@
-
 export function Underline({className = ''}: {className?: string}) {
   return (
     <svg

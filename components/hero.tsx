@@ -3,7 +3,7 @@ import Link from 'next/link'
 import styles from './styles.module.css'
 import {Mark} from './mark'
 
-export const TOPICS = [
+const TOPICS = [
   {name: 'Ratios and rates', count: 6}, {name: 'Linear equations', count: 5},
   {name: 'Inferences', count: 8}, {name: 'Words in context', count: 5},
 ] as const
@@ -12,6 +12,8 @@ const TOTAL = TOPICS.reduce((sum, topic) => sum + topic.count, 0)
 
 const CURVE =
   'M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76'
+
+const AREA = `${CURVE} L154,90 L6,90 Z`
 
 const REVIEWS = [
   {left: '21.25%', top: '40%'}, {left: '38.75%', top: '46.7%'},
@@ -82,10 +84,7 @@ function Curve() {
   return (
     <div className={styles.plot} aria-hidden="true">
       <svg viewBox="0 0 160 90" preserveAspectRatio="none">
-        <path
-          className={styles.area}
-          d="M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76 L154,90 L6,90 Z"
-        />
+        <path className={styles.area} d={AREA} />
         <path
           className={styles.curve}
           vectorEffect="non-scaling-stroke"
