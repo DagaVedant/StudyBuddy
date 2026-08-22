@@ -113,13 +113,8 @@ export async function deriveSolutions(
   db: Db,
   provider: AIProvider,
   worksheetId: string,
-  options: {
-    limit?: number
-    onProgress?: (done: number, total: number) => Promise<void> | void
-    log?: ((message: string) => void) | null
-  } = {},
+  limit = 500,
 ): Promise<SolutionProgress> {
-  const log = options.log === undefined ? console.log : options.log
   const progress: SolutionProgress = {solved: 0, promoted: 0, refused: 0, failed: 0}
 
   const pending = await db
@@ -141,11 +136,11 @@ export async function deriveSolutions(
       ),
     )
     .orderBy(asc(questions.ordinal), asc(questions.id))
-    .limit(options.limit ?? 500)
+    .limit(limit)
 
   if (pending.length === 0) return progress
 
-  for (const [index, question] of pending.entries()) {
+  for (const question of pending) {
     const choices = await db
       .select({label: answerChoices.label, text: answerChoices.text})
       .from(answerChoices)
@@ -189,15 +184,13 @@ export async function deriveSolutions(
       }
     } catch (error) {
       progress.failed += 1
-      log?.(
+      console.log(
         `[solutions] question ${question.id} could not be solved: ${(error as Error).message}`,
       )
     }
-
-    await options.onProgress?.(index + 1, pending.length)
   }
 
-  log?.(
+  console.log(
     `[solutions] ${worksheetId}: ${progress.solved} solved, ${progress.promoted} promoted, ` +
       `${progress.refused} declined, ${progress.failed} failed`,
   )

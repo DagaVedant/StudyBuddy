@@ -5,16 +5,17 @@ import {
   hashQuestion,
   normalizeChoiceLabel,
   normalizeForCompare,
+  sortWithinPage,
 } from '@/lib/questions/shape'
 import {
+  modalChoiceCount,
   parseCarriedChoices,
   planDuplicateMerges,
   planNumberDuplicateMerges,
+  validateQuestion,
 } from '@/lib/questions/numbering'
 import {loadQuestionsWithChoices} from '@/lib/questions/queries'
-import {modalChoiceCount, validateQuestion} from '@/lib/questions/numbering'
 import {refundTrial} from '@/lib/ai/resolve'
-import {sortWithinPage} from '@/lib/questions/shape'
 import {type Db} from '@/lib/db'
 import {type JobStage, transitionWorksheet} from '@/lib/queue'
 
@@ -43,7 +44,9 @@ export async function recoverCarriedChoices(
   const byPage = new Map<number, typeof candidates>()
   for (const candidate of candidates) {
     if (candidate.pageNumber === null) continue
-    byPage.set(candidate.pageNumber, [...(byPage.get(candidate.pageNumber) ?? []), candidate])
+    const onPage = byPage.get(candidate.pageNumber)
+    if (onPage) onPage.push(candidate)
+    else byPage.set(candidate.pageNumber, [candidate])
   }
 
   const fingerprint = (choices: {text: string}[]): string =>
@@ -58,25 +61,19 @@ export async function recoverCarriedChoices(
     const ordered = sortWithinPage(previous)
     const target = ordered[ordered.length - 1]
 
-    
-    
     if (!RECOVERABLE.has(target.questionType)) continue
 
-    
-    
-    
-    
-    if (expectedCount === null ? target.choices.length > 0 : target.choices.length >= expectedCount) {
-      continue
-    }
+    const hasEnough =
+      expectedCount === null
+        ? target.choices.length > 0
+        : target.choices.length >= expectedCount
+    if (hasEnough) continue
 
     const held = target.choices.map((choice) => choice.label)
 
     const carried = parseCarriedChoices(page.ocrText ?? '', {expectedCount, held})
     if (!carried) continue
 
-    
-    
     const codes = new Set(
       validateQuestion({
         printedNumber: target.printedNumber,
@@ -87,16 +84,9 @@ export async function recoverCarriedChoices(
     )
     if (codes.has('stem_is_not_a_question') || codes.has('empty_stem')) continue
 
-    
-    
-    
-    
     const first = sortWithinPage(byPage.get(page.pageNumber) ?? [])[0]
     if (first && fingerprint(first.choices) === fingerprint(carried)) continue
 
-    
-    
-    
     await db.insert(answerChoices).values(
       carried.map((choice) => ({
         questionId: target.id,
@@ -106,11 +96,6 @@ export async function recoverCarriedChoices(
       })),
     )
 
-    
-    
-    
-    
-    
     const whole = [...target.choices, ...carried].sort((a, b) =>
       a.label.localeCompare(b.label),
     )
@@ -212,9 +197,7 @@ export async function mergeDuplicateQuestions(
         )
         continue
       }
-    }
 
-    if (plan.printedNumber !== null) {
       await db
         .update(questions)
         .set({printedNumber: plan.printedNumber})
@@ -244,15 +227,10 @@ export async function mergeDuplicateQuestions(
   return {merged}
 }
 
-export interface Partitioned<T> {
-  removable: T[]
-  held: T[]
-}
-
 export async function partitionByDeletability<T extends {id: string}>(
   db: Db,
   rows: T[],
-): Promise<Partitioned<T>> {
+): Promise<{removable: T[]; held: T[]}> {
   const removableIds = new Set(
     await deletableQuestionIds(
       db,
@@ -281,12 +259,14 @@ export async function deletableQuestionIds(db: Db, ids: string[]): Promise<strin
   ])
 
   const claimed = new Set([
-    ...claimedByAttempt.map((row) => row.id), ...claimedByCard.map((row) => row.id),
+    ...claimedByAttempt.map((row) => row.id),
+    ...claimedByCard.map((row) => row.id),
   ])
 
   return ids.filter((id) => !claimed.has(id))
 }
-export const READING_SHARE = 0.8
+
+const READING_SHARE = 0.8
 export const VERIFYING_AT = 0.8
 export const CLASSIFYING_AT = 0.95
 
@@ -333,15 +313,9 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
         await refundTrial(db, job.userId, 'worksheets', 1)
       }
 
-      const failed = await transitionWorksheet(
-        db,
-        job.worksheetId,
-        ['queued', 'processing'],
-        {status: 'failed'},
-      )
-
-      if (failed) {
-      }
+      await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
+        status: 'failed',
+      })
 
       return
     }
@@ -349,8 +323,6 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
 }
 
 export const UNTAGGED_REASON = {
-  classifierDown:
-    'The topic classifier was unavailable while this worksheet was processed, so no topics were assigned.',
   classifierFailed:
     'Topic classification failed while this worksheet was processed, so no topics were assigned.',
   browserPending:

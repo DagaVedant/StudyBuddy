@@ -9,32 +9,27 @@ import {
 import {
   duplicatePrintedNumbers,
   inferPrintedNumbers,
+  isOptionRun,
+  modalChoiceCount,
+  planPageSplitJoins,
   printedNumbersFor,
+  type SplitHalf,
 } from '@/lib/questions/numbering'
 import {
   foldLeadInChoices,
   hashQuestion,
+  isAnswerPage,
+  mergeAnswerKeys,
   normalizeChoiceLabel,
   normalizeForCompare,
   normalizeMath,
   normalizeOptionText,
-} from '@/lib/questions/shape'
-import {
-  isAnswerPage,
-  mergeAnswerKeys,
   parseAnswerKey,
   reflowText,
   seamAround,
 } from '@/lib/questions/shape'
-import {
-  isOptionRun,
-  modalChoiceCount,
-  planPageSplitJoins,
-  type SplitHalf,
-} from '@/lib/questions/numbering'
-import {checkpointJob} from '@/lib/queue'
+import {checkpointJob, storage} from '@/lib/queue'
 import {loadQuestionsWithChoices} from '@/lib/questions/queries'
-import {storage} from '@/lib/queue'
 import {type AIProvider, type ExtractedQuestion} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 
@@ -50,25 +45,11 @@ export interface RepairCounts {
   merged: number
   renumbered: number
   answered: number
-  
   duplicateNumbers: number[]
 }
 
-const NONE: RepairCounts = {
-  joined: 0,
-  recovered: 0,
-  rendered: 0,
-  repaired: 0,
-  merged: 0,
-  renumbered: 0,
-  answered: 0,
-  duplicateNumbers: [],
-}
-
 export interface RepairOptions {
-  
   only?: readonly RepairPass[]
-  
   log?: string | null
 }
 
@@ -79,8 +60,17 @@ export async function runRepairPasses(
 ): Promise<RepairCounts> {
   const wanted = new Set<RepairPass>(options.only ?? ORDER)
   const log = options.log === undefined ? '' : options.log
-  
-  const counts: RepairCounts = {...NONE, duplicateNumbers: []}
+
+  const counts: RepairCounts = {
+    joined: 0,
+    recovered: 0,
+    rendered: 0,
+    repaired: 0,
+    merged: 0,
+    renumbered: 0,
+    answered: 0,
+    duplicateNumbers: [],
+  }
 
   const note = (message: string) => {
     if (log !== null) console.log(`${log}${message} on ${worksheetId}`)
@@ -146,7 +136,7 @@ export const VERIFYING_PASSES = ['join', 'carried', 'math', 'merge'] as const
 
 export const FINAL_PASSES = ORDER
 
-export async function applyAnswerKey(
+async function applyAnswerKey(
   db: Db,
   worksheetId: string,
 ): Promise<{answered: number}> {
@@ -207,7 +197,7 @@ export async function applyAnswerKey(
   return {answered}
 }
 
-export async function repairUnrenderedMath(
+async function repairUnrenderedMath(
   db: Db,
   worksheetId: string,
 ): Promise<{repaired: number}> {
@@ -252,7 +242,7 @@ export async function repairUnrenderedMath(
   return {repaired}
 }
 
-export async function repairPrintedNumbers(
+async function repairPrintedNumbers(
   db: Db,
   worksheetId: string,
 ): Promise<{repaired: number}> {
@@ -300,7 +290,7 @@ export async function repairPrintedNumbers(
   return {repaired: fixes.length}
 }
 
-export async function renumberQuestions(
+async function renumberQuestions(
   db: Db,
   worksheetId: string,
 ): Promise<{renumbered: number; duplicateNumbers: number[]}> {
@@ -355,7 +345,7 @@ export async function renumberQuestions(
   return {renumbered, duplicateNumbers}
 }
 
-export async function joinSplitQuestions(
+async function joinSplitQuestions(
   db: Db,
   worksheetId: string,
 ): Promise<{joined: number}> {

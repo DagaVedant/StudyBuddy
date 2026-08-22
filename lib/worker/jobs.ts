@@ -6,6 +6,8 @@ import {z} from 'zod'
 
 import {
   FINAL_PASSES,
+  persistQuestions,
+  runExtraction,
   runRepairPasses,
   VERIFYING_PASSES,
 } from '@/lib/worker/pipeline'
@@ -21,6 +23,7 @@ import {
 } from '@/lib/worker/apply'
 import {
   checkpointJob,
+  type ClaimedJob,
   claimJob,
   completeJob,
   enqueueJob,
@@ -36,10 +39,9 @@ import {
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {classifyWorksheet, EmbeddingUnavailableError} from '@/lib/taxonomy'
 import {clientIp} from '@/lib/api'
-import {extractedQuestionSchema} from '@/lib/ai/types'
-import {persistQuestions, runExtraction} from '@/lib/worker/pipeline'
+import {type AIProvider, extractedQuestionSchema} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
-import {type ResolvedProvider, resolveProvider} from '@/lib/ai/resolve'
+import {resolveProvider} from '@/lib/ai/resolve'
 
 export const bodySchema = z.discriminatedUnion('action', [
   z.object({
@@ -270,11 +272,8 @@ export async function handleComplete(
     {status: 'awaiting_review'},
   )
 
-  if (delivered) {
-    if (job.executor === 'browser') {
-      await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
-    }
-
+  if (delivered && job.executor === 'browser') {
+    await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
   }
 
   if (job.stage === 'extract') {
@@ -320,6 +319,7 @@ export async function handlePageResult(
 
   return NextResponse.json({ok: true, created, duplicates: body.questions.length - created})
 }
+
 function safeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a)
   const right = Buffer.from(b)
@@ -369,15 +369,10 @@ export function authenticateWorker(request: Request): WorkerAuth {
 
   return {ok: true}
 }
-type Resolver = (db: Db, userId: string) => Promise<ResolvedProvider>
 
 const SOLVE_BATCH = 25
 
-export async function drainServerQueue(
-  db: Db,
-  limit = 1,
-  resolve: Resolver = resolveProvider,
-): Promise<void> {
+export async function drainServerQueue(db: Db, limit = 1): Promise<void> {
   for (let i = 0; i < limit; i += 1) {
     let job
     try {
@@ -389,22 +384,12 @@ export async function drainServerQueue(
 
     if (!job) return
 
-    await runOneServerJob(db, job, resolve)
+    await runOneServerJob(db, job)
   }
 }
 
-async function runOneServerJob(
-  db: Db,
-  job: {
-    id: string
-    worksheetId: string
-    userId: string
-    stage: 'extract' | 'answer_key' | 'classify' | 'explain'
-    checkpoint: Record<string, unknown> | null
-  },
-  resolve: Resolver,
-): Promise<void> {
-  const {provider, executor} = await resolve(db, job.userId)
+async function runOneServerJob(db: Db, job: ClaimedJob): Promise<void> {
+  const {provider, executor} = await resolveProvider(db, job.userId)
 
   if (executor !== 'server') {
     await failJob(
@@ -478,17 +463,11 @@ async function runOneServerJob(
       }
     }
 
-    const delivered = await transitionWorksheet(
-      db,
-      job.worksheetId,
-      ['queued', 'processing'],
-      {status: 'awaiting_review'},
-    )
+    await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
+      status: 'awaiting_review',
+    })
 
     await completeJob(db, job.id)
-
-    if (delivered) {
-    }
 
     await enqueueJob(db, {
       worksheetId: job.worksheetId,
@@ -524,13 +503,11 @@ async function handOverClassification(
 
 async function runSolvingJob(
   db: Db,
-  provider: Awaited<ReturnType<Resolver>>['provider'],
+  provider: AIProvider,
   job: {id: string; worksheetId: string; userId: string},
 ): Promise<void> {
   try {
-    const progress = await deriveSolutions(db, provider, job.worksheetId, {
-      limit: SOLVE_BATCH,
-    })
+    const progress = await deriveSolutions(db, provider, job.worksheetId, SOLVE_BATCH)
 
     await completeJob(db, job.id)
 

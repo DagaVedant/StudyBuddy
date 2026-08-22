@@ -20,7 +20,7 @@ export interface AuditResult {
 
 export function auditExtraction(
   pages: PageFindings[],
-  expectedTotal: number | null = null,
+  expectedTotal: number | null,
 ): AuditResult {
   const seen = new Set<number>()
   for (const page of pages) {
@@ -33,17 +33,14 @@ export function auditExtraction(
   const lowest = hasNumbers ? Math.min(...seen) : 1
   const highest = hasNumbers ? Math.max(...seen) : 0
 
-  const ceiling =
-    expectedTotal && expectedTotal > 0 && lowest === 1
-      ? Math.max(expectedTotal, highest)
-      : highest
+  const expected = expectedTotal !== null && expectedTotal > 0 ? expectedTotal : null
+
+  const ceiling = expected !== null && lowest === 1 ? Math.max(expected, highest) : highest
 
   const missing: number[] = []
   for (let number = lowest; number <= ceiling; number += 1) {
-    if (number >= 1 && !seen.has(number)) missing.push(number)
+    if (!seen.has(number)) missing.push(number)
   }
-
-  const expected = expectedTotal && expectedTotal > 0 ? expectedTotal : null
 
   const silent = pages
     .filter((page) => page.expectsQuestions === true && page.printed.length === 0)
@@ -98,7 +95,7 @@ function pagesToRetry(
       continue
     }
 
-    const before = [...numbered].reverse().find((p) => p.high < number)
+    const before = numbered.findLast((p) => p.high < number)
     const after = numbered.find((p) => p.low > number)
 
     const between = silent.filter(
