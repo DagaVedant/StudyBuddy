@@ -6,7 +6,6 @@ import {mkdir, readFile, stat, unlink, writeFile} from 'node:fs/promises'
 import {
   and,
   count,
-  desc,
   eq,
   gte,
   inArray,
@@ -17,7 +16,7 @@ import {
 } from 'drizzle-orm'
 import {del, get, put} from '@vercel/blob'
 
-import {gpuWorkers, processingJobs, users, worksheetPages, worksheets} from '@/lib/schema'
+import {gpuWorkers, processingJobs, worksheetPages, worksheets} from '@/lib/schema'
 import {auth} from '@/auth'
 import {db, type Db, unwrapDriverRows} from '@/lib/db'
 
@@ -59,7 +58,7 @@ export async function inFlightExtractCount(db: Db, userId: string): Promise<numb
       ),
     )
 
-  return Number(row?.count ?? 0)
+  return Number(row.count)
 }
 
 export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {
@@ -304,9 +303,9 @@ export async function queueDepth(
     .where(eq(processingJobs.executor, executor))
 
   return {
-    pending: Number(row?.pending ?? 0),
-    running: Number(row?.running ?? 0),
-    oldestPendingAt: row?.oldest ? new Date(row.oldest) : null,
+    pending: Number(row.pending),
+    running: Number(row.running),
+    oldestPendingAt: row.oldest ? new Date(row.oldest) : null,
   }
 }
 
@@ -371,97 +370,6 @@ export async function markWorkerOffline(db: Db, name: string): Promise<void> {
     .update(gpuWorkers)
     .set({status: 'offline', jobsInFlight: 0})
     .where(eq(gpuWorkers.name, name))
-}
-
-export interface ActionableJob {
-  id: string
-  worksheetId: string
-  userId: string
-  userEmail: string | null
-  stage: JobStage
-  executor: JobExecutor
-  status: (typeof processingJobs.$inferSelect)['status']
-  attemptCount: number
-  error: string | null
-  claimedAt: Date | null
-  createdAt: Date
-}
-
-const ACTIONABLE_STATUSES = ['claimed', 'running', 'failed', 'cancelled'] as const
-
-export async function listActionableJobs(db: Db, limit = 50): Promise<ActionableJob[]> {
-  return db
-    .select({
-      id: processingJobs.id,
-      worksheetId: processingJobs.worksheetId,
-      userId: processingJobs.userId,
-      userEmail: users.email,
-      stage: processingJobs.stage,
-      executor: processingJobs.executor,
-      status: processingJobs.status,
-      attemptCount: processingJobs.attemptCount,
-      error: processingJobs.error,
-      claimedAt: processingJobs.claimedAt,
-      createdAt: processingJobs.createdAt,
-    })
-    .from(processingJobs)
-    .innerJoin(users, eq(users.id, processingJobs.userId))
-    .where(inArray(processingJobs.status, ACTIONABLE_STATUSES))
-    .orderBy(desc(processingJobs.createdAt))
-    .limit(limit)
-}
-
-export async function cancelJob(
-  db: Db,
-  jobId: string,
-  message = 'Cancelled by an admin.',
-): Promise<AbandonedJob | null> {
-  const [cancelled] = await db
-    .update(processingJobs)
-    .set({
-      status: 'cancelled',
-      error: message,
-      claimedBy: null,
-      claimedAt: null,
-      completedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(processingJobs.id, jobId),
-        inArray(processingJobs.status, ['pending', 'claimed', 'running']),
-      ),
-    )
-    .returning({
-      id: processingJobs.id,
-      stage: processingJobs.stage,
-      userId: processingJobs.userId,
-      worksheetId: processingJobs.worksheetId,
-    })
-
-  return cancelled ?? null
-}
-
-export async function requeueJob(db: Db, jobId: string): Promise<boolean> {
-  const [job] = await db
-    .update(processingJobs)
-    .set({
-      status: 'pending',
-      attemptCount: 0,
-      error: null,
-      claimedBy: null,
-      claimedAt: null,
-      completedAt: null,
-    })
-    .where(
-      and(eq(processingJobs.id, jobId), inArray(processingJobs.status, ['failed', 'cancelled'])),
-    )
-    .returning({id: processingJobs.id, worksheetId: processingJobs.worksheetId})
-
-  if (!job) return false
-
-  await transitionWorksheet(db, job.worksheetId, ['failed'], {status: 'queued'})
-
-  return true
 }
 
 export type WorksheetStatus = (typeof worksheets.$inferSelect)['status']
@@ -569,6 +477,7 @@ export async function sweepAbandonedUploads(
 
   return stale.length
 }
+
 export interface StoredObject {
   body: Buffer
   contentType: string
@@ -702,7 +611,7 @@ interface StorageEnv {
   VERCEL_ENV?: string
 }
 
-export function selectDriver(env: StorageEnv = process.env as StorageEnv): StorageDriver {
+function selectDriver(env: StorageEnv = process.env as StorageEnv): StorageDriver {
   if (env.BLOB_READ_WRITE_TOKEN) return blobDriver
 
   if (env.VERCEL_ENV) {

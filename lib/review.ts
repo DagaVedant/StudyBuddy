@@ -1,4 +1,5 @@
 import {and, asc, desc, eq, inArray, isNull, lte, or, sql} from 'drizzle-orm'
+import {createEmptyCard, fsrs, Rating, type Card, type Grade, type State} from 'ts-fsrs'
 
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {answerChoices, attempts, explanations, questionTopics, questions, reviewCards, topics, worksheetPages} from '@/lib/schema'
@@ -81,7 +82,7 @@ export async function countReviewQueue(
       and(eq(reviewCards.userId, userId), inReviewQueue(userId, now), inTopic(topicId)),
     )
 
-  return Number(row?.value ?? 0)
+  return Number(row.value)
 }
 
 export async function getDueCards(
@@ -239,20 +240,12 @@ export async function getDueCards(
   })
 }
 
-import {
-  createEmptyCard,
-  fsrs,
-  Rating,
-  State,
-  type Card,
-  type Grade,
-} from 'ts-fsrs'
-
 const scheduler = fsrs()
 
 export type Outcome = 'correct' | 'unsure' | 'wrong'
 export type CardStateName = 'new' | 'learning' | 'review' | 'relearning'
 
+// order matches the ts-fsrs State enum, so both conversions below are just index math
 const STATE_NAMES: CardStateName[] = ['new', 'learning', 'review', 'relearning']
 
 const GRADE_BY_OUTCOME: Record<Outcome, Grade> = {
@@ -266,7 +259,7 @@ export const REVIEW_GRADES = {
   hard: Rating.Hard,
   good: Rating.Good,
   easy: Rating.Easy,
-} as const satisfies Record<string, Grade>
+} as const
 
 export type ReviewRating = keyof typeof REVIEW_GRADES
 
@@ -294,12 +287,11 @@ export interface ScheduleResult {
 }
 
 function toStateName(state: State): CardStateName {
-  return STATE_NAMES[state] ?? 'new'
+  return STATE_NAMES[state]
 }
 
 function toStateValue(name: CardStateName): State {
-  const index = STATE_NAMES.indexOf(name)
-  return (index < 0 ? State.New : index) as State
+  return STATE_NAMES.indexOf(name) as State
 }
 
 function toFsrsCard(stored: StoredCard | null, now: Date): Card {
@@ -372,12 +364,15 @@ export function previewIntervals(
   stored: StoredCard,
   now: Date = new Date(),
 ): Record<ReviewRating, Date> {
-  const entries = Object.entries(REVIEW_GRADES) as [ReviewRating, Grade][]
-  return Object.fromEntries(
-    entries.map(([name, grade]) => [
-      name, scheduler.next(toFsrsCard(stored, now), now, grade).card.due,
-    ]),
-  ) as Record<ReviewRating, Date>
+  const dueAfter = (grade: Grade) =>
+    scheduler.next(toFsrsCard(stored, now), now, grade).card.due
+
+  return {
+    again: dueAfter(REVIEW_GRADES.again),
+    hard: dueAfter(REVIEW_GRADES.hard),
+    good: dueAfter(REVIEW_GRADES.good),
+    easy: dueAfter(REVIEW_GRADES.easy),
+  }
 }
 
 export function formatInterval(due: Date, now: Date = new Date()): string {

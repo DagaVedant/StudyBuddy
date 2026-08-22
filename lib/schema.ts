@@ -487,7 +487,8 @@ export const reports = pgTable(
   (t) => [
     index('reports_created_idx').on(t.createdAt),
     index('reports_worksheet_idx').on(t.worksheetId),
-    index('reports_user_idx').on(t.userId), index('reports_question_idx').on(t.questionId),
+    index('reports_user_idx').on(t.userId),
+    index('reports_question_idx').on(t.questionId),
     index('reports_explanation_idx').on(t.explanationId),
   ],
 )
@@ -616,17 +617,3 @@ export const rateLimits = pgTable('rate_limits', {
   count: integer('count').default(0).notNull(),
   windowStart: timestamp('window_start', {withTimezone: true}).defaultNow().notNull(),
 })
-
-export type User = typeof users.$inferSelect
-export type Worksheet = typeof worksheets.$inferSelect
-export type WorksheetPage = typeof worksheetPages.$inferSelect
-export type Question = typeof questions.$inferSelect
-export type AnswerChoice = typeof answerChoices.$inferSelect
-export type Topic = typeof topics.$inferSelect
-export type Attempt = typeof attempts.$inferSelect
-export type Explanation = typeof explanations.$inferSelect
-export type ReviewCard = typeof reviewCards.$inferSelect
-export type ProcessingJob = typeof processingJobs.$inferSelect
-export type GpuWorker = typeof gpuWorkers.$inferSelect
-export type UsageEvent = typeof usageEvents.$inferSelect
-export type UserAiCredential = typeof userAiCredentials.$inferSelect

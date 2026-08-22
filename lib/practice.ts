@@ -1,4 +1,4 @@
-import {and, asc, desc, eq, isNotNull, isNull, sql} from 'drizzle-orm'
+import {and, desc, eq, isNotNull, isNull, sql} from 'drizzle-orm'
 
 import {answerChoices, attempts, questions, questionSolutions, questionTopics, reviewCards, topicLessons, topics, usageEvents, worksheets} from '@/lib/schema'
 import {
@@ -23,7 +23,7 @@ export const PRACTICE_BATCH = 4
 
 export const PRACTICE_BATCH_MAX = 8
 
-export const PRACTICE_WORKSHEET_TITLE = 'Practice written for you'
+const PRACTICE_WORKSHEET_TITLE = 'Practice written for you'
 
 const SAMPLES_SHOWN = 6
 
@@ -57,7 +57,7 @@ async function findPracticeWorksheet(db: Db, userId: string): Promise<string | n
   return existing?.id ?? null
 }
 
-export async function practiceWorksheetId(db: Db, userId: string): Promise<string> {
+async function practiceWorksheetId(db: Db, userId: string): Promise<string> {
   const existing = await findPracticeWorksheet(db, userId)
   if (existing) return existing
 
@@ -154,18 +154,15 @@ export async function acceptPractice(
   const hashes = await ownedHashes(db, request.userId)
 
   const {kept, rejected} = siftPractice(written.slice(0, count), hashes)
+  const flagged = rejected.map(({flags}) => ({flags}))
 
   if (kept.length === 0) {
-    return {created: 0, rejected: rejected.map(({flags}) => ({flags})), questionIds: []}
+    return {created: 0, rejected: flagged, questionIds: []}
   }
 
   const questionIds = await store(db, author, request, kept)
 
-  return {
-    created: questionIds.length,
-    rejected: rejected.map(({flags}) => ({flags})),
-    questionIds,
-  }
+  return {created: questionIds.length, rejected: flagged, questionIds}
 }
 
 export async function generatePractice(
@@ -191,7 +188,7 @@ async function store(
     .from(questions)
     .where(eq(questions.worksheetId, worksheetId))
 
-  const from = Number(highest?.ordinal ?? 0)
+  const from = highest.ordinal
   const now = new Date()
 
   return db.transaction(async (tx) => {
@@ -265,18 +262,8 @@ async function store(
 export async function countGenerated(
   db: Db,
   userId: string,
-  topicId?: string,
+  topicId: string,
 ): Promise<number> {
-  const query = db
-    .select({value: sql<number>`count(*)::int`})
-    .from(questions)
-    .where(and(eq(questions.userId, userId), eq(questions.origin, 'generated')))
-
-  if (!topicId) {
-    const [row] = await query
-    return Number(row?.value ?? 0)
-  }
-
   const [row] = await db
     .select({value: sql<number>`count(*)::int`})
     .from(questions)
@@ -289,7 +276,7 @@ export async function countGenerated(
       ),
     )
 
-  return Number(row?.value ?? 0)
+  return row.value
 }
 
 const REQUIRED_CHOICES = 4
@@ -331,10 +318,6 @@ const GIVEAWAY_FLOOR = 24
 
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function longestWrong(texts: string[]): number {
-  return texts.reduce((longest, text) => Math.max(longest, text.length), 0)
 }
 
 function answerIsInStem(promptText: string, answerText: string): boolean {
@@ -419,7 +402,11 @@ function checkAnswer(question: GeneratedQuestion): PracticeFlag[] {
   }
 
   const answerLength = key.text.trim().length
-  const longest = longestWrong(others.map((choice) => choice.text.trim()))
+
+  let longest = 0
+  for (const choice of others) {
+    longest = Math.max(longest, choice.text.trim().length)
+  }
 
   if (
     others.length > 0 &&
@@ -460,18 +447,22 @@ function checkProse(question: GeneratedQuestion): PracticeFlag[] {
     ...question.choices.map((choice) => choice.text),
   ].join('\n')
 
-  if (LATEX.test(everything)) {
+  const markup = LATEX.exec(everything)
+
+  if (markup) {
     flags.push({
       code: 'markup_leaked',
-      detail: `markup a student would read as nonsense: "${LATEX.exec(everything)?.[0] ?? ''}"`,
+      detail: `markup a student would read as nonsense: "${markup[0]}"`,
       severity: 'high',
     })
   }
 
-  if (FIGURE.test(question.prompt_text)) {
+  const figure = FIGURE.exec(question.prompt_text)
+
+  if (figure) {
     flags.push({
       code: 'needs_a_figure',
-      detail: `refers to "${FIGURE.exec(question.prompt_text)?.[0] ?? ''}" and there is nothing to look at`,
+      detail: `refers to "${figure[0]}" and there is nothing to look at`,
       severity: 'high',
     })
   }
@@ -497,19 +488,14 @@ function checkProse(question: GeneratedQuestion): PracticeFlag[] {
   return flags
 }
 
-export function practiceHash(question: GeneratedQuestion): string {
+function practiceHash(question: GeneratedQuestion): string {
   return hashQuestion(question.prompt_text, question.choices)
 }
 
-export interface PracticeContext {
-  seenStems?: Iterable<string>
-
-  ownedHashes?: Iterable<string>
-}
-
-export function validateGenerated(
+function validateGenerated(
   question: GeneratedQuestion,
-  context: PracticeContext = {},
+  seenStems: Set<string>,
+  ownedHashes: Set<string>,
 ): PracticeFlag[] {
   const flags: PracticeFlag[] = [
     ...validateQuestion({
@@ -517,17 +503,14 @@ export function validateGenerated(
       promptText: question.prompt_text,
       questionType: 'multiple_choice',
       choices: question.choices,
-    }).map((flag) => ({...flag})),
+    }),
     ...checkLabels(question),
     ...checkAnswer(question),
     ...checkOptions(question),
     ...checkProse(question),
   ]
 
-  const stem = normalizeForCompare(question.prompt_text)
-  const seen = new Set(context.seenStems ?? [])
-
-  if (seen.has(stem)) {
+  if (seenStems.has(normalizeForCompare(question.prompt_text))) {
     flags.push({
       code: 'duplicate_of_batch',
       detail: 'the same question twice in one batch',
@@ -535,9 +518,7 @@ export function validateGenerated(
     })
   }
 
-  const owned = new Set(context.ownedHashes ?? [])
-
-  if (owned.has(practiceHash(question))) {
+  if (ownedHashes.has(practiceHash(question))) {
     flags.push({
       code: 'duplicate_of_library',
       detail: 'the student already has this exact question',
@@ -548,27 +529,24 @@ export function validateGenerated(
   return flags
 }
 
-export function isUsable(flags: PracticeFlag[]): boolean {
+function isUsable(flags: PracticeFlag[]): boolean {
   return !flags.some((flag) => flag.severity === 'high')
 }
 
-export interface SiftedPractice {
+interface SiftedPractice {
   kept: GeneratedQuestion[]
   rejected: {question: GeneratedQuestion; flags: PracticeFlag[]}[]
 }
 
-export function siftPractice(
-  questions: GeneratedQuestion[],
-  ownedHashes: Iterable<string> = [],
-): SiftedPractice {
+function siftPractice(written: GeneratedQuestion[], hashes: string[]): SiftedPractice {
   const seenStems = new Set<string>()
-  const owned = new Set(ownedHashes)
+  const owned = new Set(hashes)
 
   const kept: GeneratedQuestion[] = []
   const rejected: SiftedPractice['rejected'] = []
 
-  for (const question of questions) {
-    const flags = validateGenerated(question, {seenStems, ownedHashes: owned})
+  for (const question of written) {
+    const flags = validateGenerated(question, seenStems, owned)
 
     if (!isUsable(flags)) {
       rejected.push({question, flags})
@@ -582,6 +560,7 @@ export function siftPractice(
 
   return {kept, rejected}
 }
+
 const SAMPLE_QUESTIONS = 5
 
 export interface StoredLesson {
@@ -592,17 +571,14 @@ export interface StoredLesson {
   generatedAt: Date
 }
 
-function ownedBy(userId: string | null) {
-  return userId === null
-    ? isNull(topicLessons.userId)
-    : eq(topicLessons.userId, userId)
-}
-
 async function lessonFor(
   db: Db,
   topicId: string,
   userId: string | null,
 ): Promise<StoredLesson | null> {
+  const ownedBy =
+    userId === null ? isNull(topicLessons.userId) : eq(topicLessons.userId, userId)
+
   const [row] = await db
     .select({
       bodyMd: topicLessons.bodyMd,
@@ -612,7 +588,7 @@ async function lessonFor(
       generatedAt: topicLessons.generatedAt,
     })
     .from(topicLessons)
-    .where(and(eq(topicLessons.topicId, topicId), ownedBy(userId)))
+    .where(and(eq(topicLessons.topicId, topicId), ownedBy))
     .limit(1)
 
   if (!row) return null
@@ -704,12 +680,9 @@ export async function generateLesson(
   db: Db,
   provider: AIProvider,
   topicId: string,
-  options: {force?: boolean} = {},
 ): Promise<StoredLesson | null> {
-  if (!options.force) {
-    const existing = await getLesson(db, topicId, null)
-    if (existing) return null
-  }
+  const existing = await getLesson(db, topicId, null)
+  if (existing) return null
 
   const lesson = await provider.teachTopic(await lessonInput(db, topicId))
 
@@ -726,31 +699,6 @@ async function sampleQuestions(db: Db, topicId: string): Promise<string[]> {
     .limit(SAMPLE_QUESTIONS)
 
   return rows.map((row) => row.promptText)
-}
-
-export async function topicsNeedingLessons(
-  db: Db,
-  limit = 20,
-  options: {includeWritten?: boolean} = {},
-): Promise<{topicId: string; name: string; attempts: number}[]> {
-  const rows = await db
-    .select({topicId: topics.id, name: topics.name, attempts: sql<number>`count(*)::int`})
-    .from(questionTopics)
-    .innerJoin(topics, eq(topics.id, questionTopics.topicId))
-    .where(
-      options.includeWritten
-        ? sql`true`
-        : sql`not exists (
-            select 1 from ${topicLessons}
-            where ${topicLessons.topicId} = ${topics.id}
-              and ${topicLessons.userId} is null
-          )`,
-    )
-    .groupBy(topics.id, topics.name)
-    .orderBy(desc(sql`count(*)`), asc(topics.name))
-    .limit(limit)
-
-  return rows
 }
 
 const SECTION_START = /^(#{1,6})\s+(.*)$|^\*\*([^*]+)\*\*:?\s*$/
@@ -772,7 +720,7 @@ function sectionOf(line: string): Section | null {
   return {title: (match[2] ?? '').trim(), level: match[1].length}
 }
 
-export function trimLessonBody(bodyMd: string): string {
+function trimLessonBody(bodyMd: string): string {
   const lines = bodyMd.replace(/\r\n/g, '\n').split('\n')
   const kept: string[] = []
 
@@ -782,12 +730,14 @@ export function trimLessonBody(bodyMd: string): string {
     const section = sectionOf(line)
 
     if (section) {
-      if (section.level === 1 && !DUPLICATED.test(section.title)) {
+      const duplicated = DUPLICATED.test(section.title)
+
+      if (section.level === 1 && !duplicated) {
         skipping = false
         continue
       }
 
-      skipping = DUPLICATED.test(section.title)
+      skipping = duplicated
       if (skipping) continue
     }
 

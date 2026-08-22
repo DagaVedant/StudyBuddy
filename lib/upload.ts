@@ -100,9 +100,10 @@ export function destination(
     case 'failed':
       return {href: `/worksheets/${id}/status`, cta: 'See what happened'}
     default:
-      return worksheet.markedCount > 0
-        ? {href: `/worksheets/${id}/markup`, cta: 'See your marks'}
-        : {href: `/worksheets/${id}/markup`, cta: 'Mark answers'}
+      return {
+        href: `/worksheets/${id}/markup`,
+        cta: worksheet.markedCount > 0 ? 'See your marks' : 'Mark answers',
+      }
   }
 }
 

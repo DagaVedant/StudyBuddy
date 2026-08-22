@@ -30,15 +30,14 @@ const client =
 globalForDb.__sql = client
 
 export const db = drizzle(client, {schema: tables}) as unknown as Db
-export {client}
 export type Db = PgDatabase<PgQueryResultHKT, typeof tables>
 
 export function isUniqueViolation(error: unknown): boolean {
-  const codes = [error, (error as {cause?: unknown} | null)?.cause]
-  return codes.some((candidate) => (candidate as {code?: unknown} | null)?.code === '23505')
+  const cause = (error as {cause?: unknown} | null)?.cause
+  return [error, cause].some((value) => (value as {code?: unknown} | null)?.code === '23505')
 }
 
 export function unwrapDriverRows<T>(result: unknown): T[] {
   if (Array.isArray(result)) return result as T[]
-  return ((result as {rows?: T[]}).rows ?? []) as T[]
+  return (result as {rows?: T[]}).rows ?? []
 }

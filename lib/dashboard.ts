@@ -3,10 +3,9 @@ import {and, desc, eq, inArray, isNotNull, lte, sql} from 'drizzle-orm'
 import {COUNTS_TOWARDS_ACCURACY, IS_QUESTION} from '@/lib/questions/queries'
 import {inReviewQueue} from '@/lib/review'
 import {type Db, unwrapDriverRows as rows} from '@/lib/db'
-import {MIN_ATTEMPTS, type TopicStats} from '@/lib/ranking'
-
+import {type TopicStats} from '@/lib/ranking'
+import {MIN_ATTEMPTS} from '@/lib/upload'
 import {attempts, questionTopics, questions, reviewCards, topics, worksheets} from '@/lib/schema'
-
 
 const TREND_BAND = 0.1
 
@@ -130,11 +129,11 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
     .where(and(eq(reviewCards.userId, userId), inReviewQueue(userId)))
 
   return {
-    questionsTracked: Number(counts?.questions_tracked ?? 0),
-    worksheetsUploaded: Number(counts?.worksheets_uploaded ?? 0),
-    attemptsLogged: Number(counts?.attempts_logged ?? 0),
-    dueNow: Number(dueNow?.value ?? 0),
-    toPractise: Number(queued?.value ?? 0),
+    questionsTracked: Number(counts.questions_tracked),
+    worksheetsUploaded: Number(counts.worksheets_uploaded),
+    attemptsLogged: Number(counts.attempts_logged),
+    dueNow: Number(dueNow.value),
+    toPractise: Number(queued.value),
   }
 }
 
@@ -475,8 +474,7 @@ export async function getAccountAccuracy(db: Db, userId: string): Promise<Accoun
     `),
   )
 
-  const correct = row?.correct ?? 0
-  const total = row?.total ?? 0
+  const {correct, total} = row
 
   return {
     correct,

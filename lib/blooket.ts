@@ -7,9 +7,7 @@ import {reflowText} from '@/lib/questions/shape'
 import {type Db} from '@/lib/db'
 
 const MAX_ANSWERS = 4
-
 const WIDTH = 10
-
 const TIME_LIMIT = 30
 
 const BANNER = ['StudyBuddy: questions you missed']
@@ -63,13 +61,17 @@ function quote(value: string): string {
 }
 
 function line(fields: string[]): string {
-  const padded = [...fields.slice(0, WIDTH)]
+  const padded = fields.slice(0, WIDTH)
   while (padded.length < WIDTH) padded.push('')
   return padded.map(quote).join(',')
 }
 
 function cell(text: string): string {
   return reflowText(text).replace(/\s+/g, ' ').trim()
+}
+
+function labelKey(value: string): string {
+  return value.trim().replace(/[.):]+$/, '').toLowerCase()
 }
 
 function correctChoices(
@@ -79,12 +81,10 @@ function correctChoices(
   const flagged = choices.filter((choice) => choice.isCorrect)
   if (flagged.length > 0) return new Set(flagged)
 
-  const key = (correctAnswer ?? '').trim().replace(/[.):]+$/, '').toLowerCase()
+  const key = labelKey(correctAnswer ?? '')
   if (!key) return new Set()
 
-  const byLabel = choices.filter(
-    (choice) => choice.label.trim().replace(/[.):]+$/, '').toLowerCase() === key,
-  )
+  const byLabel = choices.filter((choice) => labelKey(choice.label) === key)
   if (byLabel.length > 0) return new Set(byLabel)
 
   return new Set(choices.filter((choice) => choice.text.toLowerCase() === key))
@@ -119,19 +119,23 @@ function shape(question: ExportQuestion): Row | SkipReason {
 
   if (choices.length >= 2 && marked.size > 0) {
     const kept = trimToFour(choices, marked)
-    return {
-      prompt,
-      answers: kept.map((choice) => choice.text),
-      correct: kept.flatMap((choice, index) => (marked.has(choice) ? [index + 1] : [])),
-      typed: false,
+
+    const correct: number[] = []
+    for (const [index, choice] of kept.entries()) {
+      if (marked.has(choice)) correct.push(index + 1)
     }
+
+    return {prompt, answers: kept.map((choice) => choice.text), correct, typed: false}
   }
 
   const answer = cell(question.correctAnswer ?? '')
   if (!answer) return 'no-answer'
 
   if (question.questionType === 'true_false') {
-    const truth = /^(true|t)$/i.test(answer) ? 1 : /^(false|f)$/i.test(answer) ? 2 : 0
+    let truth = 0
+    if (/^(true|t)$/i.test(answer)) truth = 1
+    else if (/^(false|f)$/i.test(answer)) truth = 2
+
     if (truth > 0) {
       return {prompt, answers: ['True', 'False'], correct: [truth], typed: false}
     }
@@ -288,5 +292,5 @@ export async function countMissedQuestions(
     .from(questions)
     .where(missedBy(userId, worksheetId))
 
-  return Number(row?.value ?? 0)
+  return Number(row.value)
 }

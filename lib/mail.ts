@@ -10,23 +10,30 @@ export interface MailMessage {
   text: string
 }
 
-export interface MailSender {
+interface MailSender {
   address: string
   name: string
+}
+
+interface SmtpSettings {
+  host: string
+  port: number
+  user: string
+  password: string
 }
 
 const DEFAULT_HOST = 'smtp.gmail.com'
 
 const DEFAULT_PORT = 465
 
-export function mailSender(): MailSender | null {
+function mailSender(): MailSender | null {
   const address = process.env.MAIL_FROM?.trim()
   if (!address) return null
 
   return {address, name: process.env.MAIL_FROM_NAME?.trim() || 'StudyBuddy'}
 }
 
-export function smtpSettings(): SmtpSettings | null {
+function smtpSettings(): SmtpSettings | null {
   const password = process.env.SMTP_PASSWORD?.trim()
   const user = process.env.SMTP_USER?.trim() || mailSender()?.address
 
@@ -63,14 +70,7 @@ export async function sendMail(message: MailMessage): Promise<void> {
 
 const TIMEOUT_MS = 15_000
 
-export interface SmtpSettings {
-  host: string
-  port: number
-  user: string
-  password: string
-}
-
-export async function sendOverSmtp(
+async function sendOverSmtp(
   settings: SmtpSettings,
   sender: MailSender,
   message: MailMessage,
@@ -100,6 +100,7 @@ export async function sendOverSmtp(
     transport.close()
   }
 }
+
 export interface ErrorReport {
   message: string
   digest?: string
@@ -120,7 +121,9 @@ const lastSeen = new Map<string, number>()
 let windowStartedAt = 0
 let sentThisWindow = 0
 
-function shouldSend(key: string, now: number): boolean {
+function shouldSend(key: string): boolean {
+  const now = Date.now()
+
   if (now - windowStartedAt > HOUR_MS) {
     windowStartedAt = now
     sentThisWindow = 0
@@ -137,24 +140,14 @@ function shouldSend(key: string, now: number): boolean {
   return true
 }
 
-export function resetAlertThrottle(): void {
-  lastSeen.clear()
-  windowStartedAt = 0
-  sentThisWindow = 0
-}
-
 function describe(report: ErrorReport): string {
   const where = [report.method, report.path].filter(Boolean).join(' ')
+  const digest = report.digest ? ` (digest ${report.digest})` : ''
 
-  return `${where || report.routeType || 'server'}: ${report.message}${
-    report.digest ? ` (digest ${report.digest})` : ''
-  }`
+  return `${where || report.routeType || 'server'}: ${report.message}${digest}`
 }
 
-export async function reportError(
-  report: ErrorReport,
-  now: number = Date.now(),
-): Promise<void> {
+export async function reportError(report: ErrorReport): Promise<void> {
   const line = describe(report)
 
   console.error(`[error] ${line}`)
@@ -163,7 +156,7 @@ export async function reportError(
   const alertTo = process.env.ALERT_EMAIL?.trim()
 
   if (!url && !alertTo) return
-  if (!shouldSend(report.message, now)) return
+  if (!shouldSend(report.message)) return
 
   const site = process.env.NEXT_PUBLIC_APP_URL?.trim() || 'studybuddy'
   const body = `StudyBuddy error on ${site}\n${line}`
@@ -193,6 +186,7 @@ export async function reportError(
     }
   }
 }
+
 export type ReportInput =
   | {kind: 'worksheet'; worksheetId: string; message?: string | null}
   | {kind: 'explanation'; questionId: string; message?: string | null}

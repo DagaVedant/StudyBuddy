@@ -1,7 +1,5 @@
 import {MIN_ATTEMPTS} from '@/lib/upload'
-
 import {flattenTaxonomy} from '@/lib/taxonomy'
-
 
 const Z = 1.96
 
@@ -27,29 +25,28 @@ export interface RankedTopic extends TopicStats {
   ranked: boolean
 }
 
-export function wilsonLowerBound(successes: number, total: number, z: number = Z): number {
+function wilsonLowerBound(successes: number, total: number): number {
   if (total <= 0) return 0
 
   const phat = successes / total
-  const z2 = z * z
+  const z2 = Z * Z
   const denominator = 1 + z2 / total
   const centre = phat + z2 / (2 * total)
-  const margin = z * Math.sqrt((phat * (1 - phat) + z2 / (4 * total)) / total)
+  const margin = Z * Math.sqrt((phat * (1 - phat) + z2 / (4 * total)) / total)
 
   return Math.max(0, (centre - margin) / denominator)
 }
 
 export function summarize(stats: TopicStats): RankedTopic {
   const attempts = stats.correct + stats.unsure + stats.wrong
-  const errors = stats.wrong
 
   return {
     ...stats,
     attempts,
     accuracy: attempts > 0 ? stats.correct / attempts : 0,
-    errorRate: attempts > 0 ? errors / attempts : 0,
+    errorRate: attempts > 0 ? stats.wrong / attempts : 0,
     unsureRate: attempts > 0 ? stats.unsure / attempts : 0,
-    score: wilsonLowerBound(errors, attempts),
+    score: wilsonLowerBound(stats.wrong, attempts),
     ranked: attempts >= MIN_ATTEMPTS,
   }
 }
@@ -77,37 +74,6 @@ export function rankFragile(stats: TopicStats[]): RankedTopic[] {
         b.unsureRate - a.unsureRate ||
         a.topicPath.localeCompare(b.topicPath),
     )
-}
-
-export function rollUp(
-  stats: TopicStats[],
-  keyOf: (stats: TopicStats) => string,
-  labelOf: (stats: TopicStats) => string,
-): RankedTopic[] {
-  const buckets = new Map<string, TopicStats>()
-
-  for (const entry of stats) {
-    const key = keyOf(entry)
-    const bucket = buckets.get(key) ?? {
-      topicId: key,
-      topicName: labelOf(entry),
-      topicPath: labelOf(entry),
-      subjectRoot: entry.subjectRoot,
-      correct: 0,
-      unsure: 0,
-      wrong: 0,
-      trend: null,
-    }
-
-    bucket.correct += entry.correct
-    bucket.unsure += entry.unsure
-    bucket.wrong += entry.wrong
-    buckets.set(key, bucket)
-  }
-
-  return [...buckets.values()]
-    .map(summarize)
-    .sort((a, b) => a.topicPath.localeCompare(b.topicPath))
 }
 
 export interface TopicTreeNode {
@@ -173,7 +139,7 @@ export function buildTopicTree(stats: TopicStats[]): TopicTreeNode[] {
   return roots
 }
 
-export function hasAttempts(node: TopicTreeNode): boolean {
+function hasAttempts(node: TopicTreeNode): boolean {
   return node.attempts > 0
 }
 

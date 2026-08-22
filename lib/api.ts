@@ -102,17 +102,7 @@ export const WORKSHEET_WRITE_LIMIT: LimitRule = {
   windowSeconds: 3600,
 }
 
-export const NOTIFICATION_WRITE_LIMIT: LimitRule = {
-  action: 'notification-write',
-  limit: 200,
-  windowSeconds: 3600,
-}
-
-export function limitKey(rule: LimitRule, subject: string): string {
-  return `${rule.action}:${subject.slice(0, 180)}`
-}
-
-export function limitsEnforced(): boolean {
+function limitsEnforced(): boolean {
   return process.env.DISABLE_RATE_LIMITS !== 'true'
 }
 
@@ -124,8 +114,7 @@ export async function consumeRateLimit(
 ): Promise<LimitDecision> {
   if (!limitsEnforced()) return {ok: true, remaining: rule.limit, retryAfter: 0}
 
-  const key = limitKey(rule, subject)
-
+  const key = `${rule.action}:${subject.slice(0, 180)}`
   const nowIso = now.toISOString()
 
   let rows: unknown
@@ -182,7 +171,10 @@ function unreadable(rule: LimitRule): LimitDecision {
 function decide(rows: unknown, rule: LimitRule, now: Date): LimitDecision {
   const first = unwrapDriverRows<{count: number | string; window_start: string | Date}>(rows)[0]
 
-  if (!first) return rule.failClosed ? unreadable(rule) : {ok: true, remaining: rule.limit, retryAfter: 0}
+  if (!first) {
+    if (rule.failClosed) return unreadable(rule)
+    return {ok: true, remaining: rule.limit, retryAfter: 0}
+  }
 
   const count = Number(first.count)
   const windowStart = new Date(first.window_start)
@@ -200,13 +192,6 @@ function decide(rows: unknown, rule: LimitRule, now: Date): LimitDecision {
   return {ok: true, remaining: Math.max(0, rule.limit - count), retryAfter: 0}
 }
 
-export function limitedResponse(decision: LimitDecision, message: string): Response {
-  return Response.json(
-    {error: message},
-    {status: 429, headers: {'Retry-After': String(decision.retryAfter)}},
-  )
-}
-
 export async function guardRateLimit(
   db: Db,
   rule: LimitRule,
@@ -214,7 +199,12 @@ export async function guardRateLimit(
   message: string,
 ): Promise<Response | null> {
   const decision = await consumeRateLimit(db, rule, subject)
-  return decision.ok ? null : limitedResponse(decision, message)
+  if (decision.ok) return null
+
+  return Response.json(
+    {error: message},
+    {status: 429, headers: {'Retry-After': String(decision.retryAfter)}},
+  )
 }
 
 function safeEquals(a: string, b: string): boolean {
@@ -243,7 +233,7 @@ export function authenticateCron(request: Request): CronAuth {
 }
 
 export function clientIp(headers: Headers): string | null {
-  const forwarded = headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  const forwarded = headers.get('x-forwarded-for')?.split(',')[0].trim()
   if (forwarded) return forwarded
   return headers.get('x-real-ip')?.trim() || null
 }
@@ -254,56 +244,11 @@ export function callerIp(headers: Headers): string {
 
 export function appBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  return stripTrailingSlashes(raw)
-}
-
-export function stripTrailingSlashes(url: string): string {
-  return url.trim().replace(/\/+$/, '')
+  return raw.trim().replace(/\/+$/, '')
 }
 
 export const POLICY_UPDATED = '18 August 2026'
 
 export function contactEmail(): string | null {
   return process.env.CONTACT_EMAIL?.trim() || null
-}
-
-export type Endpoint = (
-  request: Request,
-  ctx: {params: Promise<Record<string, string>>},
-) => Promise<Response>
-
-function dynamicSegments(pattern: string): number {
-  return pattern.split('/').filter((part) => part.startsWith(':')).length
-}
-
-export function endpoints(table: [string, string, Endpoint][]) {
-  const ordered = [...table].sort(
-    (a, b) => dynamicSegments(a[1]) - dynamicSegments(b[1]),
-  )
-
-  return async function handle(
-    request: Request,
-    ctx: {params: Promise<{path?: string[]}>},
-  ): Promise<Response> {
-    const {path = []} = await ctx.params
-
-    for (const [method, pattern, handler] of ordered) {
-      if (method !== request.method) continue
-
-      const parts = pattern === '' ? [] : pattern.split('/')
-      if (parts.length !== path.length) continue
-
-      const params: Record<string, string> = {}
-      let matched = true
-
-      for (let i = 0; i < parts.length; i += 1) {
-        if (parts[i].startsWith(':')) params[parts[i].slice(1)] = path[i]
-        else if (parts[i] !== path[i]) {matched = false; break}
-      }
-
-      if (matched) return handler(request, {params: Promise.resolve(params)})
-    }
-
-    return new Response('Not found', {status: 404})
-  }
 }
