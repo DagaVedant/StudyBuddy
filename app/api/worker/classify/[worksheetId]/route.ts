@@ -98,7 +98,9 @@ async function postClassifyWorksheetid(request: Request, {params}: {params: Prom
       )
       if (outcome.topicId) applied += 1
       if (outcome.coarse) coarse += 1
-    } catch {}
+    } catch (cause) {
+      console.error(`[classify] ${entry.questionId} could not be applied:`, cause)
+    }
   }
 
   const remaining = await pendingQuestions(db, worksheetId, 1)
