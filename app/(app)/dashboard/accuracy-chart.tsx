@@ -10,11 +10,17 @@ const WEEK_OF = new Intl.DateTimeFormat(undefined, {
   timeZone: 'UTC',
 })
 
-const WEEK_LABEL = (weekStart: string) => WEEK_OF.format(new Date(weekStart))
+function weekLabel(weekStart: string): string {
+  return WEEK_OF.format(new Date(weekStart))
+}
 
 function subjectLabel(root: string): string {
   const words = root.replace(/-/g, ' ')
   return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+function attempts(point: TrendPoint): number {
+  return point.correct + point.unsure + point.wrong
 }
 
 export default function AccuracyChart({
@@ -24,15 +30,17 @@ export default function AccuracyChart({
   overall: TrendPoint[]
   bySubject: SubjectTrend[]
 }) {
-  const [subject, setSubject] = useState<string>('')
+  const [subject, setSubject] = useState('')
   const selectId = useId()
 
-  const series = subject
-    ? (bySubject.find((row) => row.subjectRoot === subject)?.points ?? overall)
-    : overall
+  let series = overall
+  if (subject) {
+    const match = bySubject.find((row) => row.subjectRoot === subject)
+    if (match) series = match.points
+  }
 
-  const totals = series.map((point) => point.correct + point.unsure + point.wrong)
-  const maxWeek = Math.max(1, ...totals)
+  const maxWeek = Math.max(1, ...series.map(attempts))
+  const scale = (value: number) => (value / maxWeek) * 100
 
   return (
     <>
@@ -59,8 +67,7 @@ export default function AccuracyChart({
 
       <div className="flex h-28 items-stretch gap-1" aria-hidden="true">
         {series.map((point) => {
-          const total = point.correct + point.unsure + point.wrong
-          const scale = (value: number) => (value / maxWeek) * 100
+          const total = attempts(point)
 
           return (
             <div
@@ -93,8 +100,8 @@ export default function AccuracyChart({
         aria-hidden="true"
         className="mt-1.5 flex justify-between text-xs tabular-nums text-muted"
       >
-        <span>{WEEK_LABEL(series[0].weekStart)}</span>
-        <span>{WEEK_LABEL(series.at(-1)!.weekStart)}</span>
+        <span>{weekLabel(series[0].weekStart)}</span>
+        <span>{weekLabel(series[series.length - 1].weekStart)}</span>
       </p>
 
       <table className="sr-only">

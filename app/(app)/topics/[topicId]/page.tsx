@@ -9,12 +9,11 @@ import {summarize} from '@/lib/ranking'
 import {answerChoices, attempts, questionTopics, questions, topics, worksheets} from '@/lib/schema'
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {pathBySlug} from '@/lib/taxonomy'
-import {getLesson} from '@/lib/practice'
+import {countGenerated, getLesson} from '@/lib/practice'
 import {Prose} from '@/components/prose'
 import {RevisitQuestion} from '@/components/revisit-question'
 import {GenerateLessonButton} from '@/components/generate-lesson'
 import {GeneratePracticeButton} from '@/components/generate-practice'
-import {countGenerated} from '@/lib/practice'
 
 export const metadata = {title: 'Topic · StudyBuddy'}
 export const dynamic = 'force-dynamic'
@@ -60,9 +59,9 @@ export default async function TopicPage({
     topicPath: path,
     subjectRoot: topic.subjectRoot,
     trend: null,
-    correct: Number(tally?.correct ?? 0),
-    unsure: Number(tally?.unsure ?? 0),
-    wrong: Number(tally?.wrong ?? 0),
+    correct: tally.correct,
+    unsure: tally.unsure,
+    wrong: tally.wrong,
   })
 
   const vault = await db
@@ -116,15 +115,12 @@ export default async function TopicPage({
         </Link>
       </nav>
 
-        <h1 className="text-balance text-2xl font-semibold tracking-tight">
-          {topic.name}
-        </h1>
+      <h1 className="text-balance text-2xl font-semibold tracking-tight">
+        {topic.name}
+      </h1>
       <p className="hint mb-6 text-pretty">{path}</p>
 
-      <section
-        aria-labelledby="mastery-heading"
-        className="card p-4"
-      >
+      <section aria-labelledby="mastery-heading" className="card p-4">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="mastery-heading" className="text-sm font-medium">
             Accuracy
@@ -141,15 +137,18 @@ export default async function TopicPage({
         </div>
 
         <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
-          {[
-            {label: 'Got it', value: stats.correct}, {label: 'Unsure', value: stats.unsure},
-            {label: 'Missed', value: stats.wrong},
-          ].map((item) => (
-            <div key={item.label}>
-              <dt className="text-muted">{item.label}</dt>
-              <dd className="mt-0.5 text-lg font-semibold tabular-nums">{item.value}</dd>
-            </div>
-          ))}
+          <div>
+            <dt className="text-muted">Got it</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums">{stats.correct}</dd>
+          </div>
+          <div>
+            <dt className="text-muted">Unsure</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums">{stats.unsure}</dd>
+          </div>
+          <div>
+            <dt className="text-muted">Missed</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums">{stats.wrong}</dd>
+          </div>
         </dl>
 
         {!stats.ranked && (

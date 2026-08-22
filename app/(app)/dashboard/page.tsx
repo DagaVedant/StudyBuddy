@@ -2,10 +2,7 @@ import Link from 'next/link'
 import {redirect} from 'next/navigation'
 
 import {auth} from '@/auth'
-import {
-  canSortTopicsHere,
-  getCredentialSummary,
-} from '@/lib/ai/resolve'
+import {canSortTopicsHere, getCredentialSummary} from '@/lib/ai/resolve'
 import {TopicSorter} from '@/components/topic-sorter'
 import {AccuracyLabel, Meter} from '@/components/meter'
 import {countMissedQuestions} from '@/lib/blooket'
@@ -15,8 +12,7 @@ import {getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getO
 import {StudyCalendar} from '@/components/study-calendar'
 import {Underline} from '@/components/hand'
 import {Callout, MarginNote, Note, PageFoot, SectionHead} from '@/components/note'
-import {rankFragile, rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
-import {buildTopicTree, pruneToAttempted} from '@/lib/ranking'
+import {buildTopicTree, pruneToAttempted, rankFragile, rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
 import {topics} from '@/lib/schema'
 import {pathBySlug} from '@/lib/taxonomy'
 import {destination} from '@/lib/upload'
@@ -180,20 +176,12 @@ export default async function DashboardPage() {
     .filter((topic) => topic.unsureRate >= 0.25)
     .slice(0, 5)
 
-  
-  
   const subjectTree = pruneToAttempted(buildTopicTree(rawStats))
   const topicIdBySlug = new Map(topicRows.map((row) => [row.slug, row.id]))
 
   const thin = stats.map(summarize).filter((topic) => !topic.ranked).length
   const weekTotals = trend.map((p) => p.correct + p.unsure + p.wrong)
   const hasData = overview.attemptsLogged > 0
-
-  
-  
-  
-  
-  
   const hasTrend = weekTotals.some((total) => total > 0)
 
   return (
@@ -223,7 +211,6 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-6 border-b-2 border-rule-heavy" />
-
 
       <div className="mt-8 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <div className="min-w-0">
@@ -285,15 +272,15 @@ export default async function DashboardPage() {
                           }`}
                         >
                           <div className="flex items-baseline justify-between gap-3">
-                              <span
-                                className={
-                                  index === 0
-                                    ? 'min-w-0 flex-1 font-display text-xl font-semibold leading-tight tracking-tight sm:text-2xl'
-                                    : 'min-w-0 flex-1 truncate text-sm font-medium'
-                                }
-                              >
-                                {topic.topicName}
-                              </span>
+                            <span
+                              className={
+                                index === 0
+                                  ? 'min-w-0 flex-1 font-display text-xl font-semibold leading-tight tracking-tight sm:text-2xl'
+                                  : 'min-w-0 flex-1 truncate text-sm font-medium'
+                              }
+                            >
+                              {topic.topicName}
+                            </span>
                             <span className="flex shrink-0 items-baseline gap-1.5">
                               {index === 0 ? (
                                 <span className="font-display text-3xl font-semibold tabular-nums sm:text-4xl">
@@ -326,7 +313,6 @@ export default async function DashboardPage() {
                     ))}
                   </ul>
                 )}
-
               </Note>
 
               <Note labelledBy="subject">
@@ -350,7 +336,6 @@ export default async function DashboardPage() {
                     </p>
                   </>
                 )}
-
               </Note>
 
               <Note labelledBy="guessed">
@@ -374,7 +359,6 @@ export default async function DashboardPage() {
                     ))}
                   </ul>
                 )}
-
               </Note>
 
               <Note labelledBy="better">
@@ -387,7 +371,6 @@ export default async function DashboardPage() {
                 ) : (
                   <AccuracyChart overall={trend} bySubject={trendBySubject} />
                 )}
-
               </Note>
 
               {distractors.length > 0 && (
@@ -396,7 +379,7 @@ export default async function DashboardPage() {
                     id="reaching"
                     title="Answers you keep reaching for"
                   />
-                  <ul className="">
+                  <ul>
                     {distractors.map((row) => (
                       <li key={`${row.questionId}-${row.choiceLabel}`} className="py-2">
                         <p className="truncate text-sm">{row.promptText}</p>
@@ -410,7 +393,6 @@ export default async function DashboardPage() {
                       </li>
                     ))}
                   </ul>
-
                 </Note>
               )}
             </div>
@@ -421,7 +403,7 @@ export default async function DashboardPage() {
             {recent.length === 0 ? (
               <Empty>Nothing uploaded yet.</Empty>
             ) : (
-              <ul className="">
+              <ul>
                 {recent.map((sheet) => (
                   <li key={sheet.id} className="py-2.5">
                     <div className="flex items-baseline gap-3">
@@ -457,7 +439,6 @@ export default async function DashboardPage() {
                 ))}
               </ul>
             )}
-
           </Note>
         </div>
 
@@ -478,7 +459,7 @@ export default async function DashboardPage() {
               <Figure label="Worksheets" value={overview.worksheetsUploaded} />
               <Figure
                 label="Study streak"
-                value={streak > 0 ? `${streak}` : '0'}
+                value={streak}
                 unit={streak === 1 ? 'day' : 'days'}
               />
             </dl>
@@ -487,7 +468,6 @@ export default async function DashboardPage() {
           {hasData && (
             <MarginNote label="The record">
               <StudyCalendar days={calendar} streak={streak} weeks={17} />
-
             </MarginNote>
           )}
 
@@ -513,10 +493,8 @@ export default async function DashboardPage() {
                   ))}
                 </ul>
               )}
-
             </MarginNote>
           )}
-
 
           {missed > 0 && (
             <Callout label="Play these in Blooket">
@@ -531,7 +509,6 @@ export default async function DashboardPage() {
                 <span className="tabular-nums">{missed}</span>{' '}
                 {missed === 1 ? 'question' : 'questions'} to draw from.
               </p>
-
             </Callout>
           )}
         </aside>

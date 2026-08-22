@@ -19,9 +19,10 @@ interface Props {
 }
 
 function initialsOf(source: string): string {
-  const words = source.trim().split(/\s+/).filter(Boolean)
+  const text = source.trim()
+  const words = text.split(/\s+/)
   if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
-  return source.trim().slice(0, 2).toUpperCase()
+  return text.slice(0, 2).toUpperCase()
 }
 
 function Avatar({
@@ -109,9 +110,7 @@ export default function ProfileClient({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
-      <PageHead
-        title="Profile"
-      />
+      <PageHead title="Profile" />
 
       <div className="card mt-6 p-4">
         <div className="flex items-center gap-4">

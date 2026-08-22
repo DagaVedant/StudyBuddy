@@ -26,36 +26,33 @@ async function AppTopbar() {
 
         <NavLinks />
 
-        <div className="flex shrink-0 items-center gap-2">
-          <form
-            action={async () => {
-              'use server'
-              await signOut({redirectTo: '/signin'})
-            }}
+        <form
+          className="shrink-0"
+          action={async () => {
+            'use server'
+            await signOut({redirectTo: '/signin'})
+          }}
+        >
+          <button
+            type="submit"
+            className="rounded-sm px-3 py-1.5 text-sm font-medium transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            <button
-              type="submit"
-              className="rounded-sm px-3 py-1.5 text-sm font-medium transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
+            Sign out
+          </button>
+        </form>
       </div>
     </header>
   )
 }
 
-export default async function AppLayout({
-  children,
-}: Readonly<{children: React.ReactNode}>) {
+export default async function AppLayout({children}: {children: React.ReactNode}) {
   const session = await auth()
 
-  const runsHere = browserTierEnabled() && session?.user?.id
-    ? (await getCredentialSummary(db, session.user.id)).some(
-        (row) => row.provider === 'ollama' && row.ollamaBaseUrl,
-      )
-    : false
+  let runsHere = false
+  if (browserTierEnabled() && session?.user?.id) {
+    const credentials = await getCredentialSummary(db, session.user.id)
+    runsHere = credentials.some((row) => row.provider === 'ollama' && row.ollamaBaseUrl)
+  }
 
   return (
     <>

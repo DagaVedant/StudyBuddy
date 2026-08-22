@@ -35,9 +35,7 @@ export default async function TopicsPage() {
       </nav>
 
       <div className="mb-6">
-        <PageHead
-          title="Topics"
-        />
+        <PageHead title="Topics" />
       </div>
 
       {rows.length === 0 ? (
