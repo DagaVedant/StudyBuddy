@@ -8,10 +8,7 @@ export function Note({
   children: React.ReactNode
 }) {
   return (
-    <section
-      aria-labelledby={labelledBy}
-      className={`border border-rule bg-surface p-5 ${className}`}
-    >
+    <section aria-labelledby={labelledBy} className={className}>
       {children}
     </section>
   )
