@@ -14,9 +14,6 @@ export async function freshDb(): Promise<Db> {
   for (const statement of sql.split('--> statement-breakpoint')) {
     const trimmed = statement.trim()
     if (!trimmed) continue
-    // PGlite's pgvector build has no hnsw access method. The indexes only
-    // affect how the planner reaches the embedding columns, not what the
-    // queries under test return.
     if (/USING hnsw/i.test(trimmed)) continue
     await client.exec(trimmed)
   }

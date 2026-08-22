@@ -386,7 +386,7 @@ export async function findMatchingSample(
     if (pages.length !== sample.pages.length) continue
     if (!firstPage.includes(squash(sample.title))) continue
 
-    return {sample, pages: pages.map((page) => ({id: page.id}))}
+    return {sample, pages}
   }
 
   return null
@@ -402,12 +402,7 @@ export async function applyCachedSample(
   let total = 0
 
   for (const [index, page] of pages.entries()) {
-    total += await persistQuestions(
-      db,
-      {worksheetId, userId},
-      page.id,
-      sample.pages[index] ?? [],
-    )
+    total += await persistQuestions(db, {worksheetId, userId}, page.id, sample.pages[index])
   }
 
   const [topic] = await db
@@ -416,27 +411,27 @@ export async function applyCachedSample(
     .where(eq(topics.slug, sample.topicSlug))
     .limit(1)
 
-  if (topic) {
-    const rows = await db
-      .select({id: questions.id})
-      .from(questions)
-      .where(eq(questions.worksheetId, worksheetId))
+  if (!topic) return total
 
-    if (rows.length > 0) {
-      await db
-        .insert(questionTopics)
-        .values(
-          rows.map((row) => ({
-            questionId: row.id,
-            topicId: topic.id,
-            confidence: 1,
-            assignedBy: 'ai' as const,
-            isPrimary: true,
-          })),
-        )
-        .onConflictDoNothing()
-    }
-  }
+  const rows = await db
+    .select({id: questions.id})
+    .from(questions)
+    .where(eq(questions.worksheetId, worksheetId))
+
+  if (rows.length === 0) return total
+
+  await db
+    .insert(questionTopics)
+    .values(
+      rows.map((row) => ({
+        questionId: row.id,
+        topicId: topic.id,
+        confidence: 1,
+        assignedBy: 'ai' as const,
+        isPrimary: true,
+      })),
+    )
+    .onConflictDoNothing()
 
   return total
 }
