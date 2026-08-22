@@ -16,12 +16,19 @@ export type ProviderName =
   | 'mock'
   | 'null'
 
-export const questionTypeSchema = z.enum([
+const questionTypeSchema = z.enum([
   'multiple_choice', 'free_response', 'true_false', 'fill_blank', 'grid_in',
 ])
 
-export const extractedQuestionSchema = z.object({
+function isBox(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value.every((n) => typeof n === 'number' && Number.isFinite(n))
+  )
+}
 
+export const extractedQuestionSchema = z.object({
   ordinal: z.coerce
     .number()
     .catch(0)
@@ -37,7 +44,6 @@ export const extractedQuestionSchema = z.object({
     )
     .max(12)
     .default([]),
-
   bbox: z
     .preprocess(
       (value) => (isBox(value) ? value : null),
@@ -47,21 +53,9 @@ export const extractedQuestionSchema = z.object({
   has_figure: z.boolean().default(false),
 })
 
-function isBox(value: unknown): boolean {
-  return (
-    Array.isArray(value) &&
-    value.length === 4 &&
-    value.every((n) => typeof n === 'number' && Number.isFinite(n))
-  )
-}
-
-export const extractionResultSchema = z.object({
-  questions: z.array(extractedQuestionSchema).max(100),
-})
-
 export type ExtractedQuestion = z.infer<typeof extractedQuestionSchema>
 
-export interface ExtractionRejection {
+interface ExtractionRejection {
   path: string
   message: string
   preview: string
@@ -73,16 +67,14 @@ function previewOf(item: unknown): string {
   return (source ?? '').replace(/\s+/g, ' ').slice(0, 70)
 }
 
-export function parseExtraction(raw: unknown): {
+const RESTATEMENT = /^\s*(the\s+)?question\s+(asks|is\s+asking|requires|wants)\b/i
+
+function parseExtraction(raw: unknown): {
   questions: ExtractedQuestion[]
-  rejected: number
   rejections: ExtractionRejection[]
 } {
-  const outer = z
-    .object({questions: z.array(z.unknown()).max(200)})
-    .safeParse(raw)
-
-  if (!outer.success) return {questions: [], rejected: 0, rejections: []}
+  const outer = z.object({questions: z.array(z.unknown()).max(200)}).safeParse(raw)
+  if (!outer.success) return {questions: [], rejections: []}
 
   const questions: ExtractedQuestion[] = []
   const rejections: ExtractionRejection[] = []
@@ -99,7 +91,7 @@ export function parseExtraction(raw: unknown): {
       continue
     }
 
-    if (isRestatement(parsed.data.prompt_text)) {
+    if (RESTATEMENT.test(parsed.data.prompt_text)) {
       rejections.push({
         path: 'prompt_text',
         message: 'reads as a restatement of the task rather than a question',
@@ -111,13 +103,7 @@ export function parseExtraction(raw: unknown): {
     questions.push(parsed.data)
   }
 
-  return {questions, rejected: rejections.length, rejections}
-}
-
-const RESTATEMENT = /^\s*(the\s+)?question\s+(asks|is\s+asking|requires|wants)\b/i
-
-function isRestatement(promptText: string): boolean {
-  return RESTATEMENT.test(promptText)
+  return {questions, rejections}
 }
 
 const confidenceSchema = z.preprocess((value) => {
@@ -131,28 +117,18 @@ export const classificationSchema = z.object({
   topic_slug: z.string().nullable(),
   confidence: confidenceSchema.default(0),
   abstain: z.boolean().default(false),
-
 })
 
 export type Classification = z.infer<typeof classificationSchema>
 
-export function parseClassification(raw: unknown): Classification {
-  return classificationSchema.parse(raw)
-}
-
-export const explanationSchema = z.object({
+const explanationSchema = z.object({
   body_md: z.string().min(1).max(6000),
-
   misconception_note: z.string().max(400).nullable().default(null),
 })
 
 export type Explanation = z.infer<typeof explanationSchema>
 
-export function parseExplanation(raw: unknown): Explanation {
-  return explanationSchema.parse(raw)
-}
-
-export const solutionSchema = z.object({
+const solutionSchema = z.object({
   answer: z.string().max(400).nullable().default(null),
   working: z.string().max(8000).default(''),
   traps: z
@@ -165,10 +141,6 @@ export const solutionSchema = z.object({
 })
 
 export type Solution = z.infer<typeof solutionSchema>
-
-export function parseSolution(raw: unknown): Solution {
-  return solutionSchema.parse(raw)
-}
 
 export const lessonSchema = z.object({
   body_md: z.string().min(1).max(20000),
@@ -196,10 +168,6 @@ export const lessonSchema = z.object({
 
 export type Lesson = z.infer<typeof lessonSchema>
 
-export function parseLesson(raw: unknown): Lesson {
-  return lessonSchema.parse(raw)
-}
-
 export const generatedQuestionSchema = z.object({
   prompt_text: z.string().trim().min(1).max(4000),
   choices: z
@@ -217,7 +185,7 @@ export const generatedQuestionSchema = z.object({
 
 export type GeneratedQuestion = z.infer<typeof generatedQuestionSchema>
 
-export function parsePractice(raw: unknown): GeneratedQuestion[] {
+function parsePractice(raw: unknown): GeneratedQuestion[] {
   const outer = z.object({questions: z.array(z.unknown()).max(40)}).safeParse(raw)
   if (!outer.success) return []
 
@@ -237,7 +205,7 @@ export interface ReviewCandidate {
   choices: {label: string; text: string}[]
 }
 
-export const questionReviewSchema = z.object({
+const questionReviewSchema = z.object({
   number: z.coerce
     .number()
     .catch(0)
@@ -246,13 +214,13 @@ export const questionReviewSchema = z.object({
   reason: z.string().max(400).nullable().default(null),
 })
 
-export const reviewResultSchema = z.object({
+const reviewResultSchema = z.object({
   verdicts: z.array(questionReviewSchema).max(100).default([]),
 })
 
 export type QuestionReview = z.infer<typeof questionReviewSchema>
 
-export function parseReview(raw: unknown): QuestionReview[] {
+function parseReview(raw: unknown): QuestionReview[] {
   const parsed = reviewResultSchema.safeParse(raw)
 
   if (!parsed.success) {
@@ -309,17 +277,13 @@ export interface ExplainInput {
   promptText: string
   choices: {label: string; text: string}[]
   correctAnswer: string | null
-
   studentAnswer: string | null
 }
 
 interface ProviderIdentity {
   readonly name: ProviderName
-
   readonly model: string
-
   readonly answeringModel: string
-
   readonly supportsVision: boolean
   readonly executionSite: ExecutionSite
 }
@@ -328,11 +292,8 @@ export interface RawAIProvider extends ProviderIdentity {
   extractQuestions(page: PageInput): Promise<unknown>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown>
   explain(input: ExplainInput): Promise<unknown>
-
   answerQuestion(input: AnswerInput): Promise<unknown>
-
   teachTopic(input: LessonInput): Promise<unknown>
-
   writePractice(input: PracticeInput): Promise<unknown>
 }
 
@@ -353,9 +314,7 @@ export interface QuestionReviewer {
   reviewQuestions(candidates: ReviewCandidate[]): Promise<QuestionReview[]>
 }
 
-export function canReview<T extends object>(
-  provider: T,
-): provider is T & QuestionReviewer {
+function canReview<T extends object>(provider: T): provider is T & QuestionReviewer {
   return typeof (provider as Partial<QuestionReviewer>).reviewQuestions === 'function'
 }
 
@@ -388,7 +347,7 @@ export const DEFAULT_CLOUD_MODEL: Record<CloudProvider, string> = {
   google: 'gemini-2.5-flash',
 }
 
-export interface ProviderCopy {
+interface ProviderCopy {
   label: string
   keysAt: string
   keyPlaceholder: string
@@ -432,12 +391,12 @@ export function trialDailyCeiling(): number {
   if (raw === 'unlimited') return Number.POSITIVE_INFINITY
 
   const parsed = Number(raw)
-
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 25
 }
+
 const JSON_ESCAPE_LETTERS = new Set(['b', 'f', 'n', 'r', 't', 'u'])
 
-export function repairLatexEscapes(text: string): string {
+function repairLatexEscapes(text: string): string {
   let out = ''
   let inString = false
   let i = 0
@@ -473,7 +432,7 @@ export function repairLatexEscapes(text: string): string {
   return out
 }
 
-export function salvageTruncatedJson(text: string): unknown | null {
+function salvageTruncatedJson(text: string): unknown | null {
   const arrayStart = text.indexOf('[')
   if (arrayStart === -1) return null
 
@@ -518,7 +477,7 @@ export function salvageTruncatedJson(text: string): unknown | null {
   }
 }
 
-export interface LenientParse {
+interface LenientParse {
   value: unknown
   truncated: boolean
 }
@@ -539,9 +498,11 @@ export function parseModelJson(text: string): LenientParse {
   }
 }
 
-export function validated<T extends RawAIProvider>(
-  provider: T,
-): T extends {reviewQuestions: unknown} ? AIProvider & QuestionReviewer : AIProvider {
+type Validated<T> = T extends {reviewQuestions: unknown}
+  ? AIProvider & QuestionReviewer
+  : AIProvider
+
+export function validated<T extends RawAIProvider>(provider: T): Validated<T> {
   const wrapped: AIProvider = {
     name: provider.name,
     model: provider.model,
@@ -550,15 +511,13 @@ export function validated<T extends RawAIProvider>(
     executionSite: provider.executionSite,
 
     async extractQuestions(page) {
-      const {questions, rejected, rejections} = parseExtraction(
-        await provider.extractQuestions(page),
-      )
+      const {questions, rejections} = parseExtraction(await provider.extractQuestions(page))
 
-      if (rejected > 0) {
+      if (rejections.length > 0) {
         const onOperatorMachine = provider.executionSite === 'operator_gpu'
 
         console.warn(
-          `[ai] ${provider.name} page ${page.pageNumber}: dropped ${rejected} ` +
+          `[ai] ${provider.name} page ${page.pageNumber}: dropped ${rejections.length} ` +
             `unreadable question(s), kept ${questions.length}`,
         )
         for (const rejection of rejections) {
@@ -573,15 +532,15 @@ export function validated<T extends RawAIProvider>(
     },
 
     async classifyTopic(promptText, candidates) {
-      return parseClassification(await provider.classifyTopic(promptText, candidates))
+      return classificationSchema.parse(await provider.classifyTopic(promptText, candidates))
     },
 
     async answerQuestion(input) {
-      return parseSolution(await provider.answerQuestion(input))
+      return solutionSchema.parse(await provider.answerQuestion(input))
     },
 
     async teachTopic(input) {
-      return parseLesson(await provider.teachTopic(input))
+      return lessonSchema.parse(await provider.teachTopic(input))
     },
 
     async writePractice(input) {
@@ -589,7 +548,7 @@ export function validated<T extends RawAIProvider>(
     },
 
     async explain(input) {
-      return parseExplanation(await provider.explain(input))
+      return explanationSchema.parse(await provider.explain(input))
     },
   }
 
@@ -600,8 +559,8 @@ export function validated<T extends RawAIProvider>(
         parseReview(await provider.reviewQuestions(candidates)),
     }
 
-    return reviewing as ReturnType<typeof validated<T>>
+    return reviewing as Validated<T>
   }
 
-  return wrapped as ReturnType<typeof validated<T>>
+  return wrapped as Validated<T>
 }

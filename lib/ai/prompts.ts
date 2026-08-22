@@ -81,36 +81,34 @@ question printed on THIS page's image.
 - Never return a question that appears only in the neighbouring text.`
 
 export function extractionUserText(page: PageInput, expect: number[] = []): string {
-  const target =
-    expect.length > 0
-      ? [
-          '',
-          `This page should contain ${expect.length === 1 ? 'question' : 'questions'} ` +
-            `${expect.join(', ')}. A previous read of it missed ${expect.length === 1 ? 'that one' : 'those'}. ` +
-            'Find them, and return every other question on the page as well.',
-        ]
-      : []
-
-  const before = page.before
-    ? [
-      '', 'End of the PREVIOUS page. Context only, not content:',
-      ...fence('previous_page_tail', page.before, 4_000),
-    ]
-    : []
-
-  const after = page.after
-    ? [
-      '', 'Start of the NEXT page. Context only, not content:',
-      ...fence('next_page_head', page.after, 4_000),
-    ]
-    : []
-
-  return [
+  const lines = [
     `Page ${page.pageNumber}, ${page.width}x${page.height} pixels.`, '',
     'Text layer (may be imperfect, and may be empty):',
-    ...fence('page_text', page.text, 20_000), ...before, ...after, ...target, '',
-    'Extract the questions.',
-  ].join('\n')
+    ...fence('page_text', page.text, 20_000),
+  ]
+
+  if (page.before) {
+    lines.push('', 'End of the PREVIOUS page. Context only, not content:')
+    lines.push(...fence('previous_page_tail', page.before, 4_000))
+  }
+
+  if (page.after) {
+    lines.push('', 'Start of the NEXT page. Context only, not content:')
+    lines.push(...fence('next_page_head', page.after, 4_000))
+  }
+
+  if (expect.length > 0) {
+    const noun = expect.length === 1 ? 'question' : 'questions'
+    const missed = expect.length === 1 ? 'that one' : 'those'
+    lines.push(
+      '',
+      `This page should contain ${noun} ${expect.join(', ')}. A previous read of it ` +
+        `missed ${missed}. Find them, and return every other question on the page as well.`,
+    )
+  }
+
+  lines.push('', 'Extract the questions.')
+  return lines.join('\n')
 }
 
 export const CLASSIFY_SYSTEM = `You assign one topic to a practice question.

@@ -2,7 +2,6 @@ import Anthropic from '@anthropic-ai/sdk'
 
 import {appBaseUrl} from '@/lib/api'
 
-import {parseModelJson} from './types'
 import {
   ANSWER_JSON_SCHEMA,
   ANSWER_SYSTEM,
@@ -24,19 +23,20 @@ import {
   practiceUserText,
 } from './prompts'
 import {
-  ProviderRefused,
   type AnswerInput,
   type ExplainInput,
   type LessonInput,
   type PageInput,
+  parseModelJson,
   type PracticeInput,
+  ProviderRefused,
   type RawAIProvider,
   type TopicCandidate,
 } from './types'
 
-export const CLOUD_TIMEOUT_MS = 120_000
+const CLOUD_TIMEOUT_MS = 120_000
 
-export function upstreamFailure(label: string, status: number, body: string): Error {
+function upstreamFailure(label: string, status: number, body: string): Error {
   console.error(`[ai] ${label} responded ${status}: ${body.slice(0, 2000)}`)
   return new Error(describeStatus(label, status))
 }
@@ -57,7 +57,7 @@ function describeStatus(label: string, status: number): string {
   return `${label} rejected the request (HTTP ${status}).`
 }
 
-export function upstreamUnreachable(label: string, cause: unknown): Error {
+function upstreamUnreachable(label: string, cause: unknown): Error {
   console.error(`[ai] ${label} call failed:`, cause)
 
   const name = (cause as {name?: unknown} | null | undefined)?.name
@@ -70,7 +70,7 @@ export function upstreamUnreachable(label: string, cause: unknown): Error {
   )
 }
 
-export interface ModelRequest {
+interface ModelRequest {
   system: string
   userText: string
   schemaName: string
@@ -79,11 +79,7 @@ export interface ModelRequest {
   image?: {data: Uint8Array; mediaType: string}
 }
 
-function asSchema(schema: unknown): Record<string, unknown> {
-  return schema as Record<string, unknown>
-}
-
-export abstract class CloudClient implements RawAIProvider {
+abstract class CloudClient implements RawAIProvider {
   abstract readonly name: RawAIProvider['name']
   readonly supportsVision = true
   readonly executionSite = 'server' as const
@@ -108,7 +104,7 @@ export abstract class CloudClient implements RawAIProvider {
       system: EXTRACTION_SYSTEM,
       userText: extractionUserText(page, page.expect ?? []),
       schemaName: 'extraction',
-      schema: asSchema(EXTRACTION_JSON_SCHEMA),
+      schema: EXTRACTION_JSON_SCHEMA,
       maxTokens: 16000,
       image: {data: page.image, mediaType: page.mediaType},
     })
@@ -119,7 +115,7 @@ export abstract class CloudClient implements RawAIProvider {
       system: CLASSIFY_SYSTEM,
       userText: classifyUserText(promptText, candidates),
       schemaName: 'classification',
-      schema: asSchema(CLASSIFY_JSON_SCHEMA),
+      schema: CLASSIFY_JSON_SCHEMA,
       maxTokens: 2000,
     })
   }
@@ -129,7 +125,7 @@ export abstract class CloudClient implements RawAIProvider {
       system: ANSWER_SYSTEM,
       userText: answerUserText(input),
       schemaName: 'answer',
-      schema: asSchema(ANSWER_JSON_SCHEMA),
+      schema: ANSWER_JSON_SCHEMA,
       maxTokens: 4000,
     })
   }
@@ -139,7 +135,7 @@ export abstract class CloudClient implements RawAIProvider {
       system: LESSON_SYSTEM,
       userText: lessonUserText(input),
       schemaName: 'lesson',
-      schema: asSchema(LESSON_JSON_SCHEMA),
+      schema: LESSON_JSON_SCHEMA,
       maxTokens: 8000,
     })
   }
@@ -149,7 +145,7 @@ export abstract class CloudClient implements RawAIProvider {
       system: PRACTICE_SYSTEM,
       userText: practiceUserText(input),
       schemaName: 'practice',
-      schema: asSchema(PRACTICE_JSON_SCHEMA),
+      schema: PRACTICE_JSON_SCHEMA,
       maxTokens: 8000,
     })
   }
@@ -159,7 +155,7 @@ export abstract class CloudClient implements RawAIProvider {
       system: EXPLAIN_SYSTEM,
       userText: explainUserText(input),
       schemaName: 'explanation',
-      schema: asSchema(EXPLAIN_JSON_SCHEMA),
+      schema: EXPLAIN_JSON_SCHEMA,
       maxTokens: 4000,
     })
   }
@@ -221,7 +217,7 @@ export class AnthropicProvider extends CloudClient {
   }
 }
 
-export interface ChatCompletionsOptions {
+interface ChatCompletionsOptions {
   endpoint?: string
   label?: string
   headers?: Record<string, string>
@@ -238,22 +234,15 @@ export class OpenAIProvider extends CloudClient {
   private readonly label: string
   private readonly headers: Record<string, string>
 
-  constructor(
-    apiKey: string,
-    model = 'gpt-4.1',
-    options: ChatCompletionsOptions | typeof fetch = {},
-  ) {
+  constructor(apiKey: string, model = 'gpt-4.1', options: ChatCompletionsOptions = {}) {
     super(model)
 
-    const resolved: ChatCompletionsOptions =
-      typeof options === 'function' ? {fetchImpl: options} : options
-
     this.apiKey = apiKey
-    this.fetchImpl = resolved.fetchImpl ?? fetch
-    this.endpoint = resolved.endpoint ?? 'https://api.openai.com/v1/chat/completions'
-    this.label = resolved.label ?? 'OpenAI'
-    this.headers = resolved.headers ?? {}
-    this.name = resolved.name ?? 'openai'
+    this.fetchImpl = options.fetchImpl ?? fetch
+    this.endpoint = options.endpoint ?? 'https://api.openai.com/v1/chat/completions'
+    this.label = options.label ?? 'OpenAI'
+    this.headers = options.headers ?? {}
+    this.name = options.name ?? 'openai'
   }
 
   protected async send(request: ModelRequest): Promise<string> {
@@ -305,18 +294,12 @@ export class OpenAIProvider extends CloudClient {
 }
 
 export class OpenRouterProvider extends OpenAIProvider {
-  constructor(
-    apiKey: string,
-    model = 'google/gemini-2.5-flash',
-    appUrl = appBaseUrl(),
-    fetchImpl: typeof fetch = fetch,
-  ) {
+  constructor(apiKey: string, model = 'google/gemini-2.5-flash') {
     super(apiKey, model, {
       endpoint: 'https://openrouter.ai/api/v1/chat/completions',
       label: 'OpenRouter',
       name: 'openrouter',
-      fetchImpl,
-      headers: {'HTTP-Referer': appUrl, 'X-Title': 'StudyBuddy'},
+      headers: {'HTTP-Referer': appBaseUrl(), 'X-Title': 'StudyBuddy'},
     })
   }
 }
@@ -397,7 +380,7 @@ export class GeminiProvider extends CloudClient {
   }
 }
 
-export function geminiSchema(schema: Record<string, unknown>): Record<string, unknown> {
+function geminiSchema(schema: Record<string, unknown>): Record<string, unknown> {
   const allowed = new Set([
     'type', 'format', 'description', 'nullable', 'enum', 'items', 'properties', 'required',
   ])

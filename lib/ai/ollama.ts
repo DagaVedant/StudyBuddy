@@ -32,14 +32,15 @@ import {
   type ExplainInput,
   type LessonInput,
   type PageInput,
+  parseModelJson,
   type PracticeInput,
   type RawAIProvider,
   type RawQuestionReviewer,
   type ReviewCandidate,
   type TopicCandidate,
 } from './types'
-import {parseModelJson} from './types'
 
+// the browser tier runs this in a page, where Buffer does not exist
 function toBase64(bytes: Uint8Array): string {
   if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')
 
@@ -70,29 +71,22 @@ class EmptyReplyError extends Error {
 }
 
 const ANSWER_CONTEXT_TOKENS = 8_192
-
 const LESSON_CONTEXT_TOKENS = 12_288
-
 const TAGS_TIMEOUT_MS = 10_000
 
 export interface OllamaOptions {
   baseUrl: string
   visionModel: string
   textModel: string
+  answerModel?: string
+  reviewModel?: string
 
   executionSite?: ExecutionSite
   fetchImpl?: typeof fetch
   timeoutMs?: number
-
-  answerModel?: string
-
-  reviewModel?: string
-
   maxAttempts?: number
-
   contextTokens?: number
   maxOutputTokens?: number
-
   onStats?: (stats: OllamaCallStats) => void
 }
 
@@ -100,15 +94,11 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   readonly name = 'ollama' as const
   readonly supportsVision = true
   readonly executionSite: ExecutionSite
-
   readonly model: string
-
   readonly answeringModel: string
 
   private readonly baseUrl: string
   private readonly visionModel: string
-  private readonly textModel: string
-  private readonly answerModel: string
   private readonly reviewModel: string
   private readonly fetchImpl: typeof fetch
   private readonly timeoutMs: number
@@ -119,20 +109,17 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
 
   constructor(options: OllamaOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '')
-    this.visionModel = options.visionModel
-    this.textModel = options.textModel
     this.model = options.textModel
-    this.answerModel = options.answerModel ?? options.textModel
-    this.answeringModel = this.answerModel
+    this.answeringModel = options.answerModel ?? options.textModel
+    this.visionModel = options.visionModel
     this.reviewModel = options.reviewModel ?? options.textModel
     this.executionSite = options.executionSite ?? 'browser'
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis)
     this.timeoutMs = options.timeoutMs ?? 10 * 60_000
-
-    this.onStats = options.onStats
     this.contextTokens = options.contextTokens ?? 24_576
     this.maxOutputTokens = options.maxOutputTokens ?? 8_192
     this.maxAttempts = Math.max(1, options.maxAttempts ?? 3)
+    this.onStats = options.onStats
   }
 
   private async chat(
@@ -187,7 +174,6 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
           format: schema,
           options: {
             temperature: attempt === 1 ? 0 : 0.2 * (attempt - 1),
-
             num_ctx: contextTokens,
             num_predict: this.maxOutputTokens,
           },
@@ -243,92 +229,83 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   }
 
   async extractQuestions(page: PageInput): Promise<unknown> {
-    const raw = await this.chat(
+    return this.chat(
       this.visionModel,
       EXTRACTION_SYSTEM,
       extractionUserText(page, page.expect ?? []),
       [toBase64(page.image)],
-      EXTRACTION_JSON_SCHEMA as unknown as Record<string, unknown>,
+      EXTRACTION_JSON_SCHEMA,
     )
-
-    return raw
   }
 
   async classifyTopic(
     promptText: string,
     candidates: TopicCandidate[],
   ): Promise<unknown> {
-    const raw = await this.chat(
-      this.textModel,
+    return this.chat(
+      this.model,
       CLASSIFY_SYSTEM,
       classifyUserText(promptText, candidates),
       undefined,
-      CLASSIFY_JSON_SCHEMA as unknown as Record<string, unknown>,
+      CLASSIFY_JSON_SCHEMA,
     )
-
-    return raw
   }
 
   async answerQuestion(input: AnswerInput): Promise<unknown> {
     const image = input.image
-    const model = image ? this.visionModel : this.answerModel
 
     return this.chat(
-      model,
+      image ? this.visionModel : this.answeringModel,
       ANSWER_SYSTEM,
       answerUserText(input),
       image ? [toBase64(image)] : undefined,
-      ANSWER_JSON_SCHEMA as unknown as Record<string, unknown>,
+      ANSWER_JSON_SCHEMA,
       image ? this.contextTokens : ANSWER_CONTEXT_TOKENS,
     )
   }
 
   async teachTopic(input: LessonInput): Promise<unknown> {
     return this.chat(
-      this.answerModel,
+      this.answeringModel,
       LESSON_SYSTEM,
       lessonUserText(input),
       undefined,
-      LESSON_JSON_SCHEMA as unknown as Record<string, unknown>,
+      LESSON_JSON_SCHEMA,
       LESSON_CONTEXT_TOKENS,
     )
   }
 
   async writePractice(input: PracticeInput): Promise<unknown> {
     return this.chat(
-      this.answerModel,
+      this.answeringModel,
       PRACTICE_SYSTEM,
       practiceUserText(input),
       undefined,
-      PRACTICE_JSON_SCHEMA as unknown as Record<string, unknown>,
+      PRACTICE_JSON_SCHEMA,
       LESSON_CONTEXT_TOKENS,
     )
   }
 
   async explain(input: ExplainInput): Promise<unknown> {
-    const raw = await this.chat(
-      this.textModel,
+    return this.chat(
+      this.model,
       EXPLAIN_SYSTEM,
       explainUserText(input),
       undefined,
-      EXPLAIN_JSON_SCHEMA as unknown as Record<string, unknown>,
+      EXPLAIN_JSON_SCHEMA,
     )
-
-    return raw
   }
 
   async reviewQuestions(candidates: ReviewCandidate[]): Promise<unknown> {
     if (candidates.length === 0) return {verdicts: []}
 
-    const raw = await this.chat(
+    return this.chat(
       this.reviewModel,
       REVIEW_SYSTEM,
       reviewUserText(candidates),
       undefined,
-      REVIEW_JSON_SCHEMA as unknown as Record<string, unknown>,
+      REVIEW_JSON_SCHEMA,
     )
-
-    return raw
   }
 
   async listModels(): Promise<string[]> {
@@ -340,6 +317,7 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     return (body.models ?? []).map((model) => model.name)
   }
 }
+
 export const OLLAMA_FALLBACK_MODEL = 'qwen2.5vl:7b'
 
 export interface OllamaConfig {

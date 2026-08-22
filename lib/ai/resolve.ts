@@ -28,8 +28,8 @@ import {
   type TopicCandidate,
   TRIAL_EXPLANATION_LIMIT,
   TRIAL_WORKSHEET_LIMIT,
+  validated,
 } from './types'
-import {validated} from './types'
 
 export {CLOUD_PROVIDERS, DEFAULT_CLOUD_MODEL, type CloudProvider}
 
@@ -38,7 +38,6 @@ export type Tier = 'trial' | 'free' | 'cloud' | 'ollama'
 export interface ResolvedProvider {
   provider: AIProvider
   tier: Tier
-
   executor: 'server' | 'browser' | 'operator_gpu' | 'none'
 }
 
@@ -159,9 +158,16 @@ function rawCloudProvider(
   }
 }
 
-export function canSortTopicsHere(
-  credentials: Awaited<ReturnType<typeof getCredentialSummary>>,
-): boolean {
+export interface CredentialSummary {
+  provider: StoredProvider
+  keyLast4: string | null
+  ollamaBaseUrl: string | null
+  modelName: string | null
+  visionModelName: string | null
+  verifiedAt: Date | null
+}
+
+export function canSortTopicsHere(credentials: CredentialSummary[]): boolean {
   return credentials.some(
     (row) =>
       isCloudProvider(row.provider) ||
@@ -169,8 +175,11 @@ export function canSortTopicsHere(
   )
 }
 
-export async function getCredentialSummary(db: Db, userId: string) {
-  const rows = await db
+export async function getCredentialSummary(
+  db: Db,
+  userId: string,
+): Promise<CredentialSummary[]> {
+  return db
     .select({
       provider: userAiCredentials.provider,
       keyLast4: userAiCredentials.keyLast4,
@@ -181,8 +190,6 @@ export async function getCredentialSummary(db: Db, userId: string) {
     })
     .from(userAiCredentials)
     .where(eq(userAiCredentials.userId, userId))
-
-  return rows
 }
 
 export async function deleteCredential(
@@ -209,6 +216,7 @@ export function storedProvider(name: ProviderName): StoredProvider | null {
 function isStored(name: string): name is StoredProvider {
   return (aiProvider.enumValues as readonly string[]).includes(name)
 }
+
 export {TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT}
 
 export type TrialKind = 'worksheets' | 'explanations'
@@ -261,10 +269,6 @@ function fieldFor(kind: TrialKind) {
   return kind === 'worksheets' ? 'trialWorksheetsUsed' : 'trialExplanationsUsed'
 }
 
-function limitFor(kind: TrialKind) {
-  return kind === 'worksheets' ? TRIAL_WORKSHEET_LIMIT : TRIAL_EXPLANATION_LIMIT
-}
-
 function eventKindFor(kind: TrialKind) {
   return kind === 'worksheets' ? 'extract_page' : 'explain'
 }
@@ -278,7 +282,7 @@ export async function consumeTrial(
   if (amount <= 0) return {ok: true, remaining: 0}
 
   const column = columnFor(kind)
-  const limit = limitFor(kind)
+  const limit = kind === 'worksheets' ? TRIAL_WORKSHEET_LIMIT : TRIAL_EXPLANATION_LIMIT
 
   const updated = await db
     .update(users)
@@ -293,14 +297,14 @@ export async function consumeTrial(
     const state = await getTrialState(db, userId)
     const remaining =
       kind === 'worksheets' ? state.worksheetsRemaining : state.explanationsRemaining
+    const noun = kind === 'worksheets' ? 'worksheets' : 'explanations'
 
     return {
       ok: false,
       remaining,
       reason:
-        kind === 'worksheets'
-          ? `Your free trial covers ${TRIAL_WORKSHEET_LIMIT} worksheets and you have ${remaining} left. Add an API key or connect Ollama in settings to keep going.`
-          : `Your free trial covers ${TRIAL_EXPLANATION_LIMIT} explanations and you have ${remaining} left. Add an API key or connect Ollama in settings to keep going.`,
+        `Your free trial covers ${limit} ${noun} and you have ${remaining} left. ` +
+        'Add an API key or connect Ollama in settings to keep going.',
     }
   }
 
@@ -383,8 +387,9 @@ export async function trialExtractionsToday(
       ),
     )
 
-  return Number(row?.value ?? 0)
+  return row.value
 }
+
 const ALGORITHM = 'aes-256-gcm'
 const IV_BYTES = 12
 
@@ -461,6 +466,7 @@ export function isAllowedOllamaUrl(value: string): boolean {
     host.endsWith('.localhost')
   )
 }
+
 const VERIFY_TIMEOUT_MS = 10_000
 
 export type KeyVerdict =
@@ -524,6 +530,7 @@ export async function verifyCloudKey(
 
   return {status: 'unreachable', reason: `${provider} answered ${response.status}.`}
 }
+
 export class MockProvider implements RawAIProvider {
   readonly name = 'mock' as const
   readonly model = 'mock' as const
@@ -532,7 +539,6 @@ export class MockProvider implements RawAIProvider {
   readonly executionSite = 'server' as const
 
   async extractQuestions(page: PageInput): Promise<unknown> {
-
     const lines = page.text
       .split('\n')
       .map((line) => line.trim())
