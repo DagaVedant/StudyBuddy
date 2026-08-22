@@ -39,9 +39,7 @@ export interface IngestOptions {
   files: File[]
   title: string
   subjectHint?: string | null
-
   pageRange?: PageRange | null
-
   expectedQuestionCount?: number | null
   onProgress: (progress: IngestProgress) => void
   onWorksheetCreated?: (worksheetId: string) => void
@@ -55,8 +53,6 @@ export interface IngestResult {
 }
 
 class IngestError extends Error {}
-
-const assertNotAborted = throwIfCancelled
 
 async function expectOk(response: Response): Promise<unknown> {
   if (response.ok) return response.json()
@@ -93,7 +89,7 @@ export async function ingestWorksheet({
   let offset = 0
 
   for (const file of pdfs) {
-    assertNotAborted(signal)
+    throwIfCancelled(signal)
     sawPdf = true
 
     const rendered = await rasterizePdf(
@@ -114,7 +110,7 @@ export async function ingestWorksheet({
   }
 
   for (const file of images) {
-    assertNotAborted(signal)
+    throwIfCancelled(signal)
     offset += 1
     if (!pageInRange(offset, pageRange)) continue
 
@@ -136,19 +132,20 @@ export async function ingestWorksheet({
   }
 
   const digital = sawPdf && hasUsableTextLayer(pages)
-  const sourceType = sawPdf
-    ? digital
-      ? 'pdf_digital'
-      : 'pdf_scanned'
-    : images.some((file) => file.type === 'image/heic' || file.type === 'image/heif')
-      ? 'photo'
-      : 'image'
+  const fromCamera = images.some(
+    (file) => file.type === 'image/heic' || file.type === 'image/heif',
+  )
+
+  let sourceType = 'image'
+  if (digital) sourceType = 'pdf_digital'
+  else if (sawPdf) sourceType = 'pdf_scanned'
+  else if (fromCamera) sourceType = 'photo'
 
   if (!digital) preloadOcr()
 
-  assertNotAborted(signal)
+  throwIfCancelled(signal)
 
-  const created = (await expectOk(
+  const {worksheetId} = (await expectOk(
     await fetchJson('/api/worksheets', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -163,13 +160,12 @@ export async function ingestWorksheet({
     }),
   )) as {worksheetId: string}
 
-  const worksheetId = created.worksheetId
   onWorksheetCreated?.(worksheetId)
 
   const pageIds: string[] = []
 
   for (const [index, page] of pages.entries()) {
-    assertNotAborted(signal)
+    throwIfCancelled(signal)
     onProgress({
       stage: 'uploading',
       completed: index + 1,
@@ -195,7 +191,7 @@ export async function ingestWorksheet({
   }
 
   for (const [index, page] of pages.entries()) {
-    assertNotAborted(signal)
+    throwIfCancelled(signal)
     onProgress({
       stage: 'ocr',
       completed: index + 1,
@@ -274,6 +270,7 @@ export async function fetchPageImage(imageKey: string): Promise<PageImage> {
 
   return toPngBytes(await response.blob())
 }
+
 let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
 
 async function getExtractor(): Promise<FeatureExtractionPipeline> {
@@ -284,12 +281,6 @@ async function getExtractor(): Promise<FeatureExtractionPipeline> {
   })
 
   return extractorPromise
-}
-
-export function preloadEmbeddings(): void {
-  void getExtractor().catch(() => {
-    extractorPromise = null
-  })
 }
 
 export async function embedInBrowser(text: string): Promise<number[]> {
@@ -304,12 +295,4 @@ export async function embedInBrowser(text: string): Promise<number[]> {
   })
 
   return Array.from(output.data as Float32Array)
-}
-
-export async function disposeBrowserExtractor(): Promise<void> {
-  const pending = extractorPromise
-  if (!pending) return
-
-  extractorPromise = null
-  await (await pending).dispose()
 }

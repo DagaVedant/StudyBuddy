@@ -1,5 +1,11 @@
-import { firstQuestionAt, type PagePosition, sortWithinPage } from './shape'
-import { normalizeForCompare, normalizeMath, normalizeOptionText } from './shape'
+import {
+  firstQuestionAt,
+  type PagePosition,
+  sortWithinPage,
+  normalizeForCompare,
+  normalizeMath,
+  normalizeOptionText,
+} from './shape'
 
 export interface PageOption {
   label: string
@@ -28,12 +34,10 @@ function nextLabelInside(body: string, code: number): boolean {
 }
 
 export function questionsOnPage(pageText: string): PageQuestion[] {
-  const text = pageText ?? ''
-
   const starts: { number: number; at: number; bodyFrom: number }[] = []
   NUMBERED_LINE.lastIndex = 0
 
-  for (let match = NUMBERED_LINE.exec(text); match; match = NUMBERED_LINE.exec(text)) {
+  for (let match = NUMBERED_LINE.exec(pageText); match; match = NUMBERED_LINE.exec(pageText)) {
     starts.push({
       number: Number(match[1]),
       at: match.index,
@@ -42,7 +46,7 @@ export function questionsOnPage(pageText: string): PageQuestion[] {
   }
 
   return starts.map((start, index) => {
-    const block = text.slice(start.bodyFrom, starts[index + 1]?.at ?? text.length)
+    const block = pageText.slice(start.bodyFrom, starts[index + 1]?.at ?? pageText.length)
 
     const marks: { label: string; at: number; textFrom: number }[] = []
     OPTION_LINE.lastIndex = 0
@@ -103,7 +107,7 @@ export function printedNumbersFor(
   pageText: string,
   prompts: readonly string[],
 ): (number | null)[] {
-  const stems = questionsOnPage(pageText ?? '').map((question) => ({
+  const stems = questionsOnPage(pageText).map((question) => ({
     number: question.number,
     head: normalize(question.stem),
   }))
@@ -113,7 +117,7 @@ export function printedNumbersFor(
   const taken = new Set<number>()
 
   return prompts.map((prompt) => {
-    const head = normalize(prompt ?? '')
+    const head = normalize(prompt)
 
     const hit = stems.find((stem) => !taken.has(stem.number) && sameOpening(stem.head, head))
     if (!hit) return null
@@ -154,9 +158,12 @@ function trustedNumbers(ordered: NumberedQuestion[]): Map<string, number> {
     }
   }
 
-  const unique = ordered.filter(
-    (item) => item.printedNumber !== null && seen.get(item.printedNumber) === 1,
-  )
+  const unique: { id: string; number: number }[] = []
+  for (const item of ordered) {
+    if (item.printedNumber !== null && seen.get(item.printedNumber) === 1) {
+      unique.push({ id: item.id, number: item.printedNumber })
+    }
+  }
 
   const best: number[] = []
   const from: number[] = new Array(unique.length).fill(-1)
@@ -164,7 +171,7 @@ function trustedNumbers(ordered: NumberedQuestion[]): Map<string, number> {
 
   for (let i = 0; i < unique.length; i += 1) {
     for (let j = 0; j < i; j += 1) {
-      const rising = (unique[j].printedNumber as number) < (unique[i].printedNumber as number)
+      const rising = unique[j].number < unique[i].number
       if (rising && length[j] + 1 > length[i]) {
         length[i] = length[j] + 1
         from[i] = j
@@ -181,7 +188,7 @@ function trustedNumbers(ordered: NumberedQuestion[]): Map<string, number> {
   const trusted = new Map<string, number>()
   for (const index of best) {
     const item = unique[index]
-    trusted.set(item.id, item.printedNumber as number)
+    trusted.set(item.id, item.number)
   }
   return trusted
 }
@@ -222,13 +229,19 @@ export function inferPrintedNumbers(
     let low = 0
     for (let back = index - 1; back >= 0; back -= 1) {
       const anchor = trusted.get(ordered[back].id)
-      if (anchor !== undefined) { low = anchor; break }
+      if (anchor !== undefined) {
+        low = anchor
+        break
+      }
     }
 
     let high = ceiling + 1
     for (let forward = end; forward < ordered.length; forward += 1) {
       const anchor = trusted.get(ordered[forward].id)
-      if (anchor !== undefined) { high = anchor; break }
+      if (anchor !== undefined) {
+        high = anchor
+        break
+      }
     }
 
     const candidates = available.filter((n) => n > low && n < high)
@@ -251,6 +264,7 @@ export function inferPrintedNumbers(
 
   return fixes
 }
+
 export interface DuplicateCandidate {
   id: string
   printedNumber: number | null
@@ -301,7 +315,10 @@ export function planDuplicateMerges(questions: DuplicateCandidate[]): MergePlan[
   for (const question of questions) {
     const key = normalizeForCompare(question.promptText)
     if (!key) continue
-    byPrompt.set(key, [...(byPrompt.get(key) ?? []), question])
+
+    const list = byPrompt.get(key)
+    if (list) list.push(question)
+    else byPrompt.set(key, [question])
   }
 
   const plans: MergePlan[] = []
@@ -416,9 +433,10 @@ export function planNumberDuplicateMerges(
 
   for (const question of questions) {
     if (question.printedNumber === null) continue
-    byNumber.set(question.printedNumber, [
-      ...(byNumber.get(question.printedNumber) ?? []), question,
-    ])
+
+    const list = byNumber.get(question.printedNumber)
+    if (list) list.push(question)
+    else byNumber.set(question.printedNumber, [question])
   }
 
   const plans: MergePlan[] = []
@@ -461,9 +479,7 @@ function heldLabels(raw: string[]): string[] {
 }
 
 export interface CarriedChoiceOptions {
-  
   expectedCount?: number | null
-  
   held?: string[]
 }
 
@@ -471,8 +487,7 @@ export function parseCarriedChoices(
   pageText: string,
   options: CarriedChoiceOptions = {},
 ): CarriedChoice[] | null {
-  const text = pageText ?? ''
-  if (text.trim().length === 0) return null
+  if (pageText.trim().length === 0) return null
 
   const expected = options.expectedCount ?? null
   const held = heldLabels(options.held ?? [])
@@ -481,22 +496,14 @@ export function parseCarriedChoices(
   let need: number | null = expected
 
   if (held.length > 0) {
-    
-    
-    
     if (!held.every((label, index) => label.charCodeAt(0) === A + index)) return null
-    
-    
     if (expected === null || held.length >= expected) return null
 
     startCode = A + held.length
     need = expected - held.length
   }
 
-  const limit = firstQuestionAt(text)
-  
-  
-  const head = text.slice(0, limit)
+  const head = pageText.slice(0, firstQuestionAt(pageText))
   if (head.trim().length === 0) return null
 
   const marks: { label: string; at: number; textFrom: number }[] = []
@@ -510,19 +517,12 @@ export function parseCarriedChoices(
     })
   }
 
-  
-  
-  
-  
   const minimum = held.length > 0 ? need! : 3
   if (marks.length < minimum) return null
 
   const start = marks.findIndex((mark) => mark.label.charCodeAt(0) === startCode)
   if (start === -1) return null
 
-  
-  
-  
   if (held.length > 0 && start !== 0) return null
 
   const run: CarriedChoice[] = []
@@ -535,8 +535,6 @@ export function parseCarriedChoices(
     const endsAt = marks[index + 1]?.at ?? head.length
     const body = head.slice(mark.textFrom, endsAt).trim()
 
-    
-    
     if (body.length === 0 || body.length > MAX_OPTION_TEXT) break
 
     run.push({ label: mark.label, text: normalizeMath(body) })
@@ -545,13 +543,11 @@ export function parseCarriedChoices(
 
   if (run.length < minimum) return null
 
-  
-  
-  
   if (need !== null && run.length !== need) return null
 
   return run
 }
+
 export type ValidationCode =
   | 'empty_stem'
   | 'no_choices'
@@ -618,8 +614,6 @@ const ASKS = /\?/
 
 const OPTION_MARK = /(?<![\p{L}\p{N}])\(?([A-Za-z])[).][ \t]+/gu
 
-const MAX_OPTION_TEXT2 = 300
-
 export function isOptionRun(text: string): boolean {
   const trimmed = text.trim()
   if (trimmed.length === 0) return false
@@ -645,7 +639,7 @@ export function isOptionRun(text: string): boolean {
 
   return marks.every((mark, index) => {
     const body = trimmed.slice(mark.textFrom, marks[index + 1]?.at ?? trimmed.length).trim()
-    return body.length > 0 && body.length <= MAX_OPTION_TEXT2
+    return body.length > 0 && body.length <= MAX_OPTION_TEXT
   })
 }
 
@@ -777,13 +771,9 @@ export interface SplitHalf extends ValidatableQuestion, PagePosition {
 }
 
 export interface SplitJoin {
-  
   keepId: string
-  
   dropId: string
-  
   printedNumber: number | null
-  
   reason: string
 }
 
@@ -807,9 +797,11 @@ export function planPageSplitJoins(
   const byPage = new Map<number, SplitHalf[]>()
 
   for (const question of questions) {
-    
     if (question.pageNumber === null) continue
-    byPage.set(question.pageNumber, [...(byPage.get(question.pageNumber) ?? []), question])
+
+    const list = byPage.get(question.pageNumber)
+    if (list) list.push(question)
+    else byPage.set(question.pageNumber, [question])
   }
 
   for (const [pageNumber, page] of byPage) byPage.set(pageNumber, sortWithinPage(page))
@@ -819,33 +811,22 @@ export function planPageSplitJoins(
 
   for (const pageNumber of [...byPage.keys()].sort((a, b) => a - b)) {
     const current = byPage.get(pageNumber)!
-    
-    
-    
+
     const next = byPage.get(pageNumber + 1)
     if (!next || next.length === 0) continue
 
     const head = current[current.length - 1]
     const tail = next[0]
 
-    
-    
     if (!CHOICE_BEARING.has(head.questionType)) continue
     if (head.choices.length > 0) continue
     if (!asksSomething(head)) continue
 
-    
-    
     if (tail.choices.length < 2) continue
     if (!asksNothing(tail)) continue
 
-    
-    
-    
     if (expected !== null && tail.choices.length !== expected) continue
 
-    
-    
     if (
       head.printedNumber !== null &&
       tail.printedNumber !== null &&

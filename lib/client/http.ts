@@ -1,13 +1,10 @@
-import {DEFAULT_AFTER_SIGNIN, safeNextPath} from '@/lib/auth/policy'
+import {safeNextPath} from '@/lib/auth/policy'
 
-function currentPath(): string {
-  if (typeof window === 'undefined') return DEFAULT_AFTER_SIGNIN
-  return safeNextPath(window.location.pathname + window.location.search)
-}
-
-export function redirectToSignIn(): void {
+function redirectToSignIn(): void {
   if (typeof window === 'undefined') return
-  window.location.assign(`/signin?next=${encodeURIComponent(currentPath())}`)
+
+  const next = safeNextPath(window.location.pathname + window.location.search)
+  window.location.assign(`/signin?next=${encodeURIComponent(next)}`)
 }
 
 export class SessionExpiredError extends Error {
@@ -32,8 +29,8 @@ export async function fetchJson(
 }
 
 export class CancelledError extends Error {
-  constructor(message = 'Upload cancelled.') {
-    super(message)
+  constructor() {
+    super('Upload cancelled.')
     this.name = 'CancelledError'
   }
 }
@@ -111,7 +108,7 @@ export function readMarkupDraft(worksheetId: string): MarkupDraft {
     return {
       outcomes: pickOutcomes(draft.outcomes),
       answers: pickAnswers(draft.answers),
-      cursor: Number.isInteger(draft.cursor) && draft.cursor! >= 0 ? draft.cursor! : 0,
+      cursor: pickCursor(draft.cursor),
     }
   } catch {
     return EMPTY
@@ -123,8 +120,7 @@ export function writeMarkupDraft(worksheetId: string, draft: MarkupDraft): void 
 
   try {
     window.localStorage.setItem(key(worksheetId), JSON.stringify(draft))
-  } catch {
-  }
+  } catch {}
 }
 
 export function clearMarkupDraft(worksheetId: string): void {
@@ -132,8 +128,7 @@ export function clearMarkupDraft(worksheetId: string): void {
 
   try {
     window.localStorage.removeItem(key(worksheetId))
-  } catch {
-  }
+  } catch {}
 }
 
 const OUTCOMES = new Set<MarkupOutcome>(['correct', 'unsure', 'wrong'])
@@ -158,4 +153,8 @@ function pickAnswers(value: unknown): Record<string, string> {
     if (typeof answer === 'string' && answer.length <= 2000) out[id] = answer
   }
   return out
+}
+
+function pickCursor(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0
 }

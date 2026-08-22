@@ -51,7 +51,7 @@ export function normalizeOptionText(value: string): string {
     .replace(/\s+/gu, '')
 }
 
-export function contentHashSource(promptText: string, choices: { text: string }[]): string {
+function contentHashSource(promptText: string, choices: { text: string }[]): string {
   return [
     normalizeForCompare(promptText),
     ...choices.map((choice) => normalizeForCompare(choice.text)),
@@ -172,9 +172,6 @@ export function normalizeMath(input: string): string {
   return text.trim()
 }
 
-export function looksUnrendered(text: string): boolean {
-  return /\\[a-zA-Z]+|\\\(|\\\)|\$\$|\\\{|\\\}|[\u0008\u000c]/.test(text)
-}
 export function roundLines(lines: TextLine[] | null): TextLine[] {
   return (lines ?? []).map((line) => {
     const bbox: BBox = [
@@ -193,11 +190,8 @@ function looksLikeQuestion(line: string): boolean {
 }
 
 export interface QuestionStart {
-  
   number: number
-  
   at: number
-  
   bodyFrom: number
 }
 
@@ -221,28 +215,24 @@ export function firstQuestionAt(text: string): number {
   return questionStartsOn(text)[0]?.at ?? text.length
 }
 
-export function questionNumbersOn(text: string): number[] {
-  return questionStartsOn(text).map((start) => start.number)
-}
-
 export function countQuestionStarts(text: string): number {
-  return questionNumbersOn(text).length
+  return questionStartsOn(text).length
 }
 
 const SEAM_CHARS = 1200
 
-export function tailOf(text: string, limit = SEAM_CHARS): string {
-  if (text.length <= limit) return text.trim()
+function tailOf(text: string): string {
+  if (text.length <= SEAM_CHARS) return text.trim()
 
-  const cut = text.slice(text.length - limit)
+  const cut = text.slice(text.length - SEAM_CHARS)
   const firstBreak = cut.indexOf('\n')
   return (firstBreak === -1 ? cut : cut.slice(firstBreak + 1)).trim()
 }
 
-export function headOf(text: string, limit = SEAM_CHARS): string {
-  if (text.length <= limit) return text.trim()
+function headOf(text: string): string {
+  if (text.length <= SEAM_CHARS) return text.trim()
 
-  const cut = text.slice(0, limit)
+  const cut = text.slice(0, SEAM_CHARS)
   const lastBreak = cut.lastIndexOf('\n')
   return (lastBreak === -1 ? cut : cut.slice(0, lastBreak)).trim()
 }
@@ -259,9 +249,7 @@ export function seamAround(
 
 export interface PagePosition {
   printedNumber: number | null
-  
   top: number | null
-  
   position: number
 }
 
@@ -269,15 +257,12 @@ export function sortWithinPage<T extends PagePosition>(page: T[]): T[] {
   const numbered = page.every((question) => question.printedNumber !== null)
   const geometric = page.every((question) => question.top !== null)
 
-  const key = (question: T): number =>
-    numbered
-      ? (question.printedNumber as number)
-      : geometric
-        ? (question.top as number)
-        : question.position
+  const key = (question: T): number => {
+    if (numbered) return question.printedNumber as number
+    if (geometric) return question.top as number
+    return question.position
+  }
 
-  
-  
   return [...page].sort((a, b) => key(a) - key(b) || a.position - b.position)
 }
 
@@ -332,6 +317,7 @@ export function evidenceFor(
 
   return {src: `/api/files/${page.imageKey}`, width: page.width, height: page.height, bbox}
 }
+
 const LABEL = '[A-Ea-e]'
 
 const SOLUTION_LINE = new RegExp(`(?:^|\\s)(\\d{1,3})[.)]\\s*Answer:?\\s*\\(?(${LABEL})\\)?`, 'g')
@@ -346,7 +332,7 @@ function stripTags(text: string): string {
 }
 
 export function parseAnswerKey(pageText: string): Map<number, string> {
-  const text = stripTags(pageText ?? '')
+  const text = stripTags(pageText)
   if (text.trim().length === 0) return new Map()
 
   const seen = new Map<number, Set<string>>()
@@ -395,7 +381,7 @@ function statesAnswers(text: string): boolean {
 }
 
 export function isAnswerPage(pageText: string): boolean {
-  const text = stripTags(pageText ?? '')
+  const text = stripTags(pageText)
   if (text.trim().length === 0) return false
 
   if (countQuestionStarts(text) > 0) return false

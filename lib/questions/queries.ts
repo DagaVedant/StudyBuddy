@@ -29,7 +29,6 @@ export interface LoadedQuestion {
   promptText: string
   questionType: string
   bbox: BBox | null
-  
   top: number | null
   contentHash: string | null
   userVerified: boolean

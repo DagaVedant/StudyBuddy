@@ -1,5 +1,3 @@
-
-
 export const MIN_AGE_YEARS = 13
 
 export function adminEmails(): string[] {
@@ -34,12 +32,14 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 export function validateDob(input: string | Date | null | undefined): AgeCheck {
   if (!input) return {ok: false, reason: 'Enter your date of birth.'}
 
-  const dob =
-    input instanceof Date
-      ? input
-      : ISO_DATE.test(input.trim())
-        ? new Date(`${input.trim()}T00:00:00Z`)
-        : new Date(Number.NaN)
+  let dob: Date
+  if (input instanceof Date) {
+    dob = input
+  } else if (ISO_DATE.test(input.trim())) {
+    dob = new Date(`${input.trim()}T00:00:00Z`)
+  } else {
+    dob = new Date(Number.NaN)
+  }
 
   if (Number.isNaN(dob.getTime())) {
     return {ok: false, reason: 'That date of birth is not valid.'}
@@ -70,7 +70,7 @@ export function safeNextPath(
   const next = value.trim()
 
   if (!next.startsWith('/')) return fallback
-  if (next.startsWith('//') || next.startsWith('/\\')) return fallback
+  if (next.startsWith('//')) return fallback
   if (next.includes('\\')) return fallback
   if (CONTROL_CHARS.test(next)) return fallback
 

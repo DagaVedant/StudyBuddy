@@ -4,11 +4,12 @@ import {and, eq, gt, isNull} from 'drizzle-orm'
 
 import {accounts, passwordResetTokens, users, worksheetPages, worksheets} from '@/lib/schema'
 import {
+  appBaseUrl,
+  callerIp,
   consumeRateLimit,
   SIGNIN_EMAIL_LIMIT,
   SIGNIN_IP_LIMIT,
 } from '@/lib/api'
-import {appBaseUrl, callerIp} from '@/lib/api'
 import {storage} from '@/lib/queue'
 import {type Db, isUniqueViolation} from '@/lib/db'
 
@@ -147,6 +148,7 @@ export async function deleteAccount(
 
   return {imagesRemoved: keys.length - imagesFailed, imagesFailed}
 }
+
 export const RESET_TOKEN_TTL_MS = 60 * 60_000
 
 const TOKEN_BYTES = 32

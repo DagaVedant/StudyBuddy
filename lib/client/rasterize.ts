@@ -13,6 +13,8 @@ import {type TextLine} from '@/lib/schema'
 
 import {throwIfCancelled, untilCancelled} from './http'
 
+// new Function hides the import from the bundler, so pdf.js is served from public/ at
+// runtime rather than bundled. scripts/setup.mjs pdf-worker is what puts it there.
 const runtimeImport = new Function('url', 'return import(url)') as (
   url: string,
 ) => Promise<typeof PdfjsModule>
@@ -34,9 +36,7 @@ export interface RasterPage {
   blob: Blob
   width: number
   height: number
-
   embeddedText: string
-
   embeddedLines: TextLine[]
 }
 
@@ -120,7 +120,6 @@ export interface RasterProgress {
 }
 
 export interface RasterizeOptions {
-
   offset?: number
   range?: PageRange | null
   signal?: AbortSignal
@@ -128,12 +127,10 @@ export interface RasterizeOptions {
 
 export interface RasterizedPdf {
   pages: RasterPage[]
-
   totalPages: number
 }
 
 async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/webp', 0.9),
   )
@@ -268,11 +265,14 @@ export async function rasterizeImage(
   }
 }
 
+const MIN_CHARS_PER_PAGE = 120
+
 export function hasUsableTextLayer(pages: RasterPage[]): boolean {
   if (pages.length === 0) return false
   const totalChars = pages.reduce((sum, page) => sum + page.embeddedText.length, 0)
-  return totalChars / pages.length >= 120
+  return totalChars / pages.length >= MIN_CHARS_PER_PAGE
 }
+
 let workerPromise: Promise<Worker> | null = null
 
 async function getWorker(): Promise<Worker> {
@@ -296,16 +296,18 @@ export async function ocrPage(image: Blob, signal?: AbortSignal): Promise<OcrRes
 
   const worker = await untilCancelled(getWorker(), signal)
 
-  let data
+  let recognized
   try {
-    ;({data} = await untilCancelled(
+    recognized = await untilCancelled(
       worker.recognize(image, {}, {text: true, blocks: true}),
       signal,
-    ))
+    )
   } catch (cause) {
     if (signal?.aborted) terminateOcr().catch(() => {})
     throw cause
   }
+
+  const {data} = recognized
 
   const lines: TextLine[] = []
   for (const block of data.blocks ?? []) {

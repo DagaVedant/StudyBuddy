@@ -96,7 +96,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   }
 
   const [existing] = await db
-    .select({id: users.id, emailVerified: users.emailVerified})
+    .select({id: users.id})
     .from(users)
     .where(eq(users.email, email))
     .limit(1)
