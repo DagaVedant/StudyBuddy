@@ -28,24 +28,24 @@ const spaceMono = Space_Mono({
   display: 'swap',
 })
 
+const DESCRIPTION =
+  'Turn finished practice worksheets into a record of what you actually know.'
+
 export const metadata: Metadata = {
   metadataBase: new URL(appBaseUrl()),
   title: 'StudyBuddy',
-  description:
-    'Turn finished practice worksheets into a record of what you actually know.',
+  description: DESCRIPTION,
   openGraph: {
     type: 'website',
     siteName: 'StudyBuddy',
     url: '/',
     title: 'StudyBuddy',
-    description:
-      'Turn finished practice worksheets into a record of what you actually know.',
+    description: DESCRIPTION,
   },
   twitter: {
     card: 'summary_large_image',
     title: 'StudyBuddy',
-    description:
-      'Turn finished practice worksheets into a record of what you actually know.',
+    description: DESCRIPTION,
   },
 }
 
@@ -53,9 +53,7 @@ export const viewport: Viewport = {viewportFit: 'cover', themeColor: '#f7f2e8'}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: Readonly<{children: React.ReactNode}>) {
   return (
     <html
       lang="en"

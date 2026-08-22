@@ -9,22 +9,20 @@
   --wash: oklch(96% 0.014 240);
   --wash-strong: oklch(84.5% 0.025 78);
   --accent: oklch(42% 0.155 258);
-  --accent-fg: oklch(99% 0.004 88);
 
   --danger: oklch(48% 0.2 27);
   --success: oklch(45% 0.125 152);
   --warning: oklch(56% 0.155 55);
   --caution: oklch(62% 0.13 88);
   --marker: oklch(91% 0.165 103);
-  --marker-soft: oklch(94% 0.09 103);
-  --marker-ink: oklch(21% 0.014 62);
-  --tint-mint: oklch(92% 0.04 158);
-  --tint-peach: oklch(92% 0.045 62);
   --tint-lavender: oklch(92% 0.032 250);
   --tint-butter: oklch(93% 0.055 98);
   --rule: oklch(66% 0.035 240);
   --rule-heavy: oklch(30% 0.016 64);
 
+  /* Bare `rounded` is Tailwind's own 0.25rem and is not on this scale. It
+     lines up with rounded-lg/xl/2xl only because 4px is 0.25rem, so changing
+     --radius-lg splits the bare-rounded call sites off from the rest. */
   --radius: 3px;
   --radius-lg: 4px;
   --google-bg: #ffffff;
@@ -41,17 +39,13 @@
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
-  --color-accent-fg: var(--accent-fg);
   --color-danger: var(--danger);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-caution: var(--caution);
   --color-marker: var(--marker);
-  --color-marker-soft: var(--marker-soft);
   --color-rule: var(--rule);
   --color-rule-heavy: var(--rule-heavy);
-  --color-tint-mint: var(--tint-mint);
-  --color-tint-peach: var(--tint-peach);
   --color-tint-lavender: var(--tint-lavender);
   --color-tint-butter: var(--tint-butter);
   --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system,
@@ -62,11 +56,11 @@
     Consolas, monospace;
 
   --radius-sm: var(--radius);
-  --radius-md: var(--radius);
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-lg);
   --radius-2xl: var(--radius-lg);
 }
+
 body {
   background: var(--bg) url('/paper.png') no-repeat top center / cover fixed;
   color: var(--fg);
@@ -81,6 +75,7 @@ h3 {
   font-variation-settings: 'SOFT' 30, 'WONK' 1;
   letter-spacing: -0.015em;
 }
+
 @layer components {
   .eyebrow {
     @apply font-mono text-[0.6875rem] font-normal uppercase tracking-[0.16em] text-muted;
@@ -91,10 +86,10 @@ h3 {
     @apply min-h-11 w-full bg-wash px-3 py-2.5 text-fg outline-none
       placeholder:text-muted;
 
-    border: 0;
     border-radius: var(--radius);
     transition: background-color 150ms ease-out, box-shadow 150ms ease-out;
   }
+
   .field:hover {
     background: var(--wash-strong);
   }
@@ -130,6 +125,7 @@ h3 {
   .btn-compact {
     @apply -my-2 inline-flex min-h-11 items-center py-2;
   }
+
   .btn-primary {
     background: var(--fg);
     color: var(--bg);
@@ -165,8 +161,8 @@ h3 {
   .btn-google {
     @apply gap-3 text-sm;
 
-    background: var(--google-bg);
     border: 1px solid var(--google-border);
+    background: var(--google-bg);
     color: var(--google-fg);
   }
 
@@ -185,29 +181,32 @@ h3 {
   .hint {
     @apply mt-1.5 text-sm text-muted;
   }
+
   .card {
     position: relative;
     border: 1px solid var(--rule);
     border-radius: var(--radius-lg);
     background: var(--surface);
   }
+
   .card-sunk {
     border: 1px solid var(--rule);
     border-radius: var(--radius-lg);
     background: var(--wash);
   }
+
   .marked {
-    color: var(--marker-ink);
+    padding-inline: 0.15em;
+    color: var(--fg);
     background-image: linear-gradient(
       to top,
-      var(--marker) 0.1em,
       var(--marker) 0.62em,
       transparent 0.62em
     );
     background-repeat: no-repeat;
-    padding-inline: 0.15em;
   }
 }
+
 @media (forced-colors: active) {
   .card,
   .card-sunk,
