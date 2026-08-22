@@ -13,8 +13,6 @@ import {type TextLine} from '@/lib/schema'
 
 import {throwIfCancelled, untilCancelled} from './http'
 
-// new Function hides the import from the bundler, so pdf.js is served from public/ at
-// runtime rather than bundled. scripts/setup.mjs pdf-worker is what puts it there.
 const runtimeImport = new Function('url', 'return import(url)') as (
   url: string,
 ) => Promise<typeof PdfjsModule>

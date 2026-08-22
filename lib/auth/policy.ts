@@ -1,6 +1,6 @@
 export const MIN_AGE_YEARS = 13
 
-export function adminEmails(): string[] {
+function adminEmails(): string[] {
   return (process.env.ADMIN_EMAILS ?? '')
     .split(',')
     .map((email) => email.trim().toLowerCase())
@@ -12,7 +12,7 @@ export function isAdminEmail(email: string | null | undefined): boolean {
   return adminEmails().includes(email.toLowerCase())
 }
 
-export function ageInYears(dob: Date, now: Date = new Date()): number {
+function ageInYears(dob: Date, now: Date = new Date()): number {
   let age = now.getUTCFullYear() - dob.getUTCFullYear()
   const monthDelta = now.getUTCMonth() - dob.getUTCMonth()
   if (monthDelta < 0 || (monthDelta === 0 && now.getUTCDate() < dob.getUTCDate())) {
@@ -21,7 +21,7 @@ export function ageInYears(dob: Date, now: Date = new Date()): number {
   return age
 }
 
-export function meetsAgeRequirement(dob: Date, now: Date = new Date()): boolean {
+function meetsAgeRequirement(dob: Date, now: Date = new Date()): boolean {
   return ageInYears(dob, now) >= MIN_AGE_YEARS
 }
 
@@ -57,7 +57,7 @@ export function validateDob(input: string | Date | null | undefined): AgeCheck {
   return {ok: true, dob}
 }
 
-export const DEFAULT_AFTER_SIGNIN = '/dashboard'
+const DEFAULT_AFTER_SIGNIN = '/dashboard'
 
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/
 

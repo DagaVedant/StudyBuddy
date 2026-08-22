@@ -7,7 +7,7 @@ function redirectToSignIn(): void {
   window.location.assign(`/signin?next=${encodeURIComponent(next)}`)
 }
 
-export class SessionExpiredError extends Error {
+class SessionExpiredError extends Error {
   constructor() {
     super('Your session expired. Redirecting you to sign in.')
     this.name = 'SessionExpiredError'
@@ -28,7 +28,7 @@ export async function fetchJson(
   return response
 }
 
-export class CancelledError extends Error {
+class CancelledError extends Error {
   constructor() {
     super('Upload cancelled.')
     this.name = 'CancelledError'

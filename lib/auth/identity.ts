@@ -55,8 +55,8 @@ export async function saveIdentity(
   return {ok: true, name, username}
 }
 
-export const MIN_USERNAME_LENGTH = 3
-export const MAX_USERNAME_LENGTH = 20
+const MIN_USERNAME_LENGTH = 3
+const MAX_USERNAME_LENGTH = 20
 
 const USERNAME_SHAPE = /^[a-z][a-z0-9_]*$/
 
@@ -64,7 +64,7 @@ export type UsernameCheck =
   | {ok: true; username: string}
   | {ok: false; reason: string}
 
-export function validateUsername(input: string | null | undefined): UsernameCheck {
+function validateUsername(input: string | null | undefined): UsernameCheck {
   const trimmed = (input ?? '').trim().toLowerCase()
 
   if (!trimmed) return {ok: false, reason: 'Enter a username.'}
@@ -149,11 +149,11 @@ export async function deleteAccount(
   return {imagesRemoved: keys.length - imagesFailed, imagesFailed}
 }
 
-export const RESET_TOKEN_TTL_MS = 60 * 60_000
+const RESET_TOKEN_TTL_MS = 60 * 60_000
 
 const TOKEN_BYTES = 32
 
-export function hashResetToken(token: string): string {
+function hashResetToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
@@ -161,17 +161,13 @@ export function resetLink(token: string): string {
   return `${appBaseUrl()}/reset/${token}`
 }
 
-export async function issueResetToken(
-  db: Db,
-  userId: string,
-  now: Date = new Date(),
-): Promise<string> {
+export async function issueResetToken(db: Db, userId: string): Promise<string> {
   const token = randomBytes(TOKEN_BYTES).toString('base64url')
 
   await db.insert(passwordResetTokens).values({
     userId,
     tokenHash: hashResetToken(token),
-    expiresAt: new Date(now.getTime() + RESET_TOKEN_TTL_MS),
+    expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
   })
 
   return token
@@ -185,7 +181,6 @@ export interface ResetTarget {
 export async function findResetTarget(
   db: Db,
   token: string,
-  now: Date = new Date(),
 ): Promise<ResetTarget | null> {
   const [row] = await db
     .select({
@@ -198,7 +193,7 @@ export async function findResetTarget(
       and(
         eq(passwordResetTokens.tokenHash, hashResetToken(token)),
         isNull(passwordResetTokens.usedAt),
-        gt(passwordResetTokens.expiresAt, now),
+        gt(passwordResetTokens.expiresAt, new Date()),
       ),
     )
     .limit(1)
@@ -217,8 +212,9 @@ export async function consumeResetToken(
   db: Db,
   target: ResetTarget,
   passwordHash: string,
-  now: Date = new Date(),
 ): Promise<void> {
+  const now = new Date()
+
   await db.transaction(async (tx) => {
     await tx
       .update(passwordResetTokens)
