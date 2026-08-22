@@ -26,17 +26,14 @@ const CURVE = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
   </g>
 </svg>`
 
-const BLURB =
-  'Turn the worksheets you have already done into a record of what you actually know.'
-
 const curveSrc = `data:image/svg+xml;base64,${Buffer.from(CURVE).toString('base64')}`
 
-const MARK_PATH = 'M2.6 13.9C4.3 15.4 5.9 17.4 7.5 19.7 11.7 13.7 16.3 8.3 21.4 4.4'
+const MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="${ACCENT}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 13.9C4.3 15.4 5.9 17.4 7.5 19.7 11.7 13.7 16.3 8.3 21.4 4.4"/></svg>`
 
-const markSrc = (size: number) =>
-  `data:image/svg+xml;base64,${Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${ACCENT}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="${MARK_PATH}"/></svg>`,
-  ).toString('base64')}`
+const markSrc = `data:image/svg+xml;base64,${Buffer.from(MARK).toString('base64')}`
+
+const BLURB =
+  'Turn the worksheets you have already done into a record of what you actually know.'
 
 export default async function Image() {
   const [archivo, geist] = await Promise.all([
@@ -75,7 +72,7 @@ export default async function Image() {
           {/* eslint-disable-next-line @next/next/no-img-element -- Satori
               only renders <img>; next/image has no meaning inside
               ImageResponse. */}
-          <img src={markSrc(46)} width={46} height={46} alt="" />
+          <img src={markSrc} width={46} height={46} alt="" />
           <div
             style={{
               fontFamily: 'Archivo',

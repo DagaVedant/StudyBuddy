@@ -5,12 +5,15 @@ import {useSearchParams} from 'next/navigation'
 import {Suspense, useActionState} from 'react'
 
 import {GoogleButton} from '@/components/google-button'
-import {signInWithCredentials, signInWithGoogle} from '@/lib/auth/actions'
-import type {FormState} from '@/lib/auth/actions'
+import {type FormState, signInWithCredentials, signInWithGoogle} from '@/lib/auth/actions'
 import {safeNextPath} from '@/lib/auth/policy'
 
-const ERRORS: Record<string, string> = {
-  OAuthAccountNotLinked: 'That email is already registered with a password. Sign in with your password instead.',
+function linkErrorMessage(code: string | null): string | null {
+  if (!code) return null
+  if (code === 'OAuthAccountNotLinked') {
+    return 'That email is already registered with a password. Sign in with your password instead.'
+  }
+  return 'Something went wrong.'
 }
 
 function SignInForm() {
@@ -23,7 +26,7 @@ function SignInForm() {
     {},
   )
 
-  const message = state.error ?? (linkError ? (ERRORS[linkError] ?? 'Something went wrong.') : null)
+  const message = state.error ?? linkErrorMessage(linkError)
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-6 py-12">

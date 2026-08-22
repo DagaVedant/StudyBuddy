@@ -10,7 +10,7 @@ export default function TermsPage() {
     'No contact address is set on this deployment. Whoever runs it should set CONTACT_EMAIL.'
 
   return (
-    <main className="prose-page mx-auto w-full max-w-2xl px-6 py-12">
+    <main className="mx-auto w-full max-w-2xl px-6 py-12">
       <h1 className="text-balance text-2xl font-semibold tracking-tight">Terms of use</h1>
       <p className="hint mb-8">Last updated {POLICY_UPDATED}.</p>
 

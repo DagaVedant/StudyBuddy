@@ -2,9 +2,7 @@ import Link from 'next/link'
 
 import {MainRegion} from '@/components/page-head'
 
-export default function PublicLayout({
-  children,
-}: Readonly<{children: React.ReactNode}>) {
+export default function PublicLayout({children}: {children: React.ReactNode}) {
   return (
     <>
       <MainRegion>{children}</MainRegion>
