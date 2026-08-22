@@ -10,16 +10,6 @@ const TOPICS = [
 
 const TOTAL = TOPICS.reduce((sum, topic) => sum + topic.count, 0)
 
-const CURVE =
-  'M6,24 C18,48 26,56 34,57 L34,36 C44,58 52,66 62,67 L62,42 C76,64 86,70 98,71 L98,50 C116,68 134,74 154,76'
-
-const AREA = `${CURVE} L154,90 L6,90 Z`
-
-const REVIEWS = [
-  {left: '21.25%', top: '40%'}, {left: '38.75%', top: '46.7%'},
-  {left: '61.25%', top: '55.6%'},
-] as const
-
 const QUESTIONS = [
   'A child grows 1 1/4 inches in 1/3 of a year. What would be his yearly growth rate in inches per year?',
   'If (3/5 − 1/2)x = 1/4 + 2/3, what is the value of x?',
@@ -30,8 +20,6 @@ const QUESTIONS = [
 export function Hero({children}: {children: React.ReactNode}) {
   return (
     <section className={styles.hero}>
-      <Curve />
-
       <div className={styles.stack}>
         <Link href="/" className={styles.brand}>
           <Mark className={styles.mark} />
@@ -71,34 +59,6 @@ export function Hero({children}: {children: React.ReactNode}) {
 
         {children}
       </div>
-
-      <div className={styles.axis} aria-hidden="true">
-        <span>Today</span>
-        <span>Day 30</span>
-      </div>
     </section>
-  )
-}
-
-function Curve() {
-  return (
-    <div className={styles.plot} aria-hidden="true">
-      <svg viewBox="0 0 160 90" preserveAspectRatio="none">
-        <path className={styles.area} d={AREA} />
-        <path
-          className={styles.curve}
-          vectorEffect="non-scaling-stroke"
-          d={CURVE}
-        />
-      </svg>
-
-      {REVIEWS.map((review) => (
-        <span
-          key={review.left}
-          className={styles.dot}
-          style={{left: review.left, top: review.top}}
-        />
-      ))}
-    </div>
   )
 }

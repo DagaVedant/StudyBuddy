@@ -58,60 +58,6 @@
   text-wrap: balance;
 }
 
-.axis {
-  position: absolute;
-  inset-inline: 1.5rem;
-  bottom: 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-space-mono), ui-monospace, monospace;
-  font-size: 0.6875rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.plot {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  opacity: 0.4;
-}
-
-@media (max-width: 48rem), (max-aspect-ratio: 4 / 3) {
-  .plot {
-    top: auto;
-    height: 45%;
-  }
-}
-
-.plot svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.area {
-  fill: var(--accent);
-  opacity: 0.09;
-}
-
-.curve {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.dot {
-  position: absolute;
-  width: 0.625rem;
-  height: 0.625rem;
-  border-radius: 999px;
-  background: var(--accent);
-  transform: translate(-50%, -50%);
-}
-
 .panel {
   position: relative;
   display: grid;
@@ -265,5 +211,4 @@
   height: auto;
   border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
-  box-shadow: 0 32px 64px -40px oklch(0% 0 0 / 0.45);
 }
