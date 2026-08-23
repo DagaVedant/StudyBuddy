@@ -8,7 +8,7 @@ export function Note({
   children: React.ReactNode
 }) {
   return (
-    <section aria-labelledby={labelledBy} className={className}>
+    <section aria-labelledby={labelledBy} className={`card p-5 ${className}`}>
       {children}
     </section>
   )
