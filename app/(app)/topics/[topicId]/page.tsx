@@ -120,7 +120,7 @@ export default async function TopicPage({
       </h1>
       <p className="hint mb-6 text-pretty">{path}</p>
 
-      <section aria-labelledby="mastery-heading" className="card p-4">
+      <section aria-labelledby="mastery-heading">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="mastery-heading" className="text-sm font-medium">
             Accuracy
@@ -159,7 +159,7 @@ export default async function TopicPage({
       </section>
 
       {!lesson && (
-        <section aria-labelledby="lesson-heading" className="card mt-6 p-4">
+        <section aria-labelledby="lesson-heading" className="mt-6">
           <h2 id="lesson-heading" className="text-sm font-medium">
             How this works
           </h2>
@@ -173,7 +173,7 @@ export default async function TopicPage({
       )}
 
       {lesson && (
-        <section aria-labelledby="lesson-heading" className="card mt-6 p-4">
+        <section aria-labelledby="lesson-heading" className="mt-6">
           <h2 id="lesson-heading" className="text-sm font-medium">
             How this works
           </h2>
@@ -229,7 +229,7 @@ export default async function TopicPage({
         </section>
       )}
 
-      <section aria-labelledby="practice-heading" className="card mt-6 p-4">
+      <section aria-labelledby="practice-heading" className="mt-6">
         <h2 id="practice-heading" className="text-sm font-medium">
           Practice questions
         </h2>
