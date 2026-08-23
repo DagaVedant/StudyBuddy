@@ -64,18 +64,6 @@ export function rankWeaknesses(stats: TopicStats[]): RankedTopic[] {
     )
 }
 
-export function rankFragile(stats: TopicStats[]): RankedTopic[] {
-  return stats
-    .map(summarize)
-    .filter((topic) => topic.ranked && topic.unsure > 0)
-    .sort(
-      (a, b) =>
-        wilsonLowerBound(b.unsure, b.attempts) - wilsonLowerBound(a.unsure, a.attempts) ||
-        b.unsureRate - a.unsureRate ||
-        a.topicPath.localeCompare(b.topicPath),
-    )
-}
-
 export interface TopicTreeNode {
   slug: string
   name: string
@@ -137,16 +125,6 @@ export function buildTopicTree(stats: TopicStats[]): TopicTreeNode[] {
   }
 
   return roots
-}
-
-function hasAttempts(node: TopicTreeNode): boolean {
-  return node.attempts > 0
-}
-
-export function pruneToAttempted(nodes: TopicTreeNode[]): TopicTreeNode[] {
-  return nodes
-    .filter(hasAttempts)
-    .map((node) => ({...node, children: pruneToAttempted(node.children)}))
 }
 
 export {MIN_ATTEMPTS}

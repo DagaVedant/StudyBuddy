@@ -7,12 +7,10 @@ import {TopicSorter} from '@/components/topic-sorter'
 import {AccuracyLabel, Meter} from '@/components/meter'
 import {countMissedQuestions} from '@/lib/blooket'
 import {db} from '@/lib/db'
-import {TopicTree} from '@/components/topic-tree'
 import {getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getOverview, getRecentWorksheets, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats} from '@/lib/dashboard'
 import {StudyCalendar} from '@/components/study-calendar'
 import {Callout, MarginNote, Note, PageFoot, SectionHead} from '@/components/note'
-import {buildTopicTree, pruneToAttempted, rankFragile, rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
-import {topics} from '@/lib/schema'
+import {rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
 import {pathBySlug} from '@/lib/taxonomy'
 import {destination} from '@/lib/upload'
 
@@ -105,7 +103,6 @@ export default async function DashboardPage() {
     missed,
     streak,
     calendar,
-    topicRows,
     untagged,
     credentials,
   ] = await Promise.all([
@@ -114,7 +111,6 @@ export default async function DashboardPage() {
     getRecentWorksheets(db, userId, 3), getDistractorPatterns(db, userId),
     countMissedQuestions(db, userId), getStudyStreak(db, userId),
     getStudyCalendar(db, userId),
-    db.select({id: topics.id, slug: topics.slug}).from(topics),
     listUntaggedWorksheets(db, userId), getCredentialSummary(db, userId),
   ])
 
@@ -128,12 +124,6 @@ export default async function DashboardPage() {
   }))
 
   const weakest = rankWeaknesses(stats).slice(0, 3)
-  const fragile = rankFragile(stats)
-    .filter((topic) => topic.unsureRate >= 0.25)
-    .slice(0, 5)
-
-  const subjectTree = pruneToAttempted(buildTopicTree(rawStats))
-  const topicIdBySlug = new Map(topicRows.map((row) => [row.slug, row.id]))
 
   const thin = stats.map(summarize).filter((topic) => !topic.ranked).length
   const weekTotals = trend.map((p) => p.correct + p.unsure + p.wrong)
@@ -166,7 +156,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-10 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_19rem]">
+      <div className="mt-10 space-y-10">
         <div className="min-w-0">
           {hasData && (
             <div className="space-y-6">
@@ -269,52 +259,6 @@ export default async function DashboardPage() {
                 )}
               </Note>
 
-              <Note labelledBy="subject">
-                <SectionHead
-                  id="subject"
-                  title="Subject by subject"
-                />
-                {subjectTree.length === 0 ? (
-                  <Empty>No subjects yet.</Empty>
-                ) : (
-                  <>
-                    <TopicTree nodes={subjectTree} idBySlug={topicIdBySlug} />
-                    <p className="hint">
-                      <Link
-                        href="/topics"
-                        className="text-accent"
-                      >
-                        Browse every topic
-                      </Link>
-                      , including the ones you have not started.
-                    </p>
-                  </>
-                )}
-              </Note>
-
-              <Note labelledBy="guessed">
-                <SectionHead
-                  id="guessed"
-                  title="Right but guessed"
-                />
-                {fragile.length === 0 ? (
-                  <Empty>Nothing looks shaky right now.</Empty>
-                ) : (
-                  <ul className="space-y-2">
-                    {fragile.map((topic) => (
-                      <li key={topic.topicId} className="flex items-baseline gap-3">
-                        <span className="min-w-0 flex-1 truncate text-sm">
-                          {topic.topicName}
-                        </span>
-                        <span className="shrink-0 text-sm tabular-nums text-muted">
-                          {PERCENT.format(topic.unsureRate)} guessed
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Note>
-
               <Note labelledBy="better">
                 <SectionHead
                   id="better"
@@ -396,37 +340,35 @@ export default async function DashboardPage() {
           </Note>
         </div>
 
-        <aside className="space-y-4">
-          <MarginNote label="The record">
-            <p className="text-xs text-muted">
-              <span className="tabular-nums">{overview.worksheetsUploaded}</span>{' '}
-              {overview.worksheetsUploaded === 1 ? 'worksheet' : 'worksheets'} ·{' '}
-              <span className="tabular-nums">{overview.questionsTracked}</span> questions
-              tracked
-            </p>
-            {hasData && (
-              <div className="mt-3">
-                <StudyCalendar days={calendar} streak={streak} weeks={17} />
-              </div>
-            )}
-          </MarginNote>
-
-          {missed > 0 && (
-            <Callout label="Play these in Blooket">
-              <a
-                href="/api/export/blooket"
-                download
-                className="btn btn-primary sm:w-auto sm:px-4"
-              >
-                Download CSV
-              </a>
-              <p className="hint">
-                <span className="tabular-nums">{missed}</span>{' '}
-                {missed === 1 ? 'question' : 'questions'} to draw from.
-              </p>
-            </Callout>
+        <MarginNote label="The record">
+          <p className="text-xs text-muted">
+            <span className="tabular-nums">{overview.worksheetsUploaded}</span>{' '}
+            {overview.worksheetsUploaded === 1 ? 'worksheet' : 'worksheets'} ·{' '}
+            <span className="tabular-nums">{overview.questionsTracked}</span> questions
+            tracked
+          </p>
+          {hasData && (
+            <div className="mt-3">
+              <StudyCalendar days={calendar} streak={streak} weeks={17} />
+            </div>
           )}
-        </aside>
+        </MarginNote>
+
+        {missed > 0 && (
+          <Callout label="Play these in Blooket">
+            <a
+              href="/api/export/blooket"
+              download
+              className="btn btn-primary sm:w-auto sm:px-4"
+            >
+              Download CSV
+            </a>
+            <p className="hint">
+              <span className="tabular-nums">{missed}</span>{' '}
+              {missed === 1 ? 'question' : 'questions'} to draw from.
+            </p>
+          </Callout>
+        )}
       </div>
 
       <PageFoot running="StudyBuddy · Dashboard" />
