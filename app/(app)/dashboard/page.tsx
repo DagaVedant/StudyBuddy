@@ -207,46 +207,28 @@ export default async function DashboardPage() {
                   </Empty>
                 ) : (
                   <ul className="mt-1">
-                    {weakest.map((topic, index) => (
+                    {weakest.map((topic) => (
                       <li key={topic.topicId}>
                         <Link
                           href={`/topics/${topic.topicId}`}
-                          className={`block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                            index === 0 ? 'pb-5 pt-1' : 'py-2.5'
-                          }`}
+                          className="block py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                         >
                           <div className="flex items-baseline justify-between gap-3">
-                            <span
-                              className={
-                                index === 0
-                                  ? 'min-w-0 flex-1 font-display text-xl font-semibold leading-tight tracking-tight sm:text-2xl'
-                                  : 'min-w-0 flex-1 truncate text-sm font-medium'
-                              }
-                            >
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">
                               {topic.topicName}
                             </span>
                             <span className="flex shrink-0 items-baseline gap-1.5">
-                              {index === 0 ? (
-                                <span className="font-display text-3xl font-semibold tabular-nums sm:text-4xl">
-                                  {PERCENT.format(topic.accuracy)}
-                                </span>
-                              ) : (
-                                <AccuracyLabel
-                                  accuracy={topic.accuracy}
-                                  ranked
-                                  attempts={topic.attempts}
-                                />
-                              )}
+                              <AccuracyLabel
+                                accuracy={topic.accuracy}
+                                ranked
+                                attempts={topic.attempts}
+                              />
                               <TrendArrow trend={topic.trend} />
                             </span>
                           </div>
                           <p className="truncate text-xs text-muted">{topic.topicPath}</p>
-                          <div className={index === 0 ? 'mt-3' : 'mt-2'}>
-                            <Meter
-                              accuracy={topic.accuracy}
-                              label={topic.topicName}
-                              thick={index === 0}
-                            />
+                          <div className="mt-2">
+                            <Meter accuracy={topic.accuracy} label={topic.topicName} />
                           </div>
                           <p className="mt-1 text-xs tabular-nums text-muted">
                             {topic.wrong} missed of {topic.attempts}
