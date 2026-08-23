@@ -81,12 +81,10 @@
 
 .count {
   margin: 0;
-  font-family: var(--font-fraunces), ui-serif, Georgia, serif;
-  font-variation-settings: 'SOFT' 40, 'WONK' 1;
-  font-weight: 700;
+  font-family: var(--font-display);
   font-size: clamp(2.25rem, 7vw, 3.25rem);
   line-height: 1;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 

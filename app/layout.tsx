@@ -1,6 +1,6 @@
 import {Analytics} from '@vercel/analytics/next'
 import type {Metadata, Viewport} from 'next'
-import {Fraunces, Public_Sans, Space_Mono} from 'next/font/google'
+import {Fugaz_One, Space_Mono, Work_Sans} from 'next/font/google'
 import {SessionProvider} from 'next-auth/react'
 
 import {AutoRefresh} from '@/components/auto-refresh'
@@ -8,15 +8,15 @@ import {appBaseUrl} from '@/lib/api'
 
 import './globals.css'
 
-const fraunces = Fraunces({
-  variable: '--font-fraunces',
+const fugazOne = Fugaz_One({
+  variable: '--font-fugaz-one',
   subsets: ['latin'],
-  axes: ['SOFT', 'WONK', 'opsz'],
+  weight: ['400'],
   display: 'swap',
 })
 
-const publicSans = Public_Sans({
-  variable: '--font-public-sans',
+const workSans = Work_Sans({
+  variable: '--font-work-sans',
   subsets: ['latin'],
   display: 'swap',
 })
@@ -57,7 +57,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${publicSans.variable} ${fraunces.variable} ${spaceMono.variable} h-full`}
+      className={`${workSans.variable} ${fugazOne.variable} ${spaceMono.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
         <a
