@@ -8,7 +8,7 @@ import {AccuracyLabel, Meter} from '@/components/meter'
 import {countMissedQuestions} from '@/lib/blooket'
 import {db} from '@/lib/db'
 import {TopicTree} from '@/components/topic-tree'
-import {getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getOverview, getRecentWorksheets, getReviewForecast, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats} from '@/lib/dashboard'
+import {getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getOverview, getRecentWorksheets, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats} from '@/lib/dashboard'
 import {StudyCalendar} from '@/components/study-calendar'
 import {Callout, MarginNote, Note, PageFoot, SectionHead} from '@/components/note'
 import {buildTopicTree, pruneToAttempted, rankFragile, rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
@@ -70,45 +70,6 @@ function Empty({children}: {children: React.ReactNode}) {
   return <p className="py-1 text-sm text-muted">{children}</p>
 }
 
-function Figure({
-  label,
-  value,
-  unit,
-  href,
-}: {
-  label: string
-  value: number | string
-  unit?: string
-  href?: string
-}) {
-  const figure = (
-    <>
-      {value}
-      {unit && (
-        <span className="ml-1 font-sans text-xs font-normal text-muted">{unit}</span>
-      )}
-    </>
-  )
-
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className="font-display text-base font-semibold tabular-nums">
-        {href ? (
-          <Link
-            href={href}
-            className="text-accent"
-          >
-            {figure}
-          </Link>
-        ) : (
-          figure
-        )}
-      </dd>
-    </div>
-  )
-}
-
 function TrendArrow({trend}: {trend: TopicTrend}) {
   if (trend === null) return null
 
@@ -139,7 +100,6 @@ export default async function DashboardPage() {
     rawStats,
     trend,
     trendBySubject,
-    forecast,
     recent,
     distractors,
     missed,
@@ -150,8 +110,8 @@ export default async function DashboardPage() {
     credentials,
   ] = await Promise.all([
     getOverview(db, userId), getTopicStats(db, userId), getAccuracyTrend(db, userId),
-    getAccuracyTrendBySubject(db, userId), getReviewForecast(db, userId),
-    getRecentWorksheets(db, userId), getDistractorPatterns(db, userId),
+    getAccuracyTrendBySubject(db, userId),
+    getRecentWorksheets(db, userId, 3), getDistractorPatterns(db, userId),
     countMissedQuestions(db, userId), getStudyStreak(db, userId),
     getStudyCalendar(db, userId),
     db.select({id: topics.id, slug: topics.slug}).from(topics),
@@ -167,7 +127,7 @@ export default async function DashboardPage() {
     topicPath: paths.get(topic.topicPath) ?? topic.topicName,
   }))
 
-  const weakest = rankWeaknesses(stats).slice(0, 8)
+  const weakest = rankWeaknesses(stats).slice(0, 3)
   const fragile = rankFragile(stats)
     .filter((topic) => topic.unsureRate >= 0.25)
     .slice(0, 5)
@@ -437,58 +397,19 @@ export default async function DashboardPage() {
         </div>
 
         <aside className="space-y-4">
-          <MarginNote label="At a glance">
-            <dl className="space-y-1.5">
-              <Figure
-                label="Due today"
-                value={overview.dueNow}
-                href={overview.dueNow > 0 ? '/review' : undefined}
-              />
-              <Figure
-                label="To practise"
-                value={overview.toPractise}
-                href={overview.toPractise > 0 ? '/review' : undefined}
-              />
-              <Figure label="Questions tracked" value={overview.questionsTracked} />
-              <Figure label="Worksheets" value={overview.worksheetsUploaded} />
-              <Figure
-                label="Study streak"
-                value={streak}
-                unit={streak === 1 ? 'day' : 'days'}
-              />
-            </dl>
+          <MarginNote label="The record">
+            <p className="text-xs text-muted">
+              <span className="tabular-nums">{overview.worksheetsUploaded}</span>{' '}
+              {overview.worksheetsUploaded === 1 ? 'worksheet' : 'worksheets'} ·{' '}
+              <span className="tabular-nums">{overview.questionsTracked}</span> questions
+              tracked
+            </p>
+            {hasData && (
+              <div className="mt-3">
+                <StudyCalendar days={calendar} streak={streak} weeks={17} />
+              </div>
+            )}
           </MarginNote>
-
-          {hasData && (
-            <MarginNote label="The record">
-              <StudyCalendar days={calendar} streak={streak} weeks={17} />
-            </MarginNote>
-          )}
-
-          {hasData && (
-            <MarginNote label="Coming back to you">
-              {forecast.length === 0 ? (
-                <Empty>Nothing due in the next seven days.</Empty>
-              ) : (
-                <ul className="space-y-2">
-                  {forecast.map((row) => (
-                    <li key={row.topicId} className="flex items-baseline gap-3">
-                      <Link
-                        href={`/review?topic=${row.topicId}`}
-                        className="min-w-0 flex-1 truncate text-sm text-accent"
-                      >
-                        {row.topicName}
-                      </Link>
-                      <span className="shrink-0 text-sm tabular-nums text-muted">
-                        {row.dueToday > 0 ? `${row.dueToday} today` : 'later this week'}
-                        {row.dueThisWeek > row.dueToday && ` · ${row.dueThisWeek} this week`}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </MarginNote>
-          )}
 
           {missed > 0 && (
             <Callout label="Play these in Blooket">
