@@ -116,9 +116,12 @@ export default function PrivacyPage() {
         </p>
       </section>
 
-      <p className="hint mt-10">
+      <p className="hint mt-10 flex gap-4">
         <Link href="/terms" className="text-accent">
           Terms of use
+        </Link>
+        <Link href="/dmca" className="text-accent">
+          Copyright
         </Link>
       </p>
     </main>

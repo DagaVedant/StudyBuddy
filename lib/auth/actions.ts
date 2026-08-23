@@ -259,3 +259,22 @@ export async function submitDob(_prev: FormState, formData: FormData): Promise<F
 
   return {message: 'Saved.'}
 }
+
+export async function acceptContentPolicy(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await auth()
+  if (!session?.user?.id) return {error: 'You need to be signed in.'}
+
+  if (formData.get('agree') !== 'on') {
+    return {error: 'Check the box to confirm before continuing.'}
+  }
+
+  await db
+    .update(users)
+    .set({contentPolicyAcceptedAt: new Date()})
+    .where(eq(users.id, session.user.id))
+
+  return {message: 'Saved.'}
+}

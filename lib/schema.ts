@@ -99,6 +99,8 @@ export const users = pgTable('users', {
 
   dob: timestamp('dob', {withTimezone: true}),
 
+  contentPolicyAcceptedAt: timestamp('content_policy_accepted_at', {withTimezone: true}),
+
   role: userRole('role').default('student').notNull(),
 
   trialWorksheetsUsed: integer('trial_worksheets_used').default(0).notNull(),

@@ -85,9 +85,12 @@ export default function TermsPage() {
         <p>{contact ?? noContact}</p>
       </section>
 
-      <p className="hint mt-10">
+      <p className="hint mt-10 flex gap-4">
         <Link href="/privacy" className="text-accent">
           Privacy
+        </Link>
+        <Link href="/dmca" className="text-accent">
+          Copyright
         </Link>
       </p>
     </main>

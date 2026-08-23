@@ -15,6 +15,9 @@ export default function PublicLayout({children}: {children: React.ReactNode}) {
           <Link href="/terms" className="hover:text-fg">
             Terms
           </Link>
+          <Link href="/dmca" className="hover:text-fg">
+            Copyright
+          </Link>
         </nav>
       </footer>
     </>

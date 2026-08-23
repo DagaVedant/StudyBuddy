@@ -9,13 +9,20 @@ import {type Db} from '@/lib/db'
 
 export async function freshDb(): Promise<Db> {
   const client = await PGlite.create({extensions: {vector}})
-  const sql = await readFile('drizzle/0000_fine_magneto.sql', 'utf8')
 
-  for (const statement of sql.split('--> statement-breakpoint')) {
-    const trimmed = statement.trim()
-    if (!trimmed) continue
-    if (/USING hnsw/i.test(trimmed)) continue
-    await client.exec(trimmed)
+  const journal = JSON.parse(await readFile('drizzle/meta/_journal.json', 'utf8')) as {
+    entries: {tag: string}[]
+  }
+
+  for (const {tag} of journal.entries) {
+    const sql = await readFile(`drizzle/${tag}.sql`, 'utf8')
+
+    for (const statement of sql.split('--> statement-breakpoint')) {
+      const trimmed = statement.trim()
+      if (!trimmed) continue
+      if (/USING hnsw/i.test(trimmed)) continue
+      await client.exec(trimmed)
+    }
   }
 
   return drizzle(client, {schema: tables}) as unknown as Db
