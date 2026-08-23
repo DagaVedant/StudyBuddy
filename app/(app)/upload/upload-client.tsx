@@ -320,11 +320,11 @@ export default function UploadClient({subjects, initialSample}: Props) {
           <h2 id="selected-heading" className="text-sm font-medium">
             Selected files
           </h2>
-          <ul className="card mt-2 overflow-hidden">
+          <ul className="mt-2 divide-y divide-fg/20">
             {files.map((file, index) => (
               <li
                 key={`${file.name}-${index}`}
-                className="flex items-center gap-3 px-3 py-2"
+                className="flex items-center gap-3 py-2"
               >
                 <span className="min-w-0 flex-1 truncate text-sm" title={file.name}>
                   {file.name}
@@ -470,11 +470,8 @@ export default function UploadClient({subjects, initialSample}: Props) {
       )}
 
       {progress && (
-        <section
-          aria-labelledby="progress-heading"
-          className="card p-4"
-        >
-          <div className="flex items-baseline justify-between gap-3">
+        <section aria-labelledby="progress-heading">
+          <div className="flex items-baseline justify-between gap-3 border-b border-fg/20 pb-2">
             <h2 id="progress-heading" className="text-sm font-medium">
               {STAGE_LABEL[progress.stage]}
             </h2>

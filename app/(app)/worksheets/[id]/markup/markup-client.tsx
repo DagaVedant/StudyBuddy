@@ -147,7 +147,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
   if (phase === 'answers') {
     return (
       <div className="space-y-6">
-        <div className="card px-4 py-3">
+        <div className="border-b border-fg/20 pb-3">
           <h2 className="text-sm font-medium">
             What did you put on the{' '}
             <span className="tabular-nums">{unresolved.length}</span> you missed
@@ -159,9 +159,9 @@ export default function MarkupClient({worksheetId, questions}: Props) {
           </p>
         </div>
 
-        <ul className="space-y-4">
+        <ul className="divide-y divide-fg/20">
           {unresolved.map((question) => (
-            <li key={question.id} className="card p-4">
+            <li key={question.id} className="py-4 first:pt-0">
               <p className="text-sm">
                 <span className="tabular-nums text-muted">{question.ordinal}. </span>
                 <span className="whitespace-pre-line">
@@ -290,7 +290,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
       </div>
 
       {marked >= questions.length ? (
-        <div className="card p-6 text-center">
+        <div className="text-center">
           <p className="font-medium">
             All <span className="tabular-nums">{questions.length}</span> marked.
           </p>
@@ -298,7 +298,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
         </div>
       ) : (
         currentQuestion && (
-          <div className="card border-2 border-accent p-4">
+          <div className="border-t-2 border-accent pt-4">
             <p className="text-sm text-muted">
               Question <span className="tabular-nums">{currentQuestion.ordinal}</span> of{' '}
               <span className="tabular-nums">{questions.length}</span>
@@ -483,13 +483,13 @@ export function CorrectionsClient({
         </p>
       )}
 
-      <ul className="space-y-3">
+      <ul className="divide-y divide-fg/20">
         {questions.map((question) => {
           const mark = marks[question.id]
           const wantsAnswer = mark.outcome === 'wrong' || mark.outcome === 'unsure'
 
           return (
-            <li key={question.id} className="card p-4">
+            <li key={question.id} className="py-4 first:pt-0">
               <p className="text-sm text-pretty">
                 <span className="text-muted tabular-nums">{question.ordinal}.</span>{' '}
                 {question.promptText}

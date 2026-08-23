@@ -43,7 +43,7 @@ export function RevisitQuestion({
   const hasAnswerDetail = Boolean(chosen || correct || freeText)
 
   return (
-    <li className="card p-3">
+    <li className="py-3 first:pt-0">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 flex-1 whitespace-pre-line text-sm">
           {reflowText(promptText)}

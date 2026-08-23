@@ -184,7 +184,7 @@ export function CheckClient({
 
   if (remaining === 0) {
     return (
-      <div className="card p-6">
+      <div>
         <p className="font-medium">
           All {questions.length}{' '}
           {questions.length === 1 ? 'question' : 'questions'} checked.
@@ -256,7 +256,7 @@ export function CheckClient({
         </p>
       )}
 
-      <article className="card space-y-4 p-5">
+      <article className="space-y-4 border-t border-fg/20 pt-4">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 shrink-0 rounded bg-accent/10 px-2 py-0.5 text-sm font-medium tabular-nums text-accent">
             {label}

@@ -312,7 +312,7 @@ export default function ReviewSession({
   if (!item) {
     if (refreshing) {
       return (
-        <div className="card p-6 text-center">
+        <div className="text-center">
           <h2 className="font-medium">Finding your next questions…</h2>
           <p className="hint">
             You reviewed <span className="tabular-nums">{done}</span>{' '}
@@ -340,7 +340,7 @@ export default function ReviewSession({
 
     if (topicName) {
       return (
-        <div className="card p-6 text-center">
+        <div className="text-center">
           <h2 className="font-medium">Nothing due in {topicName}</h2>
           <p className="hint mx-auto max-w-sm text-pretty">
             Everything you are tracking under this topic is scheduled for later.
@@ -358,7 +358,7 @@ export default function ReviewSession({
     }
 
     return (
-      <div className="card p-6 text-center">
+      <div className="text-center">
         <h2 className="font-medium">Nothing due</h2>
         <p className="hint mx-auto max-w-sm text-pretty">
           Everything you are tracking is scheduled for later. Upload another
@@ -419,7 +419,7 @@ export default function ReviewSession({
         </div>
       </div>
 
-      <article className="card p-5">
+      <article className="border-t border-fg/20 pt-4">
         {item.topicName && (
           <p className="mb-2 text-xs uppercase tracking-wide text-muted">
             {item.topicName}
@@ -603,7 +603,7 @@ function Recap({
   const recalled = rated - tally.again
 
   return (
-    <div className="card p-6 sm:p-8">
+    <div>
       <h2 className="eyebrow">Sitting complete</h2>
 
       <p className="mt-2 font-display text-4xl font-semibold tabular-nums">
