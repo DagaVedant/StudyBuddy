@@ -159,59 +159,6 @@ export async function listUntaggedWorksheets(
     .limit(limit)
 }
 
-export interface ForecastRow {
-  topicId: string
-  topicName: string
-  dueToday: number
-  dueThisWeek: number
-}
-
-export async function getReviewForecast(db: Db, userId: string): Promise<ForecastRow[]> {
-  const now = new Date()
-
-  const endOfToday = new Date(now)
-  endOfToday.setHours(23, 59, 59, 999)
-
-  const endOfWeek = new Date(now)
-  endOfWeek.setDate(endOfWeek.getDate() + 7)
-
-  const today = endOfToday.toISOString()
-  const week = endOfWeek.toISOString()
-
-  const result = await db
-    .select({
-      topicId: topics.id,
-      topicName: topics.name,
-      dueToday: sql<number>`count(*) filter (where ${reviewCards.dueAt} <= ${today}::timestamptz)::int`,
-      dueThisWeek: sql<number>`count(*)::int`,
-    })
-    .from(reviewCards)
-    .innerJoin(
-      questionTopics,
-      and(
-        eq(questionTopics.questionId, reviewCards.questionId),
-        eq(questionTopics.isPrimary, true),
-      ),
-    )
-    .innerJoin(topics, eq(topics.id, questionTopics.topicId))
-    .where(
-      and(
-        eq(reviewCards.userId, userId),
-        inReviewQueue(userId, now),
-        sql`${reviewCards.dueAt} <= ${week}::timestamptz`,
-      ),
-    )
-    .groupBy(topics.id, topics.name)
-    .orderBy(desc(sql`count(*) filter (where ${reviewCards.dueAt} <= ${today}::timestamptz)`))
-
-  return result.map((row) => ({
-    topicId: row.topicId,
-    topicName: row.topicName,
-    dueToday: Number(row.dueToday),
-    dueThisWeek: Number(row.dueThisWeek),
-  }))
-}
-
 export interface TrendPoint {
   weekStart: string
   correct: number
