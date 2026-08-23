@@ -105,7 +105,7 @@ export default async function TopicPage({
     : []
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+    <main className="w-full px-4 py-8 sm:px-6">
       <nav aria-label="Breadcrumb" className="mb-4 text-sm">
         <Link
           href="/dashboard"

@@ -145,7 +145,7 @@ export default async function WorksheetsPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
+    <main className="w-full px-4 py-8 sm:px-6">
       <PageHead title="Your worksheets">
         <Link href="/upload" className="btn btn-primary sm:w-auto sm:px-4">
           Upload a worksheet

@@ -131,7 +131,7 @@ export default async function DashboardPage() {
   const hasTrend = weekTotals.some((total) => total > 0)
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <main className="w-full px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
         <div className="max-w-2xl">
           <p className="eyebrow">Dashboard</p>
