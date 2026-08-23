@@ -15,7 +15,7 @@ export default function Error({
   }, [error])
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-16 text-center">
+    <main className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6">
       <h1 className="text-balance text-2xl font-semibold tracking-tight">
         Something went wrong
       </h1>
@@ -23,7 +23,7 @@ export default function Error({
         Nothing you have saved is affected. This is usually worth one more try.
       </p>
 
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+      <p className="mt-6">
         <button
           type="button"
           onClick={reset}
@@ -31,10 +31,12 @@ export default function Error({
         >
           Try again
         </button>
-        <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
+      </p>
+      <p className="mt-3">
+        <Link href="/dashboard" className="text-accent underline underline-offset-2">
           Go to your dashboard
         </Link>
-      </div>
+      </p>
 
       {error.digest && (
         <p className="mt-6 text-xs text-muted">
