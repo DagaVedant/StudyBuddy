@@ -260,7 +260,7 @@ export async function submitDob(_prev: FormState, formData: FormData): Promise<F
   return {message: 'Saved.'}
 }
 
-export async function acceptContentPolicy(
+export async function acceptTerms(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
@@ -273,7 +273,7 @@ export async function acceptContentPolicy(
 
   await db
     .update(users)
-    .set({contentPolicyAcceptedAt: new Date()})
+    .set({termsAcceptedAt: new Date()})
     .where(eq(users.id, session.user.id))
 
   return {message: 'Saved.'}

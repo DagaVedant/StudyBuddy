@@ -25,8 +25,8 @@ export const proxy = auth((req) => {
     return NextResponse.redirect(new URL('/onboarding/age', req.nextUrl))
   }
 
-  if (!session?.user?.hasAcceptedPolicy && pathname !== '/onboarding/content-policy') {
-    return NextResponse.redirect(new URL('/onboarding/content-policy', req.nextUrl))
+  if (!session?.user?.hasAcceptedTerms && pathname !== '/onboarding/terms') {
+    return NextResponse.redirect(new URL('/onboarding/terms', req.nextUrl))
   }
 
   return NextResponse.next()

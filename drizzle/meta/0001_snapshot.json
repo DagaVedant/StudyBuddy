@@ -1,5 +1,5 @@
 {
-  "id": "877acd5e-571b-4d15-85cb-51030488a0e8",
+  "id": "8627a7a7-9f04-499b-bca5-c3a2bcde2f6f",
   "prevId": "5b44d421-e436-4589-98dc-f2fa1b0e3ea7",
   "version": "7",
   "dialect": "postgresql",
@@ -2579,8 +2579,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "content_policy_accepted_at": {
-          "name": "content_policy_accepted_at",
+        "terms_accepted_at": {
+          "name": "terms_accepted_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

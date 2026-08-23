@@ -8,7 +8,7 @@ declare module 'next-auth' {
       id: string
       role: Role
       hasDob: boolean
-      hasAcceptedPolicy: boolean
+      hasAcceptedTerms: boolean
     } & DefaultSession['user']
   }
 }
@@ -18,6 +18,6 @@ declare module '@auth/core/jwt' {
     id?: string
     role?: Role
     hasDob?: boolean
-    hasAcceptedPolicy?: boolean
+    hasAcceptedTerms?: boolean
   }
 }

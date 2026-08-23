@@ -14,7 +14,7 @@ type Role = 'student' | 'admin'
 interface UserClaims {
   role: Role
   hasDob: boolean
-  hasAcceptedPolicy: boolean
+  hasAcceptedTerms: boolean
 }
 
 async function syncUserClaims(userId: string): Promise<UserClaims> {
@@ -23,14 +23,14 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
       email: users.email,
       role: users.role,
       dob: users.dob,
-      contentPolicyAcceptedAt: users.contentPolicyAcceptedAt,
+      termsAcceptedAt: users.termsAcceptedAt,
     })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
 
   if (!row) {
-    return {role: 'student', hasDob: false, hasAcceptedPolicy: false}
+    return {role: 'student', hasDob: false, hasAcceptedTerms: false}
   }
 
   const shouldBeAdmin = await accountMayBeAdmin(db, userId, row.email)
@@ -43,7 +43,7 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
   return {
     role: desiredRole,
     hasDob: row.dob !== null,
-    hasAcceptedPolicy: row.contentPolicyAcceptedAt !== null,
+    hasAcceptedTerms: row.termsAcceptedAt !== null,
   }
 }
 
@@ -119,7 +119,7 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
         const claims = await syncUserClaims(token.id)
         token.role = claims.role
         token.hasDob = claims.hasDob
-        token.hasAcceptedPolicy = claims.hasAcceptedPolicy
+        token.hasAcceptedTerms = claims.hasAcceptedTerms
       }
 
       return token
@@ -129,7 +129,7 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
       if (token.id) session.user.id = token.id
       session.user.role = token.role ?? 'student'
       session.user.hasDob = token.hasDob ?? false
-      session.user.hasAcceptedPolicy = token.hasAcceptedPolicy ?? false
+      session.user.hasAcceptedTerms = token.hasAcceptedTerms ?? false
       return session
     },
   },

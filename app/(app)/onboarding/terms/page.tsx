@@ -4,9 +4,9 @@ import Link from 'next/link'
 import {useSession} from 'next-auth/react'
 import {useId, useState, type FormEvent} from 'react'
 
-import {acceptContentPolicy} from '@/lib/auth/actions'
+import {acceptTerms} from '@/lib/auth/actions'
 
-export default function ContentPolicyGatePage() {
+export default function TermsGatePage() {
   const {update} = useSession()
   const agreeId = useId()
   const [checked, setChecked] = useState(false)
@@ -22,7 +22,7 @@ export default function ContentPolicyGatePage() {
     setPending(true)
 
     try {
-      const result = await acceptContentPolicy({}, formData)
+      const result = await acceptTerms({}, formData)
 
       if (result.error) {
         setError(result.error)
@@ -43,16 +43,18 @@ export default function ContentPolicyGatePage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-6 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">Before you upload anything</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Before you continue</h1>
       <p className="hint">
-        Upload worksheets you are entitled to upload: your own work, papers
-        your school gave you, past papers that are published for practice.
-        Not a live exam, not material you have been told not to copy, and
-        nothing with somebody else&rsquo;s personal information on it. See the{' '}
+        StudyBuddy runs on a few rules, including only uploading worksheets
+        you own or have the right to use. Read the{' '}
         <Link href="/terms" className="text-accent">
           terms
         </Link>{' '}
-        for the rest.
+        and the{' '}
+        <Link href="/privacy" className="text-accent">
+          privacy page
+        </Link>{' '}
+        before you agree to them.
       </p>
 
       {error && (
@@ -77,8 +79,9 @@ export default function ContentPolicyGatePage() {
             className="mt-0.5 size-4 shrink-0"
           />
           <label htmlFor={agreeId} className="text-sm">
-            I own this content, or have the right to upload it, and I won&rsquo;t
-            upload anything I&rsquo;ve been told not to copy.
+            I agree to the Terms of Service and Privacy Policy, including
+            that I will only upload worksheets I own or have the right to
+            use.
           </label>
         </div>
 

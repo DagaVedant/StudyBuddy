@@ -1,1 +1,0 @@
-ALTER TABLE "users" ADD COLUMN "content_policy_accepted_at" timestamp with time zone;
