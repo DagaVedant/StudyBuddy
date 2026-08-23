@@ -30,7 +30,7 @@ export default function TermsGatePage() {
         return
       }
 
-      await update()
+      await update({})
 
       window.location.assign('/dashboard')
     } catch {

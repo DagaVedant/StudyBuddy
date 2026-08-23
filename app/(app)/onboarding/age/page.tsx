@@ -28,7 +28,7 @@ export default function AgeGatePage() {
         return
       }
 
-      await update()
+      await update({})
 
       window.location.assign('/dashboard')
     } catch {
