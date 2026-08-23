@@ -53,8 +53,8 @@ export default async function ProfilePage() {
       />
 
       <div className="mx-auto w-full max-w-2xl px-4 pb-8 sm:px-6">
-        <section aria-labelledby="account-heading" className="card p-4">
-          <h2 id="account-heading" className="text-sm font-medium">
+        <section aria-labelledby="account-heading" className="mt-8">
+          <h2 id="account-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
             Account
           </h2>
 

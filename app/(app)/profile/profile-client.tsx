@@ -112,7 +112,7 @@ export default function ProfileClient({
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <PageHead title="Profile" />
 
-      <div className="card mt-6 p-4">
+      <div className="mt-6">
         <div className="flex items-center gap-4">
           <Avatar name={nameValue} username={usernameValue} email={email} image={image} />
           <div className="min-w-0">
@@ -183,8 +183,8 @@ export default function ProfileClient({
         </div>
       </div>
 
-      <section aria-labelledby="stats-heading" className="card mt-6 p-4">
-        <h2 id="stats-heading" className="text-sm font-medium">
+      <section aria-labelledby="stats-heading" className="mt-8">
+        <h2 id="stats-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
           Your record
         </h2>
 

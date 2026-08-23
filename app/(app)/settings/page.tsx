@@ -52,8 +52,8 @@ export default async function SettingsPage() {
         appUrl={appBaseUrl()}
       />
 
-      <section aria-labelledby="profile-heading" className="card mt-6 p-4">
-        <h2 id="profile-heading" className="text-sm font-medium">
+      <section aria-labelledby="profile-heading" className="mt-8">
+        <h2 id="profile-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
           Your profile
         </h2>
         <p className="hint text-pretty">

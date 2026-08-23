@@ -256,7 +256,7 @@ export default async function TopicPage({
             Nothing to revisit here. You have not missed a question in this topic.
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="divide-y divide-fg/20">
             {vault.map((row, index) => {
               const chosen = choiceRows.find((c) => c.id === row.selectedChoiceId)
               const correct = choiceRows.find(

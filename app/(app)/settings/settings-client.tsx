@@ -160,8 +160,8 @@ export default function SettingsClient({
         </p>
       )}
 
-      <section aria-labelledby="trial-heading" className="card p-4">
-        <h2 id="trial-heading" className="text-sm font-medium">
+      <section aria-labelledby="trial-heading">
+        <h2 id="trial-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
           Free trial
         </h2>
         <p className="hint text-pretty">
@@ -180,8 +180,8 @@ export default function SettingsClient({
       </section>
 
       {showCloud && (
-      <section aria-labelledby="cloud-heading" className="card p-4">
-        <h2 id="cloud-heading" className="text-sm font-medium">
+      <section aria-labelledby="cloud-heading">
+        <h2 id="cloud-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
           Your own API key
         </h2>
         <p className="hint text-pretty">
@@ -284,8 +284,8 @@ export default function SettingsClient({
       )}
 
       {showOllama && (
-      <section aria-labelledby="ollama-heading" className="card p-4">
-        <h2 id="ollama-heading" className="text-sm font-medium">
+      <section aria-labelledby="ollama-heading">
+        <h2 id="ollama-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
           Your own GPU (Ollama)
         </h2>
         <p className="hint text-pretty">
@@ -428,8 +428,8 @@ export function DeleteAccount({email}: {email: string}) {
   }
 
   return (
-    <section aria-labelledby="danger-heading" className="card mt-8 p-4">
-      <h2 id="danger-heading" className="text-sm font-medium">
+    <section aria-labelledby="danger-heading" className="mt-8">
+      <h2 id="danger-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
         Delete your account
       </h2>
       <p className="hint text-pretty">
