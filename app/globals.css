@@ -117,15 +117,10 @@ h3 {
   .btn-primary {
     background: var(--fg);
     color: var(--bg);
-    transform: rotate(0deg) scale(1);
   }
 
   .btn-primary:hover {
     background: color-mix(in oklch, var(--fg) 88%, transparent);
-  }
-
-  .btn-primary:active {
-    transform: rotate(-0.75deg) scale(0.97);
   }
 
   .btn-secondary {
@@ -181,18 +176,6 @@ h3 {
     background: var(--wash);
   }
 
-  .card-fold::before {
-    content: '';
-    position: absolute;
-    top: -7px;
-    left: 1.25rem;
-    width: 2.25rem;
-    height: 0.75rem;
-    background: color-mix(in oklch, var(--tint-butter) 92%, transparent);
-    border-bottom: 1px solid color-mix(in oklch, var(--rule-heavy) 20%, transparent);
-    transform: rotate(-2.5deg);
-  }
-
   .marked {
     padding-inline: 0.15em;
     color: var(--fg);
@@ -202,58 +185,6 @@ h3 {
       transparent 0.62em
     );
     background-repeat: no-repeat;
-  }
-
-  .stamp-pop {
-    animation: stamp-pop 700ms cubic-bezier(0.2, 1.6, 0.4, 1) forwards;
-  }
-
-  .scrap {
-    animation: scrap-fall 900ms ease-in forwards;
-  }
-}
-
-@keyframes stamp-pop {
-  0% {
-    opacity: 0;
-    transform: scale(2) rotate(var(--stamp-tilt, -8deg));
-  }
-  35% {
-    opacity: 1;
-    transform: scale(0.94) rotate(var(--stamp-tilt, -8deg));
-  }
-  45% {
-    transform: scale(1.04) rotate(var(--stamp-tilt, -8deg));
-  }
-  75% {
-    opacity: 1;
-    transform: scale(1) rotate(var(--stamp-tilt, -8deg));
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1) rotate(var(--stamp-tilt, -8deg));
-  }
-}
-
-@keyframes scrap-fall {
-  0% {
-    opacity: 1;
-    transform: translate(0, 0) rotate(var(--scrap-r0, 0deg));
-  }
-  100% {
-    opacity: 0;
-    transform: translate(var(--scrap-x, 0), var(--scrap-y, 120px)) rotate(var(--scrap-r1, 180deg));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .btn-primary:active {
-    transform: none;
-  }
-
-  .stamp-pop,
-  .scrap {
-    animation: none !important;
   }
 }
 

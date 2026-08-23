@@ -13,8 +13,8 @@ export function Hero({children}: {children: React.ReactNode}) {
         </Link>
 
         <h1 className={styles.blurb}>
-          Turn the worksheets you have already done into a record of{' '}
-          <span className="marked">what you actually know</span>.
+          Turn the worksheets you have already done into a record of what you
+          actually know.
         </h1>
 
         <p className="hint mt-4 max-w-md">

@@ -5,8 +5,6 @@ import {useRouter} from 'next/navigation'
 import {useCallback, useEffect, useRef, useState} from 'react'
 
 import {ReportButton} from '@/components/report-button'
-import {Celebration} from '@/components/celebration'
-import {GradeStamp} from '@/components/grade-stamp'
 import {Tick} from '@/components/hand'
 import {QuestionCrop} from '@/components/question-crop'
 import {reflowText} from '@/lib/questions/shape'
@@ -103,8 +101,6 @@ export default function ReviewSession({
   const [run, setRun] = useState(0)
   const [bestRun, setBestRun] = useState(0)
   const [startedAt] = useState(() => Date.now())
-  const [stampTick, setStampTick] = useState(0)
-  const [stampTone, setStampTone] = useState<'correct' | 'miss'>('correct')
 
   const explainAbort = useRef<AbortController | null>(null)
 
@@ -271,9 +267,6 @@ export default function ReviewSession({
         })
         if (!response.ok) throw new Error('Could not save that rating')
 
-        setStampTone(rating === 'again' || rating === 'hard' ? 'miss' : 'correct')
-        setStampTick((current) => current + 1)
-
         setTally((current) => ({...current, [rating]: current[rating] + 1}))
         setRun((current) => {
           const next = rating === 'again' ? 0 : current + 1
@@ -398,8 +391,6 @@ export default function ReviewSession({
 
   return (
     <div className="space-y-4">
-      <GradeStamp tone={stampTone} tick={stampTick} />
-
       <div>
         <div
           role="progressbar"
@@ -610,12 +601,9 @@ function Recap({
 }) {
   const rated = RATINGS.reduce((sum, rating) => sum + tally[rating.value], 0)
   const recalled = rated - tally.again
-  const worthCelebrating = (recalled === rated && rated > 0) || bestRun >= 5
 
   return (
     <div>
-      {worthCelebrating && <Celebration />}
-
       <h2 className="eyebrow">Sitting complete</h2>
 
       <p className="mt-2 font-display text-4xl font-semibold tabular-nums">
