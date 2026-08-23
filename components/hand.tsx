@@ -14,3 +14,21 @@ export function Tick({className = ''}: {className?: string}) {
     </svg>
   )
 }
+
+export function Cross({className = ''}: {className?: string}) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3.8 3.4C8.9 8.7 14.3 14.5 20.4 20.9" />
+      <path d="M20.2 4.1C14.6 9.3 9.3 14.6 3.9 20.6" />
+    </svg>
+  )
+}
