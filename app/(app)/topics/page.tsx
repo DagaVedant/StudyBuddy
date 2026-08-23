@@ -28,7 +28,7 @@ export default async function TopicsPage() {
       <nav aria-label="Breadcrumb" className="mb-4 text-sm">
         <Link
           href="/dashboard"
-          className="text-muted underline underline-offset-2 hover:text-fg"
+          className="text-muted hover:text-fg"
         >
           Dashboard
         </Link>

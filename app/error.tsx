@@ -33,7 +33,7 @@ export default function Error({
         </button>
       </p>
       <p className="mt-3">
-        <Link href="/dashboard" className="text-accent underline underline-offset-2">
+        <Link href="/dashboard" className="text-accent">
           Go to your dashboard
         </Link>
       </p>

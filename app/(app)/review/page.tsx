@@ -60,7 +60,7 @@ export default async function ReviewPage({
       {topic && (
         <p className="hint text-pretty">
           Only questions filed under this topic.{' '}
-          <Link href="/review" className="text-accent underline underline-offset-2">
+          <Link href="/review" className="text-accent">
             Review everything due instead
           </Link>
           .

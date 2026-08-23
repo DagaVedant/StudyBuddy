@@ -568,7 +568,7 @@ export default function ReviewSession({
               type="button"
               disabled={busy}
               onClick={() => void retire()}
-              className="btn-compact rounded-xl px-1 text-sm text-muted underline underline-offset-2 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+              className="btn-compact rounded-xl px-1 text-sm text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
             >
               Got it, stop asking me this one
             </button>

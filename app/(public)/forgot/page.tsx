@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
 
       <p className="hint mt-6">
         Remembered it?{' '}
-        <Link href="/signin" className="text-accent underline underline-offset-2">
+        <Link href="/signin" className="text-accent">
           Sign in
         </Link>
       </p>

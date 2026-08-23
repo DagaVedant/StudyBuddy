@@ -330,7 +330,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
             {cursor > 0 && (
               <button
                 type="button"
-                className="mt-4 text-sm text-muted underline underline-offset-2 hover:text-fg"
+                className="mt-4 text-sm text-muted hover:text-fg"
                 onClick={() => setCursor((index) => Math.max(0, index - 1))}
               >
                 Back
@@ -357,7 +357,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
           <span>Picked up where you left off on this device.</span>
           <button
             type="button"
-            className="btn-compact rounded px-1 text-sm text-muted underline underline-offset-2 hover:text-fg"
+            className="btn-compact rounded px-1 text-sm text-muted hover:text-fg"
             onClick={() => {
               clearMarkupDraft(worksheetId)
               setOutcomes({})

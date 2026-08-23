@@ -14,7 +14,7 @@ export default function NotFound() {
       </p>
 
       <p className="mt-6">
-        <Link href="/dashboard" className="text-accent underline underline-offset-2">
+        <Link href="/dashboard" className="text-accent">
           Go to your dashboard
         </Link>
       </p>

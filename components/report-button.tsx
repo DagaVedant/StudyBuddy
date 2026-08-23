@@ -60,7 +60,7 @@ export function ReportButton({
     return (
       <button
         type="button"
-        className="text-xs text-muted underline underline-offset-2 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="text-xs text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         onClick={() => setOpen(true)}
       >
         {label}

@@ -62,7 +62,7 @@ export function RevisitQuestion({
           {!revealed ? (
             <button
               type="button"
-              className="btn-compact touch-manipulation rounded-xl px-1 text-xs text-muted underline underline-offset-2 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="btn-compact touch-manipulation rounded-xl px-1 text-xs text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               onClick={() => setRevealed(true)}
             >
               Show answer

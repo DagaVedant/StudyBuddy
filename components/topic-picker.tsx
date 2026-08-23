@@ -95,7 +95,7 @@ export function TopicPicker({topics, value, onChange}: Props) {
           </span>
           <button
             type="button"
-            className="btn-compact shrink-0 rounded px-2 text-sm text-muted underline underline-offset-2 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="btn-compact shrink-0 rounded px-2 text-sm text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             onClick={() => {
               setOpen(true)
               requestAnimationFrame(() => document.getElementById(inputId)?.focus())

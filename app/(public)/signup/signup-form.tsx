@@ -112,7 +112,7 @@ export default function SignUpForm({inviteRequired}: {inviteRequired: boolean}) 
 
       <p className="hint mt-6">
         Already have an account?{' '}
-        <Link href="/signin" className="text-accent underline underline-offset-2">
+        <Link href="/signin" className="text-accent">
           Sign in
         </Link>
       </p>

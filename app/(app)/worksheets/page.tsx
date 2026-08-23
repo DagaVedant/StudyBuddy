@@ -123,7 +123,7 @@ export default async function WorksheetsPage({
       emptyMessage = (
         <>
           Nothing matches “{query}”.{' '}
-          <Link href="/worksheets" className="text-accent underline underline-offset-2">
+          <Link href="/worksheets" className="text-accent">
             Show all worksheets
           </Link>
           .
@@ -133,7 +133,7 @@ export default async function WorksheetsPage({
       emptyMessage = (
         <>
           Nothing older to show.{' '}
-          <Link href="/worksheets" className="text-accent underline underline-offset-2">
+          <Link href="/worksheets" className="text-accent">
             Back to the newest
           </Link>
           .
@@ -249,7 +249,7 @@ export default async function WorksheetsPage({
                     <a
                       href={`/api/export/blooket/${sheet.id}`}
                       download
-                      className="mt-2 self-start text-sm text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      className="mt-2 self-start text-sm text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     >
                       Export missed to Blooket
                     </a>
@@ -264,7 +264,7 @@ export default async function WorksheetsPage({
                     <div className="flex items-center gap-3">
                       <Link
                         href={href}
-                        className="text-sm text-accent underline underline-offset-2"
+                        className="text-sm text-accent"
                       >
                         {cta}
                       </Link>

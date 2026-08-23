@@ -198,7 +198,7 @@ export default function SettingsClient({
             </span>
             <button
               type="button"
-              className="rounded px-2 py-1 text-sm text-muted underline underline-offset-2 hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="rounded px-2 py-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               disabled={busy}
               onClick={() => void remove(cloud.provider)}
             >
@@ -303,7 +303,7 @@ export default function SettingsClient({
             </span>
             <button
               type="button"
-              className="rounded px-2 py-1 text-sm text-muted underline underline-offset-2 hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="rounded px-2 py-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               disabled={busy}
               onClick={() => void remove('ollama')}
             >

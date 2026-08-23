@@ -701,7 +701,7 @@ const QuestionCard = memo(function QuestionCard({
           )}
           <button
             type="button"
-            className="ml-auto shrink-0 text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="ml-auto shrink-0 text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             aria-expanded={expanded}
             onClick={() => onToggleExpanded(question.id, question.pageId)}
           >
@@ -853,7 +853,7 @@ const QuestionCard = memo(function QuestionCard({
 
           <button
             type="button"
-            className="btn-compact rounded px-1 text-sm text-muted underline underline-offset-2 hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="btn-compact rounded px-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             onClick={() => onRemove(question.id)}
           >
             Delete this question

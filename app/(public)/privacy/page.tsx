@@ -117,7 +117,7 @@ export default function PrivacyPage() {
       </section>
 
       <p className="hint mt-10">
-        <Link href="/terms" className="text-accent underline underline-offset-2">
+        <Link href="/terms" className="text-accent">
           Terms of use
         </Link>
       </p>

@@ -305,7 +305,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
                 type="button"
                 disabled={busy || loadingSample !== null}
                 onClick={() => void loadSample(sample.slug, true)}
-                className="underline underline-offset-2 hover:text-fg disabled:opacity-60"
+                className="hover:text-fg disabled:opacity-60"
               >
                 {sample.questions} questions
               </button>

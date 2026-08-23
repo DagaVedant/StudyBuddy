@@ -70,7 +70,7 @@ export default async function ProfilePage() {
               </button>
             </form>
 
-            <Link href="/settings" className="hint underline underline-offset-2">
+            <Link href="/settings" className="hint">
               Delete account
             </Link>
           </div>

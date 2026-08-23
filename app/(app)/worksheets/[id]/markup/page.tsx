@@ -34,7 +34,7 @@ function Breadcrumb() {
     <nav aria-label="Breadcrumb" className="mb-4 text-sm">
       <Link
         href="/dashboard"
-        className="text-muted underline underline-offset-2 hover:text-fg"
+        className="text-muted hover:text-fg"
       >
         Dashboard
       </Link>
@@ -163,7 +163,7 @@ export default async function MarkupPage({
           This worksheet has no questions yet.{' '}
           <Link
             href={`/worksheets/${id}/edit`}
-            className="text-accent underline underline-offset-2"
+            className="text-accent"
           >
             Add some first
           </Link>

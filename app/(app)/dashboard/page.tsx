@@ -97,7 +97,7 @@ function Figure({
         {href ? (
           <Link
             href={href}
-            className="text-accent underline decoration-1 underline-offset-4"
+            className="text-accent"
           >
             {figure}
           </Link>
@@ -199,7 +199,7 @@ export default async function DashboardPage() {
           </Link>
           <Link
             href="/upload?sample=algebra-10"
-            className="hint text-center underline underline-offset-2 hover:text-fg"
+            className="hint text-center hover:text-fg"
           >
             or start with a sample
           </Link>
@@ -240,7 +240,7 @@ export default async function DashboardPage() {
                             Open {untagged.length === 1 ? 'it' : 'one'} from{' '}
                             <Link
                               href="/worksheets"
-                              className="text-accent underline underline-offset-2"
+                              className="text-accent"
                             >
                               your worksheets
                             </Link>{' '}
@@ -322,7 +322,7 @@ export default async function DashboardPage() {
                     <p className="hint">
                       <Link
                         href="/topics"
-                        className="text-accent underline underline-offset-2"
+                        className="text-accent"
                       >
                         Browse every topic
                       </Link>
@@ -403,7 +403,7 @@ export default async function DashboardPage() {
                     <div className="flex items-baseline gap-3">
                       <Link
                         href={destination(sheet.id, sheet).href}
-                        className="min-w-0 flex-1 truncate text-sm text-accent underline underline-offset-2"
+                        className="min-w-0 flex-1 truncate text-sm text-accent"
                       >
                         {sheet.title}
                       </Link>
@@ -475,7 +475,7 @@ export default async function DashboardPage() {
                     <li key={row.topicId} className="flex items-baseline gap-3">
                       <Link
                         href={`/review?topic=${row.topicId}`}
-                        className="min-w-0 flex-1 truncate text-sm text-accent underline underline-offset-2"
+                        className="min-w-0 flex-1 truncate text-sm text-accent"
                       >
                         {row.topicName}
                       </Link>

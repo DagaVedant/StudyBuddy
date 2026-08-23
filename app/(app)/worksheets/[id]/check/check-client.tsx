@@ -198,7 +198,7 @@ export function CheckClient({
             <button
               type="button"
               onClick={() => void undoBulkAccept()}
-              className="btn-compact text-accent underline underline-offset-2"
+              className="btn-compact text-accent"
             >
               Undo
             </button>
@@ -317,7 +317,7 @@ export function CheckClient({
               From{' '}
               <Link
                 href={`/worksheets/${question.duplicateOf.worksheetId}`}
-                className="underline underline-offset-2 hover:text-fg"
+                className="hover:text-fg"
               >
                 {question.duplicateOf.worksheetTitle}
               </Link>
@@ -359,7 +359,7 @@ export function CheckClient({
           <button
             type="button"
             onClick={() => void undoBulkAccept()}
-            className="btn-compact text-accent underline underline-offset-2"
+            className="btn-compact text-accent"
           >
             Undo
           </button>
@@ -374,14 +374,14 @@ export function CheckClient({
               void acceptRemaining()
             }}
             disabled={saving}
-            className="btn-compact text-danger underline underline-offset-2"
+            className="btn-compact text-danger"
           >
             Yes, accept {remaining}
           </button>
           <button
             type="button"
             onClick={() => setConfirmingBulk(false)}
-            className="btn-compact text-muted underline underline-offset-2 hover:text-fg"
+            className="btn-compact text-muted hover:text-fg"
           >
             Cancel
           </button>
@@ -391,7 +391,7 @@ export function CheckClient({
           type="button"
           onClick={() => setConfirmingBulk(true)}
           disabled={saving}
-          className="btn-compact text-sm text-muted underline underline-offset-2 hover:text-accent"
+          className="btn-compact text-sm text-muted hover:text-accent"
         >
           Accept the remaining {remaining} as they are
         </button>

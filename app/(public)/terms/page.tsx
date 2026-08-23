@@ -20,7 +20,7 @@ export default function TermsPage() {
           StudyBuddy is run by one person as a study tool, not by a company, and
           it is offered as it is. Using it means accepting the terms on this
           page and the{' '}
-          <Link href="/privacy" className="text-accent underline underline-offset-2">
+          <Link href="/privacy" className="text-accent">
             privacy page
           </Link>
           .
@@ -86,7 +86,7 @@ export default function TermsPage() {
       </section>
 
       <p className="hint mt-10">
-        <Link href="/privacy" className="text-accent underline underline-offset-2">
+        <Link href="/privacy" className="text-accent">
           Privacy
         </Link>
       </p>
