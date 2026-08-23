@@ -10,7 +10,6 @@ import {db} from '@/lib/db'
 import {TopicTree} from '@/components/topic-tree'
 import {getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getOverview, getRecentWorksheets, getReviewForecast, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats} from '@/lib/dashboard'
 import {StudyCalendar} from '@/components/study-calendar'
-import {Underline} from '@/components/hand'
 import {Callout, MarginNote, Note, PageFoot, SectionHead} from '@/components/note'
 import {buildTopicTree, pruneToAttempted, rankFragile, rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
 import {topics} from '@/lib/schema'
@@ -46,9 +45,8 @@ function Verdict({
   if (dueNow > 0) {
     return (
       <>
-        <span className="relative whitespace-nowrap text-accent">
+        <span className="whitespace-nowrap text-accent">
           {dueNow} {dueNow === 1 ? 'question' : 'questions'}
-          <Underline />
         </span>{' '}
         {dueNow === 1 ? 'is' : 'are'} due for review today.
       </>
@@ -59,9 +57,7 @@ function Verdict({
     return (
       <>
         Nothing is due today.{' '}
-        <span className="relative whitespace-nowrap text-accent">
-          {weakest.topicName}
-        </span>{' '}
+        <span className="whitespace-nowrap text-accent">{weakest.topicName}</span>{' '}
         is your weakest topic right now.
       </>
     )
@@ -189,7 +185,7 @@ export default async function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
         <div className="max-w-2xl">
           <p className="eyebrow">Dashboard</p>
-          <h1 className="mt-2 text-balance font-display text-3xl font-semibold leading-[1.08] tracking-tight sm:text-5xl">
+          <h1 className="mt-2 whitespace-nowrap font-display text-3xl leading-tight tracking-tight sm:text-5xl">
             <Verdict
               dueNow={overview.dueNow}
               weakest={weakest[0]}
@@ -210,9 +206,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-6 border-b-2 border-rule-heavy" />
-
-      <div className="mt-8 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_19rem]">
+      <div className="mt-10 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <div className="min-w-0">
           {hasData && (
             <div className="space-y-6">

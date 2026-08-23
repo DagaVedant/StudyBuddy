@@ -16,14 +16,9 @@ export function Note({
 
 export function SectionHead({id, title}: {id: string; title: string}) {
   return (
-    <div className="mb-4 border-b border-fg/20 pb-2">
-      <h2
-        id={id}
-        className="font-display text-lg font-semibold tracking-tight sm:text-xl"
-      >
-        {title}
-      </h2>
-    </div>
+    <h2 id={id} className="mb-4 font-sans text-lg font-bold tracking-tight sm:text-xl">
+      {title}
+    </h2>
   )
 }
 
@@ -59,7 +54,7 @@ export function MarginNote({
 
 export function PageFoot({running}: {running: string}) {
   return (
-    <footer className="mt-14 border-t border-rule-heavy pt-3">
+    <footer className="mt-14">
       <p className="eyebrow">{running}</p>
     </footer>
   )
