@@ -51,7 +51,7 @@ export default function AccuracyChart({
           </label>
           <select
             id={selectId}
-            className="field bg-surface sm:max-w-xs"
+            className="field border border-rule bg-wash sm:max-w-xs"
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
           >
