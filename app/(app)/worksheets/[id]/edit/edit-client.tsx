@@ -651,7 +651,7 @@ const QuestionCard = memo(function QuestionCard({
         registerRef(question.id, node)
       }}
       style={style}
-      className={`card ${selected ? 'bg-accent/10' : ''}`}
+      className={`border-b border-fg/20 ${selected ? 'bg-accent/10' : ''}`}
     >
       <div className="p-3">
         <div className="flex items-start gap-2">
@@ -1106,7 +1106,7 @@ export default function EditClient({
 
   if (!page) {
     return (
-      <p className="card px-4 py-6 text-sm text-muted">
+      <p className="rounded-2xl card-sunk px-4 py-12 text-center text-sm text-muted">
         This worksheet has no pages. Upload it again.
       </p>
     )
