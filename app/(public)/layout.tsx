@@ -7,8 +7,8 @@ export default function PublicLayout({children}: {children: React.ReactNode}) {
     <>
       <MainRegion>{children}</MainRegion>
 
-      <footer className="mx-auto w-full max-w-2xl px-6 pb-10 text-sm text-muted">
-        <nav aria-label="Policies" className="flex gap-4">
+      <footer className="w-full px-6 pb-10 text-sm text-muted">
+        <nav aria-label="Policies" className="flex justify-center gap-4">
           <Link href="/privacy" className="hover:text-fg">
             Privacy
           </Link>
