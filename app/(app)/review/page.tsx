@@ -54,7 +54,7 @@ export default async function ReviewPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
+    <main className="w-full px-4 py-8 sm:px-6">
       <PageHead eyebrow="Review" title={heading} />
 
       {topic && (

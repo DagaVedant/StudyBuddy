@@ -30,7 +30,7 @@ export default async function SettingsPage() {
   ])
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-6 py-10">
+    <main className="w-full px-6 py-10">
       <div className="mb-8">
         <PageHead title="How StudyBuddy thinks" />
       </div>
