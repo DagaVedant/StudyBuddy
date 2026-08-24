@@ -5,7 +5,7 @@
   --bg: oklch(100% 0 0);
   --fg: oklch(21% 0.014 62);
   --muted: oklch(43% 0.016 62);
-  --surface: oklch(99.5% 0.004 88);
+  --surface: oklch(100% 0 0);
   --wash: oklch(96% 0.014 240);
   --wash-strong: oklch(84.5% 0.025 78);
   --accent: oklch(42% 0.155 258);
@@ -62,12 +62,6 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-}
-
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
 }
 
 @layer components {
