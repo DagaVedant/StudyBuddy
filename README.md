@@ -1,6 +1,3 @@
-# STARDANCE REVIEWER CAN YOU PLEASE LEAVE UR SLACK
-## i wanna talk to you about why its been rejected so many times
-
 # StudyBuddy
 
 Upload a worksheet you have already done, mark the questions you got wrong, and
