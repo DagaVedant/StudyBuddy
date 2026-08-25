@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import {useRouter} from 'next/navigation'
 import {useCallback, useEffect, useRef, useState} from 'react'
 
 import {ReportButton} from '@/components/report-button'
@@ -84,8 +83,6 @@ export default function ReviewSession({
   topicName?: string | null
   writerOffline?: boolean
 }) {
-  const router = useRouter()
-
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -95,7 +92,6 @@ export default function ReviewSession({
   const [explainError, setExplainError] = useState<string | null>(null)
   const [explainNotice, setExplainNotice] = useState<string | null>(null)
   const [generated, setGenerated] = useState<Record<string, string>>({})
-  const [refreshing, setRefreshing] = useState(false)
 
   const [tally, setTally] = useState<Tally>(NO_TALLY)
   const [run, setRun] = useState(0)
@@ -111,7 +107,6 @@ export default function ReviewSession({
     setQueueSeen(queueKey)
     setIndex(0)
     setRevealed(false)
-    setRefreshing(false)
   }
 
   async function waitForExplanation(
@@ -219,18 +214,22 @@ export default function ReviewSession({
     }
   }, [currentQuestionId])
 
+  // Finishing the batch used to call router.refresh() here to pull the next
+  // one. Every route in this group streams behind one shared loading.tsx, so
+  // that refresh can remount this component and reset done/tally/bestRun to
+  // their initial values -- taking the sitting recap with them. Stop at the end
+  // of the batch instead and let the recap render from state that is still
+  // intact; "Keep going" below reloads for more.
   const advance = useCallback(() => {
     setDone((count) => count + 1)
 
     if (index + 1 >= items.length) {
-      setRefreshing(true)
-      router.refresh()
       setIndex(items.length)
     } else {
       setIndex((current) => current + 1)
       setRevealed(false)
     }
-  }, [index, items.length, router])
+  }, [index, items.length])
 
   const retire = useCallback(async () => {
     if (!item || busy) return
@@ -310,23 +309,6 @@ export default function ReviewSession({
   }, [revealed, rate])
 
   if (!item) {
-    if (refreshing) {
-      return (
-        <div className="text-center">
-          <h2 className="font-medium">Finding your next questions…</h2>
-          <p className="hint">
-            You reviewed <span className="tabular-nums">{done}</span>{' '}
-            {done === 1 ? 'question' : 'questions'} so far.
-          </p>
-          <div className="mt-4 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/dashboard" className="btn btn-primary sm:w-auto sm:px-6">
-              Back to dashboard
-            </Link>
-          </div>
-        </div>
-      )
-    }
-
     if (done > 0) {
       return (
         <Recap
@@ -660,11 +642,11 @@ function Recap({
       </p>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-        <Link href="/dashboard" className="btn btn-primary sm:w-auto sm:px-6">
+        <a href="/review" className="btn btn-primary sm:w-auto sm:px-6">
+          Keep going
+        </a>
+        <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
           Back to dashboard
-        </Link>
-        <Link href="/worksheets" className="btn btn-secondary sm:w-auto sm:px-6">
-          Your worksheets
         </Link>
       </div>
     </div>

@@ -218,6 +218,8 @@ export const worksheets = pgTable(
 
     tierUsed: aiTier('tier_used'),
 
+    sampleSlug: text('sample_slug'),
+
     classificationError: text('classification_error'),
 
     createdAt: createdAt(),

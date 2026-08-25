@@ -1,6 +1,6 @@
 import {createHash, randomBytes, timingSafeEqual} from 'node:crypto'
 
-import {and, eq, gt, isNull} from 'drizzle-orm'
+import {and, eq, gt, isNull, sql} from 'drizzle-orm'
 
 import {accounts, passwordResetTokens, users, worksheetPages, worksheets} from '@/lib/schema'
 import {
@@ -85,6 +85,26 @@ function validateUsername(input: string | null | undefined): UsernameCheck {
   }
 
   return {ok: true, username: trimmed}
+}
+
+// Gmail ignores dots and anything after a "+", so one inbox can mint endless
+// addresses that all look distinct here. Compare canonical forms so each inbox
+// gets one trial. Computed in SQL rather than with a stored column: existing
+// rows may already collide, and a unique index over them would fail to create.
+export async function emailTwinExists(db: Db, canonical: string): Promise<boolean> {
+  const [twin] = await db
+    .select({id: users.id})
+    .from(users)
+    .where(
+      sql`case
+        when split_part(${users.email}, '@', 2) in ('gmail.com', 'googlemail.com')
+          then replace(regexp_replace(split_part(${users.email}, '@', 1), '\\+.*$', ''), '.', '') || '@gmail.com'
+        else regexp_replace(split_part(${users.email}, '@', 1), '\\+.*$', '') || '@' || split_part(${users.email}, '@', 2)
+      end = ${canonical}`,
+    )
+    .limit(1)
+
+  return Boolean(twin)
 }
 
 export async function accountMayBeAdmin(

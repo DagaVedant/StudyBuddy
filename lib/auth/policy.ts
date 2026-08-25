@@ -109,3 +109,15 @@ export function isDisposableEmail(email: string): boolean {
 
   return false
 }
+
+const DOTLESS_DOMAINS = new Set(['gmail.com', 'googlemail.com'])
+
+export function canonicalEmail(email: string): string {
+  const [rawLocal, domain] = email.trim().toLowerCase().split('@')
+  if (!domain) return email.trim().toLowerCase()
+
+  let local = rawLocal.split('+')[0]
+  if (DOTLESS_DOMAINS.has(domain)) local = local.replace(/\./g, '')
+
+  return `${local}@${domain === 'googlemail.com' ? 'gmail.com' : domain}`
+}

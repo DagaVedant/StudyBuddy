@@ -237,7 +237,11 @@ export async function rasterizeImage(
 ): Promise<RasterPage> {
   throwIfCancelled(signal)
 
-  const bitmap = await createImageBitmap(file)
+  // Phone cameras store portrait shots as landscape pixels plus an EXIF
+  // orientation tag. createImageBitmap ignores that tag by default, and the
+  // canvas re-encode below drops it, so without this the rotation is lost for
+  // good and every page comes out sideways.
+  const bitmap = await createImageBitmap(file, {imageOrientation: 'from-image'})
 
   try {
     const longestEdge = Math.max(bitmap.width, bitmap.height)

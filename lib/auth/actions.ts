@@ -20,9 +20,16 @@ import {
   consumeRateLimit,
 } from '@/lib/api'
 
-import {isAdminEmail, isDisposableEmail, safeNextPath, validateDob} from './policy'
+import {
+  canonicalEmail,
+  isAdminEmail,
+  isDisposableEmail,
+  safeNextPath,
+  validateDob,
+} from './policy'
 import {
   consumeResetToken,
+  emailTwinExists,
   findResetTarget,
   inviteAccepted,
   inviteRequired,
@@ -95,13 +102,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     return {message: 'Your account is ready. Sign in below.'}
   }
 
-  const [existing] = await db
-    .select({id: users.id})
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1)
-
-  if (existing) {
+  if (await emailTwinExists(db, canonicalEmail(email))) {
     return {message: 'Your account is ready. Sign in below.'}
   }
 

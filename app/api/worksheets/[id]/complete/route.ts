@@ -53,7 +53,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
   )
   if (limited) return limited
 
-  const match = await findMatchingSample(db, worksheetId)
+  const match = await findMatchingSample(db, worksheetId, guard.userId)
 
   if (match) {
     if (!(await claimForCompletion(worksheetId, 'queued', 'free'))) {
@@ -81,6 +81,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
     await transitionWorksheet(db, worksheetId, ['queued'], {
       status: 'awaiting_review',
       tierUsed: 'free',
+      sampleSlug: match.sample.slug,
     })
 
     return NextResponse.json({

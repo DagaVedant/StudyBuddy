@@ -1,9 +1,9 @@
-import {asc, eq} from 'drizzle-orm'
+import {and, asc, eq} from 'drizzle-orm'
 
 import {type ExtractedQuestion} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 import {persistQuestions} from '@/lib/worker/pipeline'
-import {questions, questionTopics, topics, worksheetPages} from '@/lib/schema'
+import {questions, questionTopics, topics, worksheetPages, worksheets} from '@/lib/schema'
 
 export interface CachedSample {
   slug: string
@@ -368,9 +368,15 @@ function squash(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
+// The cached path hands back a fully extracted worksheet without touching the
+// trial counter, so a sample each is a giveaway but a sample every time is a
+// way to process unlimited worksheets free. The userId is required rather than
+// optional on purpose: the cap cannot then be skipped by a caller that forgets
+// it, which is how this was uncapped to begin with.
 export async function findMatchingSample(
   db: Db,
   worksheetId: string,
+  userId: string,
 ): Promise<{sample: CachedSample; pages: {id: string}[]} | null> {
   const pages = await db
     .select({id: worksheetPages.id, ocrText: worksheetPages.ocrText})
@@ -385,6 +391,14 @@ export async function findMatchingSample(
   for (const sample of CACHED_SAMPLES) {
     if (pages.length !== sample.pages.length) continue
     if (!firstPage.includes(squash(sample.title))) continue
+
+    const [used] = await db
+      .select({id: worksheets.id})
+      .from(worksheets)
+      .where(and(eq(worksheets.userId, userId), eq(worksheets.sampleSlug, sample.slug)))
+      .limit(1)
+
+    if (used) return null
 
     return {sample, pages}
   }

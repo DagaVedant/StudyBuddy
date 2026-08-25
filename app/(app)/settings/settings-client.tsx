@@ -16,6 +16,7 @@ interface Credential {
   keyLast4: string | null
   ollamaBaseUrl: string | null
   visionModelName: string | null
+  verified: boolean
 }
 
 interface Props {
@@ -114,11 +115,16 @@ export default function SettingsClient({
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body),
       })
-      const result = (await response.json()) as {error?: string; last4?: string}
+      const result = (await response.json()) as {
+        error?: string
+        last4?: string
+        verified?: boolean
+        message?: string
+      }
       if (!response.ok) throw new Error(result.error ?? 'Could not save that.')
 
       setApiKey('')
-      setNotice('Saved.')
+      setNotice(result.message ?? 'Saved.')
 
       if (result.last4) {
         setJustSaved({
@@ -126,6 +132,7 @@ export default function SettingsClient({
           keyLast4: result.last4,
           ollamaBaseUrl: null,
           visionModelName: model || null,
+          verified: result.verified ?? false,
         })
       }
 
@@ -195,6 +202,9 @@ export default function SettingsClient({
           <div className="mt-3 flex items-center gap-3">
             <span className="flex-1 truncate rounded-xl px-3 py-2 text-sm">
               {cloud.provider} · key ending {cloud.keyLast4}
+              {!cloud.verified && (
+                <span className="text-caution"> · not checked yet</span>
+              )}
             </span>
             <button
               type="button"

@@ -58,7 +58,11 @@ export function TopicPicker({topics, value, onChange}: Props) {
   useEffect(() => {
     if (!open) return
     const onPointerDown = (event: PointerEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false)
+      if (containerRef.current?.contains(event.target as Node)) return
+      // closing without choosing anything: drop the half-typed search too, or
+      // it is still sitting there the next time this opens
+      updateQuery('')
+      setOpen(false)
     }
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)

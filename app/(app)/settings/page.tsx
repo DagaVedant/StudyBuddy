@@ -43,6 +43,7 @@ export default async function SettingsPage() {
           keyLast4: row.keyLast4,
           ollamaBaseUrl: row.ollamaBaseUrl,
           visionModelName: row.visionModelName,
+          verified: row.verifiedAt !== null,
         }))}
         trial={{
           worksheetsRemaining: trial.worksheetsRemaining,
