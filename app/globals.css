@@ -22,10 +22,6 @@
 
   --radius: 3px;
   --radius-lg: 4px;
-  --google-bg: #ffffff;
-  --google-bg-hover: #f2f2f2;
-  --google-border: #747775;
-  --google-fg: #1f1f1f;
 }
 
 @theme inline {
@@ -131,22 +127,6 @@ body {
 
   .btn-danger:hover {
     background: color-mix(in oklch, var(--danger) 88%, black);
-  }
-
-  .btn-google {
-    @apply gap-3 text-sm;
-
-    border: 1px solid var(--google-border);
-    background: var(--google-bg);
-    color: var(--google-fg);
-  }
-
-  .btn-google:hover {
-    background: var(--google-bg-hover);
-  }
-
-  .btn-google[aria-busy='true'] {
-    opacity: 0.6;
   }
 
   .label {

@@ -78,7 +78,6 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1 pl-5">
           <li>Vercel, for hosting, and for page-view analytics that set no cookies.</li>
           <li>Neon, for the database.</li>
-          <li>Google, if you choose to sign in with Google.</li>
           <li>
             An email provider, only to send a password reset link when you ask
             for one.

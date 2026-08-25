@@ -3,9 +3,8 @@
 import Link from 'next/link'
 import {useActionState} from 'react'
 
-import {GoogleButton} from '@/components/google-button'
 import {TRIAL_WORKSHEET_LIMIT} from '@/lib/ai/types'
-import {type FormState, signInWithGoogle, signUp} from '@/lib/auth/actions'
+import {type FormState, signUp} from '@/lib/auth/actions'
 import {MIN_AGE_YEARS} from '@/lib/auth/policy'
 
 export default function SignUpForm({inviteRequired}: {inviteRequired: boolean}) {
@@ -31,17 +30,7 @@ export default function SignUpForm({inviteRequired}: {inviteRequired: boolean}) 
         </p>
       )}
 
-      <form action={signInWithGoogle} className="mt-6">
-        <GoogleButton label="Sign up with Google" />
-      </form>
-
-      <div className="my-6 flex items-center gap-3 text-sm text-muted">
-        <span className="h-px flex-1 bg-wash-strong" />
-        or use a password
-        <span className="h-px flex-1 bg-wash-strong" />
-      </div>
-
-      <form action={action} className="space-y-4">
+      <form action={action} className="mt-6 space-y-4">
         <div>
           <label className="label" htmlFor="name">
             Name

@@ -4,15 +4,11 @@ import Link from 'next/link'
 import {useSearchParams} from 'next/navigation'
 import {Suspense, useActionState} from 'react'
 
-import {GoogleButton} from '@/components/google-button'
-import {type FormState, signInWithCredentials, signInWithGoogle} from '@/lib/auth/actions'
+import {type FormState, signInWithCredentials} from '@/lib/auth/actions'
 import {safeNextPath} from '@/lib/auth/policy'
 
 function linkErrorMessage(code: string | null): string | null {
   if (!code) return null
-  if (code === 'OAuthAccountNotLinked') {
-    return 'That email is already registered with a password. Sign in with your password instead.'
-  }
   return 'Something went wrong.'
 }
 
@@ -39,17 +35,7 @@ function SignInForm() {
         </p>
       )}
 
-      <form action={signInWithGoogle} className="mt-6">
-        <GoogleButton label="Sign in with Google" />
-      </form>
-
-      <div className="my-6 flex items-center gap-3 text-sm text-muted">
-        <span className="h-px flex-1 bg-wash-strong" />
-        or use a password
-        <span className="h-px flex-1 bg-wash-strong" />
-      </div>
-
-      <form action={action} className="space-y-4">
+      <form action={action} className="mt-6 space-y-4">
         <input type="hidden" name="next" value={next} />
 
         <div>

@@ -157,7 +157,7 @@ export default function ProfileClient({
             />
             <p className="hint text-pretty">
               Letters, numbers and underscores, starting with a letter. Sign-in stays
-              email or Google either way.
+              your email either way.
             </p>
           </div>
 

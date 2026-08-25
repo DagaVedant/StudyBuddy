@@ -118,10 +118,6 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   return {message: 'Your account is ready. Sign in below.'}
 }
 
-export async function signInWithGoogle(): Promise<void> {
-  await signIn('google', {redirectTo: '/dashboard'})
-}
-
 const SIGNIN_FAILED = 'That email and password combination did not work.'
 
 export async function signInWithCredentials(
@@ -151,7 +147,7 @@ const SENT =
   'If that address has an account, a link to set a password is on its way. It works once, and for an hour.'
 
 const NO_MAIL =
-  'This deployment cannot send email, so there is no password reset. Sign in with Google, or ask whoever runs it.'
+  'This deployment cannot send email, so there is no password reset. Ask whoever runs it.'
 
 export async function requestPasswordReset(
   _prev: FormState,

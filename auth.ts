@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs'
 import {eq} from 'drizzle-orm'
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
-import Google from 'next-auth/providers/google'
 
 import {accountMayBeAdmin, signInThrottled} from '@/lib/auth/identity'
 import {db} from '@/lib/db'
@@ -62,8 +61,6 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
   pages: {signIn: '/signin', error: '/signin'},
 
   providers: [
-    Google({allowDangerousEmailAccountLinking: false}),
-
     Credentials({
       credentials: {
         email: {label: 'Email', type: 'email'},
@@ -97,19 +94,6 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
   ],
 
   callbacks: {
-    async signIn({user, account, profile}) {
-      if (account?.provider === 'google' && user.id) {
-        const google = profile as {email_verified?: boolean} | undefined
-        if (google?.email_verified) {
-          await db
-            .update(users)
-            .set({emailVerified: new Date()})
-            .where(eq(users.id, user.id))
-        }
-      }
-      return true
-    },
-
     async jwt({token, user, trigger}) {
       if (user?.id) token.id = user.id
 
