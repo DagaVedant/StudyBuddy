@@ -145,14 +145,30 @@ export function CheckClient({
     }
   }, [bulkUndo, worksheetId])
 
-  const advance = useCallback(() => {
-    setIndex((current) => Math.min(current + 1, questions.length - 1))
-  }, [questions.length])
+  const advance = useCallback(
+    (alsoChecked: string[] = []) => {
+      setIndex((current) => {
+        const total = questions.length
+        if (total === 0) return current
+
+        const checked = new Set([...verified, ...alsoChecked])
+
+        for (let step = 1; step <= total; step += 1) {
+          const next = (current + step) % total
+          if (!checked.has(questions[next].id)) return next
+        }
+
+        return current
+      })
+    },
+    [questions, verified],
+  )
 
   const accept = useCallback(async () => {
     if (!question) return
-    await mark([question.id])
-    advance()
+    const id = question.id
+    await mark([id])
+    advance([id])
   }, [question, mark, advance])
 
   useEffect(() => {
@@ -342,7 +358,11 @@ export function CheckClient({
         >
           Something&rsquo;s wrong
         </Link>
-        <button type="button" onClick={advance} className="btn btn-secondary">
+        <button
+          type="button"
+          onClick={() => advance()}
+          className="btn btn-secondary"
+        >
           Skip
         </button>
       </div>
