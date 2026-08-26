@@ -54,7 +54,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
 
   const [files, setFiles] = useState<File[]>([])
   const [title, setTitle] = useState('')
-  const [titleTouched, setTitleTouched] = useState(false)
+  const titleTouchedRef = useRef(false)
   const [subject, setSubject] = useState('')
   const [pageFrom, setPageFrom] = useState('')
   const [pageTo, setPageTo] = useState('')
@@ -64,13 +64,14 @@ export default function UploadClient({subjects, initialSample}: Props) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [pending, setPending] = useState<string | null>(null)
+  const [handedOff, setHandedOff] = useState(false)
   const [loadingSample, setLoadingSample] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
   const runningRef = useRef(false)
   const worksheetRef = useRef<string | null>(null)
 
-  const busy = progress !== null && progress.stage !== 'done'
+  const busy = handedOff || (progress !== null && progress.stage !== 'done')
 
   useEffect(() => {
     if (!busy) return
@@ -88,16 +89,16 @@ export default function UploadClient({subjects, initialSample}: Props) {
     }
   }, [])
 
-  const addFiles = useCallback(
-    (incoming: ArrayLike<File> | null) => {
-      if (!incoming || incoming.length === 0) return
-      setError(null)
-      const next = [...files, ...Array.from(incoming)]
-      setFiles(next)
-      if (!titleTouched) setTitle(defaultTitle(next))
-    },
-    [files, titleTouched],
-  )
+  const addFiles = useCallback((incoming: ArrayLike<File> | null) => {
+    if (!incoming || incoming.length === 0) return
+    setError(null)
+
+    setFiles((current) => {
+      const next = [...current, ...Array.from(incoming)]
+      if (!titleTouchedRef.current) setTitle(defaultTitle(next))
+      return next
+    })
+  }, [])
 
   const loadSample = useCallback(
     async (slug: string, keepACopy: boolean) => {
@@ -156,6 +157,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
     abortRef.current?.abort()
     abortRef.current = null
     setProgress(null)
+    setPending(null)
 
     const started = worksheetRef.current
     worksheetRef.current = null
@@ -177,6 +179,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
 
     setError(null)
     setNotice(null)
+    setPending(null)
 
     const parsed = parsePageRange(pageFrom, pageTo)
     if (!parsed.ok) {
@@ -221,6 +224,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
         return
       }
 
+      setHandedOff(true)
       router.push(result.next)
     } catch (cause) {
       if (controller.signal.aborted) return
@@ -351,7 +355,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
             value={title}
             onChange={(event) => {
               setTitle(event.target.value)
-              setTitleTouched(true)
+              titleTouchedRef.current = true
             }}
           />
         </div>

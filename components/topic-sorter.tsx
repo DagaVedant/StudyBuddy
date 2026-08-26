@@ -174,6 +174,15 @@ export function TopicSorter({
       }
     }
 
+    if (sorted === 0) {
+      setPhase({
+        kind: 'error',
+        message:
+          'None of these could be sorted just now. Nothing was changed, so you can try again.',
+      })
+      return
+    }
+
     setPhase({kind: 'done', sorted})
     router.refresh()
   }, [router, worksheets])
@@ -203,6 +212,7 @@ export function TopicSorter({
         {phase.sorted === 0
           ? 'Everything here already has a topic.'
           : `Sorted ${phase.sorted} ${phase.sorted === 1 ? 'question' : 'questions'} into topics. Accuracy by topic will fill in from here.`}
+
       </p>
     )
   }

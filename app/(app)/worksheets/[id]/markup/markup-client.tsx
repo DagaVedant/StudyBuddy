@@ -95,6 +95,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
       const choice = OUTCOMES.find((outcome) => outcome.key === event.key)
       const question = questions[cursor]
       if (!choice || !question) return
+      if (Object.keys(outcomes).length >= questions.length) return
 
       event.preventDefault()
       mark(question.id, choice.value, cursor)
@@ -102,7 +103,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [phase, cursor, questions, mark])
+  }, [phase, cursor, questions, mark, outcomes])
 
   async function submit() {
     setSubmitting(true)

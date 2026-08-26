@@ -92,6 +92,9 @@ const UNDO_WINDOW_MS = 8000
 
 const SAVE_FAILED = 'Could not save that change. Check your connection and try again.'
 
+const SAVE_REJECTED =
+  'One of these questions was not accepted as it is. A question cannot be left blank.'
+
 function patchBody(question: EditableQuestion) {
   return {
     promptText: question.promptText,
@@ -167,7 +170,7 @@ function useQuestionEditor(
   }, [])
 
   const send = useCallback(
-    async (question: EditableQuestion, keepalive = false) => {
+    async (question: EditableQuestion, keepalive = false): Promise<boolean> => {
       clearTimeout(saveTimers.current.get(question.id))
       saveTimers.current.delete(question.id)
 
@@ -181,16 +184,29 @@ function useQuestionEditor(
           body: JSON.stringify(patchBody(question)),
           keepalive,
         })
+
+        if (response.status >= 400 && response.status < 500) {
+          if (owed.current.get(question.id) === question) {
+            owed.current.delete(question.id)
+          }
+          inFlight.current -= 1
+          setSaveState('error')
+          setError(SAVE_REJECTED)
+          return false
+        }
+
         if (!response.ok) throw new Error('Save failed')
 
         if (owed.current.get(question.id) === question) owed.current.delete(question.id)
 
         inFlight.current -= 1
         settle()
+        return true
       } catch {
         inFlight.current -= 1
         setSaveState('error')
         setError(SAVE_FAILED)
+        return false
       }
     },
     [settle],
@@ -234,11 +250,13 @@ function useQuestionEditor(
     }
   }, [settle])
 
-  const flush = useCallback(async () => {
-    await Promise.all([
+  const flush = useCallback(async (): Promise<boolean> => {
+    const saved = await Promise.all([
       ...[...pendingRemovals.current.keys()].map((id) => commitRemoval(id)),
       ...[...owed.current.values()].map((question) => send(question)),
     ])
+
+    return saved.every((ok) => ok !== false)
   }, [send, commitRemoval])
 
   useEffect(() => {
@@ -388,7 +406,15 @@ function useQuestionEditor(
     setConfirming(true)
     setError(null)
 
-    await flush()
+    if (!(await flush())) {
+      setConfirming(false)
+      setError(
+        (current) =>
+          current ??
+          'Some changes could not be saved, so this was not confirmed. Fix them and try again.',
+      )
+      return
+    }
 
     try {
       const response = await fetchJson(`/api/worksheets/${worksheetId}/confirm`, {
@@ -628,6 +654,8 @@ interface CardProps {
   onToggleExpanded: (id: string, pageId: string | null) => void
   registerRef: (id: string, node: HTMLLIElement | null) => void
   style?: CSSProperties
+  measureRef?: (node: Element | null) => void
+  index?: number
 }
 
 const QuestionCard = memo(function QuestionCard({
@@ -642,6 +670,8 @@ const QuestionCard = memo(function QuestionCard({
   onToggleExpanded,
   registerRef,
   style,
+  measureRef,
+  index,
 }: CardProps) {
   const correct = question.choices.find((choice) => choice.isCorrect)
 
@@ -649,7 +679,9 @@ const QuestionCard = memo(function QuestionCard({
     <li
       ref={(node) => {
         registerRef(question.id, node)
+        measureRef?.(node)
       }}
+      data-index={index}
       style={style}
       className={`border-b border-fg/20 ${selected ? 'bg-accent/10' : ''}`}
     >
@@ -944,7 +976,12 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
     [virtualize, questions, virtualizer],
   )
 
-  const card = (question: EditableQuestion, style?: CSSProperties) => (
+  const card = (
+    question: EditableQuestion,
+    style?: CSSProperties,
+    measureRef?: (node: Element | null) => void,
+    index?: number,
+  ) => (
     <QuestionCard
       key={question.id}
       question={question}
@@ -958,6 +995,8 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
       onToggleExpanded={onToggleExpanded}
       registerRef={registerRef}
       style={style}
+      measureRef={measureRef}
+      index={index}
     />
   )
 
@@ -968,13 +1007,18 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
   return (
     <ul ref={listRef} style={{position: 'relative', height: virtualizer.getTotalSize()}}>
       {virtualizer.getVirtualItems().map((virtualRow) =>
-        card(questions[virtualRow.index], {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          transform: `translateY(${virtualRow.start - scrollMargin}px)`,
-        }),
+        card(
+          questions[virtualRow.index],
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            transform: `translateY(${virtualRow.start - scrollMargin}px)`,
+          },
+          virtualizer.measureElement,
+          virtualRow.index,
+        ),
       )}
     </ul>
   )
@@ -986,6 +1030,7 @@ interface Props {
   pages: EditablePage[]
   initialQuestions: EditableQuestion[]
   topics: TopicChoice[]
+  focusId?: string | null
 }
 
 export default function EditClient({
@@ -994,14 +1039,23 @@ export default function EditClient({
   pages,
   initialQuestions,
   topics,
+  focusId = null,
 }: Props) {
   const editor = useQuestionEditor(worksheetId, initialQuestions)
 
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const focused = focusId
+    ? (initialQuestions.find((question) => question.id === focusId) ?? null)
+    : null
+
+  const [expandedId, setExpandedId] = useState<string | null>(focused?.id ?? null)
   const [selectedId, setSelectedId] = useState<string | null>(
-    initialQuestions[0]?.id ?? null,
+    focused?.id ?? initialQuestions[0]?.id ?? null,
   )
-  const [pageIndex, setPageIndex] = useState(0)
+  const [pageIndex, setPageIndex] = useState(() => {
+    if (!focused) return 0
+    const index = pages.findIndex((page) => page.id === focused.pageId)
+    return index >= 0 ? index : 0
+  })
 
   const [linesByPage, setLinesByPage] = useState<Map<string, TextLine[]>>(() => {
     const seeded = new Map<string, TextLine[]>()
@@ -1063,6 +1117,15 @@ export default function EditClient({
     },
     [pages],
   )
+
+  const jumpedTo = useRef(false)
+
+  useEffect(() => {
+    if (!focused || jumpedTo.current) return
+    jumpedTo.current = true
+    questionListRef.current?.scrollToId(focused.id)
+    cardRefs.current.get(focused.id)?.scrollIntoView({block: 'center'})
+  }, [focused])
 
   const toggleExpanded = useCallback(
     (id: string, pageId: string | null) => {

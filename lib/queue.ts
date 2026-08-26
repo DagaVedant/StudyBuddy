@@ -84,6 +84,28 @@ export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {
   return row.id
 }
 
+export async function pendingWorksheetJob(
+  db: Db,
+  userId: string,
+  stage: JobStage,
+  worksheetId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({id: processingJobs.id})
+    .from(processingJobs)
+    .where(
+      and(
+        eq(processingJobs.userId, userId),
+        eq(processingJobs.stage, stage),
+        eq(processingJobs.worksheetId, worksheetId),
+        inArray(processingJobs.status, IN_FLIGHT),
+      ),
+    )
+    .limit(1)
+
+  return row?.id ?? null
+}
+
 export async function pendingTopicJob(
   db: Db,
   userId: string,

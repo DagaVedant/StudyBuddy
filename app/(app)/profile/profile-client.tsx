@@ -133,7 +133,10 @@ export default function ProfileClient({
               id={nameId}
               type="text"
               value={nameValue}
-              onChange={(event) => setNameValue(event.target.value)}
+              onChange={(event) => {
+                setNameValue(event.target.value)
+                setSaved(false)
+              }}
               maxLength={80}
               placeholder="How your name shows up around the app"
               className="field"
@@ -150,7 +153,10 @@ export default function ProfileClient({
               autoComplete="off"
               spellCheck={false}
               value={usernameValue}
-              onChange={(event) => setUsernameValue(event.target.value)}
+              onChange={(event) => {
+                setUsernameValue(event.target.value)
+                setSaved(false)
+              }}
               maxLength={20}
               placeholder="A handle, not a login"
               className="field"

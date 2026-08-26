@@ -92,9 +92,13 @@ export default async function StatusPage({
 
   const runsHere = job?.executor === 'browser'
   const isOnline = job?.executor === 'server' || runsHere || worker.online
+  const stalled = !job && worksheet.status === 'uploading'
 
   let progressNote: string
-  if (!isOnline) {
+  if (stalled) {
+    progressNote =
+      'This upload did not finish, so nothing is reading it. Add its questions by hand, or upload it again.'
+  } else if (!isOnline) {
     progressNote =
       'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page; the worksheet will be waiting on your dashboard.'
   } else if (stillReading) {
@@ -167,7 +171,7 @@ export default async function StatusPage({
           )}
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            {!isOnline && <GoManualButton worksheetId={id} />}
+            {(!isOnline || stalled) && <GoManualButton worksheetId={id} />}
             <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
               Back to dashboard
             </Link>

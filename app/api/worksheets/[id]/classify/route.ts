@@ -3,7 +3,7 @@ import {and, eq} from 'drizzle-orm'
 import {z} from 'zod'
 import {questions, worksheets} from '@/lib/schema'
 import {applyClassification, isEmbedding, pendingQuestionCount, pendingQuestions, shortlistByVector} from '@/lib/taxonomy'
-import {enqueueJob, guardWorksheet, workerStatus} from '@/lib/queue'
+import {enqueueJob, guardWorksheet, pendingWorksheetJob, workerStatus} from '@/lib/queue'
 import {resolveProvider} from '@/lib/ai/resolve'
 import {clearUntagged, recordUntagged, UNTAGGED_REASON} from '@/lib/worker/apply'
 import {classificationSchema} from '@/lib/ai/types'
@@ -194,13 +194,15 @@ export async function POST(request: Request, {params}: Params) {
   if (executor !== 'server') {
     await recordUntagged(db, worksheetId, UNTAGGED_REASON.workerQueued)
 
-    const jobId = await enqueueJob(db, {
-      worksheetId,
-      userId: guard.userId,
-      stage: 'classify',
-      executor: 'operator_gpu',
-      priority: 'high',
-    })
+    const jobId =
+      (await pendingWorksheetJob(db, guard.userId, 'classify', worksheetId)) ??
+      (await enqueueJob(db, {
+        worksheetId,
+        userId: guard.userId,
+        stage: 'classify',
+        executor: 'operator_gpu',
+        priority: 'high',
+      }))
 
     return NextResponse.json(
       {status: 'queued', jobId, writerOnline: (await workerStatus(db)).online},

@@ -147,11 +147,29 @@ export default function SettingsClient({
   async function remove(target: string) {
     setBusy(true)
     setError(null)
-    await fetchJson(`/api/settings/credentials?provider=${target}`, {method: 'DELETE'})
-    setJustSaved(null)
-    setNotice('Removed.')
-    setBusy(false)
-    router.refresh()
+    setNotice(null)
+
+    try {
+      const response = await fetchJson(
+        `/api/settings/credentials?provider=${target}`,
+        {method: 'DELETE'},
+      )
+
+      if (!response.ok) {
+        const detail = (await response.json().catch(() => null)) as {
+          error?: string
+        } | null
+        throw new Error(detail?.error ?? 'Could not remove that.')
+      }
+
+      setJustSaved(null)
+      setNotice('Removed.')
+      router.refresh()
+    } catch (cause) {
+      setError((cause as Error).message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

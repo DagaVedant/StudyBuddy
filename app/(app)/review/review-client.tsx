@@ -205,6 +205,7 @@ export default function ReviewSession({
     setExplainFor(currentQuestionId)
     setExplaining(false)
     setExplainError(null)
+    setExplainNotice(null)
   }
 
   useEffect(() => {

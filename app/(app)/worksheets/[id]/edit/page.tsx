@@ -29,10 +29,13 @@ async function leafTopics(): Promise<TopicChoice[]> {
 
 export default async function EditPage({
   params,
+  searchParams,
 }: {
   params: Promise<{id: string}>
+  searchParams: Promise<{focus?: string}>
 }) {
   const {id} = await params
+  const {focus} = await searchParams
 
   const session = await auth()
   if (!session?.user?.id) redirect('/signin')
@@ -174,6 +177,7 @@ export default async function EditPage({
         pages={pages}
         initialQuestions={initialQuestions}
         topics={await leafTopics()}
+        focusId={focus ?? null}
       />
     </main>
   )
