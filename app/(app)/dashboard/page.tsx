@@ -5,7 +5,7 @@ import {auth} from '@/auth'
 import {canSortTopicsHere, getCredentialSummary} from '@/lib/ai/resolve'
 import {TopicSorter} from '@/components/topic-sorter'
 import {AccuracyLabel, Meter} from '@/components/meter'
-import {countMissedQuestions} from '@/lib/blooket'
+import {countExportableQuestions} from '@/lib/blooket'
 import {db} from '@/lib/db'
 import {getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getOverview, getRecentWorksheets, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats} from '@/lib/dashboard'
 import {StudyCalendar} from '@/components/study-calendar'
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
     trendBySubject,
     recent,
     distractors,
-    missed,
+    exportable,
     streak,
     calendar,
     untagged,
@@ -109,7 +109,7 @@ export default async function DashboardPage() {
     getOverview(db, userId), getTopicStats(db, userId), getAccuracyTrend(db, userId),
     getAccuracyTrendBySubject(db, userId),
     getRecentWorksheets(db, userId, 3), getDistractorPatterns(db, userId),
-    countMissedQuestions(db, userId), getStudyStreak(db, userId),
+    countExportableQuestions(db, userId), getStudyStreak(db, userId),
     getStudyCalendar(db, userId),
     listUntaggedWorksheets(db, userId), getCredentialSummary(db, userId),
   ])
@@ -336,7 +336,7 @@ export default async function DashboardPage() {
           )}
         </MarginNote>
 
-        {missed > 0 && (
+        {exportable > 0 && (
           <Callout label="Play these in Blooket">
             <a
               href="/api/export/blooket"
@@ -346,8 +346,8 @@ export default async function DashboardPage() {
               Download CSV
             </a>
             <p className="hint">
-              <span className="tabular-nums">{missed}</span>{' '}
-              {missed === 1 ? 'question' : 'questions'} to draw from.
+              <span className="tabular-nums">{exportable}</span>{' '}
+              {exportable === 1 ? 'question' : 'questions'} to draw from.
             </p>
           </Callout>
         )}

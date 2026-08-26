@@ -282,7 +282,7 @@ export async function getMissedQuestions(
   }))
 }
 
-export async function countMissedQuestions(
+export async function countExportableQuestions(
   db: Db,
   userId: string,
   worksheetId?: string,
@@ -290,7 +290,24 @@ export async function countMissedQuestions(
   const [row] = await db
     .select({value: sql<number>`count(*)::int`})
     .from(questions)
-    .where(missedBy(userId, worksheetId))
+    .where(
+      and(
+        missedBy(userId, worksheetId),
+        sql`(
+          coalesce(btrim(${questions.correctAnswer}), '') <> ''
+          or (
+            (
+              select count(*) from ${answerChoices} c
+              where c.question_id = ${questions.id} and coalesce(btrim(c.text), '') <> ''
+            ) >= 2
+            and exists (
+              select 1 from ${answerChoices} c
+              where c.question_id = ${questions.id} and c.is_correct
+            )
+          )
+        )`,
+      ),
+    )
 
   return Number(row.value)
 }
