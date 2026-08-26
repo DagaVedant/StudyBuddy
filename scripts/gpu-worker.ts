@@ -530,6 +530,69 @@ async function processExplainJob(job: {id: string}): Promise<void> {
   log(`explained ${input.questionId}`)
 }
 
+async function processLessonJob(job: {id: string}): Promise<void> {
+  const response = await api(`/api/worker/lesson/${job.id}`)
+  if (!response.ok) {
+    throw new Error(`Could not fetch the topic to teach (${response.status})`)
+  }
+
+  const input = (await response.json()) as {
+    topicId: string
+    topicName: string
+    topicPath: string
+    samples: string[]
+  }
+
+  const lesson = await provider.teachTopic({
+    topicName: input.topicName,
+    topicPath: input.topicPath,
+    samples: input.samples,
+  })
+
+  await postJob(job.id, {
+    action: 'lesson',
+    topicId: input.topicId,
+    lesson,
+    model: ANSWER_MODEL,
+  })
+
+  await postJob(job.id, {action: 'complete'})
+  log(`taught ${input.topicName}`)
+}
+
+async function processPracticeJob(job: {id: string}): Promise<void> {
+  const response = await api(`/api/worker/practice/${job.id}`)
+  if (!response.ok) {
+    throw new Error(`Could not fetch the topic to practise (${response.status})`)
+  }
+
+  const input = (await response.json()) as {
+    topicId: string
+    topicName: string
+    topicPath: string
+    owned: string[]
+    count: number
+  }
+
+  const written = await provider.writePractice({
+    topicName: input.topicName,
+    topicPath: input.topicPath,
+    owned: input.owned,
+    count: input.count,
+  })
+
+  await postJob(job.id, {
+    action: 'practice',
+    topicId: input.topicId,
+    count: input.count,
+    questions: written,
+    model: ANSWER_MODEL,
+  })
+
+  await postJob(job.id, {action: 'complete'})
+  log(`wrote ${written.length} practice question(s) for ${input.topicName}`)
+}
+
 async function processJob(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
   try {
     if (job.stage === 'answer_key') {
@@ -543,8 +606,16 @@ async function processJob(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
       log(`claimed ${job.id}: sorting into topics (attempt ${job.attemptCount})`)
       await classifyWorksheet(job.worksheetId)
       await postJob(job.id, {action: 'complete'})
-    } else {
+    } else if (job.stage === 'lesson') {
+      log(`claimed ${job.id}: lesson (attempt ${job.attemptCount})`)
+      await processLessonJob(job)
+    } else if (job.stage === 'practice') {
+      log(`claimed ${job.id}: practice questions (attempt ${job.attemptCount})`)
+      await processPracticeJob(job)
+    } else if (job.stage === 'extract') {
       await processExtractionJob(job, pages)
+    } else {
+      throw new Error(`This worker does not know the ${job.stage} stage. Update it.`)
     }
   } catch (error) {
     const message = (error as Error).message

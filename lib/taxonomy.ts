@@ -407,13 +407,6 @@ export async function applyClassification(
     }
   }
 
-  // The model abstained, or named a slug that is not on the shortlist. Writing
-  // nothing would leave the question pending forever, and a worksheet with one
-  // such question could never finish sorting: pendingQuestions() counts any
-  // question with no question_topics row, so the "sort these into topics"
-  // prompt would come back on every load however often it was run. Record the
-  // nearest topic the vector shortlist found, but not as the primary one, so
-  // the question is filed and fixable without a guess skewing topic accuracy.
   const [nearest] = await db
     .select({id: topics.id})
     .from(topics)

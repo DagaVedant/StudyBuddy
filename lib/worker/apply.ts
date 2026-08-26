@@ -298,6 +298,10 @@ export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<voi
     case 'answer_key':
       return
 
+    case 'lesson':
+    case 'practice':
+      return
+
     case 'classify':
       await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
       return

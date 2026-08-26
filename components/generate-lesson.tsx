@@ -12,12 +12,22 @@ interface LessonResponse {
   runsHere?: boolean
   input?: LessonInput
   ollama?: {baseUrl: string; textModel: string}
+  status?: string
+  writerOnline?: boolean
 }
+
+const QUEUED =
+  'Queued for the GPU that writes these. It appears here once it is written.'
+
+const QUEUED_OFFLINE =
+  'The GPU that writes these is not running right now. This is saved, and the ' +
+  'lesson appears here once it is back.'
 
 export function GenerateLessonButton({topicId}: {topicId: string}) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [queued, setQueued] = useState<string | null>(null)
 
   async function writeHere(input: LessonInput, ollama: {baseUrl: string; textModel: string}) {
     const provider = validated(
@@ -55,6 +65,11 @@ export function GenerateLessonButton({topicId}: {topicId: string}) {
         throw new Error(body.error ?? 'Could not generate that lesson. Try again.')
       }
 
+      if (body.status === 'queued') {
+        setQueued(body.writerOnline === false ? QUEUED_OFFLINE : QUEUED)
+        return
+      }
+
       if (body.runsHere && body.input && body.ollama) {
         await writeHere(body.input, body.ollama)
       }
@@ -78,7 +93,9 @@ export function GenerateLessonButton({topicId}: {topicId: string}) {
         {busy ? 'Writing…' : 'Generate lesson overview'}
       </button>
       <p aria-live="polite" className="hint">
-        {error ?? 'Written by a model, from questions in this topic. Takes a moment.'}
+        {error ??
+          queued ??
+          'Written by a model, from questions in this topic. Takes a moment.'}
       </p>
     </div>
   )

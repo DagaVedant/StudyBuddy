@@ -45,10 +45,11 @@ type Phase =
   | {kind: 'preparing'}
   | {kind: 'sorting'; done: number; total: number}
   | {kind: 'done'; sorted: number}
+  | {kind: 'queued'}
   | {kind: 'error'; message: string}
 
 const NO_PROVIDER =
-  'Sorting questions into topics needs a cloud API key or your own Ollama. Add one in settings.'
+  'Sorting questions into topics is not available for this account right now.'
 
 async function pending(worksheetId: string): Promise<PendingResponse> {
   const response = await fetch(`/api/worksheets/${worksheetId}/classify`)
@@ -92,6 +93,7 @@ export function TopicSorter({
   const run = useCallback(async () => {
     let total = 0
     let runsHere = false
+    let onGpu = false
     let ollama: OllamaSettings | null = null
 
     for (const worksheet of worksheets) {
@@ -100,6 +102,7 @@ export function TopicSorter({
       if (!first.supported) throw new Error(NO_PROVIDER)
 
       runsHere = first.executor === 'browser'
+      onGpu = first.executor !== 'browser' && first.executor !== 'server'
       ollama = first.ollama
       if (ollama) ollamaBaseUrl.current = ollama.baseUrl
       total += first.remaining
@@ -107,6 +110,16 @@ export function TopicSorter({
 
     if (total === 0) {
       setPhase({kind: 'done', sorted: 0})
+      router.refresh()
+      return
+    }
+
+    if (onGpu) {
+      for (const worksheet of worksheets) {
+        await send(worksheet.id, {items: []})
+      }
+
+      setPhase({kind: 'queued'})
       router.refresh()
       return
     }
@@ -219,6 +232,15 @@ export function TopicSorter({
           stopped.
         </p>
       </div>
+    )
+  }
+
+  if (phase.kind === 'queued') {
+    return (
+      <p role="status" aria-live="polite" className="hint text-pretty">
+        Queued for the GPU that sorts these. Safe to close: the topics appear
+        once it has worked through them.
+      </p>
     )
   }
 

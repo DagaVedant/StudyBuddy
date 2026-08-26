@@ -50,6 +50,7 @@ export interface IngestResult {
   worksheetId: string
   pageCount: number
   next: string
+  message?: string
 }
 
 class IngestError extends Error {}
@@ -224,11 +225,16 @@ export async function ingestWorksheet({
 
   const finished = (await expectOk(
     await fetchJson(`/api/worksheets/${worksheetId}/complete`, {method: 'POST', signal}),
-  )) as {next: string}
+  )) as {next: string; message?: string}
 
   onProgress({stage: 'done', completed: 1, total: 1, detail: 'Done'})
 
-  return {worksheetId, pageCount: pages.length, next: finished.next}
+  return {
+    worksheetId,
+    pageCount: pages.length,
+    next: finished.next,
+    message: finished.message,
+  }
 }
 
 export interface PageImage {

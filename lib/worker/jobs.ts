@@ -39,9 +39,15 @@ import {
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {classifyWorksheet, EmbeddingUnavailableError} from '@/lib/taxonomy'
 import {clientIp} from '@/lib/api'
-import {type AIProvider, extractedQuestionSchema} from '@/lib/ai/types'
+import {
+  type AIProvider,
+  extractedQuestionSchema,
+  generatedQuestionSchema,
+  lessonSchema,
+} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 import {resolveProvider} from '@/lib/ai/resolve'
+import {acceptPractice, storeLesson} from '@/lib/practice'
 
 const pageResultSchema = z.object({
   action: z.literal('page_result'),
@@ -85,6 +91,21 @@ const solutionSchema = z.object({
   model: z.string().max(200),
 })
 
+const lessonResultSchema = z.object({
+  action: z.literal('lesson'),
+  topicId: z.string().uuid(),
+  lesson: lessonSchema,
+  model: z.string().max(200),
+})
+
+const practiceResultSchema = z.object({
+  action: z.literal('practice'),
+  topicId: z.string().uuid(),
+  count: z.number().int().min(1).max(8),
+  questions: z.array(generatedQuestionSchema).max(16),
+  model: z.string().max(200),
+})
+
 const completeSchema = z.object({action: z.literal('complete')})
 
 const failSchema = z.object({action: z.literal('fail'), message: z.string().max(2000)})
@@ -95,6 +116,8 @@ export const bodySchema = z.discriminatedUnion('action', [
   pageReviewSchema,
   explanationSchema,
   solutionSchema,
+  lessonResultSchema,
+  practiceResultSchema,
   completeSchema,
   failSchema,
 ])
@@ -106,6 +129,8 @@ type PhaseBody = z.infer<typeof phaseSchema>
 type PageReviewBody = z.infer<typeof pageReviewSchema>
 type ExplanationBody = z.infer<typeof explanationSchema>
 type SolutionBody = z.infer<typeof solutionSchema>
+type LessonBody = z.infer<typeof lessonResultSchema>
+type PracticeBody = z.infer<typeof practiceResultSchema>
 type FailBody = z.infer<typeof failSchema>
 
 export async function handleFail(
@@ -229,6 +254,31 @@ export async function handleExplanation(
   return NextResponse.json({ok: true})
 }
 
+export async function handleLesson(
+  db: Db,
+  job: Job,
+  body: LessonBody,
+): Promise<NextResponse> {
+  await storeLesson(db, body.topicId, null, body.lesson, body.model)
+
+  return NextResponse.json({ok: true})
+}
+
+export async function handlePractice(
+  db: Db,
+  job: Job,
+  body: PracticeBody,
+): Promise<NextResponse> {
+  const outcome = await acceptPractice(
+    db,
+    {name: 'operator_gpu', answeringModel: body.model},
+    {userId: job.userId, topicId: body.topicId, count: body.count},
+    body.questions,
+  )
+
+  return NextResponse.json({ok: true, created: outcome.created})
+}
+
 export async function handleSolution(
   db: Db,
   jobId: string,
@@ -287,6 +337,11 @@ export async function handleComplete(
   job: Job,
 ): Promise<NextResponse> {
   await completeJob(db, jobId)
+
+  if (job.stage === 'lesson' || job.stage === 'practice') {
+    return NextResponse.json({ok: true})
+  }
+
   const delivered = await transitionWorksheet(
     db,
     job.worksheetId,
@@ -417,7 +472,7 @@ async function runOneServerJob(db: Db, job: ClaimedJob): Promise<void> {
     await failJob(
       db,
       job.id,
-      'No cloud API key is configured for this account anymore.',
+      'No model is configured for this account anymore.',
       true,
     )
     await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {

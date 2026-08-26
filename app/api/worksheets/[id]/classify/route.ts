@@ -3,9 +3,9 @@ import {and, eq} from 'drizzle-orm'
 import {z} from 'zod'
 import {questions, worksheets} from '@/lib/schema'
 import {applyClassification, isEmbedding, pendingQuestionCount, pendingQuestions, shortlistByVector} from '@/lib/taxonomy'
-import {guardWorksheet} from '@/lib/queue'
+import {enqueueJob, guardWorksheet, workerStatus} from '@/lib/queue'
 import {resolveProvider} from '@/lib/ai/resolve'
-import {clearUntagged} from '@/lib/worker/apply'
+import {clearUntagged, recordUntagged, UNTAGGED_REASON} from '@/lib/worker/apply'
 import {classificationSchema} from '@/lib/ai/types'
 import {db} from '@/lib/db'
 import {ollamaConfig} from '@/lib/ai/ollama'
@@ -89,7 +89,7 @@ export async function GET(_request: Request, {params}: Params) {
   }
 
   return NextResponse.json({
-    supported: executor === 'server' || executor === 'browser',
+    supported: true,
     executor,
     batchSize: BROWSER_CLASSIFY_BATCH,
     remaining,
@@ -192,12 +192,19 @@ export async function POST(request: Request, {params}: Params) {
   }
 
   if (executor !== 'server') {
+    await recordUntagged(db, worksheetId, UNTAGGED_REASON.workerQueued)
+
+    const jobId = await enqueueJob(db, {
+      worksheetId,
+      userId: guard.userId,
+      stage: 'classify',
+      executor: 'operator_gpu',
+      priority: 'high',
+    })
+
     return NextResponse.json(
-      {
-        error:
-          'Sorting questions into topics needs a cloud API key or your own Ollama. Add one in settings.',
-      },
-      {status: 409},
+      {status: 'queued', jobId, writerOnline: (await workerStatus(db)).online},
+      {status: 202},
     )
   }
 

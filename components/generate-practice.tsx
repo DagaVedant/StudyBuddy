@@ -13,7 +13,17 @@ interface PracticeResponse {
   runsHere?: boolean
   input?: PracticeInput
   ollama?: {baseUrl: string; textModel: string}
+  status?: string
+  writerOnline?: boolean
 }
+
+const QUEUED =
+  'Queued for the GPU that writes these. They land in your review queue once ' +
+  'they are written.'
+
+const QUEUED_OFFLINE =
+  'The GPU that writes these is not running right now. This is saved, and they ' +
+  'land in your review queue once it is back.'
 
 export function GeneratePracticeButton({topicId}: {topicId: string}) {
   const router = useRouter()
@@ -66,6 +76,11 @@ export function GeneratePracticeButton({topicId}: {topicId: string}) {
 
       if (!response.ok) {
         throw new Error(body.error ?? 'Could not write practice questions. Try again.')
+      }
+
+      if (body.status === 'queued') {
+        setMessage(body.writerOnline === false ? QUEUED_OFFLINE : QUEUED)
+        return
       }
 
       let created = body.created ?? 0

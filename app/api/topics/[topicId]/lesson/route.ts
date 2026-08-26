@@ -1,7 +1,8 @@
 import {NextResponse} from 'next/server'
 import {eq} from 'drizzle-orm'
 import {z} from 'zod'
-import {generateLesson, getLesson, getOwnLesson, lessonInput, type StoredLesson, storeLesson} from '@/lib/practice'
+import {generateLesson, getLesson, getOwnLesson, lessonInput, practiceWorksheetId, type StoredLesson, storeLesson} from '@/lib/practice'
+import {enqueueJob, pendingTopicJob, workerStatus} from '@/lib/queue'
 import {lessonSchema, ProviderRefused, ProviderUnavailable} from '@/lib/ai/types'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
@@ -54,10 +55,21 @@ async function postTopicidLesson(_request: Request, {params}: {params: Promise<R
 
   const {provider, executor} = await resolveProvider(db, userId)
 
-  if (executor === 'operator_gpu' && provider.executionSite === 'none') {
+  if (executor !== 'server' && executor !== 'browser') {
+    const jobId =
+      (await pendingTopicJob(db, userId, 'lesson', topicId)) ??
+      (await enqueueJob(db, {
+        worksheetId: await practiceWorksheetId(db, userId),
+        userId,
+        stage: 'lesson',
+        executor: 'operator_gpu',
+        priority: 'high',
+        checkpoint: {topicId},
+      }))
+
     return NextResponse.json(
-      {error: 'Lesson generation needs a connected AI provider. Add one in Settings.'},
-      {status: 409},
+      {status: 'queued', jobId, writerOnline: (await workerStatus(db)).online},
+      {status: 202},
     )
   }
 
@@ -66,7 +78,7 @@ async function postTopicidLesson(_request: Request, {params}: {params: Promise<R
 
     if (!ollama) {
       return NextResponse.json(
-        {error: 'No Ollama is configured. Connect one in settings.'},
+        {error: 'Your own Ollama is not reachable, so this went to the GPU instead.'},
         {status: 409},
       )
     }
@@ -95,7 +107,7 @@ async function postTopicidLesson(_request: Request, {params}: {params: Promise<R
       return NextResponse.json(
         {
           error:
-            'No AI is set up for your account. Add an API key or connect Ollama in settings.',
+            'The GPU that writes these could not take this on right now. Try again shortly.',
         },
         {status: 409},
       )

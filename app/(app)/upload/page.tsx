@@ -50,6 +50,7 @@ export default async function UploadPage({searchParams}: Props) {
 
   const waiting = worker !== null && !worker.online
   const ahead = queue?.pending ?? 0
+  const noReader = resolved.executor === 'none'
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
@@ -65,6 +66,20 @@ export default async function UploadPage({searchParams}: Props) {
       <div className="mb-8">
         <PageHead title="Upload a worksheet" />
       </div>
+
+      {noReader && (
+        <div className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution">
+          <p role="status" className="text-pretty">
+            Your free trial is used up, so anything you upload now will not be
+            read for you: you can still add its questions by hand. To have them
+            read again, connect your own AI provider in{' '}
+            <Link href="/settings" className="underline">
+              settings
+            </Link>
+            .
+          </p>
+        </div>
+      )}
 
       {waiting && (
         <div className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution">

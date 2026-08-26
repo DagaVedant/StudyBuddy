@@ -57,7 +57,7 @@ async function findPracticeWorksheet(db: Db, userId: string): Promise<string | n
   return existing?.id ?? null
 }
 
-async function practiceWorksheetId(db: Db, userId: string): Promise<string> {
+export async function practiceWorksheetId(db: Db, userId: string): Promise<string> {
   const existing = await findPracticeWorksheet(db, userId)
   if (existing) return existing
 

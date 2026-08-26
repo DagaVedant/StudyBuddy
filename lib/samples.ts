@@ -368,11 +368,6 @@ function squash(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
-// The cached path hands back a fully extracted worksheet without touching the
-// trial counter, so a sample each is a giveaway but a sample every time is a
-// way to process unlimited worksheets free. The userId is required rather than
-// optional on purpose: the cap cannot then be skipped by a caller that forgets
-// it, which is how this was uncapped to begin with.
 export async function findMatchingSample(
   db: Db,
   worksheetId: string,

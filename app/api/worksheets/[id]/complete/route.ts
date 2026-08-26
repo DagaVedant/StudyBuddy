@@ -104,6 +104,9 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       ok: true,
       tier,
       mode: 'manual',
+      message:
+        'Your free reads are used up. Papers are read on one GPU we run, so ' +
+        'there is a limit per account. Add this one’s questions by hand.',
       next: `/worksheets/${worksheetId}/edit`,
     })
   }

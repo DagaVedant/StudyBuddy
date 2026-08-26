@@ -1,7 +1,8 @@
 import {NextResponse} from 'next/server'
 import {eq} from 'drizzle-orm'
 import {z} from 'zod'
-import {acceptPractice, generatePractice, PRACTICE_BATCH, PRACTICE_BATCH_MAX, practiceInput} from '@/lib/practice'
+import {acceptPractice, generatePractice, PRACTICE_BATCH, PRACTICE_BATCH_MAX, practiceInput, practiceWorksheetId} from '@/lib/practice'
+import {enqueueJob, pendingTopicJob, workerStatus} from '@/lib/queue'
 import {generatedQuestionSchema, ProviderRefused, ProviderUnavailable} from '@/lib/ai/types'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
@@ -15,9 +16,9 @@ const bodySchema = z.object({
 })
 
 const NO_MODEL =
-  'Writing practice questions needs a connected AI provider. Add an API key in Settings.'
+  'The GPU that writes these could not take this on right now. Try again shortly.'
 
-const NO_OLLAMA = 'No Ollama is configured. Connect one in settings.'
+const NO_OLLAMA = 'Your own Ollama is not reachable, so this went to the GPU instead.'
 
 const NOTHING_KEPT = 'Nothing came back that was good enough to practise on. Try again.'
 
@@ -48,7 +49,23 @@ async function postTopicidPractice(request: Request, {params}: {params: Promise<
   const {provider, tier, executor} = await resolveProvider(db, userId)
 
   if (executor !== 'server' && executor !== 'browser') {
-    return NextResponse.json({error: NO_MODEL}, {status: 409})
+    const wanted = parsed.data.count ?? PRACTICE_BATCH
+
+    const jobId =
+      (await pendingTopicJob(db, userId, 'practice', topicId)) ??
+      (await enqueueJob(db, {
+        worksheetId: await practiceWorksheetId(db, userId),
+        userId,
+        stage: 'practice',
+        executor: 'operator_gpu',
+        priority: 'high',
+        checkpoint: {topicId, count: wanted},
+      }))
+
+    return NextResponse.json(
+      {status: 'queued', jobId, writerOnline: (await workerStatus(db)).online},
+      {status: 202},
+    )
   }
 
   if (executor === 'server' && provider.executionSite === 'none') {

@@ -21,7 +21,6 @@ async function topic(db: Db, name: string) {
 
 let ordinal = 0
 
-// one extracted question, answered once, filed under every topic given
 async function answeredQuestion(db: Db, userId: string, worksheetId: string, topicIds: string[]) {
   const id = uid('q')
   await db.insert(questions).values({
@@ -55,8 +54,6 @@ test('a question filed under two topics is still one attempt', async () => {
   const wordProblems = await topic(db, 'Word problems')
   await answeredQuestion(db, userId, worksheetId, [algebra, wordProblems])
 
-  // The join to question_topics has two matching rows for this question. If it
-  // fans out, every total below doubles and nothing errors.
   const overview = await getOverview(db, userId)
   assert.equal(overview.attemptsLogged, 1)
   assert.equal(overview.questionsTracked, 1)

@@ -22,7 +22,13 @@ import {db, type Db, unwrapDriverRows} from '@/lib/db'
 
 export type JobExecutor = 'server' | 'browser' | 'operator_gpu'
 
-export type JobStage = 'extract' | 'explain' | 'answer_key' | 'classify'
+export type JobStage =
+  | 'extract'
+  | 'explain'
+  | 'answer_key'
+  | 'classify'
+  | 'lesson'
+  | 'practice'
 
 export type JobPriority = 'high' | 'normal' | 'low'
 
@@ -76,6 +82,28 @@ export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {
     .returning({id: processingJobs.id})
 
   return row.id
+}
+
+export async function pendingTopicJob(
+  db: Db,
+  userId: string,
+  stage: 'lesson' | 'practice',
+  topicId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({id: processingJobs.id})
+    .from(processingJobs)
+    .where(
+      and(
+        eq(processingJobs.userId, userId),
+        eq(processingJobs.stage, stage),
+        inArray(processingJobs.status, IN_FLIGHT),
+        sql`${processingJobs.checkpoint} ->> 'topicId' = ${topicId}`,
+      ),
+    )
+    .limit(1)
+
+  return row?.id ?? null
 }
 
 export async function pendingExplainJob(

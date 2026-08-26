@@ -59,8 +59,6 @@ export function TopicPicker({topics, value, onChange}: Props) {
     if (!open) return
     const onPointerDown = (event: PointerEvent) => {
       if (containerRef.current?.contains(event.target as Node)) return
-      // closing without choosing anything: drop the half-typed search too, or
-      // it is still sitting there the next time this opens
       updateQuery('')
       setOpen(false)
     }

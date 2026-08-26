@@ -38,7 +38,6 @@ test('a claim abandoned mid-flight is reclaimed once it goes stale', async () =>
   const first = await claimJob(db, 'operator_gpu', null, now)
   assert.equal(first?.attemptCount, 1)
 
-  // The worker dies here: the row stays 'claimed' with nobody working it.
   const stillHeld = new Date(now.getTime() + CLAIM_TTL_MS - 1_000)
   assert.equal(await claimJob(db, 'operator_gpu', null, stillHeld), null)
 

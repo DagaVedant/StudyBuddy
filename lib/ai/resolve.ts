@@ -304,7 +304,7 @@ export async function consumeTrial(
       remaining,
       reason:
         `Your free trial covers ${limit} ${noun} and you have ${remaining} left. ` +
-        'Add an API key or connect Ollama in settings to keep going.',
+        'Everything here is read on one GPU we run, so the free allowance is capped.',
     }
   }
 

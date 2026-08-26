@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import {useRouter} from 'next/navigation'
 import {useCallback, useEffect, useId, useRef, useState} from 'react'
 
@@ -47,7 +48,6 @@ export default function UploadClient({subjects, initialSample}: Props) {
   const titleId = useId()
   const subjectId = useId()
   const filesId = useId()
-  const cameraId = useId()
   const pageFromId = useId()
   const pageToId = useId()
   const countId = useId()
@@ -63,6 +63,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
   const [progress, setProgress] = useState<IngestProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [pending, setPending] = useState<string | null>(null)
   const [loadingSample, setLoadingSample] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
@@ -212,6 +213,14 @@ export default function UploadClient({subjects, initialSample}: Props) {
         signal: controller.signal,
       })
       worksheetRef.current = null
+
+      if (result.message) {
+        setProgress(null)
+        setNotice(result.message)
+        setPending(result.next)
+        return
+      }
+
       router.push(result.next)
     } catch (cause) {
       if (controller.signal.aborted) return
@@ -251,29 +260,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
         <h2 id="add-heading" className="text-pretty font-medium">
           Drop your pages here, or choose a file
         </h2>
-        <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2 sm:flex-row">
-          <div className="sm:flex-1">
-            <input
-              id={cameraId}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              className="peer sr-only"
-              disabled={busy}
-              onChange={(event) => {
-                addFiles(event.target.files)
-                event.target.value = ''
-              }}
-            />
-            <label
-              htmlFor={cameraId}
-              className="btn btn-secondary cursor-pointer touch-manipulation peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent peer-disabled:cursor-not-allowed peer-disabled:opacity-60"
-            >
-              Take photo
-            </label>
-          </div>
-
+        <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2">
           <div className="sm:flex-1">
             <input
               id={filesId}
@@ -461,12 +448,17 @@ export default function UploadClient({subjects, initialSample}: Props) {
       )}
 
       {notice && (
-        <p
+        <div
           role="status"
           className="rounded-xl bg-surface px-3 py-2 text-sm text-muted"
         >
-          {notice}
-        </p>
+          <p className="text-pretty">{notice}</p>
+          {pending && (
+            <Link href={pending} className="mt-2 inline-block text-accent">
+              Add its questions
+            </Link>
+          )}
+        </div>
       )}
 
       {progress && (

@@ -73,7 +73,9 @@ export const jobStatus = pgEnum('job_status', [
 
 export const jobPriority = pgEnum('job_priority', ['high', 'normal', 'low'])
 
-export const jobStage = pgEnum('job_stage', ['extract', 'answer_key', 'classify', 'explain'])
+export const jobStage = pgEnum('job_stage', [
+  'extract', 'answer_key', 'classify', 'explain', 'lesson', 'practice',
+])
 
 export const workerStatus = pgEnum('worker_status', ['online', 'offline', 'draining'])
 

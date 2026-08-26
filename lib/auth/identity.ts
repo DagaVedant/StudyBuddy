@@ -87,10 +87,6 @@ function validateUsername(input: string | null | undefined): UsernameCheck {
   return {ok: true, username: trimmed}
 }
 
-// Gmail ignores dots and anything after a "+", so one inbox can mint endless
-// addresses that all look distinct here. Compare canonical forms so each inbox
-// gets one trial. Computed in SQL rather than with a stored column: existing
-// rows may already collide, and a unique index over them would fail to create.
 export async function emailTwinExists(db: Db, canonical: string): Promise<boolean> {
   const [twin] = await db
     .select({id: users.id})

@@ -13,7 +13,6 @@ test('completing a worksheet twice only counts once', async () => {
   const userId = await makeUser(db)
   const worksheetId = await makeWorksheet(db, userId)
 
-  // Two requests for the same upload: a retry, a double-tap, a replayed job.
   const first = await claimWorksheetForCompletion(db, worksheetId, 'queued', 'trial')
   const second = await claimWorksheetForCompletion(db, worksheetId, 'queued', 'trial')
 

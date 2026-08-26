@@ -9,6 +9,8 @@ import {
   handlePageResult,
   handlePageReview,
   handlePhase,
+  handleLesson,
+  handlePractice,
   handleSolution,
 } from '@/lib/worker/jobs'
 import {processingJobs} from '@/lib/schema'
@@ -59,6 +61,10 @@ export async function POST(
       return handleExplanation(db, job, body)
     case 'solution':
       return handleSolution(db, jobId, job, body)
+    case 'lesson':
+      return handleLesson(db, job, body)
+    case 'practice':
+      return handlePractice(db, job, body)
     case 'complete':
       return handleComplete(db, jobId, job)
     case 'page_result':

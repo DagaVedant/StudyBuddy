@@ -214,12 +214,6 @@ export default function ReviewSession({
     }
   }, [currentQuestionId])
 
-  // Finishing the batch used to call router.refresh() here to pull the next
-  // one. Every route in this group streams behind one shared loading.tsx, so
-  // that refresh can remount this component and reset done/tally/bestRun to
-  // their initial values -- taking the sitting recap with them. Stop at the end
-  // of the batch instead and let the recap render from state that is still
-  // intact; "Keep going" below reloads for more.
   const advance = useCallback(() => {
     setDone((count) => count + 1)
 

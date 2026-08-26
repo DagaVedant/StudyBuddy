@@ -190,7 +190,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'No AI is set up for your account. Add an API key or connect Ollama in settings.',
+            'The GPU that writes these could not take this on right now. Try again shortly.',
         },
         {status: 409},
       )
