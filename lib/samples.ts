@@ -1,14 +1,15 @@
-import {and, asc, eq} from 'drizzle-orm'
+import {and, asc, eq, inArray} from 'drizzle-orm'
 
 import {type ExtractedQuestion} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 import {persistQuestions} from '@/lib/worker/pipeline'
-import {questions, questionTopics, topics, worksheetPages, worksheets} from '@/lib/schema'
+import {answerChoices, questions, questionTopics, topics, worksheetPages, worksheets} from '@/lib/schema'
 
 export interface CachedSample {
   slug: string
   title: string
   topicSlug: string
+  answers: Record<number, string>
   pages: ExtractedQuestion[][]
 }
 
@@ -17,6 +18,11 @@ export const CACHED_SAMPLES: CachedSample[] = [
     slug: 'algebra-25',
     title: 'Algebra practice A',
     topicSlug: 'competition-math.algebra',
+    answers: {
+      1: 'B', 2: 'C', 3: 'B', 4: 'A', 5: 'B', 6: 'C', 7: 'D', 8: 'C', 9: 'B',
+      10: 'B', 11: 'B', 12: 'B', 13: 'C', 14: 'C', 15: 'C', 16: 'C', 17: 'C',
+      18: 'C', 19: 'C', 20: 'B', 21: 'C', 22: 'B', 23: 'B', 24: 'C', 25: 'B',
+    },
     pages: [
       [
         {
@@ -228,6 +234,9 @@ export const CACHED_SAMPLES: CachedSample[] = [
     slug: 'algebra-10',
     title: 'Algebra practice B',
     topicSlug: 'competition-math.algebra',
+    answers: {
+      1: 'B', 2: 'B', 3: 'C', 4: 'B', 5: 'B', 6: 'B', 7: 'C', 8: 'C', 9: 'B', 10: 'B',
+    },
     pages: [
       [
         {
@@ -317,6 +326,7 @@ export const CACHED_SAMPLES: CachedSample[] = [
     slug: 'algebra-5',
     title: 'Algebra warm-up',
     topicSlug: 'competition-math.arithmetic-and-number-sense',
+    answers: {1: 'C', 2: 'C', 3: 'C', 4: 'C', 5: 'A'},
     pages: [
       [
         {
@@ -401,6 +411,40 @@ export async function findMatchingSample(
   return null
 }
 
+async function applySampleKey(
+  db: Db,
+  worksheetId: string,
+  answers: Record<number, string>,
+): Promise<void> {
+  const rows = await db
+    .select({id: questions.id, ordinal: questions.ordinal})
+    .from(questions)
+    .where(eq(questions.worksheetId, worksheetId))
+
+  const byLabel = new Map<string, string[]>()
+
+  for (const row of rows) {
+    const label = answers[row.ordinal]
+    if (!label) continue
+
+    const list = byLabel.get(label)
+    if (list) list.push(row.id)
+    else byLabel.set(label, [row.id])
+  }
+
+  for (const [label, ids] of byLabel) {
+    await db
+      .update(questions)
+      .set({correctAnswer: label, answerSource: 'pdf_key'})
+      .where(inArray(questions.id, ids))
+
+    await db
+      .update(answerChoices)
+      .set({isCorrect: true})
+      .where(and(inArray(answerChoices.questionId, ids), eq(answerChoices.label, label)))
+  }
+}
+
 export async function applyCachedSample(
   db: Db,
   worksheetId: string,
@@ -413,6 +457,8 @@ export async function applyCachedSample(
   for (const [index, page] of pages.entries()) {
     total += await persistQuestions(db, {worksheetId, userId}, page.id, sample.pages[index])
   }
+
+  await applySampleKey(db, worksheetId, sample.answers)
 
   const [topic] = await db
     .select({id: topics.id})
