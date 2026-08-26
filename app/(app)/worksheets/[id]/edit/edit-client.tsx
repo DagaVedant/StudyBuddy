@@ -155,6 +155,8 @@ function useQuestionEditor(
     >(),
   )
 
+  const rejected = useRef(new Set<string>())
+
   const settle = useCallback(() => {
     if (
       owed.current.size > 0 ||
@@ -189,6 +191,7 @@ function useQuestionEditor(
           if (owed.current.get(question.id) === question) {
             owed.current.delete(question.id)
           }
+          rejected.current.add(question.id)
           inFlight.current -= 1
           setSaveState('error')
           setError(SAVE_REJECTED)
@@ -197,6 +200,7 @@ function useQuestionEditor(
 
         if (!response.ok) throw new Error('Save failed')
 
+        rejected.current.delete(question.id)
         if (owed.current.get(question.id) === question) owed.current.delete(question.id)
 
         inFlight.current -= 1
@@ -243,6 +247,7 @@ function useQuestionEditor(
       }
 
       pendingRemovals.current.delete(id)
+      rejected.current.delete(id)
       settle()
     } catch {
       setError(SAVE_FAILED)
@@ -256,7 +261,7 @@ function useQuestionEditor(
       ...[...owed.current.values()].map((question) => send(question)),
     ])
 
-    return saved.every((ok) => ok !== false)
+    return saved.every((ok) => ok !== false) && rejected.current.size === 0
   }, [send, commitRemoval])
 
   useEffect(() => {
