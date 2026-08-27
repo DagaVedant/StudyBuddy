@@ -58,14 +58,18 @@
   --radius-2xl: var(--radius-lg);
 }
 
-body {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-sans);
-}
+/* both of these have to be layered: an unlayered rule outranks everything in
+   @layer components, so a bare `a` selector beats .btn-primary's own colour */
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+  }
 
-a {
-  color: var(--accent);
+  a {
+    color: var(--accent);
+  }
 }
 
 @layer components {
