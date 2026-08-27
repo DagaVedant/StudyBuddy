@@ -7,14 +7,13 @@ import {TopicSorter} from '@/components/topic-sorter'
 import {AccuracyLabel, Meter} from '@/components/meter'
 import {countExportableQuestions} from '@/lib/blooket'
 import {db} from '@/lib/db'
-import {getAccuracyTrend, getAccuracyTrendBySubject, getDistractorPatterns, getOverview, getRecentWorksheets, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats} from '@/lib/dashboard'
+import {getDistractorPatterns, getOverview, getRecentWorksheets, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats} from '@/lib/dashboard'
 import {StudyCalendar} from '@/components/study-calendar'
 import {Callout, MarginNote, Note, PageFoot, SectionHead} from '@/components/note'
 import {rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
 import {pathBySlug} from '@/lib/taxonomy'
 import {destination} from '@/lib/upload'
 
-import AccuracyChart from './accuracy-chart'
 
 export const metadata = {title: 'Dashboard · StudyBuddy'}
 
@@ -96,8 +95,6 @@ export default async function DashboardPage() {
   const [
     overview,
     rawStats,
-    trend,
-    trendBySubject,
     recent,
     distractors,
     exportable,
@@ -106,8 +103,7 @@ export default async function DashboardPage() {
     untagged,
     credentials,
   ] = await Promise.all([
-    getOverview(db, userId), getTopicStats(db, userId), getAccuracyTrend(db, userId),
-    getAccuracyTrendBySubject(db, userId),
+    getOverview(db, userId), getTopicStats(db, userId),
     getRecentWorksheets(db, userId, 3), getDistractorPatterns(db, userId),
     countExportableQuestions(db, userId), getStudyStreak(db, userId),
     getStudyCalendar(db, userId),
@@ -126,9 +122,7 @@ export default async function DashboardPage() {
   const weakest = rankWeaknesses(stats).slice(0, 3)
 
   const thin = stats.map(summarize).filter((topic) => !topic.ranked).length
-  const weekTotals = trend.map((p) => p.correct + p.unsure + p.wrong)
   const hasData = overview.attemptsLogged > 0
-  const hasTrend = weekTotals.some((total) => total > 0)
 
   return (
     <main className="w-full px-4 py-8 sm:px-6">
@@ -238,18 +232,6 @@ export default async function DashboardPage() {
                       </li>
                     ))}
                   </ul>
-                )}
-              </Note>
-
-              <Note labelledBy="better">
-                <SectionHead
-                  id="better"
-                  title="Are you getting better?"
-                />
-                {!hasTrend ? (
-                  <Empty>Not enough history yet.</Empty>
-                ) : (
-                  <AccuracyChart overall={trend} bySubject={trendBySubject} />
                 )}
               </Note>
 
