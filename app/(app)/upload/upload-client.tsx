@@ -257,7 +257,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
           addFiles(event.dataTransfer.files)
         }}
         aria-labelledby="add-heading"
-        className={`card-sunk p-6 text-center transition-colors ${
+        className={`card-sunk p-6 text-center ${
           dragging ? 'bg-accent/10' : ''
         }`}
       >
@@ -485,7 +485,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
             className="mt-3 h-1.5 overflow-hidden rounded bg-wash-strong"
           >
             <div
-              className="h-full bg-accent transition-[width] duration-300"
+              className="h-full bg-accent"
               style={{width: `${pct}%`}}
             />
           </div>

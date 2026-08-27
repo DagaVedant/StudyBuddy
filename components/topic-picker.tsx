@@ -147,7 +147,7 @@ export function TopicPicker({topics, value, onChange}: Props) {
       )}
 
       {open && (
-        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl bg-surface shadow-lg">
+        <div className="absolute z-20 mt-1 w-full border border-rule-heavy bg-surface">
           {results.length === 0 && (
             <p className="px-3 py-2 text-sm text-muted">
               No topic matches that. Try a broader word, or leave it unset.

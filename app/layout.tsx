@@ -1,32 +1,11 @@
 import {Analytics} from '@vercel/analytics/next'
 import type {Metadata, Viewport} from 'next'
-import {Fugaz_One, Space_Mono, Work_Sans} from 'next/font/google'
 import {SessionProvider} from 'next-auth/react'
 
 import {AutoRefresh} from '@/components/auto-refresh'
 import {appBaseUrl} from '@/lib/api'
 
 import './globals.css'
-
-const fugazOne = Fugaz_One({
-  variable: '--font-fugaz-one',
-  subsets: ['latin'],
-  weight: ['400'],
-  display: 'swap',
-})
-
-const workSans = Work_Sans({
-  variable: '--font-work-sans',
-  subsets: ['latin'],
-  display: 'swap',
-})
-
-const spaceMono = Space_Mono({
-  variable: '--font-space-mono',
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  display: 'swap',
-})
 
 const DESCRIPTION =
   'Turn finished practice worksheets into a record of what you actually know.'
@@ -49,16 +28,13 @@ export const metadata: Metadata = {
   },
 }
 
-export const viewport: Viewport = {viewportFit: 'cover', themeColor: '#f7f2e8'}
+export const viewport: Viewport = {viewportFit: 'cover', themeColor: '#ffffff'}
 
 export default function RootLayout({
   children,
 }: Readonly<{children: React.ReactNode}>) {
   return (
-    <html
-      lang="en"
-      className={`${workSans.variable} ${fugazOne.variable} ${spaceMono.variable} h-full`}
-    >
+    <html lang="en" className="h-full">
       <body className="flex min-h-full flex-col">
         <a
           href="#main"

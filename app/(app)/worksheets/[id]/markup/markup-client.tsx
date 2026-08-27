@@ -284,7 +284,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
           className="mt-2 h-1 overflow-hidden rounded bg-wash-strong"
         >
           <div
-            className="h-full bg-accent transition-[width] duration-200"
+            className="h-full bg-accent"
             style={{width: `${(marked / questions.length) * 100}%`}}
           />
         </div>

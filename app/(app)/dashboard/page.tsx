@@ -135,7 +135,7 @@ export default async function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
         <div className="max-w-2xl">
           <p className="eyebrow">Dashboard</p>
-          <h1 className="mt-2 whitespace-nowrap font-display text-3xl leading-tight tracking-tight sm:text-5xl">
+          <h1 className="mt-2 whitespace-nowrap text-3xl leading-tight sm:text-4xl">
             <Verdict
               dueNow={overview.dueNow}
               weakest={weakest[0]}

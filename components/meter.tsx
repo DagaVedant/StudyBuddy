@@ -5,14 +5,6 @@ const PERCENT = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 })
 
-function fill(accuracy: number, ranked: boolean) {
-  if (!ranked) return 'bg-muted/40'
-  if (accuracy < 0.5) return 'bg-danger'
-  if (accuracy < 0.7) return 'bg-warning'
-  if (accuracy < 0.85) return 'bg-caution'
-  return 'bg-success'
-}
-
 export function Meter({
   accuracy,
   ranked = true,
@@ -39,10 +31,10 @@ export function Meter({
   return (
     <div
       {...measured}
-      className={`w-full overflow-hidden bg-fg/15 ${thick ? 'h-3' : 'h-1.5'}`}
+      className={`w-full bg-wash ${thick ? 'h-3' : 'h-2'}`}
     >
       <div
-        className={`h-full ${fill(accuracy, ranked)}`}
+        className={`h-full ${ranked ? 'bg-fg' : 'bg-muted'}`}
         style={{width: `${ranked ? Math.max(pct, 2) : 100}%`}}
       />
     </div>

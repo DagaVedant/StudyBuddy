@@ -289,7 +289,7 @@ export function SampleRunner({
         className="mt-6 h-1.5 overflow-hidden rounded bg-wash-strong"
       >
         <div
-          className="h-full bg-accent transition-[width] duration-500"
+          className="h-full bg-accent"
           style={{width: `${Math.max(percent, 4)}%`}}
         />
       </div>

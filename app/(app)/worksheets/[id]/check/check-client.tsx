@@ -261,7 +261,7 @@ export function CheckClient({
         aria-label="Questions checked"
       >
         <div
-          className="h-full bg-fg transition-[width] duration-200"
+          className="h-full bg-fg"
           style={{width: `${(done / questions.length) * 100}%`}}
         />
       </div>

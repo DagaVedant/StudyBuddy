@@ -559,7 +559,7 @@ function PageCanvas({
 
       <div
         className={`card relative select-none overflow-hidden ${
-          drawing ? 'touch-none ring-2 ring-accent' : 'touch-manipulation'
+          drawing ? 'touch-none outline outline-2 outline-accent' : 'touch-manipulation'
         }`}
         onPointerDown={(event) => {
           if (event.button !== 0) return

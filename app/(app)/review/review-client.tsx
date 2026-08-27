@@ -378,7 +378,7 @@ export default function ReviewSession({
           className="h-1 overflow-hidden bg-wash-strong"
         >
           <div
-            className="h-full bg-fg transition-[width] duration-200"
+            className="h-full bg-fg"
             style={{width: `${(index / items.length) * 100}%`}}
           />
         </div>
@@ -583,7 +583,7 @@ function Recap({
     <div>
       <h2 className="eyebrow">Sitting complete</h2>
 
-      <p className="mt-2 font-display text-4xl font-semibold tabular-nums">
+      <p className="mt-2 text-3xl font-bold tabular-nums">
         {done} <span className="text-xl font-normal text-muted">reviewed</span>
       </p>
 

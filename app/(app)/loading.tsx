@@ -5,7 +5,7 @@ export default function Loading() {
       aria-label="Loading"
       className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6"
     >
-      <p className="font-display text-lg text-muted">Loading…</p>
+      <p className="text-lg text-muted">Loading…</p>
     </main>
   )
 }

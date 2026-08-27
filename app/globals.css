@@ -2,26 +2,32 @@
 
 :root {
   color-scheme: light;
-  --bg: oklch(100% 0 0);
-  --fg: oklch(21% 0.014 62);
-  --muted: oklch(43% 0.016 62);
-  --surface: oklch(100% 0 0);
-  --wash: oklch(96% 0.014 240);
-  --wash-strong: oklch(84.5% 0.025 78);
-  --accent: oklch(42% 0.155 258);
 
-  --danger: oklch(48% 0.2 27);
-  --success: oklch(45% 0.125 152);
-  --warning: oklch(56% 0.155 55);
-  --caution: oklch(62% 0.13 88);
-  --marker: oklch(91% 0.165 103);
-  --tint-lavender: oklch(92% 0.032 250);
-  --tint-butter: oklch(93% 0.055 98);
-  --rule: oklch(66% 0.035 240);
-  --rule-heavy: oklch(30% 0.016 64);
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #5c5c5c;
+  --surface: #ffffff;
+  --wash: #f2f2f2;
+  --wash-strong: #e3e3e3;
 
-  --radius: 3px;
-  --radius-lg: 4px;
+  /* brick, because everything defaults to blue */
+  --accent: #8a3324;
+
+  --danger: #a11212;
+  --success: #256029;
+  --warning: #8a5a00;
+  --caution: #7a6100;
+
+  /* flat highlighter yellow */
+  --marker: #ffef9f;
+
+  --tint-lavender: #eeeeee;
+  --tint-butter: #f4f4f4;
+  --rule: #cccccc;
+  --rule-heavy: #666666;
+
+  --radius: 0;
+  --radius-lg: 0;
 }
 
 @theme inline {
@@ -41,11 +47,10 @@
   --color-rule-heavy: var(--rule-heavy);
   --color-tint-lavender: var(--tint-lavender);
   --color-tint-butter: var(--tint-butter);
-  --font-sans: var(--font-work-sans), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: var(--font-fugaz-one), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-space-mono), ui-monospace, SFMono-Regular, Menlo,
-    Consolas, monospace;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-display: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: ui-monospace, "Courier New", Courier, monospace;
 
   --radius-sm: var(--radius);
   --radius-lg: var(--radius-lg);
@@ -54,42 +59,39 @@
 }
 
 body {
-  background: var(--bg) url('/paper.png') no-repeat top center / cover fixed;
+  background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
 }
 
 @layer components {
   .eyebrow {
-    @apply font-mono text-[0.6875rem] font-normal uppercase tracking-[0.16em] text-muted;
-    word-spacing: 0.28em;
+    @apply text-sm font-bold text-muted;
   }
 
   .field {
-    @apply min-h-11 w-full bg-wash px-3 py-2.5 text-fg outline-none
-      placeholder:text-muted;
+    @apply min-h-11 w-full bg-surface px-2 py-2 text-fg;
 
-    border-radius: var(--radius);
-    transition: background-color 150ms ease-out, box-shadow 150ms ease-out;
-  }
-
-  .field:hover {
-    background: var(--wash-strong);
+    border: 1px solid var(--rule-heavy);
+    border-radius: 0;
   }
 
   .field:focus-visible {
-    background: var(--surface);
-    box-shadow: 0 0 0 2px var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .btn {
     @apply inline-flex min-h-11 w-full items-center justify-center px-4 py-2
-      font-medium transition-[background-color,color,border-color,box-shadow,translate]
-      duration-150 focus-visible:outline-2 focus-visible:outline-offset-2
+      focus-visible:outline-2 focus-visible:outline-offset-2
       focus-visible:outline-accent disabled:opacity-60;
 
-    border-radius: var(--radius);
+    border: 1px solid var(--rule-heavy);
+    border-radius: 0;
   }
 
   .inset-safe-top {
@@ -109,56 +111,38 @@ body {
     color: var(--bg);
   }
 
-  .btn-primary:hover {
-    background: color-mix(in oklch, var(--fg) 88%, transparent);
-  }
-
   .btn-secondary {
-    @apply bg-wash text-fg;
-  }
-
-  .btn-secondary:hover {
-    background: var(--wash-strong);
+    background: var(--wash);
+    color: var(--fg);
   }
 
   .btn-danger {
-    @apply bg-danger text-white;
-  }
-
-  .btn-danger:hover {
-    background: color-mix(in oklch, var(--danger) 88%, black);
+    background: var(--danger);
+    color: #ffffff;
   }
 
   .label {
-    @apply mb-1.5 block text-sm font-medium text-fg;
+    @apply mb-1 block text-sm font-bold text-fg;
   }
 
   .hint {
-    @apply mt-1.5 text-sm text-muted;
+    @apply mt-1 text-sm text-muted;
   }
 
   .card {
     position: relative;
     border: 1px solid var(--rule);
-    border-radius: var(--radius-lg);
     background: var(--surface);
   }
 
   .card-sunk {
     border: 1px solid var(--rule);
-    border-radius: var(--radius-lg);
     background: var(--wash);
   }
 
   .marked {
     padding-inline: 0.15em;
-    color: var(--fg);
-    background-image: linear-gradient(
-      to top,
-      var(--marker) 0.62em,
-      transparent 0.62em
-    );
-    background-repeat: no-repeat;
+    background: var(--marker);
   }
 }
 

@@ -77,7 +77,7 @@ function TopicRow({
       <summary className="flex cursor-pointer items-baseline gap-2 rounded py-1 marker:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
         <span
           aria-hidden="true"
-          className="shrink-0 text-xs text-muted transition-transform group-open:rotate-90"
+          className="shrink-0 text-xs text-muted group-open:rotate-90"
         >
           ▶
         </span>

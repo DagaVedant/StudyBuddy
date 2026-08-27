@@ -35,7 +35,7 @@ async function AppTopbar() {
         >
           <button
             type="submit"
-            className="rounded-sm px-3 py-1.5 text-sm font-medium transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="rounded-sm px-3 py-1.5 text-sm font-medium hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Sign out
           </button>

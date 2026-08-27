@@ -19,10 +19,6 @@ function subjectLabel(root: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-function attempts(point: TrendPoint): number {
-  return point.correct + point.unsure + point.wrong
-}
-
 export default function AccuracyChart({
   overall,
   bySubject,
@@ -39,9 +35,6 @@ export default function AccuracyChart({
     if (match) series = match.points
   }
 
-  const maxWeek = Math.max(1, ...series.map(attempts))
-  const scale = (value: number) => (value / maxWeek) * 100
-
   return (
     <>
       {bySubject.length > 1 && (
@@ -51,7 +44,7 @@ export default function AccuracyChart({
           </label>
           <select
             id={selectId}
-            className="field border border-rule bg-wash sm:max-w-xs"
+            className="field sm:max-w-xs"
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
           >
@@ -65,83 +58,45 @@ export default function AccuracyChart({
         </div>
       )}
 
-      <div className="flex h-28 items-stretch gap-1" aria-hidden="true">
-        {series.map((point) => {
-          const total = attempts(point)
-
-          return (
-            <div
-              key={point.weekStart}
-              tabIndex={0}
-              className="group relative flex min-w-0 flex-1 flex-col justify-end rounded-t-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-fg px-2 py-1 text-xs text-bg group-hover:block group-focus-visible:block">
-                {point.correct} correct, {point.unsure} unsure, {point.wrong} missed
-              </span>
-              <div
-                className="w-full rounded-t-sm bg-danger/70"
-                style={{height: `${scale(point.wrong)}%`}}
-              />
-              <div
-                className="w-full bg-muted/50"
-                style={{height: `${scale(point.unsure)}%`}}
-              />
-              <div
-                className="w-full bg-accent"
-                style={{height: `${scale(point.correct)}%`}}
-              />
-              <span className="sr-only">{total}</span>
-            </div>
-          )
-        })}
-      </div>
-
-      <p
-        aria-hidden="true"
-        className="mt-1.5 flex justify-between text-xs tabular-nums text-muted"
-      >
-        <span>{weekLabel(series[0].weekStart)}</span>
-        <span>{weekLabel(series[series.length - 1].weekStart)}</span>
-      </p>
-
-      <table className="sr-only">
-        <caption>
+      <table className="w-full border-collapse text-sm">
+        <caption className="sr-only">
           Attempts by week{subject ? `, ${subjectLabel(subject)} only` : ''}
         </caption>
         <thead>
           <tr>
-            <th scope="col">Week</th>
-            <th scope="col">Correct</th>
-            <th scope="col">Unsure</th>
-            <th scope="col">Missed</th>
+            <th scope="col" className="border border-rule px-2 py-1 text-left">
+              Week
+            </th>
+            <th scope="col" className="border border-rule px-2 py-1 text-right">
+              Correct
+            </th>
+            <th scope="col" className="border border-rule px-2 py-1 text-right">
+              Unsure
+            </th>
+            <th scope="col" className="border border-rule px-2 py-1 text-right">
+              Missed
+            </th>
           </tr>
         </thead>
         <tbody>
           {series.map((point) => (
             <tr key={point.weekStart}>
-              <th scope="row">{point.weekStart}</th>
-              <td>{point.correct}</td>
-              <td>{point.unsure}</td>
-              <td>{point.wrong}</td>
+              <th scope="row" className="border border-rule px-2 py-1 text-left font-normal">
+                {weekLabel(point.weekStart)}
+              </th>
+              <td className="border border-rule px-2 py-1 text-right tabular-nums">
+                {point.correct}
+              </td>
+              <td className="border border-rule px-2 py-1 text-right tabular-nums">
+                {point.unsure}
+              </td>
+              <td className="border border-rule px-2 py-1 text-right tabular-nums">
+                {point.wrong}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
-
-      <p className="hint flex flex-wrap gap-x-4">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 bg-accent" aria-hidden="true" />
-          Correct
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 bg-muted/50" aria-hidden="true" />
-          Unsure
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 bg-danger/70" aria-hidden="true" />
-          Missed
-        </span>
-      </p>
     </>
   )
 }
