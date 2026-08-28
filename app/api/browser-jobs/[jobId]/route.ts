@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server'
+import {readJson} from '@/lib/api'
 import {eq} from 'drizzle-orm'
 import {bodySchema, handleComplete, handleExplanation, handleFail, handlePageResult, handlePageReview, handlePhase, handleSolution} from '@/lib/worker/jobs'
 import {auth} from '@/auth'
@@ -7,12 +8,12 @@ import {processingJobs} from '@/lib/schema'
 
 async function postJobid(request: Request, {params}: {params: Promise<Record<string, string>>}) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
   const {jobId} = await params
-  const parsed = bodySchema.safeParse(await request.json().catch(() => ({})))
+  const parsed = bodySchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -31,7 +32,7 @@ async function postJobid(request: Request, {params}: {params: Promise<Record<str
 
   if (body.action !== 'fail' && job.status !== 'claimed' && job.status !== 'running') {
     return NextResponse.json(
-      {error: `Job is ${job.status}, not accepting work`, status: job.status},
+      {error: 'Job is ' + job.status + ', not accepting work', status: job.status},
       {status: 409},
     )
   }

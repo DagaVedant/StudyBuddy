@@ -22,20 +22,28 @@ export default async function ReviewPage({
   searchParams: Promise<{topic?: string | string[]}>
 }) {
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const raw = (await searchParams).topic
-  const requested = Array.isArray(raw) ? raw[0] : raw
 
-  const [topic] = requested
-    ? await db
-        .select({id: topics.id, name: topics.name})
-        .from(topics)
-        .where(eq(topics.id, requested))
-        .limit(1)
-    : []
+  let requested: string | undefined = undefined
+  if (Array.isArray(raw)) requested = raw[0]
+  else if (raw) requested = raw
 
-  const topicId = topic?.id ?? null
+  let topic = null
+
+  if (requested) {
+    const found = await db
+      .select({id: topics.id, name: topics.name})
+      .from(topics)
+      .where(eq(topics.id, requested))
+      .limit(1)
+
+    if (found.length > 0) topic = found[0]
+  }
+
+  let topicId = null
+  if (topic) topicId = topic.id
 
   const [queue, waiting, resolved] = await Promise.all([
     getDueCards(db, session.user.id, SITTING, new Date(), topicId),
@@ -43,15 +51,29 @@ export default async function ReviewPage({
     resolveProvider(db, session.user.id),
   ])
 
-  const writerOffline =
-    resolved.executor === 'operator_gpu' && !(await workerStatus(db)).online
+  let writerOffline = false
+
+  if (resolved.executor === 'operator_gpu') {
+    const worker = await workerStatus(db)
+    if (!worker.online) writerOffline = true
+  }
 
   let heading = 'Nothing due today'
+
   if (topic) {
     heading = topic.name
   } else if (waiting > 0) {
-    heading = `${waiting} ${waiting === 1 ? 'question' : 'questions'} due`
+    let noun = 'questions'
+    if (waiting === 1) noun = 'question'
+
+    heading = waiting + ' ' + noun + ' due'
   }
+
+  let topicName = null
+  if (topic) topicName = topic.name
+
+  let shown = String(queue.length)
+  if (waiting > queue.length) shown = queue.length + ' of ' + waiting
 
   return (
     <main className="w-full px-4 py-8 sm:px-6">
@@ -69,9 +91,7 @@ export default async function ReviewPage({
 
       {queue.length > 0 && (
         <p className="hint mb-6 text-pretty">
-          <span className="tabular-nums">
-            {waiting > queue.length ? `${queue.length} of ${waiting}` : queue.length}
-          </span>{' '}
+          <span className="tabular-nums">{shown}</span>{' '}
           {waiting === 1 ? 'question is' : 'questions are'} due. Try to answer before
           revealing.
         </p>
@@ -79,7 +99,7 @@ export default async function ReviewPage({
 
       <ReviewSession
         items={queue}
-        topicName={topic?.name ?? null}
+        topicName={topicName}
         writerOffline={writerOffline}
       />
     </main>

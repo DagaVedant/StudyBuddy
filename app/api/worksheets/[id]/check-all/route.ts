@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server'
 import {z} from 'zod'
 import {unverifyQuestions, verifyRemaining} from '@/lib/questions/queries'
 import {guardWorksheet} from '@/lib/queue'
-import {guardRateLimit, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
+import {guardRateLimit, readJson, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
 import {db} from '@/lib/db'
 
 const verifyAllSchema = z.object({
@@ -17,7 +17,7 @@ export async function POST(request: Request, {params}: {params: Promise<Record<s
     return NextResponse.json({error: 'Not found'}, {status: guard.status})
   }
 
-  const parsed = verifyAllSchema.safeParse(await request.json().catch(() => null))
+  const parsed = verifyAllSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -25,12 +25,15 @@ export async function POST(request: Request, {params}: {params: Promise<Record<s
   const limited = await guardRateLimit(
     db,
     WORKSHEET_WRITE_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited
 
-  const updated = await verifyRemaining(db, worksheetId, parsed.data.exclude ?? [])
+  let exclude: string[] = []
+  if (parsed.data.exclude) exclude = parsed.data.exclude
+
+  const updated = await verifyRemaining(db, worksheetId, exclude)
 
   return NextResponse.json({verified: updated.length})
 }
@@ -45,7 +48,7 @@ export async function DELETE(request: Request, {params}: {params: Promise<Record
     return NextResponse.json({error: 'Not found'}, {status: guard.status})
   }
 
-  const parsed = unverifySchema.safeParse(await request.json().catch(() => null))
+  const parsed = unverifySchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -53,7 +56,7 @@ export async function DELETE(request: Request, {params}: {params: Promise<Record
   const limited = await guardRateLimit(
     db,
     WORKSHEET_WRITE_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited

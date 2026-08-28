@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server'
+import {readJson} from '@/lib/api'
 import {eq} from 'drizzle-orm'
 
 import {
@@ -19,7 +20,7 @@ type Ownership =
 
 async function ownsQuestion(questionId: string): Promise<Ownership> {
   const session = await auth()
-  if (!session?.user?.id) return {ok: false, status: 401}
+  if (!session || !session.user || !session.user.id) return {ok: false, status: 401}
 
   const [row] = await db
     .select({userId: questions.userId, worksheetId: questions.worksheetId})
@@ -42,7 +43,7 @@ export async function PATCH(request: Request, {params}: Params) {
     )
   }
 
-  const parsed = questionInputSchema.partial().safeParse(await request.json().catch(() => null))
+  const parsed = questionInputSchema.partial().safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid question'}, {status: 400})
   }
@@ -63,23 +64,40 @@ export async function PATCH(request: Request, {params}: Params) {
     if (input.promptText !== undefined) patch.promptText = input.promptText
     if (input.questionType !== undefined) patch.questionType = input.questionType
     if (input.ordinal !== undefined) patch.ordinal = input.ordinal
-    if (input.bbox !== undefined) patch.bbox = input.bbox ?? null
-    if (input.pageId !== undefined) patch.pageId = input.pageId ?? null
+    if (input.bbox !== undefined) {
+      patch.bbox = null
+      if (input.bbox) patch.bbox = input.bbox
+    }
+
+    if (input.pageId !== undefined) {
+      patch.pageId = null
+      if (input.pageId) patch.pageId = input.pageId
+    }
+
     if (input.userVerified !== undefined) patch.userVerified = input.userVerified
 
     if (input.correctAnswer !== undefined) {
-      patch.correctAnswer = input.correctAnswer ?? null
-      patch.answerSource = input.correctAnswer ? 'user_key' : 'none'
+      if (input.correctAnswer) {
+        patch.correctAnswer = input.correctAnswer
+        patch.answerSource = 'user_key'
+      } else {
+        patch.correctAnswer = null
+        patch.answerSource = 'none'
+      }
     }
 
     if (input.promptText !== undefined || input.choices !== undefined) {
-      const choices =
-        input.choices ??
-        (await tx
+      let choices: {text: string}[]
+
+      if (input.choices) {
+        choices = input.choices
+      } else {
+        choices = await tx
           .select({text: answerChoices.text})
           .from(answerChoices)
           .where(eq(answerChoices.questionId, questionId))
-          .orderBy(...CHOICE_ORDER))
+          .orderBy(...CHOICE_ORDER)
+      }
 
       let promptText = input.promptText
 
@@ -90,7 +108,8 @@ export async function PATCH(request: Request, {params}: Params) {
           .where(eq(questions.id, questionId))
           .limit(1)
 
-        promptText = row?.promptText ?? ''
+        promptText = ''
+        if (row) promptText = row.promptText
       }
 
       patch.contentHash = hashQuestion(promptText, choices)

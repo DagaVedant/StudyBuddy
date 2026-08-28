@@ -10,7 +10,7 @@ import {type QuestionEvidence, reflowText} from '@/lib/questions/shape'
 
 const BULK_UNDO_WINDOW_MS = 12_000
 
-export interface CheckableQuestion {
+export type CheckableQuestion = {
   id: string
   printedNumber: number | null
   ordinal: number
@@ -69,7 +69,7 @@ export function CheckClient({
       try {
         const outcomes = await Promise.all(
           ids.map(async (id) => {
-            const response = await fetchJson(`/api/questions/${id}`, {
+            const response = await fetchJson('/api/questions/' + id, {
               method: 'PATCH',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({userVerified: true}),
@@ -99,7 +99,7 @@ export function CheckClient({
 
     try {
       const response = await fetchJson(
-        `/api/worksheets/${worksheetId}/check-all`,
+        '/api/worksheets/' + worksheetId + '/check-all',
         {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -130,7 +130,7 @@ export function CheckClient({
     })
 
     try {
-      const response = await fetchJson(`/api/worksheets/${worksheetId}/check-all`, {
+      const response = await fetchJson('/api/worksheets/' + worksheetId + '/check-all', {
         method: 'DELETE',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ids}),
@@ -222,7 +222,7 @@ export function CheckClient({
         )}
 
         <Link
-          href={`/worksheets/${worksheetId}/edit`}
+          href={'/worksheets/' + worksheetId + '/edit'}
           className="btn btn-primary mt-4 inline-flex"
         >
           Back to the worksheet
@@ -239,7 +239,8 @@ export function CheckClient({
     )
   }
 
-  const label = question.printedNumber ?? question.ordinal
+  let label = question.ordinal
+  if (question.printedNumber !== null) label = question.printedNumber
 
   return (
     <div className="space-y-4">
@@ -262,7 +263,7 @@ export function CheckClient({
       >
         <div
           className="h-full bg-fg"
-          style={{width: `${(done / questions.length) * 100}%`}}
+          style={{width: ((done / questions.length) * 100) + '%'}}
         />
       </div>
 
@@ -307,7 +308,7 @@ export function CheckClient({
         {question.evidence && (
           <QuestionCrop
             image={question.evidence}
-            alt={`Question ${label} as it appears on the page`}
+            alt={'Question ' + label + ' as it appears on the page'}
           />
         )}
 
@@ -332,7 +333,7 @@ export function CheckClient({
             <p className="mt-1 text-muted">
               From{' '}
               <Link
-                href={`/worksheets/${question.duplicateOf.worksheetId}`}
+                href={'/worksheets/' + question.duplicateOf.worksheetId}
                 className="hover:text-fg"
               >
                 {question.duplicateOf.worksheetTitle}
@@ -353,7 +354,7 @@ export function CheckClient({
           Looks right
         </button>
         <Link
-          href={`/worksheets/${worksheetId}/edit?focus=${question.id}`}
+          href={'/worksheets/' + worksheetId + '/edit?focus=' + question.id}
           className="btn btn-secondary"
         >
           Something&rsquo;s wrong

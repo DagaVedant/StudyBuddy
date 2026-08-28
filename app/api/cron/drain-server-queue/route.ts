@@ -17,11 +17,17 @@ export async function GET(request: Request) {
   }
 
   const reaped = await reapAbandonedJobs(db)
+
   for (const abandoned of reaped) {
     console.log(
-      `[cron] reaped abandoned ${abandoned.stage} job ${abandoned.id} on ` +
-        `worksheet ${abandoned.worksheetId}`,
+      '[cron] reaped abandoned ' +
+        abandoned.stage +
+        ' job ' +
+        abandoned.id +
+        ' on worksheet ' +
+        abandoned.worksheetId,
     )
+
     await applyPermanentFailure(db, abandoned)
   }
 

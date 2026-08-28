@@ -21,10 +21,14 @@ import {type JobStage, transitionWorksheet} from '@/lib/queue'
 
 const RECOVERABLE = new Set(['multiple_choice', 'free_response'])
 
-export async function recoverCarriedChoices(
-  db: Db,
-  worksheetId: string,
-): Promise<{recovered: number}> {
+function fingerprint(choices: {text: string}[]) {
+  const parts = []
+  for (const choice of choices) parts.push(normalizeForCompare(choice.text))
+
+  return parts.join('|')
+}
+
+export async function recoverCarriedChoices(db: Db, worksheetId: string) {
   const pages = await db
     .select({pageNumber: worksheetPages.pageNumber, ocrText: worksheetPages.ocrText})
     .from(worksheetPages)
@@ -37,20 +41,20 @@ export async function recoverCarriedChoices(
 
   if (rows.length === 0) return {recovered: 0}
 
-  const candidates = rows.map((row) => ({...row, position: row.ordinal}))
+  const candidates = []
+  for (const row of rows) candidates.push({...row, position: row.ordinal})
 
   const expectedCount = modalChoiceCount(candidates)
 
   const byPage = new Map<number, typeof candidates>()
+
   for (const candidate of candidates) {
     if (candidate.pageNumber === null) continue
+
     const onPage = byPage.get(candidate.pageNumber)
     if (onPage) onPage.push(candidate)
     else byPage.set(candidate.pageNumber, [candidate])
   }
-
-  const fingerprint = (choices: {text: string}[]): string =>
-    choices.map((choice) => normalizeForCompare(choice.text)).join('|')
 
   let recovered = 0
 
@@ -63,42 +67,59 @@ export async function recoverCarriedChoices(
 
     if (!RECOVERABLE.has(target.questionType)) continue
 
-    const hasEnough =
-      expectedCount === null
-        ? target.choices.length > 0
-        : target.choices.length >= expectedCount
+    let hasEnough = target.choices.length > 0
+    if (expectedCount !== null) hasEnough = target.choices.length >= expectedCount
+
     if (hasEnough) continue
 
-    const held = target.choices.map((choice) => choice.label)
+    const held = []
+    for (const choice of target.choices) held.push(choice.label)
 
-    const carried = parseCarriedChoices(page.ocrText ?? '', {expectedCount, held})
+    let ocrText = ''
+    if (page.ocrText) ocrText = page.ocrText
+
+    const carried = parseCarriedChoices(ocrText, {expectedCount, held})
     if (!carried) continue
 
-    const codes = new Set(
-      validateQuestion({
-        printedNumber: target.printedNumber,
-        promptText: target.promptText,
-        questionType: target.questionType,
-        choices: target.choices,
-      }).map((flag) => flag.code),
-    )
+    const codes = new Set<string>()
+
+    const flags = validateQuestion({
+      printedNumber: target.printedNumber,
+      promptText: target.promptText,
+      questionType: target.questionType,
+      choices: target.choices,
+    })
+
+    for (const flag of flags) codes.add(flag.code)
+
     if (codes.has('stem_is_not_a_question') || codes.has('empty_stem')) continue
 
-    const first = sortWithinPage(byPage.get(page.pageNumber) ?? [])[0]
+    let onThisPage = byPage.get(page.pageNumber)
+    if (!onThisPage) onThisPage = []
+
+    const first = sortWithinPage(onThisPage)[0]
     if (first && fingerprint(first.choices) === fingerprint(carried)) continue
 
-    await db.insert(answerChoices).values(
-      carried.map((choice) => ({
+    const newChoices = []
+    for (const choice of carried) {
+      newChoices.push({
         questionId: target.id,
         label: normalizeChoiceLabel(choice.label),
         text: choice.text,
         isCorrect: false,
-      })),
-    )
+      })
+    }
 
-    const whole = [...target.choices, ...carried].sort((a, b) =>
-      a.label.localeCompare(b.label),
-    )
+    await db.insert(answerChoices).values(newChoices)
+
+    const whole = []
+    for (const choice of target.choices) whole.push(choice)
+    for (const choice of carried) whole.push(choice)
+
+    whole.sort(function (a, b) {
+      return a.label.localeCompare(b.label)
+    })
+
     const contentHash = hashQuestion(target.promptText, whole)
 
     await db
@@ -106,52 +127,63 @@ export async function recoverCarriedChoices(
       .set({contentHash, questionType: 'multiple_choice'})
       .where(eq(questions.id, target.id))
 
-    recovered += 1
+    recovered = recovered + 1
+
+    let shown = '?'
+    if (target.printedNumber !== null) shown = String(target.printedNumber)
+
     console.log(
-      `[carried] question ${target.printedNumber ?? '?'} took ${carried.length} option(s) ` +
-        `off page ${page.pageNumber} on ${worksheetId}`,
+      '[carried] question ' +
+        shown +
+        ' took ' +
+        carried.length +
+        ' option(s) off page ' +
+        page.pageNumber +
+        ' on ' +
+        worksheetId,
     )
   }
 
   return {recovered}
 }
 
-export async function mergeDuplicateQuestions(
-  db: Db,
-  worksheetId: string,
-): Promise<{merged: number}> {
+export async function mergeDuplicateQuestions(db: Db, worksheetId: string) {
   const rows = await loadQuestionsWithChoices(db, worksheetId)
 
   if (rows.length < 2) return {merged: 0}
 
-  const candidates = rows.map((row) => ({
-    id: row.id,
-    printedNumber: row.printedNumber,
-    promptText: row.promptText,
-    choices: row.choices,
-  }))
+  const candidates = []
+  for (const row of rows) {
+    candidates.push({
+      id: row.id,
+      printedNumber: row.printedNumber,
+      promptText: row.promptText,
+      choices: row.choices,
+    })
+  }
 
-  const expectedChoices =
-    modalChoiceCount(
-      candidates.map((c) => ({
-        printedNumber: c.printedNumber,
-        promptText: c.promptText,
-        questionType: 'multiple_choice',
-        choices: c.choices,
-      })),
-    ) ?? 4
+  const shaped = []
+  for (const candidate of candidates) {
+    shaped.push({
+      printedNumber: candidate.printedNumber,
+      promptText: candidate.promptText,
+      questionType: 'multiple_choice',
+      choices: candidate.choices,
+    })
+  }
 
-  const plans = [
-    ...planDuplicateMerges(candidates),
-    ...planNumberDuplicateMerges(candidates, expectedChoices),
-  ]
+  let expectedChoices = 4
+  const modal = modalChoiceCount(shaped)
+  if (modal !== null) expectedChoices = modal
 
-  const deletable = new Set(
-    await deletableQuestionIds(
-      db,
-      plans.map((plan) => plan.dropId),
-    ),
-  )
+  const plans = []
+  for (const plan of planDuplicateMerges(candidates)) plans.push(plan)
+  for (const plan of planNumberDuplicateMerges(candidates, expectedChoices)) plans.push(plan)
+
+  const dropIds = []
+  for (const plan of plans) dropIds.push(plan.dropId)
+
+  const deletable = new Set(await deletableQuestionIds(db, dropIds))
 
   let merged = 0
 
@@ -160,10 +192,16 @@ export async function mergeDuplicateQuestions(
 
   for (const candidate of candidates) {
     if (typeof candidate.printedNumber !== 'number') continue
+
     holderOf.set(candidate.id, candidate.printedNumber)
-    const holders = rowsWithNumber.get(candidate.printedNumber) ?? new Set<string>()
+
+    let holders = rowsWithNumber.get(candidate.printedNumber)
+    if (!holders) {
+      holders = new Set<string>()
+      rowsWithNumber.set(candidate.printedNumber, holders)
+    }
+
     holders.add(candidate.id)
-    rowsWithNumber.set(candidate.printedNumber, holders)
   }
 
   const gone = new Set<string>()
@@ -171,29 +209,38 @@ export async function mergeDuplicateQuestions(
   for (const plan of plans) {
     if (gone.has(plan.dropId) || gone.has(plan.keepId)) {
       console.log(
-        `[dedupe] skipped a plan on ${worksheetId}: an earlier merge already ` +
-          `moved one of its rows`,
+        '[dedupe] skipped a plan on ' +
+          worksheetId +
+          ': an earlier merge already moved one of its rows',
       )
       continue
     }
 
     if (!deletable.has(plan.dropId)) {
       console.log(
-        `[dedupe] kept ${plan.dropId} on ${worksheetId}: a student has work against it`,
+        '[dedupe] kept ' + plan.dropId + ' on ' + worksheetId + ': a student has work against it',
       )
       continue
     }
 
     if (plan.printedNumber !== null) {
-      const holders = rowsWithNumber.get(plan.printedNumber) ?? new Set<string>()
-      const others = [...holders].filter(
-        (id) => id !== plan.keepId && id !== plan.dropId,
-      )
+      let holders = rowsWithNumber.get(plan.printedNumber)
+      if (!holders) holders = new Set<string>()
 
-      if (others.length > 0) {
+      let others = 0
+      for (const id of holders) {
+        if (id !== plan.keepId && id !== plan.dropId) others = others + 1
+      }
+
+      if (others > 0) {
         console.log(
-          `[dedupe] kept ${plan.dropId} on ${worksheetId}: number ` +
-            `${plan.printedNumber} is already held by another row on this worksheet`,
+          '[dedupe] kept ' +
+            plan.dropId +
+            ' on ' +
+            worksheetId +
+            ': number ' +
+            plan.printedNumber +
+            ' is already held by another row on this worksheet',
         )
         continue
       }
@@ -205,46 +252,36 @@ export async function mergeDuplicateQuestions(
 
       const keptOldNumber = holderOf.get(plan.keepId)
       if (typeof keptOldNumber === 'number') {
-        rowsWithNumber.get(keptOldNumber)?.delete(plan.keepId)
-      }
-      const droppedOldNumber = holderOf.get(plan.dropId)
-      if (typeof droppedOldNumber === 'number') {
-        rowsWithNumber.get(droppedOldNumber)?.delete(plan.dropId)
+        const previous = rowsWithNumber.get(keptOldNumber)
+        if (previous) previous.delete(plan.keepId)
       }
 
-      const newHolders = rowsWithNumber.get(plan.printedNumber) ?? new Set<string>()
+      const droppedOldNumber = holderOf.get(plan.dropId)
+      if (typeof droppedOldNumber === 'number') {
+        const previous = rowsWithNumber.get(droppedOldNumber)
+        if (previous) previous.delete(plan.dropId)
+      }
+
+      let newHolders = rowsWithNumber.get(plan.printedNumber)
+      if (!newHolders) {
+        newHolders = new Set<string>()
+        rowsWithNumber.set(plan.printedNumber, newHolders)
+      }
+
       newHolders.add(plan.keepId)
-      rowsWithNumber.set(plan.printedNumber, newHolders)
       holderOf.set(plan.keepId, plan.printedNumber)
       holderOf.delete(plan.dropId)
     }
 
     await db.delete(questions).where(eq(questions.id, plan.dropId))
     gone.add(plan.dropId)
-    merged += 1
+    merged = merged + 1
   }
 
   return {merged}
 }
 
-export async function partitionByDeletability<T extends {id: string}>(
-  db: Db,
-  rows: T[],
-): Promise<{removable: T[]; held: T[]}> {
-  const removableIds = new Set(
-    await deletableQuestionIds(
-      db,
-      rows.map((row) => row.id),
-    ),
-  )
-
-  return {
-    removable: rows.filter((row) => removableIds.has(row.id)),
-    held: rows.filter((row) => !removableIds.has(row.id)),
-  }
-}
-
-export async function deletableQuestionIds(db: Db, ids: string[]): Promise<string[]> {
+export async function deletableQuestionIds(db: Db, ids: string[]) {
   if (ids.length === 0) return []
 
   const [claimedByAttempt, claimedByCard] = await Promise.all([
@@ -258,12 +295,33 @@ export async function deletableQuestionIds(db: Db, ids: string[]): Promise<strin
       .where(inArray(reviewCards.questionId, ids)),
   ])
 
-  const claimed = new Set([
-    ...claimedByAttempt.map((row) => row.id),
-    ...claimedByCard.map((row) => row.id),
-  ])
+  const claimed = new Set<string>()
+  for (const row of claimedByAttempt) claimed.add(row.id)
+  for (const row of claimedByCard) claimed.add(row.id)
 
-  return ids.filter((id) => !claimed.has(id))
+  const free: string[] = []
+  for (const id of ids) {
+    if (!claimed.has(id)) free.push(id)
+  }
+
+  return free
+}
+
+export async function partitionByDeletability<T extends {id: string}>(db: Db, rows: T[]) {
+  const ids = []
+  for (const row of rows) ids.push(row.id)
+
+  const removableIds = new Set(await deletableQuestionIds(db, ids))
+
+  const removable: T[] = []
+  const held: T[] = []
+
+  for (const row of rows) {
+    if (removableIds.has(row.id)) removable.push(row)
+    else held.push(row)
+  }
+
+  return {removable, held}
 }
 
 const READING_SHARE = 0.8
@@ -272,58 +330,17 @@ export const CLASSIFYING_AT = 0.95
 
 export type JobPhase = 'reading' | 'verifying' | 'classifying'
 
-export function readingProgress(pageNumber: number, totalPages: number): number {
+export function readingProgress(pageNumber: number, totalPages: number) {
   if (totalPages <= 0) return 0
+
   return (pageNumber / totalPages) * READING_SHARE
 }
 
 export function phaseFor(progress: number): JobPhase {
   if (progress >= CLASSIFYING_AT) return 'classifying'
   if (progress >= VERIFYING_AT) return 'verifying'
+
   return 'reading'
-}
-
-export interface FailedJob {
-  stage: JobStage
-  userId: string
-  worksheetId: string
-}
-
-export async function applyPermanentFailure(db: Db, job: FailedJob): Promise<void> {
-  switch (job.stage) {
-    case 'explain':
-      await refundTrial(db, job.userId, 'explanations', 1)
-      return
-
-    case 'answer_key':
-      return
-
-    case 'lesson':
-    case 'practice':
-      return
-
-    case 'classify':
-      await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
-      return
-
-    case 'extract': {
-      const [worksheet] = await db
-        .select({tierUsed: worksheets.tierUsed})
-        .from(worksheets)
-        .where(eq(worksheets.id, job.worksheetId))
-        .limit(1)
-
-      if (worksheet?.tierUsed === 'trial') {
-        await refundTrial(db, job.userId, 'worksheets', 1)
-      }
-
-      await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
-        status: 'failed',
-      })
-
-      return
-    }
-  }
 }
 
 export const UNTAGGED_REASON = {
@@ -341,16 +358,50 @@ export async function recordUntagged(
   db: Db,
   worksheetId: string,
   reason: UntaggedReason,
-): Promise<void> {
+) {
   await db
     .update(worksheets)
     .set({classificationError: reason})
     .where(eq(worksheets.id, worksheetId))
 }
 
-export async function clearUntagged(db: Db, worksheetId: string): Promise<void> {
+export async function clearUntagged(db: Db, worksheetId: string) {
   await db
     .update(worksheets)
     .set({classificationError: null})
     .where(eq(worksheets.id, worksheetId))
+}
+
+export type FailedJob = {
+  stage: JobStage
+  userId: string
+  worksheetId: string
+}
+
+export async function applyPermanentFailure(db: Db, job: FailedJob) {
+  if (job.stage === 'explain') {
+    await refundTrial(db, job.userId, 'explanations', 1)
+    return
+  }
+
+  if (job.stage === 'classify') {
+    await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
+    return
+  }
+
+  if (job.stage === 'extract') {
+    const [worksheet] = await db
+      .select({tierUsed: worksheets.tierUsed})
+      .from(worksheets)
+      .where(eq(worksheets.id, job.worksheetId))
+      .limit(1)
+
+    if (worksheet && worksheet.tierUsed === 'trial') {
+      await refundTrial(db, job.userId, 'worksheets', 1)
+    }
+
+    await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
+      status: 'failed',
+    })
+  }
 }

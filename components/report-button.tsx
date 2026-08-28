@@ -4,9 +4,11 @@ import {useState} from 'react'
 
 import {fetchJson} from '@/lib/client/http'
 
-type Target =
-  | {kind: 'worksheet'; worksheetId: string}
-  | {kind: 'explanation'; questionId: string}
+type Target = {
+  kind: string
+  worksheetId?: string
+  questionId?: string
+}
 
 export function ReportButton({
   target,
@@ -35,8 +37,16 @@ export function ReportButton({
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as {error?: string}
-        throw new Error(body.error ?? 'That did not send.')
+        let problem = 'That did not send.'
+
+        try {
+          const body = (await response.json()) as {error?: string}
+          if (body.error) problem = body.error
+        } catch {
+          problem = 'That did not send.'
+        }
+
+        throw new Error(problem)
       }
 
       setSent(true)
@@ -68,6 +78,9 @@ export function ReportButton({
     )
   }
 
+  let sendText = 'Send report'
+  if (sending) sendText = 'Sending…'
+
   return (
     <div className="space-y-2">
       <label className="block">
@@ -87,10 +100,12 @@ export function ReportButton({
         <button
           type="button"
           disabled={sending}
-          onClick={() => void send()}
+          onClick={() => {
+            send()
+          }}
           className="card px-3 py-1.5 text-sm hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
         >
-          {sending ? 'Sending…' : 'Send report'}
+          {sendText}
         </button>
         <button
           type="button"

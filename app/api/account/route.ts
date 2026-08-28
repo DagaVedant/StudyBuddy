@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server'
 import {eq} from 'drizzle-orm'
 import {z} from 'zod'
-import {ACCOUNT_LIMIT, guardRateLimit} from '@/lib/api'
+import {ACCOUNT_LIMIT, guardRateLimit, readJson} from '@/lib/api'
 import {auth, signOut} from '@/auth'
 import {db} from '@/lib/db'
 import {deleteAccount} from '@/lib/auth/identity'
@@ -11,11 +11,11 @@ const schema = z.object({email: z.string().min(1)})
 
 async function deleteRoot(request: Request) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
-  const parsed = schema.safeParse(await request.json().catch(() => null))
+  const parsed = schema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -23,7 +23,7 @@ async function deleteRoot(request: Request) {
   const limited = await guardRateLimit(
     db,
     ACCOUNT_LIMIT,
-    `user:${session.user.id}`,
+    'user:' + session.user.id,
     'Too many attempts on this account. Try again shortly.',
   )
   if (limited) return limited

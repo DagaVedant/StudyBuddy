@@ -26,7 +26,7 @@ export default async function StatusPage({
   const sample = findSample((await searchParams).sample)
 
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const [[worksheet], found, markup] = await Promise.all([
     db.select().from(worksheets).where(eq(worksheets.id, id)).limit(1),
@@ -67,7 +67,7 @@ export default async function StatusPage({
     questionCount: found.length,
     markedCount: markup.length,
   })
-  if (target.href !== `/worksheets/${id}/status`) redirect(target.href)
+  if (target.href !== '/worksheets/' + id + '/status') redirect(target.href)
 
   const [job] = await db
     .select()
@@ -76,25 +76,43 @@ export default async function StatusPage({
     .orderBy(desc(processingJobs.createdAt))
     .limit(1)
 
+  let executor: 'server' | 'browser' | 'operator_gpu' = 'operator_gpu'
+  if (job) executor = job.executor
+
   const [worker, depth] = await Promise.all([
     workerStatus(db),
-    queueDepth(db, job?.executor ?? 'operator_gpu'),
+    queueDepth(db, executor),
   ])
 
-  const failed = worksheet.status === 'failed' || job?.status === 'failed'
-  const progress = job?.progress ?? 0
+  let failed = worksheet.status === 'failed'
+  let progress = 0
+  let jobError = 'Processing failed.'
+
+  if (job) {
+    if (job.status === 'failed') failed = true
+    progress = job.progress
+    if (job.error) jobError = job.error
+  }
+
   const percent = Math.round(progress * 100)
+
+  let barWidth = percent
+  if (barWidth < 4) barWidth = 4
   const phase = phaseFor(progress)
 
   const expected = worksheet.expectedQuestionCount
   const countIsTrustworthy = !expected || found.length < expected
   const stillReading = phase === 'reading' && countIsTrustworthy
 
-  const runsHere = job?.executor === 'browser'
-  const isOnline = job?.executor === 'server' || runsHere || worker.online
+  const runsHere = executor === 'browser'
+
+  let isOnline = worker.online
+  if (executor === 'server' || runsHere) isOnline = true
+
   const stalled = !job && worksheet.status === 'uploading'
 
   let progressNote: string
+
   if (stalled) {
     progressNote =
       'This upload did not finish, so nothing is reading it. Add its questions by hand, or upload it again.'
@@ -102,8 +120,10 @@ export default async function StatusPage({
     progressNote =
       'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page; the worksheet will be waiting on your dashboard.'
   } else if (stillReading) {
-    const noun = found.length === 1 ? 'question' : 'questions'
-    progressNote = `Reading your worksheet. ${found.length} ${noun} found so far.`
+    let noun = 'questions'
+    if (found.length === 1) noun = 'question'
+
+    progressNote = 'Reading your worksheet. ' + found.length + ' ' + noun + ' found so far.'
   } else if (phase === 'classifying') {
     progressNote = 'Sorting the questions into topics.'
   } else {
@@ -122,12 +142,12 @@ export default async function StatusPage({
       {failed ? (
         <>
           <p className="mt-6 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">
-            {job?.error ?? 'Processing failed.'} This worksheet was not counted
+            {jobError} This worksheet was not counted
             against your trial.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
-              href={`/worksheets/${id}/edit`}
+              href={'/worksheets/' + id + '/edit'}
               className="btn btn-primary sm:w-auto sm:px-6"
             >
               Add questions manually
@@ -149,7 +169,7 @@ export default async function StatusPage({
           >
             <div
               className="h-full bg-accent"
-              style={{width: `${Math.max(percent, 4)}%`}}
+              style={{width: barWidth + '%'}}
             />
           </div>
 
@@ -159,7 +179,7 @@ export default async function StatusPage({
             <>
               <p aria-live="polite" className="hint text-pretty">
                 {progressNote}
-                {depth.pending > 1 && ` ${depth.pending} worksheets ahead of yours.`}
+                {depth.pending > 1 && ' ' + depth.pending + ' worksheets ahead of yours.'}
               </p>
 
               <p className="hint text-pretty">

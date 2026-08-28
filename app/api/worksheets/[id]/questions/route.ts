@@ -3,7 +3,7 @@ import {asc, eq} from 'drizzle-orm'
 import {answerChoices, questions, questionTopics} from '@/lib/schema'
 import {checkReferences, CHOICE_ORDER, referenceError} from '@/lib/questions/queries'
 import {guardWorksheet} from '@/lib/queue'
-import {guardRateLimit, QUESTION_WRITE_LIMIT} from '@/lib/api'
+import {guardRateLimit, QUESTION_WRITE_LIMIT, readJson} from '@/lib/api'
 import {db} from '@/lib/db'
 import {hashQuestion, questionInputSchema} from '@/lib/questions/shape'
 
@@ -35,11 +35,18 @@ export async function GET(_request: Request, {params}: {params: Promise<Record<s
     .where(eq(questions.worksheetId, worksheetId))
 
   const choicesFor = new Map<string, (typeof answerChoices.$inferSelect)[]>()
+
   for (const row of choices) {
     const choice = row.answer_choices
-    const list = choicesFor.get(choice.questionId) ?? []
+
+    let list = choicesFor.get(choice.questionId)
+
+    if (!list) {
+      list = []
+      choicesFor.set(choice.questionId, list)
+    }
+
     list.push(choice)
-    choicesFor.set(choice.questionId, list)
   }
 
   const topicFor = new Map<string, string>()
@@ -49,13 +56,20 @@ export async function GET(_request: Request, {params}: {params: Promise<Record<s
     }
   }
 
-  return NextResponse.json({
-    questions: rows.map((question) => ({
-      ...question,
-      choices: choicesFor.get(question.id) ?? [],
-      topicId: topicFor.get(question.id) ?? null,
-    })),
-  })
+  const listed = []
+
+  for (const question of rows) {
+    let questionChoices = choicesFor.get(question.id)
+    if (!questionChoices) questionChoices = []
+
+    let topicId = null
+    const found = topicFor.get(question.id)
+    if (found) topicId = found
+
+    listed.push({...question, choices: questionChoices, topicId: topicId})
+  }
+
+  return NextResponse.json({questions: listed})
 }
 
 export async function POST(request: Request, {params}: {params: Promise<Record<string, string>>}) {
@@ -69,31 +83,46 @@ export async function POST(request: Request, {params}: {params: Promise<Record<s
   const limited = await guardRateLimit(
     db,
     QUESTION_WRITE_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
     "That's a lot of questions in one go. Try again shortly.",
   )
   if (limited) return limited
 
-  const parsed = questionInputSchema.safeParse(await request.json().catch(() => null))
+  const parsed = questionInputSchema.safeParse(await readJson(request))
   if (!parsed.success) {
-    return NextResponse.json(
-      {error: parsed.error.issues[0]?.message ?? 'Invalid question'},
-      {status: 400},
-    )
+    let message = 'Invalid question'
+
+    const issue = parsed.error.issues[0]
+    if (issue && issue.message) message = issue.message
+
+    return NextResponse.json({error: message}, {status: 400})
   }
 
   const input = parsed.data
-  const choices = input.choices ?? []
+
+  let choices = input.choices
+  if (!choices) choices = []
 
   const references = await checkReferences(db, worksheetId, input)
   if (!references.ok) {
-    return NextResponse.json(
-      {error: referenceError(references.field!)},
-      {status: 400},
-    )
+    return NextResponse.json({error: referenceError(references.field)}, {status: 400})
   }
 
   const contentHash = hashQuestion(input.promptText, choices)
+
+  let pageId = null
+  if (input.pageId) pageId = input.pageId
+
+  let bbox = null
+  if (input.bbox) bbox = input.bbox
+
+  let correctAnswer = null
+  let answerSource: 'user_key' | 'none' = 'none'
+
+  if (input.correctAnswer) {
+    correctAnswer = input.correctAnswer
+    answerSource = 'user_key'
+  }
 
   const questionId = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -101,13 +130,13 @@ export async function POST(request: Request, {params}: {params: Promise<Record<s
       .values({
         userId: guard.userId,
         worksheetId,
-        pageId: input.pageId ?? null,
+        pageId: pageId,
         ordinal: input.ordinal,
         promptText: input.promptText,
         questionType: input.questionType,
-        bbox: input.bbox ?? null,
-        correctAnswer: input.correctAnswer ?? null,
-        answerSource: input.correctAnswer ? 'user_key' : 'none',
+        bbox: bbox,
+        correctAnswer: correctAnswer,
+        answerSource: answerSource,
         userVerified: true,
         contentHash,
       })

@@ -24,7 +24,7 @@ import {choiceLabel, reflowText} from '@/lib/questions/shape'
 import {fetchJson} from '@/lib/client/http'
 import {type BBox, type TextLine} from '@/lib/schema'
 
-export interface EditablePage {
+export type EditablePage = {
   id: string
   pageNumber: number
   imageSrc: string
@@ -40,7 +40,7 @@ export type QuestionType =
   | 'fill_blank'
   | 'grid_in'
 
-export interface EditableQuestion {
+export type EditableQuestion = {
   id: string
   pageId: string | null
   ordinal: number
@@ -63,13 +63,27 @@ const QUESTION_TYPES: {value: QuestionType; label: string}[] = [
 
 const CHOICE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
 
+function rowClass(selected: boolean) {
+  if (selected) return 'border-b border-fg/20 bg-accent/10'
+
+  return 'border-b border-fg/20'
+}
+
+function choiceRowClass(isCorrect: boolean) {
+  if (isCorrect) return 'flex gap-1.5 text-success'
+
+  return 'flex gap-1.5 text-muted'
+}
+
 function questionLabel(question: EditableQuestion): number {
-  return question.printedNumber ?? question.ordinal
+  if (question.printedNumber !== null) return question.printedNumber
+
+  return question.ordinal
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-interface QuestionEditor {
+type QuestionEditor = {
   questions: EditableQuestion[]
   saveState: SaveState
   error: string | null
@@ -113,12 +127,22 @@ function carriedAnswer(
 ): string | null {
   if (previous === null) return null
 
-  const relabelled =
-    before.length !== after.length ||
-    before.some((choice, index) => choice.label !== after[index].label)
+  let relabelled = before.length !== after.length
+
+  if (!relabelled) {
+    for (let i = 0; i < before.length; i++) {
+      if (before[i].label !== after[i].label) relabelled = true
+    }
+  }
+
   if (!relabelled) return previous
 
-  if (!before.some((choice) => choice.label === previous)) return previous
+  let held = false
+  for (const choice of before) {
+    if (choice.label === previous) held = true
+  }
+
+  if (!held) return previous
 
   let index = 0
   for (const choice of after) {
@@ -180,7 +204,7 @@ function useQuestionEditor(
       setSaveState('saving')
 
       try {
-        const response = await fetchJson(`/api/questions/${question.id}`, {
+        const response = await fetchJson('/api/questions/' + question.id, {
           method: 'PATCH',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(patchBody(question)),
@@ -237,13 +261,13 @@ function useQuestionEditor(
     clearTimeout(pending.timer)
 
     try {
-      const response = await fetchJson(`/api/questions/${id}`, {
+      const response = await fetchJson('/api/questions/' + id, {
         method: 'DELETE',
         keepalive: true,
       })
 
       if (!response.ok && response.status !== 404) {
-        throw new Error(`Delete failed (${response.status})`)
+        throw new Error('Delete failed (' + response.status + ')')
       }
 
       pendingRemovals.current.delete(id)
@@ -261,7 +285,11 @@ function useQuestionEditor(
       ...[...owed.current.values()].map((question) => send(question)),
     ])
 
-    return saved.every((ok) => ok !== false) && rejected.current.size === 0
+    for (const ok of saved) {
+      if (ok === false) return false
+    }
+
+    return rejected.current.size === 0
   }, [send, commitRemoval])
 
   useEffect(() => {
@@ -321,12 +349,15 @@ function useQuestionEditor(
   const reservedOrdinal = useRef(0)
 
   const reserveOrdinal = useCallback(() => {
-    const highest = questionsRef.current.reduce(
-      (top, question) => Math.max(top, question.ordinal),
-      0,
-    )
+    let highest = 0
+    for (const question of questionsRef.current) {
+      if (question.ordinal > highest) highest = question.ordinal
+    }
 
-    reservedOrdinal.current = Math.max(highest, reservedOrdinal.current) + 1
+    if (reservedOrdinal.current > highest) highest = reservedOrdinal.current
+
+    reservedOrdinal.current = highest + 1
+
     return reservedOrdinal.current
   }, [])
 
@@ -344,7 +375,7 @@ function useQuestionEditor(
       }
 
       try {
-        const response = await fetchJson(`/api/worksheets/${worksheetId}/questions`, {
+        const response = await fetchJson('/api/worksheets/' + worksheetId + '/questions', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(body),
@@ -422,12 +453,22 @@ function useQuestionEditor(
     }
 
     try {
-      const response = await fetchJson(`/api/worksheets/${worksheetId}/confirm`, {
+      const response = await fetchJson('/api/worksheets/' + worksheetId + '/confirm', {
         method: 'POST',
       })
       const body = (await response.json()) as {next?: string; error?: string}
-      if (!response.ok) throw new Error(body.error ?? 'Could not confirm')
-      router.push(body.next ?? '/dashboard')
+
+      if (!response.ok) {
+        let message = 'Could not confirm'
+        if (body.error) message = body.error
+
+        throw new Error(message)
+      }
+
+      let next = '/dashboard'
+      if (body.next) next = body.next
+
+      router.push(next)
     } catch (cause) {
       setConfirming(false)
       setError(cause instanceof Error ? cause.message : 'Could not confirm.')
@@ -492,6 +533,12 @@ function PageCanvas({
   const [draft, setDraft] = useState<BBox | null>(null)
   const [drawing, setDrawing] = useState(false)
 
+  let canvasClass = 'card relative select-none overflow-hidden touch-manipulation'
+  if (drawing) {
+    canvasClass =
+      'card relative select-none overflow-hidden touch-none outline outline-2 outline-accent'
+  }
+
   const imageRef = useRef<HTMLImageElement>(null)
   const dragStart = useRef<{x: number; y: number} | null>(null)
   const draftRef = useRef<BBox | null>(null)
@@ -519,8 +566,8 @@ function PageCanvas({
     [page.width, page.height],
   )
 
-  const pctX = (v: number) => `${(v / page.width) * 100}%`
-  const pctY = (v: number) => `${(v / page.height) * 100}%`
+  const pctX = (v: number) => ((v / page.width) * 100) + '%'
+  const pctY = (v: number) => ((v / page.height) * 100) + '%'
 
   const boxHint = () => {
     if (!linesReady) return 'Loading this page’s text…'
@@ -558,9 +605,7 @@ function PageCanvas({
       </div>
 
       <div
-        className={`card relative select-none overflow-hidden ${
-          drawing ? 'touch-none outline outline-2 outline-accent' : 'touch-manipulation'
-        }`}
+        className={canvasClass}
         onPointerDown={(event) => {
           if (event.button !== 0) return
           if (event.pointerType !== 'mouse' && !drawing) return
@@ -598,7 +643,7 @@ function PageCanvas({
         <img
           ref={imageRef}
           src={page.imageSrc}
-          alt={`Page ${page.pageNumber} of ${worksheetTitle}`}
+          alt={'Page ' + page.pageNumber + ' of ' + worksheetTitle}
           width={page.width}
           height={page.height}
           draggable={false}
@@ -645,9 +690,9 @@ function PageCanvas({
 }
 
 let choiceKeySeq = 0
-const nextChoiceKey = () => `new-choice-${(choiceKeySeq += 1)}`
+const nextChoiceKey = () => 'new-choice-' + ((choiceKeySeq += 1))
 
-interface CardProps {
+type CardProps = {
   question: EditableQuestion
   expanded: boolean
   selected: boolean
@@ -678,17 +723,26 @@ const QuestionCard = memo(function QuestionCard({
   measureRef,
   index,
 }: CardProps) {
-  const correct = question.choices.find((choice) => choice.isCorrect)
+  let correct = undefined
+  for (const choice of question.choices) {
+    if (choice.isCorrect) {
+      correct = choice
+      break
+    }
+  }
+
+  let answerValue = ''
+  if (question.correctAnswer) answerValue = question.correctAnswer
 
   return (
     <li
       ref={(node) => {
         registerRef(question.id, node)
-        measureRef?.(node)
+        if (measureRef) measureRef(node)
       }}
       data-index={index}
       style={style}
-      className={`border-b border-fg/20 ${selected ? 'bg-accent/10' : ''}`}
+      className={rowClass(selected)}
     >
       <div className="p-3">
         <div className="flex items-start gap-2">
@@ -711,9 +765,7 @@ const QuestionCard = memo(function QuestionCard({
             {question.choices.map((choice) => (
               <li
                 key={choice.id}
-                className={`flex gap-1.5 ${
-                  choice.isCorrect ? 'text-success' : 'text-muted'
-                }`}
+                className={choiceRowClass(choice.isCorrect)}
               >
                 <span className="shrink-0 font-medium">{choiceLabel(choice.label)}.</span>
                 <span className="line-clamp-2 min-w-0 flex-1 break-words">
@@ -750,11 +802,11 @@ const QuestionCard = memo(function QuestionCard({
       {expanded && (
         <div className="space-y-4 p-3">
           <div>
-            <label className="label" htmlFor={`prompt-${question.id}`}>
+            <label className="label" htmlFor={'prompt-' + question.id}>
               Question text
             </label>
             <textarea
-              id={`prompt-${question.id}`}
+              id={'prompt-' + question.id}
               rows={4}
               className="field resize-y"
               value={question.promptText}
@@ -765,11 +817,11 @@ const QuestionCard = memo(function QuestionCard({
           </div>
 
           <div>
-            <label className="label" htmlFor={`type-${question.id}`}>
+            <label className="label" htmlFor={'type-' + question.id}>
               Type
             </label>
             <select
-              id={`type-${question.id}`}
+              id={'type-' + question.id}
               className="field bg-surface text-fg"
               value={question.questionType}
               onChange={(event) =>
@@ -792,9 +844,9 @@ const QuestionCard = memo(function QuestionCard({
                   <li key={choice.id} className="flex items-center gap-2">
                     <input
                       type="radio"
-                      name={`correct-${question.id}`}
+                      name={'correct-' + question.id}
                       checked={choice.isCorrect}
-                      aria-label={`Mark choice ${choice.label} correct`}
+                      aria-label={'Mark choice ' + choice.label + ' correct'}
                       className="size-4 shrink-0 accent-[var(--accent)]"
                       onChange={() =>
                         onUpdate(question.id, {
@@ -809,7 +861,7 @@ const QuestionCard = memo(function QuestionCard({
                     <span className="w-5 shrink-0 text-sm text-muted">{choice.label}</span>
                     <input
                       type="text"
-                      aria-label={`Text for choice ${choice.label}`}
+                      aria-label={'Text for choice ' + choice.label}
                       className="field min-w-0 flex-1"
                       value={choice.text}
                       onChange={(event) =>
@@ -824,7 +876,7 @@ const QuestionCard = memo(function QuestionCard({
                     />
                     <button
                       type="button"
-                      aria-label={`Remove choice ${choice.label}`}
+                      aria-label={'Remove choice ' + choice.label}
                       className="btn-compact shrink-0 rounded px-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       onClick={() =>
                         onUpdate(question.id, {
@@ -866,15 +918,15 @@ const QuestionCard = memo(function QuestionCard({
 
           {question.questionType !== 'multiple_choice' && (
             <div>
-              <label className="label" htmlFor={`answer-${question.id}`}>
+              <label className="label" htmlFor={'answer-' + question.id}>
                 Correct answer
               </label>
               <input
-                id={`answer-${question.id}`}
+                id={'answer-' + question.id}
                 type="text"
                 autoComplete="off"
                 className="field"
-                value={question.correctAnswer ?? ''}
+                value={answerValue}
                 onChange={(event) =>
                   onUpdate(question.id, {correctAnswer: event.target.value || null})
                 }
@@ -905,11 +957,11 @@ const VIRTUALIZE_THRESHOLD = 40
 
 const ESTIMATED_ROW_HEIGHT = 132
 
-interface QuestionListHandle {
+type QuestionListHandle = {
   scrollToId: (id: string) => void
 }
 
-interface QuestionListProps {
+type QuestionListProps = {
   questions: EditableQuestion[]
   expandedId: string | null
   selectedId: string | null
@@ -937,13 +989,26 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
   },
   handleRef,
 ) {
+  function topicFor(question: EditableQuestion) {
+    if (!question.topicId) return null
+
+    const topic = topicById.get(question.topicId)
+    if (!topic) return null
+
+    return topic
+  }
+
   const virtualize = questions.length > VIRTUALIZE_THRESHOLD
 
   const listRef = useRef<HTMLUListElement>(null)
 
   const [scrollMargin, setScrollMargin] = useState(0)
   useLayoutEffect(() => {
-    if (virtualize) setScrollMargin(listRef.current?.offsetTop ?? 0)
+    if (!virtualize) return
+
+    const list = listRef.current
+    if (list) setScrollMargin(list.offsetTop)
+    else setScrollMargin(0)
   }, [virtualize])
 
   const expandedIndex = expandedId ? questions.findIndex((q) => q.id === expandedId) : -1
@@ -992,7 +1057,7 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
       question={question}
       expanded={expandedId === question.id}
       selected={selectedId === question.id}
-      topic={question.topicId ? (topicById.get(question.topicId) ?? null) : null}
+      topic={topicFor(question)}
       topics={topics}
       onUpdate={onUpdate}
       onRemove={onRemove}
@@ -1019,7 +1084,7 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
             top: 0,
             left: 0,
             width: '100%',
-            transform: `translateY(${virtualRow.start - scrollMargin}px)`,
+            transform: 'translateY(' + (virtualRow.start - scrollMargin) + 'px)',
           },
           virtualizer.measureElement,
           virtualRow.index,
@@ -1029,7 +1094,7 @@ const QuestionList = forwardRef<QuestionListHandle, QuestionListProps>(function 
   )
 })
 
-interface Props {
+type Props = {
   worksheetId: string
   worksheetTitle: string
   pages: EditablePage[]
@@ -1048,14 +1113,27 @@ export default function EditClient({
 }: Props) {
   const editor = useQuestionEditor(worksheetId, initialQuestions)
 
-  const focused = focusId
-    ? (initialQuestions.find((question) => question.id === focusId) ?? null)
-    : null
+  let focused: EditableQuestion | null = null
 
-  const [expandedId, setExpandedId] = useState<string | null>(focused?.id ?? null)
-  const [selectedId, setSelectedId] = useState<string | null>(
-    focused?.id ?? initialQuestions[0]?.id ?? null,
-  )
+  if (focusId) {
+    for (const question of initialQuestions) {
+      if (question.id === focusId) {
+        focused = question
+        break
+      }
+    }
+  }
+
+  let startingExpanded: string | null = null
+  if (focused) startingExpanded = focused.id
+
+  let startingSelected = startingExpanded
+  if (!startingSelected && initialQuestions.length > 0) {
+    startingSelected = initialQuestions[0].id
+  }
+
+  const [expandedId, setExpandedId] = useState<string | null>(startingExpanded)
+  const [selectedId, setSelectedId] = useState<string | null>(startingSelected)
   const [pageIndex, setPageIndex] = useState(() => {
     if (!focused) return 0
     const index = pages.findIndex((page) => page.id === focused.pageId)
@@ -1076,7 +1154,7 @@ export default function EditClient({
 
     let cancelled = false
 
-    fetch(`/api/worksheets/${worksheetId}/pages/${current.id}/lines`)
+    fetch('/api/worksheets/' + worksheetId + '/pages/' + current.id + '/lines')
       .then((response) => (response.ok ? response.json() : Promise.reject(response)))
       .then((body: {textLines: TextLine[]}) => {
         if (cancelled) return
@@ -1094,10 +1172,12 @@ export default function EditClient({
   const cardRefs = useRef(new Map<string, HTMLLIElement>())
   const questionListRef = useRef<QuestionListHandle>(null)
 
-  const topicById = useMemo(
-    () => new Map(topics.map((topic) => [topic.id, topic])),
-    [topics],
-  )
+  const topicById = useMemo(() => {
+    const byId = new Map<string, TopicChoice>()
+    for (const topic of topics) byId.set(topic.id, topic)
+
+    return byId
+  }, [topics])
 
   const {questions, update, removeQuestion, createQuestion} = editor
 
@@ -1117,8 +1197,11 @@ export default function EditClient({
       const index = pages.findIndex((p) => p.id === pageId)
       if (index >= 0) setPageIndex(index)
 
-      cardRefs.current.get(id)?.scrollIntoView({block: 'nearest', behavior: 'smooth'})
-      questionListRef.current?.scrollToId(id)
+      const card = cardRefs.current.get(id)
+      if (card) card.scrollIntoView({block: 'nearest', behavior: 'smooth'})
+
+      const list = questionListRef.current
+      if (list) list.scrollToId(id)
     },
     [pages],
   )
@@ -1128,8 +1211,12 @@ export default function EditClient({
   useEffect(() => {
     if (!focused || jumpedTo.current) return
     jumpedTo.current = true
-    questionListRef.current?.scrollToId(focused.id)
-    cardRefs.current.get(focused.id)?.scrollIntoView({block: 'center'})
+
+    const list = questionListRef.current
+    if (list) list.scrollToId(focused.id)
+
+    const card = cardRefs.current.get(focused.id)
+    if (card) card.scrollIntoView({block: 'center'})
   }, [focused])
 
   const toggleExpanded = useCallback(
@@ -1147,7 +1234,7 @@ export default function EditClient({
       const going = questionsRef.current.find((question) => question.id === id)
 
       setSelectedId((current) => (current === id ? null : current))
-      setUndoable(going ? {id, label: `question ${questionLabel(going)}`} : null)
+      setUndoable(going ? {id, label: 'question ' + (questionLabel(going))} : null)
       void removeQuestion(id)
     },
     [removeQuestion],
@@ -1181,10 +1268,19 @@ export default function EditClient({
   }
 
   const linesReady = linesByPage.has(page.id)
-  const pageWithLines = {...page, textLines: linesByPage.get(page.id) ?? []}
 
-  const untagged = questions.filter((question) => !question.topicId).length
-  const noun = questions.length === 1 ? 'question' : 'questions'
+  let textLines = linesByPage.get(page.id)
+  if (!textLines) textLines = []
+
+  const pageWithLines = {...page, textLines}
+
+  let untagged = 0
+  for (const question of questions) {
+    if (!question.topicId) untagged = untagged + 1
+  }
+
+  let noun = 'questions'
+  if (questions.length === 1) noun = 'question'
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
@@ -1285,7 +1381,7 @@ export default function EditClient({
           >
             {editor.confirming
               ? 'Confirming…'
-              : `Looks right, mark ${questions.length} ${noun}`}
+              : 'Looks right, mark ' + questions.length + ' ' + noun}
           </button>
         </div>
       </section>

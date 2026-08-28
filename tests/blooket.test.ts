@@ -9,7 +9,7 @@ import {freshDb, makeUser, makeWorksheet, uid} from './support/db'
 
 let ordinal = 0
 
-interface Choice {
+type Choice = {
   label: string
   text: string
   isCorrect?: boolean
@@ -38,7 +38,7 @@ async function missedQuestion(
       questionId: id,
       label: choice.label,
       text: choice.text,
-      isCorrect: choice.isCorrect ?? false,
+      isCorrect: choice.isCorrect === true,
     })
   }
   await db.insert(attempts).values({
@@ -98,13 +98,29 @@ test('the count never promises more than the export can build', async () => {
     choices: [{label: 'A', text: '13'}, {label: 'B', text: '6', isCorrect: true}],
   })
 
-  const buildable = (await getMissedQuestions(db, userId)).filter((question) => {
-    const usable = question.choices.filter((choice) => choice.text.trim())
-    return (
-      (question.correctAnswer ?? '').trim() !== '' ||
-      (usable.length >= 2 && usable.some((choice) => choice.isCorrect))
-    )
-  }).length
+  const missed = await getMissedQuestions(db, userId)
+
+  let buildable = 0
+
+  for (const question of missed) {
+    let typed = ''
+    if (question.correctAnswer) typed = question.correctAnswer.trim()
+
+    if (typed !== '') {
+      buildable = buildable + 1
+      continue
+    }
+
+    let usable = 0
+    let anyCorrect = false
+
+    for (const choice of question.choices) {
+      if (choice.text.trim()) usable = usable + 1
+      if (choice.isCorrect) anyCorrect = true
+    }
+
+    if (usable >= 2 && anyCorrect) buildable = buildable + 1
+  }
 
   assert.equal(await countExportableQuestions(db, userId), buildable)
   assert.equal(buildable, 1)

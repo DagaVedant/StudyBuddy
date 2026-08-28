@@ -69,7 +69,7 @@ async function embeddingModel() {
     },
   ]
 
-  const REMOTE = `https://huggingface.co/${MODEL}/resolve/main`
+  const REMOTE = 'https://huggingface.co/' + MODEL + '/resolve/main'
 
   function digest(buffer) {
     return createHash('sha256').update(buffer).digest('hex')
@@ -85,18 +85,18 @@ async function embeddingModel() {
   }
 
   async function fetchFile(file) {
-    const url = `${REMOTE}/${file.path}`
+    const url = REMOTE + '/' + file.path
     const response = await fetch(url)
 
     if (!response.ok) {
-      throw new Error(`${url} answered ${response.status} ${response.statusText}`)
+      throw new Error(url + ' answered ' + response.status + ' ' + response.statusText)
     }
 
     const body = Buffer.from(await response.arrayBuffer())
 
     if (body.length !== file.bytes) {
       throw new Error(
-        `${file.path} is ${body.length} bytes, expected ${file.bytes}. ` +
+        file.path + ' is ' + body.length + ' bytes, expected ' + file.bytes + '. ' +
           `A truncated download or a changed upstream file; not written.`,
       )
     }
@@ -104,7 +104,7 @@ async function embeddingModel() {
     const got = digest(body)
     if (got !== file.sha256) {
       throw new Error(
-        `${file.path} hashes to ${got}, expected ${file.sha256}. ` +
+        file.path + ' hashes to ' + got + ', expected ' + file.sha256 + '. ' +
           `Upstream has changed; check it, then update the digest in this script.`,
       )
     }
@@ -128,20 +128,20 @@ async function embeddingModel() {
     }
 
     console.log(
-      `[embedding-model] fetching ${missing.length} file(s) for ${MODEL} into models/`,
+      '[embedding-model] fetching ' + missing.length + ' file(s) for ' + MODEL + ' into models/',
     )
 
     let total = 0
     for (const file of missing) {
       total += await fetchFile(file)
-      console.log(`[embedding-model]   ${file.path}`)
+      console.log('[embedding-model]   ' + file.path)
     }
 
-    console.log(`[embedding-model] ${(total / 1_000_000).toFixed(1)}MB written`)
+    console.log('[embedding-model] ' + ((total / 1_000_000).toFixed(1)) + 'MB written')
   }
 
   await main().catch((error) => {
-    console.error(`[embedding-model] ${error.message}`)
+    console.error('[embedding-model] ' + error.message)
     process.exitCode = 1
   })
 }

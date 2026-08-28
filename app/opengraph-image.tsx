@@ -28,7 +28,7 @@ const CURVE = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
 
 const curveSrc = `data:image/svg+xml;base64,${Buffer.from(CURVE).toString('base64')}`
 
-const MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="${ACCENT}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 13.9C4.3 15.4 5.9 17.4 7.5 19.7 11.7 13.7 16.3 8.3 21.4 4.4"/></svg>`
+const MARK = '<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="' + ACCENT + '" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 13.9C4.3 15.4 5.9 17.4 7.5 19.7 11.7 13.7 16.3 8.3 21.4 4.4"/></svg>'
 
 const markSrc = `data:image/svg+xml;base64,${Buffer.from(MARK).toString('base64')}`
 
@@ -58,7 +58,7 @@ export default async function Image() {
           backgroundColor: BG,
           color: FG,
           fontFamily: 'Geist',
-          backgroundImage: `repeating-linear-gradient(to bottom, ${BG} 0px, ${BG} 31px, ${RULE} 31px, ${RULE} 32px)`,
+          backgroundImage: 'repeating-linear-gradient(to bottom, ' + BG + ' 0px, ' + BG + ' 31px, ' + RULE + ' 31px, ' + RULE + ' 32px)',
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- next/image

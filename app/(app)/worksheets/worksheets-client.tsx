@@ -42,16 +42,25 @@ export function WorksheetTitle({
     setError(null)
 
     try {
-      const response = await fetchJson(`/api/worksheets/${worksheetId}`, {
+      const response = await fetchJson('/api/worksheets/' + worksheetId, {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({title: next}),
       })
 
       const result = (await response.json()) as {error?: string; title?: string}
-      if (!response.ok) throw new Error(result.error ?? 'Could not rename that.')
 
-      setCurrent(result.title ?? next)
+      if (!response.ok) {
+        let message = 'Could not rename that.'
+        if (result.error) message = result.error
+
+        throw new Error(message)
+      }
+
+      let saved = next
+      if (result.title) saved = result.title
+
+      setCurrent(saved)
       setEditing(false)
       router.refresh()
     } catch (cause) {
@@ -72,7 +81,7 @@ export function WorksheetTitle({
         </Link>
         <button
           type="button"
-          aria-label={`Rename ${current}`}
+          aria-label={'Rename ' + current}
           className="btn-compact shrink-0 rounded px-1.5 text-xs text-muted hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           onClick={() => {
             setDraft(current)
@@ -89,7 +98,7 @@ export function WorksheetTitle({
     <form
       onSubmit={(event) => {
         event.preventDefault()
-        void save()
+        save()
       }}
     >
       <label className="sr-only" htmlFor={inputId}>
@@ -145,17 +154,28 @@ export function DeleteWorksheetButton({
 }) {
   const router = useRouter()
   const dialogRef = useRef<HTMLDialogElement>(null)
+
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  function openDialog() {
+    const dialog = dialogRef.current
+    if (dialog) dialog.showModal()
+  }
+
+  function closeDialog() {
+    const dialog = dialogRef.current
+    if (dialog) dialog.close()
+  }
 
   async function handleDelete() {
     setDeleting(true)
     setError(null)
 
     try {
-      const response = await fetchJson(`/api/worksheets/${worksheetId}`, {method: 'DELETE'})
+      const response = await fetchJson('/api/worksheets/' + worksheetId, {method: 'DELETE'})
       if (!response.ok) throw new Error('Could not delete')
-      dialogRef.current?.close()
+      closeDialog()
       router.refresh()
     } catch {
       setDeleting(false)
@@ -167,9 +187,9 @@ export function DeleteWorksheetButton({
     <>
       <button
         type="button"
-        aria-label={`Delete ${title}`}
+        aria-label={'Delete ' + title}
         className="btn-compact rounded px-1.5 text-xs text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-        onClick={() => dialogRef.current?.showModal()}
+        onClick={() => openDialog()}
       >
         Delete
       </button>
@@ -179,7 +199,7 @@ export function DeleteWorksheetButton({
         className="card fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm p-6 text-fg backdrop:bg-black/50"
         onClose={() => setError(null)}
         onClick={(event) => {
-          if (event.target === dialogRef.current) dialogRef.current?.close()
+          if (event.target === dialogRef.current) closeDialog()
         }}
       >
         <div className="text-center">
@@ -225,7 +245,7 @@ export function DeleteWorksheetButton({
             type="button"
             className="btn btn-danger touch-manipulation sm:w-auto sm:px-6"
             disabled={deleting}
-            onClick={() => void handleDelete()}
+            onClick={() => handleDelete()}
           >
             {deleting ? 'Deleting…' : 'Delete'}
           </button>
@@ -234,7 +254,7 @@ export function DeleteWorksheetButton({
             autoFocus
             className="btn btn-secondary touch-manipulation sm:w-auto sm:px-6"
             disabled={deleting}
-            onClick={() => dialogRef.current?.close()}
+            onClick={() => closeDialog()}
           >
             Cancel
           </button>

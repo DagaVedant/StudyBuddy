@@ -1,10 +1,5 @@
 import {MIN_ATTEMPTS} from '@/lib/upload'
 
-const PERCENT = new Intl.NumberFormat(undefined, {
-  style: 'percent',
-  maximumFractionDigits: 0,
-})
-
 export function Meter({
   accuracy,
   ranked = true,
@@ -16,27 +11,32 @@ export function Meter({
   label: string
   thick?: boolean
 }) {
-  const pct = Math.round(accuracy * 100)
+  let pct = Math.round(accuracy * 100)
 
-  const measured = ranked
-    ? {
-        role: 'meter',
-        'aria-valuenow': pct,
-        'aria-valuemin': 0,
-        'aria-valuemax': 100,
-        'aria-label': `${label}: ${PERCENT.format(accuracy)} correct`,
-      }
-    : {'aria-hidden': true}
+  let height = 'h-2'
+  if (thick) height = 'h-3'
+
+  if (!ranked) {
+    return (
+      <div aria-hidden={true} className={'w-full bg-wash ' + height}>
+        <div className="h-full bg-muted" style={{width: '100%'}} />
+      </div>
+    )
+  }
+
+  let width = pct
+  if (width < 2) width = 2
 
   return (
     <div
-      {...measured}
-      className={`w-full bg-wash ${thick ? 'h-3' : 'h-2'}`}
+      role="meter"
+      aria-valuenow={pct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={label + ': ' + pct + '% correct'}
+      className={'w-full bg-wash ' + height}
     >
-      <div
-        className={`h-full ${ranked ? 'bg-fg' : 'bg-muted'}`}
-        style={{width: `${ranked ? Math.max(pct, 2) : 100}%`}}
-      />
+      <div className="h-full bg-fg" style={{width: width + '%'}} />
     </div>
   )
 }
@@ -58,5 +58,5 @@ export function AccuracyLabel({
     )
   }
 
-  return <span className="text-sm font-medium tabular-nums">{PERCENT.format(accuracy)}</span>
+  return <span className="text-sm font-medium tabular-nums">{Math.round(accuracy * 100)}%</span>
 }

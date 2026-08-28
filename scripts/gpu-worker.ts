@@ -13,19 +13,27 @@ import {isAnswerPage, seamAround} from '../lib/questions/shape'
 import {type ExtractedQuestion, validated} from '../lib/ai/types'
 
 config({path: '.env.local'})
-const API = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
-const TOKEN = process.env.WORKER_API_TOKEN ?? ''
-const WORKER_NAME = process.env.WORKER_NAME ?? 'local-gpu'
-const VISION_MODEL = process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b'
-const REVIEW_MODEL = process.env.OLLAMA_REVIEW_MODEL ?? VISION_MODEL
-const ANSWER_MODEL = process.env.OLLAMA_ANSWER_MODEL ?? VISION_MODEL
-const OLLAMA_URL = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
 
-const IDLE_POLL_MS = 5_000
-const HEARTBEAT_MS = 30_000
-const BACKOFF_MAX_MS = 60_000
+function fromEnv(name: string, fallback: string) {
+  const value = process.env[name]
+  if (!value) return fallback
 
-interface WorkerPage {
+  return value
+}
+
+const API = fromEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000').replace(/\/+$/, '')
+const TOKEN = fromEnv('WORKER_API_TOKEN', '')
+const WORKER_NAME = fromEnv('WORKER_NAME', 'local-gpu')
+const VISION_MODEL = fromEnv('OLLAMA_VISION_MODEL', 'qwen2.5vl:7b')
+const REVIEW_MODEL = fromEnv('OLLAMA_REVIEW_MODEL', VISION_MODEL)
+const ANSWER_MODEL = fromEnv('OLLAMA_ANSWER_MODEL', VISION_MODEL)
+const OLLAMA_URL = fromEnv('OLLAMA_BASE_URL', 'http://127.0.0.1:11434')
+
+const IDLE_POLL_MS = 5000
+const HEARTBEAT_MS = 30000
+const BACKOFF_MAX_MS = 60000
+
+type WorkerPage = {
   id: string
   pageNumber: number
   imageKey: string
@@ -34,7 +42,7 @@ interface WorkerPage {
   height: number | null
 }
 
-interface ClaimedJob {
+type ClaimedJob = {
   id: string
   worksheetId: string
   stage: string
@@ -43,9 +51,27 @@ interface ClaimedJob {
   checkpoint: {lastPageNumber?: number; donePages?: number[]} | null
 }
 
-interface ClaimResponse {
+type ClaimResponse = {
   job: ClaimedJob | null
   pages?: WorkerPage[]
+}
+
+function pageText(page: WorkerPage) {
+  if (!page.ocrText) return ''
+
+  return page.ocrText
+}
+
+function pageWidth(page: WorkerPage) {
+  if (!page.width) return 0
+
+  return page.width
+}
+
+function pageHeight(page: WorkerPage) {
+  if (!page.height) return 0
+
+  return page.height
 }
 
 const ollama = new OllamaProvider({
@@ -55,7 +81,7 @@ const ollama = new OllamaProvider({
   answerModel: ANSWER_MODEL,
   reviewModel: REVIEW_MODEL,
   executionSite: 'operator_gpu',
-  timeoutMs: 15 * 60_000,
+  timeoutMs: 15 * 60000,
 })
 
 const provider = validated(ollama)
@@ -84,17 +110,23 @@ function stopSleeping(): void {
 let jobsInFlight = 0
 
 function log(message: string): void {
-  console.log(`[${new Date().toISOString()}] ${message}`)
+  console.log('[' + (new Date().toISOString()) + '] ' + message)
 }
 
-const API_TIMEOUT_MS = 120_000
+const API_TIMEOUT_MS = 120000
+
+function signalFor(init: RequestInit) {
+  if (init.signal) return init.signal
+
+  return AbortSignal.timeout(API_TIMEOUT_MS)
+}
 
 async function api(path: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(`${API}${path}`, {
+  return fetch(API + path, {
     ...init,
-    signal: init.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
+    signal: signalFor(init),
     headers: {
-      Authorization: `Bearer ${TOKEN}`,
+      Authorization: 'Bearer ' + TOKEN,
       ...(init.body ? {'Content-Type': 'application/json'} : {}),
       ...init.headers,
     },
@@ -102,13 +134,13 @@ async function api(path: string, init: RequestInit = {}): Promise<Response> {
 }
 
 async function postJob(jobId: string, body: unknown): Promise<Response> {
-  const response = await api(`/api/worker/jobs/${jobId}`, {
+  const response = await api('/api/worker/jobs/' + jobId, {
     method: 'POST',
     body: JSON.stringify(body),
   })
 
   if (!response.ok) {
-    throw new Error(`Job update failed (${response.status}): ${await response.text()}`)
+    throw new Error('Job update failed (' + response.status + '): ' + (await response.text()))
   }
 
   return response
@@ -128,11 +160,14 @@ async function toOllamaImage(
 async function pageImage(
   pageId: string,
 ): Promise<{image: Uint8Array; mediaType: string} | null> {
-  const response = await api(`/api/worker/pages/${pageId}`)
+  const response = await api('/api/worker/pages/' + pageId)
   if (!response.ok) return null
 
   const raw = new Uint8Array(await response.arrayBuffer())
-  return toOllamaImage(raw, response.headers.get('content-type') ?? 'image/webp')
+  let mediaType = response.headers.get('content-type')
+  if (!mediaType) mediaType = 'image/webp'
+
+  return toOllamaImage(raw, mediaType)
 }
 
 async function rereadPage(
@@ -146,21 +181,21 @@ async function rereadPage(
   return provider.extractQuestions({
     image: fetched.image,
     mediaType: fetched.mediaType,
-    text: page.ocrText ?? '',
-    width: page.width ?? 0,
-    height: page.height ?? 0,
+    text: pageText(page),
+    width: pageWidth(page),
+    height: pageHeight(page),
     pageNumber: page.pageNumber,
     ...seamAround(pages, pages.indexOf(page)),
     expect,
   })
 }
 
-interface PendingQuestion {
+type PendingQuestion = {
   id: string
   promptText: string
 }
 
-interface TopicCandidate {
+type TopicCandidate = {
   slug: string
   name: string
   path: string
@@ -170,22 +205,27 @@ async function reviewExtractedQuestions(
   job: {id: string; worksheetId: string},
   pages: WorkerPage[],
 ): Promise<void> {
-  const response = await api(`/api/worker/questions/${job.worksheetId}`)
+  const response = await api('/api/worker/questions/' + job.worksheetId)
   if (!response.ok) return
 
   const {questions} = (await response.json()) as {questions: ReviewableQuestion[]}
   if (questions.length === 0) return
 
-  const plan = await planReview(questions, async (candidates) =>
-    (await provider.reviewQuestions?.(candidates)) ?? [],
-  )
+  const plan = await planReview(questions, async (candidates) => {
+    if (!provider.reviewQuestions) return []
+
+    const verdicts = await provider.reviewQuestions(candidates)
+    if (!verdicts) return []
+
+    return verdicts
+  })
 
   if (plan.suspects.length === 0) return
 
   log(
-    `  review: ${plan.suspects.length} of ${questions.length} question(s) look wrong` +
+    '  review: ' + plan.suspects.length + ' of ' + questions.length + ' question(s) look wrong' +
       `${plan.modelConsulted ? '' : ' (cheap checks only, reviewer unavailable)'}` +
-      `, re-reading ${plan.reread.length} page(s)`,
+      ', re-reading ' + plan.reread.length + ' page(s)',
   )
 
   if (plan.skippedPages.length > 0) {
@@ -203,7 +243,7 @@ async function reviewExtractedQuestions(
     const page = byNumber.get(target.pageNumber)
     if (!page) continue
 
-    if (isAnswerPage(page.ocrText ?? '')) continue
+    if (isAnswerPage(pageText(page))) continue
 
     const replace = plan.suspects
       .filter((suspect) => suspect.pageNumber === target.pageNumber)
@@ -220,17 +260,24 @@ async function reviewExtractedQuestions(
         questions: extracted,
       })
 
-      const outcome = (await result.json().catch(() => null)) as {
-        replaced?: number
-        kept?: number
-      } | null
+      let replaced = 0
+      let kept = 0
+
+      try {
+        const outcome = (await result.json()) as {replaced?: number; kept?: number}
+        if (outcome.replaced) replaced = outcome.replaced
+        if (outcome.kept) kept = outcome.kept
+      } catch {
+        replaced = 0
+        kept = 0
+      }
 
       log(
-        `  review: page ${page.pageNumber} re-read: ` +
-          `replaced ${outcome?.replaced ?? 0}, kept ${outcome?.kept ?? 0} as-is`,
+        '  review: page ' + page.pageNumber + ' re-read: ' +
+          'replaced ' + replaced + ', kept ' + kept + ' as-is',
       )
     } catch (error) {
-      log(`  review: page ${page.pageNumber} could not be re-read: ${(error as Error).message}`)
+      log('  review: page ' + page.pageNumber + ' could not be re-read: ' + ((error as Error).message))
     }
   }
 }
@@ -239,18 +286,21 @@ async function recoverMissingQuestions(
   job: {id: string; worksheetId: string; expectedQuestionCount?: number | null},
   pages: WorkerPage[],
 ): Promise<void> {
-  const response = await api(`/api/worker/coverage/${job.worksheetId}`)
+  const response = await api('/api/worker/coverage/' + job.worksheetId)
   if (!response.ok) return
 
   const coverage = (await response.json()) as {
     pages: {pageNumber: number; printed: number[]; expectsQuestions?: boolean}[]
   }
 
-  const audit = auditExtraction(coverage.pages, job.expectedQuestionCount ?? null)
+  let expected = null
+  if (job.expectedQuestionCount) expected = job.expectedQuestionCount
+
+  const audit = auditExtraction(coverage.pages, expected)
 
   if (audit.extra.length > 0) {
     log(
-      `  audit: ${audit.found} found but only ${audit.expected} expected: ` +
+      '  audit: ' + audit.found + ' found but only ' + audit.expected + ' expected: ' +
         `numbered past the end: ${audit.extra.join(', ')} (check for duplicates)`,
     )
   }
@@ -265,10 +315,10 @@ async function recoverMissingQuestions(
   if (audit.retry.length === 0) return
 
   log(
-    `  audit: ${audit.found} found` +
+    '  audit: ' + audit.found + ' found' +
       `${audit.expected ? ` of ${audit.expected}` : ''}, ` +
       `${audit.missing.length > 0 ? `missing ${audit.missing.join(', ')}, ` : ''}` +
-      `re-reading ${audit.retry.length} page(s)`,
+      're-reading ' + audit.retry.length + ' page(s)',
   )
 
   const byNumber = new Map(pages.map((page) => [page.pageNumber, page]))
@@ -278,8 +328,8 @@ async function recoverMissingQuestions(
 
   if (retrying.length < audit.retry.length) {
     log(
-      `  audit: capped at ${retrying.length} of ${audit.retry.length} page(s); ` +
-        `more than ${Math.round(MAX_REREAD_SHARE * 100)}% of this paper looks wrong`,
+      '  audit: capped at ' + retrying.length + ' of ' + audit.retry.length + ' page(s); ' +
+        'more than ' + (Math.round(MAX_REREAD_SHARE * 100)) + '% of this paper looks wrong',
     )
   }
 
@@ -289,7 +339,7 @@ async function recoverMissingQuestions(
     const page = byNumber.get(target.pageNumber)
     if (!page) continue
 
-    if (isAnswerPage(page.ocrText ?? '')) continue
+    if (isAnswerPage(pageText(page))) continue
 
     try {
       const questions = await rereadPage(page, pages, target.expect)
@@ -305,7 +355,7 @@ async function recoverMissingQuestions(
 
       log(`  audit: page ${page.pageNumber} re-read for ${target.expect.join(', ')}`)
     } catch (error) {
-      log(`  audit: page ${page.pageNumber} retry failed: ${(error as Error).message}`)
+      log('  audit: page ' + page.pageNumber + ' retry failed: ' + ((error as Error).message))
     }
   }
 }
@@ -318,9 +368,9 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
   for (;;) {
     if (shuttingDown) return
 
-    const pendingResponse = await api(`/api/worker/classify/${worksheetId}`)
+    const pendingResponse = await api('/api/worker/classify/' + worksheetId)
     if (!pendingResponse.ok) {
-      log(`  classify: could not fetch questions (${pendingResponse.status}); skipping`)
+      log('  classify: could not fetch questions (' + pendingResponse.status + '); skipping')
       return
     }
 
@@ -341,7 +391,7 @@ async function classifyWorksheet(worksheetId: string): Promise<void> {
   }
 
   if (tried.size > 0) {
-    log(`  classified ${applied}/${tried.size} (${coarse} coarse)`)
+    log('  classified ' + applied + '/' + tried.size + ' (' + coarse + ' coarse)')
   }
 }
 
@@ -355,19 +405,19 @@ async function classifyBatch(
     try {
       items.push({questionId: question.id, embedding: await embed(question.promptText)})
     } catch (error) {
-      log(`  classify: could not embed a question: ${(error as Error).message}`)
+      log('  classify: could not embed a question: ' + ((error as Error).message))
     }
   }
 
   if (items.length === 0) return {applied: 0, coarse: 0}
 
-  const shortlistResponse = await api(`/api/worker/classify/${worksheetId}/shortlist`, {
+  const shortlistResponse = await api('/api/worker/classify/' + worksheetId + '/shortlist', {
     method: 'POST',
     body: JSON.stringify({items}),
   })
 
   if (!shortlistResponse.ok) {
-    log(`  classify: shortlist rejected (${shortlistResponse.status}); skipping`)
+    log('  classify: shortlist rejected (' + shortlistResponse.status + '); skipping')
     return null
   }
 
@@ -393,19 +443,19 @@ async function classifyBatch(
         candidates: entry.candidates,
       })
     } catch (error) {
-      log(`  classify: question ${entry.questionId} failed: ${(error as Error).message}`)
+      log('  classify: question ' + entry.questionId + ' failed: ' + ((error as Error).message))
     }
   }
 
   if (results.length === 0) return {applied: 0, coarse: 0}
 
-  const post = await api(`/api/worker/classify/${worksheetId}`, {
+  const post = await api('/api/worker/classify/' + worksheetId, {
     method: 'POST',
     body: JSON.stringify({results}),
   })
 
   if (!post.ok) {
-    log(`  classify: server rejected results (${post.status})`)
+    log('  classify: server rejected results (' + post.status + ')')
     return null
   }
 
@@ -413,9 +463,9 @@ async function classifyBatch(
 }
 
 async function processAnswerJob(job: {id: string; worksheetId: string}): Promise<void> {
-  const response = await api(`/api/worker/solutions/${job.worksheetId}`)
+  const response = await api('/api/worker/solutions/' + job.worksheetId)
   if (!response.ok) {
-    throw new Error(`Could not fetch the questions to solve (${response.status})`)
+    throw new Error('Could not fetch the questions to solve (' + response.status + ')')
   }
 
   const {questions: pending} = (await response.json()) as {
@@ -429,11 +479,11 @@ async function processAnswerJob(job: {id: string; worksheetId: string}): Promise
   }
 
   if (pending.length === 0) {
-    log(`  ${job.worksheetId}: nothing left to solve`)
+    log('  ' + job.worksheetId + ': nothing left to solve')
     return
   }
 
-  log(`  solving ${pending.length} question(s)`)
+  log('  solving ' + pending.length + ' question(s)')
 
   let solved = 0
   let declined = 0
@@ -481,24 +531,27 @@ async function processAnswerJob(job: {id: string; worksheetId: string}): Promise
       else solved += 1
     } catch (error) {
       failed += 1
-      log(`  question ${question.printedNumber ?? '?'} failed: ${(error as Error).message}`)
+      let shown = '?'
+      if (question.printedNumber !== null) shown = String(question.printedNumber)
+
+      log('  question ' + shown + ' failed: ' + (error as Error).message)
     }
 
     if ((index + 1) % 10 === 0) {
-      log(`  ${index + 1}/${pending.length}`)
+      log('  ' + (index + 1) + '/' + pending.length)
     }
   }
 
   log(
-    `  solved ${solved}, declined ${declined}, failed ${failed}` +
-      (looked > 0 ? `, ${looked} needed the page image` : ''),
+    '  solved ' + solved + ', declined ' + declined + ', failed ' + failed +
+      (looked > 0 ? ', ' + looked + ' needed the page image' : ''),
   )
 }
 
 async function processExplainJob(job: {id: string}): Promise<void> {
-  const response = await api(`/api/worker/explain/${job.id}`)
+  const response = await api('/api/worker/explain/' + job.id)
   if (!response.ok) {
-    throw new Error(`Could not fetch the question to explain (${response.status})`)
+    throw new Error('Could not fetch the question to explain (' + response.status + ')')
   }
 
   const input = (await response.json()) as {
@@ -527,13 +580,13 @@ async function processExplainJob(job: {id: string}): Promise<void> {
   })
 
   await postJob(job.id, {action: 'complete'})
-  log(`explained ${input.questionId}`)
+  log('explained ' + input.questionId)
 }
 
 async function processLessonJob(job: {id: string}): Promise<void> {
-  const response = await api(`/api/worker/lesson/${job.id}`)
+  const response = await api('/api/worker/lesson/' + job.id)
   if (!response.ok) {
-    throw new Error(`Could not fetch the topic to teach (${response.status})`)
+    throw new Error('Could not fetch the topic to teach (' + response.status + ')')
   }
 
   const input = (await response.json()) as {
@@ -557,13 +610,13 @@ async function processLessonJob(job: {id: string}): Promise<void> {
   })
 
   await postJob(job.id, {action: 'complete'})
-  log(`taught ${input.topicName}`)
+  log('taught ' + input.topicName)
 }
 
 async function processPracticeJob(job: {id: string}): Promise<void> {
-  const response = await api(`/api/worker/practice/${job.id}`)
+  const response = await api('/api/worker/practice/' + job.id)
   if (!response.ok) {
-    throw new Error(`Could not fetch the topic to practise (${response.status})`)
+    throw new Error('Could not fetch the topic to practise (' + response.status + ')')
   }
 
   const input = (await response.json()) as {
@@ -590,41 +643,41 @@ async function processPracticeJob(job: {id: string}): Promise<void> {
   })
 
   await postJob(job.id, {action: 'complete'})
-  log(`wrote ${written.length} practice question(s) for ${input.topicName}`)
+  log('wrote ' + written.length + ' practice question(s) for ' + input.topicName)
 }
 
 async function processJob(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
   try {
     if (job.stage === 'answer_key') {
-      log(`claimed ${job.id}: answers (attempt ${job.attemptCount})`)
+      log('claimed ' + job.id + ': answers (attempt ' + job.attemptCount + ')')
       await processAnswerJob(job)
       await postJob(job.id, {action: 'complete'})
     } else if (job.stage === 'explain') {
-      log(`claimed ${job.id}: explanation (attempt ${job.attemptCount})`)
+      log('claimed ' + job.id + ': explanation (attempt ' + job.attemptCount + ')')
       await processExplainJob(job)
     } else if (job.stage === 'classify') {
-      log(`claimed ${job.id}: sorting into topics (attempt ${job.attemptCount})`)
+      log('claimed ' + job.id + ': sorting into topics (attempt ' + job.attemptCount + ')')
       await classifyWorksheet(job.worksheetId)
       await postJob(job.id, {action: 'complete'})
     } else if (job.stage === 'lesson') {
-      log(`claimed ${job.id}: lesson (attempt ${job.attemptCount})`)
+      log('claimed ' + job.id + ': lesson (attempt ' + job.attemptCount + ')')
       await processLessonJob(job)
     } else if (job.stage === 'practice') {
-      log(`claimed ${job.id}: practice questions (attempt ${job.attemptCount})`)
+      log('claimed ' + job.id + ': practice questions (attempt ' + job.attemptCount + ')')
       await processPracticeJob(job)
     } else if (job.stage === 'extract') {
       await processExtractionJob(job, pages)
     } else {
-      throw new Error(`This worker does not know the ${job.stage} stage. Update it.`)
+      throw new Error('This worker does not know the ' + job.stage + ' stage. Update it.')
     }
   } catch (error) {
     const message = (error as Error).message
-    log(`failed ${job.id}: ${message}`)
+    log('failed ' + job.id + ': ' + message)
     await postJob(job.id, {action: 'fail', message}).catch(() => {})
   }
 }
 
-interface PageReadResult {
+type PageReadResult = {
   attempted: number
   pageFailures: number
   lastError: string
@@ -647,7 +700,7 @@ async function readJobPages(
       return {attempted, pageFailures, lastError, interrupted: true}
     }
 
-    if (isAnswerPage(page.ocrText ?? '')) {
+    if (isAnswerPage(pageText(page))) {
       await postJob(job.id, {
         action: 'page_result',
         pageId: page.id,
@@ -656,21 +709,22 @@ async function readJobPages(
         questions: [],
       })
 
-      log(`  page ${page.pageNumber}/${pages.length}: answer key or solutions, not extracted`)
+      log('  page ' + page.pageNumber + '/' + pages.length + ': answer key or solutions, not extracted')
       done.add(page.pageNumber)
       continue
     }
 
-    const imageResponse = await api(`/api/worker/pages/${page.id}`)
+    const imageResponse = await api('/api/worker/pages/' + page.id)
     if (!imageResponse.ok) {
-      throw new Error(`Could not fetch page ${page.pageNumber} (${imageResponse.status})`)
+      throw new Error('Could not fetch page ' + page.pageNumber + ' (' + imageResponse.status + ')')
     }
 
     const raw = new Uint8Array(await imageResponse.arrayBuffer())
-    const {image, mediaType} = await toOllamaImage(
-      raw,
-      imageResponse.headers.get('content-type') ?? 'image/webp',
-    )
+
+    let contentType = imageResponse.headers.get('content-type')
+    if (!contentType) contentType = 'image/webp'
+
+    const {image, mediaType} = await toOllamaImage(raw, contentType)
 
     const started = Date.now()
     attempted += 1
@@ -680,16 +734,16 @@ async function readJobPages(
       questions = await provider.extractQuestions({
         image,
         mediaType,
-        text: page.ocrText ?? '',
-        width: page.width ?? 0,
-        height: page.height ?? 0,
+        text: pageText(page),
+        width: pageWidth(page),
+        height: pageHeight(page),
         pageNumber: page.pageNumber,
         ...seamAround(pages, pages.indexOf(page)),
       })
     } catch (error) {
       pageFailures += 1
       lastError = (error as Error).message
-      log(`  page ${page.pageNumber}: extraction failed, ${lastError}`)
+      log('  page ' + page.pageNumber + ': extraction failed, ' + lastError)
     }
 
     await postJob(job.id, {
@@ -701,8 +755,8 @@ async function readJobPages(
     })
 
     log(
-      `  page ${page.pageNumber}/${pages.length}: ${questions.length} questions ` +
-        `(${((Date.now() - started) / 1000).toFixed(1)}s)`,
+      '  page ' + page.pageNumber + '/' + pages.length + ': ' + questions.length + ' questions ' +
+        '(' + (((Date.now() - started) / 1000).toFixed(1)) + 's)',
     )
 
     done.add(page.pageNumber)
@@ -726,10 +780,18 @@ async function finishExtraction(job: ClaimedJob, pages: WorkerPage[]): Promise<v
 }
 
 async function processExtractionJob(job: ClaimedJob, pages: WorkerPage[]): Promise<void> {
-  const done = new Set<number>(job.checkpoint?.donePages ?? [])
-  const legacyHighWater = job.checkpoint?.lastPageNumber ?? 0
+  const done = new Set<number>()
+  let legacyHighWater = 0
 
-  log(`claimed ${job.id}: ${pages.length} pages (attempt ${job.attemptCount})`)
+  if (job.checkpoint) {
+    if (job.checkpoint.donePages) {
+      for (const pageNumber of job.checkpoint.donePages) done.add(pageNumber)
+    }
+
+    if (job.checkpoint.lastPageNumber) legacyHighWater = job.checkpoint.lastPageNumber
+  }
+
+  log('claimed ' + job.id + ': ' + pages.length + ' pages (attempt ' + job.attemptCount + ')')
 
   const todo = pages.filter(
     (page) => !done.has(page.pageNumber) && page.pageNumber > legacyHighWater,
@@ -740,12 +802,12 @@ async function processExtractionJob(job: ClaimedJob, pages: WorkerPage[]): Promi
 
   if (read.attempted > 0 && read.pageFailures === read.attempted) {
     throw new Error(
-      `Extraction failed on all ${read.attempted} pages. Last error: ${read.lastError}`,
+      'Extraction failed on all ' + read.attempted + ' pages. Last error: ' + read.lastError,
     )
   }
 
   await finishExtraction(job, pages)
-  log(`completed ${job.id}`)
+  log('completed ' + job.id)
 }
 
 class WorkerRefused extends Error {}
@@ -771,7 +833,7 @@ async function heartbeat(extra: Record<string, unknown> = {}): Promise<void> {
     )
   }
 
-  throw new Error(`heartbeat got ${response.status}. ${detail}`)
+  throw new Error('heartbeat got ' + response.status + '. ' + detail)
 }
 
 async function heartbeatLoop(): Promise<void> {
@@ -784,7 +846,7 @@ async function heartbeatLoop(): Promise<void> {
     try {
       await heartbeat()
       if (failures > 0) {
-        log(`heartbeat recovered after ${failures} failure(s)`)
+        log('heartbeat recovered after ' + failures + ' failure(s)')
         failures = 0
       }
     } catch (error) {
@@ -796,7 +858,7 @@ async function heartbeatLoop(): Promise<void> {
       }
 
       failures += 1
-      log(`heartbeat failed (${failures}): ${(error as Error).message}`)
+      log('heartbeat failed (' + failures + '): ' + ((error as Error).message))
     }
   }
 }
@@ -804,25 +866,25 @@ async function heartbeatLoop(): Promise<void> {
 async function main(): Promise<void> {
   if (!TOKEN) throw new Error('WORKER_API_TOKEN is not set.')
 
-  log(`worker "${WORKER_NAME}" starting`)
-  log(`  api:    ${API}`)
-  log(`  ollama: ${OLLAMA_URL} (${VISION_MODEL})`)
+  log('worker "' + WORKER_NAME + '" starting')
+  log('  api:    ' + API)
+  log('  ollama: ' + OLLAMA_URL + ' (' + VISION_MODEL + ')')
 
   const models = await ollama.listModels().catch((error: unknown) => {
     const timedOut = error instanceof Error && error.name === 'TimeoutError'
     throw new Error(
       timedOut
-        ? `Ollama at ${OLLAMA_URL} accepted the connection and did not answer. It is up but not responding.`
-        : `Cannot reach Ollama at ${OLLAMA_URL}. Is it running?`,
+        ? 'Ollama at ' + OLLAMA_URL + ' accepted the connection and did not answer. It is up but not responding.'
+        : 'Cannot reach Ollama at ' + OLLAMA_URL + '. Is it running?',
     )
   })
 
   if (!models.includes(VISION_MODEL)) {
-    throw new Error(`${VISION_MODEL} is not pulled. Run: ollama pull ${VISION_MODEL}`)
+    throw new Error(VISION_MODEL + ' is not pulled. Run: ollama pull ' + VISION_MODEL)
   }
 
   await heartbeat()
-  log(`  registered with ${API}`)
+  log('  registered with ' + API)
 
   void heartbeatLoop()
 
@@ -841,7 +903,7 @@ async function main(): Promise<void> {
       })
 
       if (!response.ok) {
-        throw new Error(`claim failed (${response.status})`)
+        throw new Error('claim failed (' + response.status + ')')
       }
 
       const claim = (await response.json()) as ClaimResponse
@@ -850,7 +912,7 @@ async function main(): Promise<void> {
       if (!claim.job) {
         if (!idle) {
           idle = true
-          log(`no work; checking every ${IDLE_POLL_MS / 1000}s`)
+          log('no work; checking every ' + (IDLE_POLL_MS / 1000) + 's')
         }
 
         await sleep(IDLE_POLL_MS)
@@ -860,19 +922,22 @@ async function main(): Promise<void> {
       idle = false
       jobsInFlight += 1
       try {
-        await processJob(claim.job, claim.pages ?? [])
+        let claimedPages: WorkerPage[] = []
+        if (claim.pages) claimedPages = claim.pages
+
+        await processJob(claim.job, claimedPages)
       } finally {
         jobsInFlight -= 1
       }
     } catch (error) {
-      log(`poll error: ${(error as Error).message}, retrying in ${backoff / 1000}s`)
+      log('poll error: ' + ((error as Error).message) + ', retrying in ' + (backoff / 1000) + 's')
       await sleep(backoff)
       backoff = Math.min(backoff * 2, BACKOFF_MAX_MS)
     }
   }
 
   await heartbeat({shuttingDown: true}).catch((error: unknown) => {
-    log(`could not report shutdown: ${(error as Error).message}`)
+    log('could not report shutdown: ' + ((error as Error).message))
   })
 
   log('worker stopped')

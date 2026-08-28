@@ -37,7 +37,7 @@ import {
   resetLink,
 } from './identity'
 
-export interface FormState {
+export type FormState = {
   error?: string
   message?: string
 }
@@ -59,44 +59,73 @@ const signupSchema = z.object({
   dob: z.string().min(1, 'Enter your date of birth.'),
 })
 
-function waitFor(seconds: number): string {
+function waitFor(seconds: number) {
   if (seconds < 90) return 'a moment'
+
   const minutes = Math.ceil(seconds / 60)
-  return minutes < 60 ? `${minutes} minutes` : 'an hour'
+  if (minutes < 60) return minutes + ' minutes'
+
+  return 'an hour'
+}
+
+function firstIssue(error: z.ZodError) {
+  const issue = error.issues[0]
+  if (issue && issue.message) return issue.message
+
+  return 'Check the form and try again.'
+}
+
+function textField(formData: FormData, name: string) {
+  const value = formData.get(name)
+  if (typeof value !== 'string') return ''
+
+  return value
 }
 
 export async function signUp(_prev: FormState, formData: FormData): Promise<FormState> {
   const ip = callerIp(await headers())
-  const attempt = await consumeRateLimit(db, SIGNUP_LIMIT, `ip:${ip}`)
+  const attempt = await consumeRateLimit(db, SIGNUP_LIMIT, 'ip:' + ip)
 
   if (!attempt.ok) {
+    if (attempt.reason === 'unavailable') {
+      return {
+        error:
+          'Sign-ups are briefly unavailable while we sort something out. Please try again in a minute.',
+      }
+    }
+
     return {
       error:
-        attempt.reason === 'unavailable'
-          ? 'Sign-ups are briefly unavailable while we sort something out. Please try again in a minute.'
-          : `Too many sign-up attempts from this connection. Try again in ${waitFor(attempt.retryAfter)}.`,
+        'Too many sign-up attempts from this connection. Try again in ' +
+        waitFor(attempt.retryAfter) +
+        '.',
     }
   }
 
-  if (inviteRequired() && !inviteAccepted(String(formData.get('invite') ?? ''))) {
+  if (inviteRequired() && !inviteAccepted(textField(formData, 'invite'))) {
     return {error: 'That invite code is not right. Ask whoever sent you here.'}
   }
+
+  let name = formData.get('name')
+  if (!name) name = null
 
   const parsed = signupSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
-    name: formData.get('name') || undefined,
+    name: name === null ? undefined : name,
     dob: formData.get('dob'),
   })
 
-  if (!parsed.success) {
-    return {error: parsed.error.issues[0]?.message ?? 'Check the form and try again.'}
-  }
+  if (!parsed.success) return {error: firstIssue(parsed.error)}
 
   const age = validateDob(parsed.data.dob)
-  if (!age.ok) return {error: age.reason}
+  if (!age.ok || !age.dob) return {error: age.reason}
 
-  const {email, password, name} = parsed.data
+  const email = parsed.data.email
+  const password = parsed.data.password
+
+  let displayName: string | null = null
+  if (parsed.data.name) displayName = parsed.data.name
 
   if (isAdminEmail(email)) {
     return {message: 'Your account is ready. Sign in below.'}
@@ -110,7 +139,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
 
   await db.insert(users).values({
     email,
-    name: name ?? null,
+    name: displayName,
     passwordHash,
     dob: age.dob,
     emailVerified: null,
@@ -125,21 +154,19 @@ export async function signInWithCredentials(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const email = String(formData.get('email') ?? '')
-    .trim()
-    .toLowerCase()
+  const email = textField(formData, 'email').trim().toLowerCase()
 
   try {
     await signIn('credentials', {
       email,
-      password: String(formData.get('password') ?? ''),
+      password: textField(formData, 'password'),
       redirectTo: safeNextPath(formData.get('next')),
     })
+
     return {}
   } catch (error) {
-    if (error instanceof AuthError) {
-      return {error: SIGNIN_FAILED}
-    }
+    if (error instanceof AuthError) return {error: SIGNIN_FAILED}
+
     throw error
   }
 }
@@ -156,16 +183,17 @@ export async function requestPasswordReset(
 ): Promise<FormState> {
   if (!mailConfigured()) return {error: NO_MAIL}
 
-  const email = String(formData.get('email') ?? '')
-    .trim()
-    .toLowerCase()
+  const email = textField(formData, 'email').trim().toLowerCase()
 
   const ip = callerIp(await headers())
-  const byIp = await consumeRateLimit(db, RESET_REQUEST_IP_LIMIT, `ip:${ip}`)
+  const byIp = await consumeRateLimit(db, RESET_REQUEST_IP_LIMIT, 'ip:' + ip)
 
   if (!byIp.ok) {
     return {
-      error: `Too many reset requests from this connection. Try again in ${waitFor(byIp.retryAfter)}.`,
+      error:
+        'Too many reset requests from this connection. Try again in ' +
+        waitFor(byIp.retryAfter) +
+        '.',
     }
   }
 
@@ -173,7 +201,7 @@ export async function requestPasswordReset(
     return {error: 'Enter a valid email address.'}
   }
 
-  const byEmail = await consumeRateLimit(db, RESET_REQUEST_EMAIL_LIMIT, `email:${email}`)
+  const byEmail = await consumeRateLimit(db, RESET_REQUEST_EMAIL_LIMIT, 'email:' + email)
   if (!byEmail.ok) return {message: SENT}
 
   const [user] = await db
@@ -191,9 +219,10 @@ export async function requestPasswordReset(
       to: email,
       subject: 'Set your StudyBuddy password',
       text:
-        `Open this link to set a password:\n\n${resetLink(token)}\n\n` +
-        `It works once, and stops working in an hour. ` +
-        `If you did not ask for it, nothing has changed and you can ignore this.`,
+        'Open this link to set a password:\n\n' +
+        resetLink(token) +
+        '\n\nIt works once, and stops working in an hour. ' +
+        'If you did not ask for it, nothing has changed and you can ignore this.',
     })
   } catch (error) {
     console.error('[auth] could not send a reset link:', (error as Error).message)
@@ -220,11 +249,14 @@ export async function resetPassword(
   formData: FormData,
 ): Promise<FormState> {
   const ip = callerIp(await headers())
-  const attempt = await consumeRateLimit(db, RESET_ATTEMPT_LIMIT, `ip:${ip}`)
+  const attempt = await consumeRateLimit(db, RESET_ATTEMPT_LIMIT, 'ip:' + ip)
 
   if (!attempt.ok) {
     return {
-      error: `Too many attempts from this connection. Try again in ${waitFor(attempt.retryAfter)}.`,
+      error:
+        'Too many attempts from this connection. Try again in ' +
+        waitFor(attempt.retryAfter) +
+        '.',
     }
   }
 
@@ -233,24 +265,29 @@ export async function resetPassword(
     password: formData.get('password'),
   })
 
-  if (!parsed.success) {
-    return {error: parsed.error.issues[0]?.message ?? 'Check the form and try again.'}
-  }
+  if (!parsed.success) return {error: firstIssue(parsed.error)}
 
   const target = await findResetTarget(db, parsed.data.token)
   if (!target) return {error: DEAD_LINK}
 
-  await consumeResetToken(db, target, await bcrypt.hash(parsed.data.password, 12))
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12)
+
+  await consumeResetToken(db, target, passwordHash)
 
   return {message: 'Your password is set. Sign in with it below.'}
 }
 
-export async function submitDob(_prev: FormState, formData: FormData): Promise<FormState> {
+export async function submitDob(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const session = await auth()
-  if (!session?.user?.id) return {error: 'You need to be signed in.'}
+  if (!session || !session.user || !session.user.id) {
+    return {error: 'You need to be signed in.'}
+  }
 
   const age = validateDob(formData.get('dob') as string | null)
-  if (!age.ok) return {error: age.reason}
+  if (!age.ok || !age.dob) return {error: age.reason}
 
   await db.update(users).set({dob: age.dob}).where(eq(users.id, session.user.id))
 
@@ -262,7 +299,9 @@ export async function acceptTerms(
   formData: FormData,
 ): Promise<FormState> {
   const session = await auth()
-  if (!session?.user?.id) return {error: 'You need to be signed in.'}
+  if (!session || !session.user || !session.user.id) {
+    return {error: 'You need to be signed in.'}
+  }
 
   if (formData.get('agree') !== 'on') {
     return {error: 'Check the box to confirm before continuing.'}

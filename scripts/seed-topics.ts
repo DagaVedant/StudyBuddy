@@ -19,17 +19,22 @@ async function main() {
   const leaves = flat.filter((t) => t.isLeaf)
   const bySubject = new Map<string, {total: number; leaves: number}>()
   for (const t of flat) {
-    const entry = bySubject.get(t.subjectRoot) ?? {total: 0, leaves: 0}
+    let entry = bySubject.get(t.subjectRoot)
+
+    if (!entry) {
+      entry = {total: 0, leaves: 0}
+      bySubject.set(t.subjectRoot, entry)
+    }
+
     entry.total += 1
     if (t.isLeaf) entry.leaves += 1
-    bySubject.set(t.subjectRoot, entry)
   }
 
-  console.log(`Taxonomy: ${flat.length} nodes, ${leaves.length} classifiable leaves`)
+  console.log('Taxonomy: ' + flat.length + ' nodes, ' + leaves.length + ' classifiable leaves')
   for (const [subject, counts] of bySubject) {
-    console.log(`  ${subject.padEnd(24)} ${counts.total} nodes, ${counts.leaves} leaves`)
+    console.log('  ' + (subject.padEnd(24)) + ' ' + counts.total + ' nodes, ' + counts.leaves + ' leaves')
   }
-  console.log(`  max depth: ${Math.max(...flat.map((t) => t.depth))}`)
+  console.log('  max depth: ' + (Math.max(...flat.map((t) => t.depth))))
 
   if (dryRun) {
     console.log('\n--dry-run: nothing written.')
@@ -50,9 +55,14 @@ async function main() {
   let updated = 0
 
   for (const node of ordered) {
-    const parentId = node.parentSlug ? idBySlug.get(node.parentSlug) : null
+    let parentId: string | null = null
+
+    if (node.parentSlug) {
+      const found = idBySlug.get(node.parentSlug)
+      if (found) parentId = found
+    }
     if (node.parentSlug && !parentId) {
-      throw new Error(`Parent "${node.parentSlug}" missing for "${node.slug}"`)
+      throw new Error('Parent "' + node.parentSlug + '" missing for "' + node.slug + '"')
     }
 
     const existing = await db
@@ -66,7 +76,7 @@ async function main() {
         .update(topics)
         .set({
           name: node.name,
-          parentId: parentId ?? null,
+          parentId: parentId,
           depth: node.depth,
           subjectRoot: node.subjectRoot,
           isLeaf: node.isLeaf,
@@ -81,7 +91,7 @@ async function main() {
         .values({
           slug: node.slug,
           name: node.name,
-          parentId: parentId ?? null,
+          parentId: parentId,
           depth: node.depth,
           subjectRoot: node.subjectRoot,
           isLeaf: node.isLeaf,
@@ -105,12 +115,12 @@ async function main() {
 
   await sql.end()
 
-  console.log(`\nSeeded: ${inserted} inserted, ${updated} updated.`)
+  console.log('\nSeeded: ' + inserted + ' inserted, ' + updated + ' updated.')
   if (stale.length) {
     console.log(
-      `\n${stale.length} canonical topic(s) in the database are no longer in the taxonomy file:`,
+      '\n' + stale.length + ' canonical topic(s) in the database are no longer in the taxonomy file:',
     )
-    for (const row of stale) console.log(`  ${row.slug}  (${row.name})`)
+    for (const row of stale) console.log('  ' + row.slug + '  (' + row.name + ')')
     console.log('Left alone. Renamed or genuinely removed? Check by hand before touching them.')
   }
   if (demoted.length) {

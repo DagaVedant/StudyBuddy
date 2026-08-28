@@ -8,7 +8,7 @@ import {TRIAL_WORKSHEET_LIMIT} from '@/lib/ai/types'
 export default function HomeCta() {
   const {data: session} = useSession()
 
-  if (session?.user) {
+  if (session && session.user) {
     return (
       <div className="mt-8 flex w-full flex-col items-center sm:w-auto">
         <Link href="/dashboard" className="btn btn-primary sm:w-auto sm:px-8">

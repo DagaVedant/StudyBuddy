@@ -22,7 +22,7 @@ function wantedStages(request: Request): JobStage[] | null {
 
 async function postClaim(request: Request) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
@@ -49,7 +49,18 @@ async function postClaim(request: Request) {
     .where(eq(worksheets.id, job.worksheetId))
     .limit(1)
 
-  const questionId = (job.checkpoint as {questionId?: string} | null)?.questionId
+  const checkpoint = job.checkpoint as {questionId?: string} | null
+
+  let questionId = undefined
+  if (checkpoint) questionId = checkpoint.questionId
+
+  let title = null
+  let expectedQuestionCount = null
+
+  if (worksheet) {
+    title = worksheet.title
+    expectedQuestionCount = worksheet.expectedQuestionCount
+  }
 
   const payload: Record<string, unknown> = {
     job: {
@@ -57,8 +68,8 @@ async function postClaim(request: Request) {
       worksheetId: job.worksheetId,
       stage: job.stage,
       attemptCount: job.attemptCount,
-      title: worksheet?.title ?? null,
-      expectedQuestionCount: worksheet?.expectedQuestionCount ?? null,
+      title: title,
+      expectedQuestionCount: expectedQuestionCount,
       checkpoint: job.checkpoint,
     },
   }

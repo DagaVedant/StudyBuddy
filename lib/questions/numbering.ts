@@ -7,12 +7,12 @@ import {
   normalizeOptionText,
 } from './shape'
 
-export interface PageOption {
+export type PageOption = {
   label: string
   text: string
 }
 
-export interface PageQuestion {
+export type PageQuestion = {
   number: number
   stem: string
   options: PageOption[]
@@ -24,13 +24,33 @@ const MAX_OPTION_TEXT = 300
 
 const A = 'A'.charCodeAt(0)
 
-function nextLabelInside(body: string, code: number): boolean {
+function nextLabelInside(body: string, code: number) {
   if (code > 'Z'.charCodeAt(0)) return false
 
   const label = String.fromCharCode(code)
-  return new RegExp(`(?<![\\p{L}\\p{N}])\\(?[${label}${label.toLowerCase()}][).][ \\t]`, 'u').test(
-    body,
-  )
+  const lower = label.toLowerCase()
+
+  const pattern =
+    '(?<![\\p{L}\\p{N}])\\(?[' + label + lower + '][).][ \\t]'
+
+  return new RegExp(pattern, 'u').test(body)
+}
+
+type Mark = { label: string; at: number; textFrom: number }
+
+function optionMarks(block: string): Mark[] {
+  const marks: Mark[] = []
+  OPTION_LINE.lastIndex = 0
+
+  for (let match = OPTION_LINE.exec(block); match; match = OPTION_LINE.exec(block)) {
+    marks.push({
+      label: match[1].toUpperCase(),
+      at: match.index,
+      textFrom: match.index + match[0].length - match[2].length,
+    })
+  }
+
+  return marks
 }
 
 function questionsOnPage(pageText: string): PageQuestion[] {
@@ -45,25 +65,26 @@ function questionsOnPage(pageText: string): PageQuestion[] {
     })
   }
 
-  return starts.map((start, index) => {
-    const block = pageText.slice(start.bodyFrom, starts[index + 1]?.at ?? pageText.length)
+  const found: PageQuestion[] = []
 
-    const marks: { label: string; at: number; textFrom: number }[] = []
-    OPTION_LINE.lastIndex = 0
+  for (let index = 0; index < starts.length; index++) {
+    const start = starts[index]
 
-    for (let match = OPTION_LINE.exec(block); match; match = OPTION_LINE.exec(block)) {
-      marks.push({
-        label: match[1].toUpperCase(),
-        at: match.index,
-        textFrom: match.index + match[0].length - match[2].length,
-      })
-    }
+    let blockEnd = pageText.length
+    if (starts[index + 1]) blockEnd = starts[index + 1].at
+
+    const block = pageText.slice(start.bodyFrom, blockEnd)
+    const marks = optionMarks(block)
 
     let options: PageOption[] = []
-    for (const [position, mark] of marks.entries()) {
+
+    for (let position = 0; position < marks.length; position++) {
+      const mark = marks[position]
       if (mark.label.charCodeAt(0) !== A + position) break
 
-      const endsAt = marks[position + 1]?.at ?? block.length
+      let endsAt = block.length
+      if (marks[position + 1]) endsAt = marks[position + 1].at
+
       const body = block.slice(mark.textFrom, endsAt).trim()
 
       if (body.length === 0 || body.length > MAX_OPTION_TEXT) break
@@ -76,120 +97,167 @@ function questionsOnPage(pageText: string): PageQuestion[] {
       options.push({ label: mark.label, text: normalizeMath(body) })
     }
 
-    const stemEnd = marks[0]?.at ?? block.length
+    let stemEnd = block.length
+    if (marks.length > 0) stemEnd = marks[0].at
 
-    return {
+    found.push({
       number: start.number,
       stem: normalizeMath(block.slice(0, stemEnd).trim()),
       options,
-    }
-  })
+    })
+  }
+
+  return found
 }
 
 const MIN_MATCH = 24
 const COMPARE = 40
 
-function normalize(text: string): string {
+function normalize(text: string) {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 }
 
-function sameOpening(a: string, b: string): boolean {
+function sameOpening(a: string, b: string) {
   const left = a.slice(0, COMPARE)
   const right = b.slice(0, COMPARE)
+
   if (left.length < MIN_MATCH || right.length < MIN_MATCH) return false
+
   return left.startsWith(right) || right.startsWith(left)
 }
 
-export function printedNumbersFor(
-  pageText: string,
-  prompts: readonly string[],
-): (number | null)[] {
-  const stems = questionsOnPage(pageText).map((question) => ({
-    number: question.number,
-    head: normalize(question.stem),
-  }))
+export function printedNumbersFor(pageText: string, prompts: readonly string[]) {
+  const found = questionsOnPage(pageText)
 
-  if (stems.length === 0) return prompts.map(() => null)
+  const stems: { number: number; head: string }[] = []
+  for (const question of found) {
+    stems.push({ number: question.number, head: normalize(question.stem) })
+  }
+
+  const numbers: (number | null)[] = []
+
+  if (stems.length === 0) {
+    for (let i = 0; i < prompts.length; i++) numbers.push(null)
+    return numbers
+  }
 
   const taken = new Set<number>()
 
-  return prompts.map((prompt) => {
+  for (const prompt of prompts) {
     const head = normalize(prompt)
 
-    const hit = stems.find((stem) => !taken.has(stem.number) && sameOpening(stem.head, head))
-    if (!hit) return null
+    let hit = null
+    for (const stem of stems) {
+      if (taken.has(stem.number)) continue
+      if (!sameOpening(stem.head, head)) continue
+
+      hit = stem
+      break
+    }
+
+    if (!hit) {
+      numbers.push(null)
+      continue
+    }
 
     taken.add(hit.number)
-    return hit.number
-  })
+    numbers.push(hit.number)
+  }
+
+  return numbers
 }
 
-export interface NumberedQuestion {
+export type NumberedQuestion = {
   id: string
   pageNumber: number | null
   position: number
   printedNumber: number | null
 }
 
-export interface NumberFix {
+export type NumberFix = {
   id: string
   from: number | null
   to: number
   reason: 'filled-blank' | 'corrected-stray'
 }
 
-function inOrder(items: NumberedQuestion[]): NumberedQuestion[] {
-  return [...items].sort((a, b) => {
-    const pageA = a.pageNumber ?? Number.MAX_SAFE_INTEGER
-    const pageB = b.pageNumber ?? Number.MAX_SAFE_INTEGER
+function inOrder(items: NumberedQuestion[]) {
+  const ordered = items.slice()
+
+  ordered.sort(function (a, b) {
+    let pageA = a.pageNumber
+    if (pageA === null) pageA = Number.MAX_SAFE_INTEGER
+
+    let pageB = b.pageNumber
+    if (pageB === null) pageB = Number.MAX_SAFE_INTEGER
+
     if (pageA !== pageB) return pageA - pageB
+
     return a.position - b.position
   })
+
+  return ordered
 }
 
-function trustedNumbers(ordered: NumberedQuestion[]): Map<string, number> {
+function trustedNumbers(ordered: NumberedQuestion[]) {
   const seen = new Map<number, number>()
+
   for (const item of ordered) {
-    if (item.printedNumber !== null) {
-      seen.set(item.printedNumber, (seen.get(item.printedNumber) ?? 0) + 1)
-    }
+    if (item.printedNumber === null) continue
+
+    let count = seen.get(item.printedNumber)
+    if (count === undefined) count = 0
+
+    seen.set(item.printedNumber, count + 1)
   }
 
   const unique: { id: string; number: number }[] = []
+
   for (const item of ordered) {
-    if (item.printedNumber !== null && seen.get(item.printedNumber) === 1) {
-      unique.push({ id: item.id, number: item.printedNumber })
-    }
+    if (item.printedNumber === null) continue
+    if (seen.get(item.printedNumber) !== 1) continue
+
+    unique.push({ id: item.id, number: item.printedNumber })
   }
 
-  const best: number[] = []
-  const from: number[] = new Array(unique.length).fill(-1)
-  const length: number[] = new Array(unique.length).fill(1)
+  const from: number[] = []
+  const length: number[] = []
 
-  for (let i = 0; i < unique.length; i += 1) {
-    for (let j = 0; j < i; j += 1) {
-      const rising = unique[j].number < unique[i].number
-      if (rising && length[j] + 1 > length[i]) {
+  for (let i = 0; i < unique.length; i++) {
+    from.push(-1)
+    length.push(1)
+  }
+
+  for (let i = 0; i < unique.length; i++) {
+    for (let j = 0; j < i; j++) {
+      if (unique[j].number >= unique[i].number) continue
+
+      if (length[j] + 1 > length[i]) {
         length[i] = length[j] + 1
         from[i] = j
       }
     }
   }
 
-  let end = length.indexOf(Math.max(...length, 0))
+  let longest = 0
+  for (const value of length) {
+    if (value > longest) longest = value
+  }
+
+  let end = length.indexOf(longest)
+
+  const best: number[] = []
   while (end >= 0) {
     best.unshift(end)
     end = from[end]
   }
 
   const trusted = new Map<string, number>()
-  for (const index of best) {
-    const item = unique[index]
-    trusted.set(item.id, item.number)
-  }
+  for (const index of best) trusted.set(unique[index].id, unique[index].number)
+
   return trusted
 }
 
@@ -203,31 +271,42 @@ export function inferPrintedNumbers(
   const trusted = trustedNumbers(ordered)
   if (trusted.size === 0) return []
 
-  const ceiling = expectedTotal && expectedTotal > 0
-    ? expectedTotal
-    : Math.max(...trusted.values())
+  let ceiling = 0
+
+  if (expectedTotal && expectedTotal > 0) {
+    ceiling = expectedTotal
+  } else {
+    for (const number of trusted.values()) {
+      if (number > ceiling) ceiling = number
+    }
+  }
 
   const taken = new Set(trusted.values())
+
   const available: number[] = []
-  for (let n = 1; n <= ceiling; n += 1) if (!taken.has(n)) available.push(n)
+  for (let n = 1; n <= ceiling; n++) {
+    if (!taken.has(n)) available.push(n)
+  }
+
   if (available.length === 0) return []
 
   const fixes: NumberFix[] = []
 
   let index = 0
+
   while (index < ordered.length) {
     if (trusted.has(ordered[index].id)) {
-      index += 1
+      index = index + 1
       continue
     }
 
     let end = index
-    while (end < ordered.length && !trusted.has(ordered[end].id)) end += 1
+    while (end < ordered.length && !trusted.has(ordered[end].id)) end = end + 1
 
     const run = ordered.slice(index, end)
 
     let low = 0
-    for (let back = index - 1; back >= 0; back -= 1) {
+    for (let back = index - 1; back >= 0; back--) {
       const anchor = trusted.get(ordered[back].id)
       if (anchor !== undefined) {
         low = anchor
@@ -236,7 +315,7 @@ export function inferPrintedNumbers(
     }
 
     let high = ceiling + 1
-    for (let forward = end; forward < ordered.length; forward += 1) {
+    for (let forward = end; forward < ordered.length; forward++) {
       const anchor = trusted.get(ordered[forward].id)
       if (anchor !== undefined) {
         high = anchor
@@ -244,18 +323,21 @@ export function inferPrintedNumbers(
       }
     }
 
-    const candidates = available.filter((n) => n > low && n < high)
+    const candidates: number[] = []
+    for (const n of available) {
+      if (n > low && n < high) candidates.push(n)
+    }
 
     if (candidates.length === run.length) {
-      for (const [offset, item] of run.entries()) {
+      for (let offset = 0; offset < run.length; offset++) {
+        const item = run[offset]
         const to = candidates[offset]
         if (item.printedNumber === to) continue
-        fixes.push({
-          id: item.id,
-          from: item.printedNumber,
-          to,
-          reason: item.printedNumber === null ? 'filled-blank' : 'corrected-stray',
-        })
+
+        let reason: 'filled-blank' | 'corrected-stray' = 'corrected-stray'
+        if (item.printedNumber === null) reason = 'filled-blank'
+
+        fixes.push({ id: item.id, from: item.printedNumber, to, reason })
       }
     }
 
@@ -265,48 +347,71 @@ export function inferPrintedNumbers(
   return fixes
 }
 
-export interface DuplicateCandidate {
+export type DuplicateCandidate = {
   id: string
   printedNumber: number | null
   promptText: string
   choices: { label: string; text: string }[]
 }
 
-export interface MergePlan {
+export type MergePlan = {
   keepId: string
   dropId: string
   printedNumber: number | null
 }
 
-function isAlphabetic(label: string): boolean {
+function isAlphabetic(label: string) {
   return /^[a-z]$/i.test(label.trim())
 }
 
-function isNumeric(label: string): boolean {
+function isNumeric(label: string) {
   return /^\d+$/.test(label.trim())
 }
 
-function labelStyle(choices: { label: string }[]): 'alpha' | 'numeric' | 'mixed' {
+function labelStyle(choices: { label: string }[]) {
   if (choices.length === 0) return 'mixed'
-  if (choices.every((c) => isAlphabetic(c.label))) return 'alpha'
-  if (choices.every((c) => isNumeric(c.label))) return 'numeric'
+
+  let alpha = true
+  let numeric = true
+
+  for (const choice of choices) {
+    if (!isAlphabetic(choice.label)) alpha = false
+    if (!isNumeric(choice.label)) numeric = false
+  }
+
+  if (alpha) return 'alpha'
+  if (numeric) return 'numeric'
+
   return 'mixed'
 }
 
-function choicesAreContainedIn(
-  inner: { text: string }[],
-  outer: { text: string }[],
-): boolean {
+function choicesAreContainedIn(inner: { text: string }[], outer: { text: string }[]) {
   if (inner.length === 0 || outer.length === 0) return false
 
-  const haystacks = outer.map((c) => normalizeForCompare(c.text)).filter(Boolean)
+  const haystacks: string[] = []
+  for (const choice of outer) {
+    const text = normalizeForCompare(choice.text)
+    if (text) haystacks.push(text)
+  }
+
   if (haystacks.length === 0) return false
 
-  return inner.every((choice) => {
+  for (const choice of inner) {
     const needle = normalizeForCompare(choice.text)
     if (needle.length < 12) return false
-    return haystacks.some((hay) => hay.includes(needle))
-  })
+
+    let found = false
+    for (const hay of haystacks) {
+      if (hay.includes(needle)) {
+        found = true
+        break
+      }
+    }
+
+    if (!found) return false
+  }
+
+  return true
 }
 
 export function planDuplicateMerges(questions: DuplicateCandidate[]): MergePlan[] {
@@ -326,7 +431,9 @@ export function planDuplicateMerges(questions: DuplicateCandidate[]): MergePlan[
   for (const group of byPrompt.values()) {
     if (group.length !== 2) continue
 
-    const [a, b] = group
+    const a = group[0]
+    const b = group[1]
+
     const styleA = labelStyle(a.choices)
     const styleB = labelStyle(b.choices)
 
@@ -345,84 +452,108 @@ export function planDuplicateMerges(questions: DuplicateCandidate[]): MergePlan[
 
     if (!choicesAreContainedIn(phantom.choices, real.choices)) continue
 
-    const numbers = [real.printedNumber, phantom.printedNumber].filter(
-      (n): n is number => typeof n === 'number',
-    )
+    let printedNumber: number | null = null
 
-    plans.push({
-      keepId: real.id,
-      dropId: phantom.id,
-      printedNumber: numbers.length > 0 ? Math.min(...numbers) : null,
-    })
+    if (typeof real.printedNumber === 'number') printedNumber = real.printedNumber
+
+    if (typeof phantom.printedNumber === 'number') {
+      if (printedNumber === null || phantom.printedNumber < printedNumber) {
+        printedNumber = phantom.printedNumber
+      }
+    }
+
+    plans.push({ keepId: real.id, dropId: phantom.id, printedNumber })
   }
 
   return plans
 }
 
-export function duplicatePrintedNumbers(
-  questions: { printedNumber: number | null }[],
-): number[] {
+export function duplicatePrintedNumbers(questions: { printedNumber: number | null }[]) {
   const counts = new Map<number, number>()
 
   for (const question of questions) {
     if (typeof question.printedNumber !== 'number') continue
-    counts.set(question.printedNumber, (counts.get(question.printedNumber) ?? 0) + 1)
+
+    let count = counts.get(question.printedNumber)
+    if (count === undefined) count = 0
+
+    counts.set(question.printedNumber, count + 1)
   }
 
-  return [...counts.entries()]
-    .filter(([, count]) => count > 1)
-    .map(([number]) => number)
-    .sort((a, b) => a - b)
+  const repeated: number[] = []
+  for (const [number, count] of counts) {
+    if (count > 1) repeated.push(number)
+  }
+
+  repeated.sort(function (a, b) {
+    return a - b
+  })
+
+  return repeated
 }
 
-function promptSimilarity(left: string, right: string): number {
-  const a = new Set(normalizeForCompare(left).split(' ').filter(Boolean))
-  const b = new Set(normalizeForCompare(right).split(' ').filter(Boolean))
+function wordSet(text: string) {
+  const words = new Set<string>()
+
+  for (const word of normalizeForCompare(text).split(' ')) {
+    if (word) words.add(word)
+  }
+
+  return words
+}
+
+function promptSimilarity(left: string, right: string) {
+  const a = wordSet(left)
+  const b = wordSet(right)
 
   if (a.size === 0 || b.size === 0) return 0
 
   let shared = 0
-  for (const word of a) if (b.has(word)) shared += 1
+  for (const word of a) {
+    if (b.has(word)) shared = shared + 1
+  }
 
   return shared / (a.size + b.size - shared)
 }
 
 const SAME_QUESTION_SIMILARITY = 0.8
 
-function damage(question: DuplicateCandidate, expectedChoices: number): number {
+function countMatches(text: string, pattern: RegExp) {
+  const found = text.match(pattern)
+  if (!found) return 0
+
+  return found.length
+}
+
+const BARE_UNDERSCORE = /(?:^|\s)_(?:\s|$)/g
+const UNDERSCORE_DIGIT = /_\s*\d/g
+
+function damage(question: DuplicateCandidate, expectedChoices: number) {
   const text = question.promptText
   let score = 0
 
-  score += (text.match(/(?:^|\s)_(?:\s|$)/g) ?? []).length * 3
-  score += (text.match(/_\s*\d/g) ?? []).length * 2
-  if (question.choices.length !== expectedChoices) score += 4
-  if (text.trim().length < 25) score += 5
+  score = score + countMatches(text, BARE_UNDERSCORE) * 3
+  score = score + countMatches(text, UNDERSCORE_DIGIT) * 2
+
+  if (question.choices.length !== expectedChoices) score = score + 4
+  if (text.trim().length < 25) score = score + 5
 
   return score
 }
 
-function wordSet(text: string): Set<string> {
-  return new Set(normalizeForCompare(text).split(' ').filter(Boolean))
-}
+function shorterIsCut(short: DuplicateCandidate, long: DuplicateCandidate) {
+  if (short.choices.length > 0 || long.choices.length === 0) return false
+  if (short.promptText.length >= long.promptText.length) return false
 
-function truncationPair(
-  a: DuplicateCandidate,
-  b: DuplicateCandidate,
-): { keep: DuplicateCandidate; drop: DuplicateCandidate } | null {
-  const pair = (short: DuplicateCandidate, long: DuplicateCandidate) => {
-    if (short.choices.length > 0 || long.choices.length === 0) return null
-    if (short.promptText.length >= long.promptText.length) return null
+  const words = wordSet(short.promptText)
+  if (words.size === 0) return false
 
-    const words = wordSet(short.promptText)
-    if (words.size === 0) return null
-
-    const inLong = wordSet(long.promptText)
-    for (const word of words) if (!inLong.has(word)) return null
-
-    return { keep: long, drop: short }
+  const inLong = wordSet(long.promptText)
+  for (const word of words) {
+    if (!inLong.has(word)) return false
   }
 
-  return pair(a, b) ?? pair(b, a)
+  return true
 }
 
 export function planNumberDuplicateMerges(
@@ -444,18 +575,28 @@ export function planNumberDuplicateMerges(
   for (const [printedNumber, group] of byNumber) {
     if (group.length !== 2) continue
 
-    const [a, b] = group
+    const a = group[0]
+    const b = group[1]
 
-    const cut = truncationPair(a, b)
-    if (cut) {
-      plans.push({ keepId: cut.keep.id, dropId: cut.drop.id, printedNumber })
+    if (shorterIsCut(a, b)) {
+      plans.push({ keepId: b.id, dropId: a.id, printedNumber })
+      continue
+    }
+
+    if (shorterIsCut(b, a)) {
+      plans.push({ keepId: a.id, dropId: b.id, printedNumber })
       continue
     }
 
     if (promptSimilarity(a.promptText, b.promptText) < SAME_QUESTION_SIMILARITY) continue
 
-    const keep = damage(a, expectedChoices) <= damage(b, expectedChoices) ? a : b
-    const drop = keep === a ? b : a
+    let keep = b
+    let drop = a
+
+    if (damage(a, expectedChoices) <= damage(b, expectedChoices)) {
+      keep = a
+      drop = b
+    }
 
     plans.push({ keepId: keep.id, dropId: drop.id, printedNumber })
   }
@@ -463,22 +604,28 @@ export function planNumberDuplicateMerges(
   return plans
 }
 
-export interface CarriedChoice {
+export type CarriedChoice = {
   label: string
   text: string
 }
 
 const OPTION = /(?<![\p{L}\p{N}])\(?([A-Za-z])[).][ \t]+/gu
 
-function heldLabels(raw: string[]): string[] {
-  const letters = raw
-    .map((label) => label.trim().toUpperCase())
-    .filter((label) => /^[A-Z]$/.test(label))
+function heldLabels(raw: string[]) {
+  const letters = new Set<string>()
 
-  return [...new Set(letters)].sort()
+  for (const value of raw) {
+    const label = value.trim().toUpperCase()
+    if (/^[A-Z]$/.test(label)) letters.add(label)
+  }
+
+  const sorted = Array.from(letters)
+  sorted.sort()
+
+  return sorted
 }
 
-export interface CarriedChoiceOptions {
+export type CarriedChoiceOptions = {
   expectedCount?: number | null
   held?: string[]
 }
@@ -489,14 +636,24 @@ export function parseCarriedChoices(
 ): CarriedChoice[] | null {
   if (pageText.trim().length === 0) return null
 
-  const expected = options.expectedCount ?? null
-  const held = heldLabels(options.held ?? [])
+  let expected: number | null = null
+  if (options.expectedCount !== undefined && options.expectedCount !== null) {
+    expected = options.expectedCount
+  }
+
+  let raw: string[] = []
+  if (options.held) raw = options.held
+
+  const held = heldLabels(raw)
 
   let startCode = A
   let need: number | null = expected
 
   if (held.length > 0) {
-    if (!held.every((label, index) => label.charCodeAt(0) === A + index)) return null
+    for (let index = 0; index < held.length; index++) {
+      if (held[index].charCodeAt(0) !== A + index) return null
+    }
+
     if (expected === null || held.length >= expected) return null
 
     startCode = A + held.length
@@ -506,7 +663,7 @@ export function parseCarriedChoices(
   const head = pageText.slice(0, firstQuestionAt(pageText))
   if (head.trim().length === 0) return null
 
-  const marks: { label: string; at: number; textFrom: number }[] = []
+  const marks: Mark[] = []
   OPTION.lastIndex = 0
 
   for (let match = OPTION.exec(head); match; match = OPTION.exec(head)) {
@@ -517,10 +674,19 @@ export function parseCarriedChoices(
     })
   }
 
-  const minimum = held.length > 0 ? need! : 3
+  let minimum = 3
+  if (held.length > 0 && need !== null) minimum = need
+
   if (marks.length < minimum) return null
 
-  const start = marks.findIndex((mark) => mark.label.charCodeAt(0) === startCode)
+  let start = -1
+  for (let index = 0; index < marks.length; index++) {
+    if (marks[index].label.charCodeAt(0) === startCode) {
+      start = index
+      break
+    }
+  }
+
   if (start === -1) return null
 
   if (held.length > 0 && start !== 0) return null
@@ -528,17 +694,19 @@ export function parseCarriedChoices(
   const run: CarriedChoice[] = []
   let expectedCode = startCode
 
-  for (let index = start; index < marks.length; index += 1) {
+  for (let index = start; index < marks.length; index++) {
     const mark = marks[index]
     if (mark.label.charCodeAt(0) !== expectedCode) break
 
-    const endsAt = marks[index + 1]?.at ?? head.length
+    let endsAt = head.length
+    if (marks[index + 1]) endsAt = marks[index + 1].at
+
     const body = head.slice(mark.textFrom, endsAt).trim()
 
     if (body.length === 0 || body.length > MAX_OPTION_TEXT) break
 
     run.push({ label: mark.label, text: normalizeMath(body) })
-    expectedCode += 1
+    expectedCode = expectedCode + 1
   }
 
   if (run.length < minimum) return null
@@ -548,25 +716,13 @@ export function parseCarriedChoices(
   return run
 }
 
-export type ValidationCode =
-  | 'empty_stem'
-  | 'no_choices'
-  | 'too_few_choices'
-  | 'duplicate_choices'
-  | 'duplicate_labels'
-  | 'choice_text_in_stem'
-  | 'stem_looks_truncated'
-  | 'stem_reads_like_passage'
-  | 'stem_is_not_a_question'
-  | 'stem_is_only_options'
-
-export interface ValidationFlag {
-  code: ValidationCode
+export type ValidationFlag = {
+  code: string
   detail: string
   severity: 'high' | 'low'
 }
 
-export interface ValidatableQuestion {
+export type ValidatableQuestion = {
   printedNumber: number | null
   promptText: string
   questionType: string
@@ -575,14 +731,19 @@ export interface ValidatableQuestion {
 
 const CHOICE_BEARING = new Set(['multiple_choice', 'true_false'])
 
-export function modalChoiceCount(questions: ValidatableQuestion[]): number | null {
+export function modalChoiceCount(questions: ValidatableQuestion[]) {
   const counts = new Map<number, number>()
 
   for (const question of questions) {
     if (!CHOICE_BEARING.has(question.questionType)) continue
+
     const n = question.choices.length
     if (n === 0) continue
-    counts.set(n, (counts.get(n) ?? 0) + 1)
+
+    let count = counts.get(n)
+    if (count === undefined) count = 0
+
+    counts.set(n, count + 1)
   }
 
   let best: number | null = null
@@ -600,6 +761,7 @@ export function modalChoiceCount(questions: ValidatableQuestion[]): number | nul
   }
 
   if (tied || bestSeen < 3) return null
+
   return best
 }
 
@@ -607,18 +769,21 @@ const CUT_OFF = /[,;\-–—(\[]\s*$/
 
 const PROSE = /[a-z]{3,}/g
 
-const MATHS = /[=<>+−×÷≤≥]|\d+\s*[-*/]\s*\d+/
+const MATHS = /[=<>+−×÷≤≥]|\d+\s*[-*/]\s*\d+/
 const HAS_QUESTION_SHAPE = /[?:]/
 
 const ASKS = /\?/
 
+const OPEN_QUOTE = /[“]/g
+const CLOSE_QUOTE = /[”]/g
+
 const OPTION_MARK = /(?<![\p{L}\p{N}])\(?([A-Za-z])[).][ \t]+/gu
 
-export function isOptionRun(text: string): boolean {
+export function isOptionRun(text: string) {
   const trimmed = text.trim()
   if (trimmed.length === 0) return false
 
-  const marks: { label: string; at: number; textFrom: number }[] = []
+  const marks: Mark[] = []
   OPTION_MARK.lastIndex = 0
 
   for (let match = OPTION_MARK.exec(trimmed); match; match = OPTION_MARK.exec(trimmed)) {
@@ -635,12 +800,21 @@ export function isOptionRun(text: string): boolean {
 
   const first = marks[0].label.charCodeAt(0)
   if (first < 'A'.charCodeAt(0) || first > 'E'.charCodeAt(0)) return false
-  if (!marks.every((mark, index) => mark.label.charCodeAt(0) === first + index)) return false
 
-  return marks.every((mark, index) => {
-    const body = trimmed.slice(mark.textFrom, marks[index + 1]?.at ?? trimmed.length).trim()
-    return body.length > 0 && body.length <= MAX_OPTION_TEXT
-  })
+  for (let index = 0; index < marks.length; index++) {
+    if (marks[index].label.charCodeAt(0) !== first + index) return false
+  }
+
+  for (let index = 0; index < marks.length; index++) {
+    let endsAt = trimmed.length
+    if (marks[index + 1]) endsAt = marks[index + 1].at
+
+    const body = trimmed.slice(marks[index].textFrom, endsAt).trim()
+
+    if (body.length === 0 || body.length > MAX_OPTION_TEXT) return false
+  }
+
+  return true
 }
 
 export function validateQuestion(
@@ -654,7 +828,7 @@ export function validateQuestion(
   if (normalizedStem.length < 10) {
     flags.push({
       code: 'empty_stem',
-      detail: `stem is ${normalizedStem.length} characters`,
+      detail: 'stem is ' + normalizedStem.length + ' characters',
       severity: 'high',
     })
   }
@@ -669,7 +843,11 @@ export function validateQuestion(
     })
   }
 
-  const expected = options.expectedChoiceCount ?? null
+  let expected: number | null = null
+  if (options.expectedChoiceCount !== undefined && options.expectedChoiceCount !== null) {
+    expected = options.expectedChoiceCount
+  }
+
   if (
     wantsChoices &&
     expected !== null &&
@@ -678,7 +856,7 @@ export function validateQuestion(
   ) {
     flags.push({
       code: 'too_few_choices',
-      detail: `${question.choices.length} options where this paper uses ${expected}`,
+      detail: question.choices.length + ' options where this paper uses ' + expected,
       severity: 'high',
     })
   }
@@ -695,10 +873,11 @@ export function validateQuestion(
       if (seenText.has(text)) {
         flags.push({
           code: 'duplicate_choices',
-          detail: `two options read "${choice.text.slice(0, 40)}"`,
+          detail: 'two options read "' + choice.text.slice(0, 40) + '"',
           severity: 'high',
         })
       }
+
       seenText.add(text)
     }
 
@@ -706,37 +885,38 @@ export function validateQuestion(
       if (seenLabel.has(label)) {
         flags.push({
           code: 'duplicate_labels',
-          detail: `label ${choice.label} appears twice`,
+          detail: 'label ' + choice.label + ' appears twice',
           severity: 'high',
         })
       }
+
       seenLabel.add(label)
     }
 
     if (prose.length >= 12 && normalizedStem.includes(prose)) {
       flags.push({
         code: 'choice_text_in_stem',
-        detail: `option ${choice.label} also appears in the stem`,
+        detail: 'option ' + choice.label + ' also appears in the stem',
         severity: 'low',
       })
     }
   }
 
-  const openQuotes = (stem.match(/[“]/g) ?? []).length
-  const closeQuotes = (stem.match(/[”]/g) ?? []).length
+  const openQuotes = countMatches(stem, OPEN_QUOTE)
+  const closeQuotes = countMatches(stem, CLOSE_QUOTE)
 
   if (normalizedStem.length >= 25 && (CUT_OFF.test(stem) || openQuotes > closeQuotes)) {
     flags.push({
       code: 'stem_looks_truncated',
-      detail: `stem ends "${stem.slice(-24)}"`,
+      detail: 'stem ends "' + stem.slice(-24) + '"',
       severity: 'low',
     })
   }
 
-  if (!ASKS.test(stem) && (stem.match(PROSE) ?? []).length < 3 && !MATHS.test(stem)) {
+  if (!ASKS.test(stem) && countMatches(stem, PROSE) < 3 && !MATHS.test(stem)) {
     flags.push({
       code: 'stem_is_not_a_question',
-      detail: `nothing asked: "${stem.slice(0, 40)}"`,
+      detail: 'nothing asked: "' + stem.slice(0, 40) + '"',
       severity: 'high',
     })
   }
@@ -744,7 +924,7 @@ export function validateQuestion(
   if (isOptionRun(stem)) {
     flags.push({
       code: 'stem_is_only_options',
-      detail: `options with no question: "${stem.slice(0, 40)}"`,
+      detail: 'options with no question: "' + stem.slice(0, 40) + '"',
       severity: 'high',
     })
   }
@@ -752,7 +932,7 @@ export function validateQuestion(
   if (normalizedStem.length > 600 && !HAS_QUESTION_SHAPE.test(stem)) {
     flags.push({
       code: 'stem_reads_like_passage',
-      detail: `${normalizedStem.length} characters with no question mark`,
+      detail: normalizedStem.length + ' characters with no question mark',
       severity: 'low',
     })
   }
@@ -760,33 +940,44 @@ export function validateQuestion(
   return flags
 }
 
-export function worthRereading(flags: ValidationFlag[]): boolean {
-  if (flags.some((f) => f.severity === 'high')) return true
-  return flags.filter((f) => f.severity === 'low').length >= 2
+export function worthRereading(flags: ValidationFlag[]) {
+  let low = 0
+
+  for (const flag of flags) {
+    if (flag.severity === 'high') return true
+    if (flag.severity === 'low') low = low + 1
+  }
+
+  return low >= 2
 }
 
-export interface SplitHalf extends ValidatableQuestion, PagePosition {
-  id: string
-  pageNumber: number | null
-}
+export type SplitHalf = ValidatableQuestion &
+  PagePosition & {
+    id: string
+    pageNumber: number | null
+  }
 
-export interface SplitJoin {
+export type SplitJoin = {
   keepId: string
   dropId: string
   printedNumber: number | null
   reason: string
 }
 
-function flagCodes(question: ValidatableQuestion): Set<string> {
-  return new Set(validateQuestion(question).map((flag) => flag.code))
+function flagCodes(question: ValidatableQuestion) {
+  const codes = new Set<string>()
+  for (const flag of validateQuestion(question)) codes.add(flag.code)
+
+  return codes
 }
 
-function asksSomething(question: SplitHalf): boolean {
+function asksSomething(question: SplitHalf) {
   const codes = flagCodes(question)
+
   return !codes.has('stem_is_not_a_question') && !codes.has('empty_stem')
 }
 
-function asksNothing(question: SplitHalf): boolean {
+function asksNothing(question: SplitHalf) {
   return flagCodes(question).has('stem_is_not_a_question')
 }
 
@@ -806,11 +997,21 @@ export function planPageSplitJoins(
 
   for (const [pageNumber, page] of byPage) byPage.set(pageNumber, sortWithinPage(page))
 
-  const expected = options.expectedChoiceCount ?? null
+  let expected: number | null = null
+  if (options.expectedChoiceCount !== undefined && options.expectedChoiceCount !== null) {
+    expected = options.expectedChoiceCount
+  }
+
+  const pageNumbers = Array.from(byPage.keys())
+  pageNumbers.sort(function (a, b) {
+    return a - b
+  })
+
   const joins: SplitJoin[] = []
 
-  for (const pageNumber of [...byPage.keys()].sort((a, b) => a - b)) {
-    const current = byPage.get(pageNumber)!
+  for (const pageNumber of pageNumbers) {
+    const current = byPage.get(pageNumber)
+    if (!current || current.length === 0) continue
 
     const next = byPage.get(pageNumber + 1)
     if (!next || next.length === 0) continue
@@ -835,13 +1036,19 @@ export function planPageSplitJoins(
       continue
     }
 
+    let printedNumber = head.printedNumber
+    if (printedNumber === null) printedNumber = tail.printedNumber
+
+    let shown = '?'
+    if (head.printedNumber !== null) shown = String(head.printedNumber)
+
     joins.push({
       keepId: head.id,
       dropId: tail.id,
-      printedNumber: head.printedNumber ?? tail.printedNumber,
+      printedNumber: printedNumber,
       reason:
-        `question ${head.printedNumber ?? '?'} runs from page ${pageNumber} ` +
-        `to page ${pageNumber + 1}: ${tail.choices.length} option(s) rejoined`,
+        'question ' + shown + ' runs from page ' + pageNumber + ' to page ' +
+        (pageNumber + 1) + ': ' + tail.choices.length + ' option(s) rejoined',
     })
   }
 

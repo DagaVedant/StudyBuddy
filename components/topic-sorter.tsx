@@ -1,6 +1,6 @@
 'use client'
 
-import {useCallback, useRef, useState} from 'react'
+import {useRef, useState} from 'react'
 import {useRouter} from 'next/navigation'
 
 import {OllamaProvider} from '@/lib/ai/ollama'
@@ -8,26 +8,26 @@ import {embedInBrowser} from '@/lib/client/ingest'
 import {explainOllamaFailure} from '@/lib/client/http'
 import {type AIProvider, type TopicCandidate, validated} from '@/lib/ai/types'
 
-interface SortableWorksheet {
+type SortableWorksheet = {
   id: string
   title: string
 }
 
-interface OllamaSettings {
+type OllamaSettings = {
   baseUrl: string
   visionModel: string
   textModel: string
 }
 
-interface PendingResponse {
+type PendingResponse = {
   supported: boolean
-  executor: 'server' | 'browser' | 'operator_gpu' | 'none'
+  executor: string
   remaining: number
   questions: {id: string; promptText: string}[]
   ollama: OllamaSettings | null
 }
 
-interface ShortlistResponse {
+type ShortlistResponse = {
   batch: {
     questionId: string
     promptText: string
@@ -35,47 +35,75 @@ interface ShortlistResponse {
   }[]
 }
 
-interface AppliedResponse {
+type AppliedResponse = {
   applied: number
   done: boolean
 }
 
-type Phase =
-  | {kind: 'idle'}
-  | {kind: 'preparing'}
-  | {kind: 'sorting'; done: number; total: number}
-  | {kind: 'done'; sorted: number}
-  | {kind: 'queued'}
-  | {kind: 'error'; message: string}
-
 const NO_PROVIDER =
   'Sorting questions into topics is not available for this account right now.'
 
-async function pending(worksheetId: string): Promise<PendingResponse> {
-  const response = await fetch(`/api/worksheets/${worksheetId}/classify`)
+async function pending(worksheetId: string) {
+  const response = await fetch('/api/worksheets/' + worksheetId + '/classify')
 
   if (!response.ok) {
     throw new Error('Could not ask the server which questions still need a topic.')
   }
 
-  return response.json()
+  return (await response.json()) as PendingResponse
 }
 
-async function send(worksheetId: string, body: unknown): Promise<unknown> {
-  const response = await fetch(`/api/worksheets/${worksheetId}/classify`, {
+async function send(worksheetId: string, body: unknown) {
+  const response = await fetch('/api/worksheets/' + worksheetId + '/classify', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body),
   })
 
   if (!response.ok) {
-    const detail = (await response.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new Error(detail?.error ?? 'The server refused a batch of questions.')
+    let problem = 'The server refused a batch of questions.'
+
+    try {
+      const detail = (await response.json()) as {error?: string}
+      if (detail.error) problem = detail.error
+    } catch {
+      problem = 'The server refused a batch of questions.'
+    }
+
+    throw new Error(problem)
   }
 
   return response.json()
+}
+
+async function pickHere(
+  worksheetId: string,
+  provider: AIProvider,
+  items: {questionId: string; embedding: number[]}[],
+) {
+  const shortlist = (await send(worksheetId, {action: 'shortlist', items})) as ShortlistResponse
+
+  let results = []
+
+  for (let entry of shortlist.batch) {
+    try {
+      const classification = await provider.classifyTopic(entry.promptText, entry.candidates)
+
+      results.push({
+        questionId: entry.questionId,
+        classification,
+        candidates: entry.candidates,
+      })
+    } catch (error) {
+      console.warn('[tier-c] question ' + entry.questionId + ' could not be sorted:', error)
+    }
+  }
+
+  if (results.length === 0) {
+    return {applied: 0, done: false}
+  }
+
+  return (await send(worksheetId, {action: 'apply', results})) as AppliedResponse
 }
 
 export function TopicSorter({
@@ -85,18 +113,23 @@ export function TopicSorter({
   worksheets: SortableWorksheet[]
   label: string
 }) {
-  const [phase, setPhase] = useState<Phase>({kind: 'idle'})
+  const [phase, setPhase] = useState('idle')
+  const [message, setMessage] = useState('')
+  const [done, setDone] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [sortedCount, setSortedCount] = useState(0)
+
   const running = useRef(false)
   const ollamaBaseUrl = useRef('http://localhost:11434')
   const router = useRouter()
 
-  const run = useCallback(async () => {
-    let total = 0
+  async function run() {
+    let totalPending = 0
     let runsHere = false
     let onGpu = false
     let ollama: OllamaSettings | null = null
 
-    for (const worksheet of worksheets) {
+    for (let worksheet of worksheets) {
       const first = await pending(worksheet.id)
 
       if (!first.supported) throw new Error(NO_PROVIDER)
@@ -104,22 +137,24 @@ export function TopicSorter({
       runsHere = first.executor === 'browser'
       onGpu = first.executor !== 'browser' && first.executor !== 'server'
       ollama = first.ollama
+
       if (ollama) ollamaBaseUrl.current = ollama.baseUrl
-      total += first.remaining
+      totalPending = totalPending + first.remaining
     }
 
-    if (total === 0) {
-      setPhase({kind: 'done', sorted: 0})
+    if (totalPending === 0) {
+      setSortedCount(0)
+      setPhase('done')
       router.refresh()
       return
     }
 
     if (onGpu) {
-      for (const worksheet of worksheets) {
+      for (let worksheet of worksheets) {
         await send(worksheet.id, {items: []})
       }
 
-      setPhase({kind: 'queued'})
+      setPhase('queued')
       router.refresh()
       return
     }
@@ -139,22 +174,28 @@ export function TopicSorter({
       )
     }
 
-    setPhase({kind: 'sorting', done: 0, total})
+    setPhase('sorting')
+    setDone(0)
+    setTotal(totalPending)
 
     let sorted = 0
     let seen = 0
 
-    for (const worksheet of worksheets) {
-      const attempted = new Set<string>()
+    for (let worksheet of worksheets) {
+      let attempted = new Set<string>()
 
-      for (;;) {
+      while (true) {
         const batch = await pending(worksheet.id)
 
-        const todo = batch.questions.filter((question) => !attempted.has(question.id))
+        let todo = []
+        for (let question of batch.questions) {
+          if (!attempted.has(question.id)) todo.push(question)
+        }
+
         if (todo.length === 0) break
 
-        const items = []
-        for (const question of todo) {
+        let items = []
+        for (let question of todo) {
           attempted.add(question.id)
           items.push({
             questionId: question.id,
@@ -162,75 +203,93 @@ export function TopicSorter({
           })
         }
 
-        const applied = provider
-          ? await pickHere(worksheet.id, provider, items)
-          : ((await send(worksheet.id, {items})) as AppliedResponse)
+        let applied
+        if (provider) {
+          applied = await pickHere(worksheet.id, provider, items)
+        } else {
+          applied = (await send(worksheet.id, {items})) as AppliedResponse
+        }
 
-        sorted += applied.applied
-        seen = Math.min(seen + items.length, total)
-        setPhase({kind: 'sorting', done: seen, total})
+        sorted = sorted + applied.applied
+
+        seen = seen + items.length
+        if (seen > totalPending) seen = totalPending
+        setDone(seen)
 
         if (applied.done) break
       }
     }
 
     if (sorted === 0) {
-      setPhase({
-        kind: 'error',
-        message:
-          'None of these could be sorted just now. Nothing was changed, so you can try again.',
-      })
+      setPhase('error')
+      setMessage(
+        'None of these could be sorted just now. Nothing was changed, so you can try again.',
+      )
       return
     }
 
-    setPhase({kind: 'done', sorted})
+    setSortedCount(sorted)
+    setPhase('done')
     router.refresh()
-  }, [router, worksheets])
+  }
 
-  const start = useCallback(() => {
+  function start() {
     if (running.current) return
     running.current = true
-    setPhase({kind: 'preparing'})
+    setPhase('preparing')
 
-    void run()
+    run()
       .catch((error: unknown) => {
-        setPhase({
-          kind: 'error',
-          message: explainOllamaFailure(error, ollamaBaseUrl.current),
-        })
+        setPhase('error')
+        setMessage(explainOllamaFailure(error, ollamaBaseUrl.current))
       })
       .finally(() => {
         running.current = false
       })
-  }, [run])
+  }
 
   if (worksheets.length === 0) return null
 
-  if (phase.kind === 'done') {
+  if (phase === 'done') {
+    let text = 'Everything here already has a topic.'
+
+    if (sortedCount > 0) {
+      let word = 'questions'
+      if (sortedCount === 1) word = 'question'
+
+      text =
+        'Sorted ' +
+        sortedCount +
+        ' ' +
+        word +
+        ' into topics. Accuracy by topic will fill in from here.'
+    }
+
     return (
       <p role="status" className="hint text-pretty">
-        {phase.sorted === 0
-          ? 'Everything here already has a topic.'
-          : `Sorted ${phase.sorted} ${phase.sorted === 1 ? 'question' : 'questions'} into topics. Accuracy by topic will fill in from here.`}
-
+        {text}
       </p>
     )
   }
 
-  if (phase.kind === 'error') {
+  if (phase === 'error') {
     return (
       <div className="text-pretty">
         <p role="alert" className="text-sm text-danger">
-          {phase.message}
+          {message}
         </p>
-        <button type="button" onClick={start} className="btn btn-secondary mt-3 sm:w-auto sm:px-4">
+        <button
+          type="button"
+          onClick={start}
+          className="btn btn-secondary mt-3 sm:w-auto sm:px-4"
+        >
           Try again
         </button>
       </div>
     )
   }
 
-  if (phase.kind === 'idle') {
+  if (phase === 'idle') {
     return (
       <div className="text-pretty">
         <button type="button" onClick={start} className="btn btn-primary sm:w-auto sm:px-4">
@@ -245,54 +304,26 @@ export function TopicSorter({
     )
   }
 
-  if (phase.kind === 'queued') {
+  if (phase === 'queued') {
     return (
       <p role="status" aria-live="polite" className="hint text-pretty">
-        Queued for the GPU that sorts these. Safe to close: the topics appear
-        once it has worked through them.
+        Queued for the GPU that sorts these. Safe to close: the topics appear once it
+        has worked through them.
       </p>
     )
   }
 
+  let text = 'Loading the sorting model in your browser. The first time takes a moment.'
+
+  if (phase === 'sorting') {
+    let at = done + 1
+    if (at > total) at = total
+    text = 'Sorting question ' + at + ' of ' + total + '.'
+  }
+
   return (
     <p role="status" aria-live="polite" className="hint text-pretty">
-      {phase.kind === 'preparing'
-        ? 'Loading the sorting model in your browser. The first time takes a moment.'
-        : `Sorting question ${Math.min(phase.done + 1, phase.total)} of ${phase.total}.`}{' '}
-      <strong className="font-medium text-fg">Keep this tab open.</strong>
+      {text} <strong className="font-medium text-fg">Keep this tab open.</strong>
     </p>
   )
-}
-
-async function pickHere(
-  worksheetId: string,
-  provider: AIProvider,
-  items: {questionId: string; embedding: number[]}[],
-): Promise<AppliedResponse> {
-  const {batch} = (await send(worksheetId, {action: 'shortlist', items})) as ShortlistResponse
-
-  const results = []
-
-  for (const entry of batch) {
-    try {
-      const classification = await provider.classifyTopic(
-        entry.promptText,
-        entry.candidates,
-      )
-
-      results.push({
-        questionId: entry.questionId,
-        classification,
-        candidates: entry.candidates,
-      })
-    } catch (error) {
-      console.warn(`[tier-c] question ${entry.questionId} could not be sorted:`, error)
-    }
-  }
-
-  if (results.length === 0) {
-    return {applied: 0, done: false}
-  }
-
-  return (await send(worksheetId, {action: 'apply', results})) as AppliedResponse
 }

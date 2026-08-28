@@ -4,7 +4,7 @@ import {z} from 'zod'
 import {MAX_PAGES_PER_UPLOAD, pageCapFor} from '@/lib/upload'
 import {worksheets} from '@/lib/schema'
 import {sweepAbandonedUploads} from '@/lib/queue'
-import {consumeRateLimit, UPLOAD_LIMIT} from '@/lib/api'
+import {consumeRateLimit, readJson, UPLOAD_LIMIT} from '@/lib/api'
 import {resolveProvider} from '@/lib/ai/resolve'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
@@ -19,14 +19,14 @@ const createSchema = z.object({
 
 export async function POST(request: Request) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
   const allowance = await consumeRateLimit(
     db,
     UPLOAD_LIMIT,
-    `user:${session.user.id}`,
+    'user:' + session.user.id,
   )
 
   if (!allowance.ok) {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const parsed = createSchema.safeParse(await request.json().catch(() => null))
+  const parsed = createSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -48,13 +48,20 @@ export async function POST(request: Request) {
   if (pageCount > cap) {
     return NextResponse.json(
       {
-        error: `That upload is ${pageCount} pages. The limit is ${MAX_PAGES_PER_UPLOAD} pages per upload.`,
+        error: 'That upload is ' + pageCount + ' pages. The limit is ' + MAX_PAGES_PER_UPLOAD + ' pages per upload.',
       },
       {status: 413},
     )
   }
 
-  const {tier} = await resolveProvider(db, session.user.id)
+  const resolved = await resolveProvider(db, session.user.id)
+  const tier = resolved.tier
+
+  let hint = null
+  if (subjectHint) hint = subjectHint
+
+  let expected = null
+  if (expectedQuestionCount) expected = expectedQuestionCount
 
   const [worksheet] = await db
     .insert(worksheets)
@@ -62,9 +69,9 @@ export async function POST(request: Request) {
       userId: session.user.id,
       title,
       sourceType,
-      subjectHint: subjectHint ?? null,
+      subjectHint: hint,
       pageCount,
-      expectedQuestionCount: expectedQuestionCount ?? null,
+      expectedQuestionCount: expected,
       status: 'uploading',
       tierUsed: tier,
     })
@@ -74,7 +81,7 @@ export async function POST(request: Request) {
     try {
       const swept = await sweepAbandonedUploads(db, session.user.id)
       if (swept > 0) {
-        console.log(`[upload] swept ${swept} abandoned upload(s) for ${session.user.id}`)
+        console.log('[upload] swept ' + swept + ' abandoned upload(s) for ' + session.user.id)
       }
     } catch (error) {
       console.error('[upload] sweep failed:', (error as Error).message)
@@ -86,7 +93,7 @@ export async function POST(request: Request) {
 
 export async function GET() {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 

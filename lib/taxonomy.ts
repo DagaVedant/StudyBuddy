@@ -14,14 +14,16 @@ import {questions, questionTopics, topics} from '@/lib/schema'
 import {type AIProvider, type TopicCandidate} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 
-export interface TopicNode {
+export type TopicNode = {
   name: string
   slug?: string
   children?: TopicNode[]
 }
 
 function n(name: string, ...children: TopicNode[]): TopicNode {
-  return children.length ? {name, children} : {name}
+  if (children.length === 0) return {name}
+
+  return {name, children}
 }
 
 const satMath = n(
@@ -169,7 +171,7 @@ const competitionMath = n(
 
 const TAXONOMY: TopicNode[] = [satMath, satReadingWriting, competitionMath]
 
-export interface FlatTopic {
+export type FlatTopic = {
   slug: string
   name: string
   parentSlug: string | null
@@ -179,17 +181,19 @@ export interface FlatTopic {
   path: string
 }
 
-function slugSegment(name: string): string {
+function slugSegment(name: string) {
   const segment = name
     .toLowerCase()
     .replace(/['’]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
-  return segment || 'topic'
+  if (!segment) return 'topic'
+
+  return segment
 }
 
-function build(roots: TopicNode[]): FlatTopic[] {
+function build(roots: TopicNode[]) {
   const out: FlatTopic[] = []
   const seen = new Set<string>()
 
@@ -200,15 +204,23 @@ function build(roots: TopicNode[]): FlatTopic[] {
     subjectRoot: string,
     parentPath: string[],
   ) {
-    const segment = node.slug ?? slugSegment(node.name)
-    const slug = parentSlug ? `${parentSlug}.${segment}` : segment
+    let segment = node.slug
+    if (!segment) segment = slugSegment(node.name)
+
+    let slug = segment
+    if (parentSlug) slug = parentSlug + '.' + segment
 
     if (seen.has(slug)) {
-      throw new Error(`Duplicate topic slug "${slug}"; rename one of the siblings.`)
+      throw new Error('Duplicate topic slug "' + slug + '"; rename one of the siblings.')
     }
+
     seen.add(slug)
 
-    const path = [...parentPath, node.name]
+    const path = parentPath.slice()
+    path.push(node.name)
+
+    let children: TopicNode[] = []
+    if (node.children) children = node.children
 
     out.push({
       slug,
@@ -216,17 +228,20 @@ function build(roots: TopicNode[]): FlatTopic[] {
       parentSlug,
       depth,
       subjectRoot,
-      isLeaf: !node.children?.length,
+      isLeaf: children.length === 0,
       path: path.join(' › '),
     })
 
-    for (const child of node.children ?? []) {
+    for (const child of children) {
       walk(child, slug, depth + 1, subjectRoot, path)
     }
   }
 
   for (const root of roots) {
-    walk(root, null, 0, root.slug ?? slugSegment(root.name), [])
+    let subjectRoot = root.slug
+    if (!subjectRoot) subjectRoot = slugSegment(root.name)
+
+    walk(root, null, 0, subjectRoot, [])
   }
 
   return out
@@ -235,18 +250,23 @@ function build(roots: TopicNode[]): FlatTopic[] {
 let flattened: readonly FlatTopic[] | null = null
 
 export function flattenTaxonomy(): FlatTopic[] {
-  flattened ??= Object.freeze(build(TAXONOMY))
+  if (!flattened) flattened = Object.freeze(build(TAXONOMY))
+
   return flattened as FlatTopic[]
 }
 
 let paths: Map<string, string> | null = null
 
 export function pathBySlug(): ReadonlyMap<string, string> {
-  paths ??= new Map(flattenTaxonomy().map((topic) => [topic.slug, topic.path]))
+  if (!paths) {
+    paths = new Map<string, string>()
+    for (const topic of flattenTaxonomy()) paths.set(topic.slug, topic.path)
+  }
+
   return paths
 }
 
-export async function demoteParentsWithChildren(db: Db): Promise<string[]> {
+export async function demoteParentsWithChildren(db: Db) {
   const child = alias(topics, 'child')
 
   const corrected = await db
@@ -265,35 +285,46 @@ export async function demoteParentsWithChildren(db: Db): Promise<string[]> {
     )
     .returning({slug: topics.slug})
 
-  return corrected.map((row) => row.slug)
+  const slugs: string[] = []
+  for (const row of corrected) slugs.push(row.slug)
+
+  return slugs
 }
 
 const SHORTLIST_SIZE = 25
 
-export interface ClassifyOutcome {
+export type ClassifyOutcome = {
   topicId: string | null
   coarse: boolean
   confidence: number
 }
 
 export function isEmbedding(value: unknown): value is number[] {
-  return (
-    Array.isArray(value) &&
-    value.length === EMBEDDING_DIMENSIONS &&
-    value.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
-  )
+  if (!Array.isArray(value)) return false
+  if (value.length !== EMBEDDING_DIMENSIONS) return false
+
+  for (const entry of value) {
+    if (typeof entry !== 'number') return false
+    if (!Number.isFinite(entry)) return false
+  }
+
+  return true
 }
 
-export interface ShortlistOptions {
+export type ShortlistOptions = {
   subjectHint?: string | null
   limit?: number
 }
 
 function subjectSubtree(subjectHint: string | null | undefined) {
-  const hint = subjectHint?.trim()
+  if (!subjectHint) return undefined
+
+  const hint = subjectHint.trim()
   if (!hint || !pathBySlug().has(hint)) return undefined
 
-  return sql`(${topics.slug} = ${hint} or ${topics.slug} like ${`${hint}.%`})`
+  const prefix = hint + '.%'
+
+  return sql`(${topics.slug} = ${hint} or ${topics.slug} like ${prefix})`
 }
 
 export async function shortlistByVector(
@@ -301,7 +332,10 @@ export async function shortlistByVector(
   vector: number[],
   options: ShortlistOptions = {},
 ): Promise<TopicCandidate[]> {
-  const literal = `[${vector.join(',')}]`
+  const literal = '[' + vector.join(',') + ']'
+
+  let limit = SHORTLIST_SIZE
+  if (options.limit) limit = options.limit
 
   const rows = await db
     .select({slug: topics.slug, name: topics.name})
@@ -314,18 +348,23 @@ export async function shortlistByVector(
       ),
     )
     .orderBy(sql`${topics.embedding} <=> ${literal}::vector`)
-    .limit(options.limit ?? SHORTLIST_SIZE)
+    .limit(limit)
 
-  return rows.map((row) => ({
-    slug: row.slug,
-    name: row.name,
-    path: pathBySlug().get(row.slug) ?? row.name,
-  }))
+  const candidates: TopicCandidate[] = []
+
+  for (const row of rows) {
+    let topicPath = pathBySlug().get(row.slug)
+    if (!topicPath) topicPath = row.name
+
+    candidates.push({slug: row.slug, name: row.name, path: topicPath})
+  }
+
+  return candidates
 }
 
 export class EmbeddingUnavailableError extends Error {
   constructor(cause: string) {
-    super(`The embedding model could not be loaded: ${cause}`)
+    super('The embedding model could not be loaded: ' + cause)
     this.name = 'EmbeddingUnavailableError'
   }
 }
@@ -335,8 +374,9 @@ async function shortlistTopics(
   questionId: string,
   questionText: string,
   subjectHint?: string | null,
-): Promise<TopicCandidate[]> {
+) {
   let vector: number[]
+
   try {
     vector = await embed(questionText)
   } catch (error) {
@@ -379,10 +419,16 @@ export async function applyClassification(
     return {topicId: null, coarse: false, confidence: 0}
   }
 
-  const chosen =
-    result.topic_slug && !result.abstain
-      ? candidates.find((candidate) => candidate.slug === result.topic_slug)
-      : undefined
+  let chosen: TopicCandidate | null = null
+
+  if (result.topic_slug && !result.abstain) {
+    for (const candidate of candidates) {
+      if (candidate.slug === result.topic_slug) {
+        chosen = candidate
+        break
+      }
+    }
+  }
 
   if (chosen) {
     const [topic] = await db
@@ -434,7 +480,7 @@ export async function classifyWorksheet(
   provider: AIProvider,
   worksheetId: string,
   subjectHint?: string | null,
-): Promise<{classified: number; coarse: number; failed: number}> {
+) {
   const rows = await db
     .select({id: questions.id, promptText: questions.promptText, userId: questions.userId})
     .from(questions)
@@ -446,7 +492,8 @@ export async function classifyWorksheet(
     .innerJoin(questions, eq(questionTopics.questionId, questions.id))
     .where(eq(questions.worksheetId, worksheetId))
 
-  const tagged = new Set(taggedRows.map((row) => row.questionId))
+  const tagged = new Set<string>()
+  for (const row of taggedRows) tagged.add(row.questionId)
 
   let classified = 0
   let coarse = 0
@@ -457,14 +504,16 @@ export async function classifyWorksheet(
 
     try {
       const outcome = await classifyQuestion(db, provider, question, subjectHint)
-      if (outcome.topicId) classified += 1
-      if (outcome.coarse) coarse += 1
+
+      if (outcome.topicId) classified = classified + 1
+      if (outcome.coarse) coarse = coarse + 1
     } catch (error) {
       if (error instanceof EmbeddingUnavailableError) throw error
 
-      failed += 1
+      failed = failed + 1
+
       console.error(
-        `[classify] question ${question.id} could not be classified:`,
+        '[classify] question ' + question.id + ' could not be classified:',
         (error as Error).message,
       )
     }
@@ -472,7 +521,7 @@ export async function classifyWorksheet(
 
   if (failed > 0) {
     console.error(
-      `[classify] ${failed} of ${rows.length} question(s) on ${worksheetId} failed`,
+      '[classify] ' + failed + ' of ' + rows.length + ' question(s) on ' + worksheetId + ' failed',
     )
   }
 
@@ -481,7 +530,7 @@ export async function classifyWorksheet(
 
 const PENDING_PAGE_SIZE = 100
 
-export interface PendingQuestion {
+export type PendingQuestion = {
   id: string
   promptText: string
 }
@@ -511,10 +560,7 @@ export async function pendingQuestions(
     .limit(limit)
 }
 
-export async function pendingQuestionCount(
-  db: Db,
-  worksheetId: string,
-): Promise<number> {
+export async function pendingQuestionCount(db: Db, worksheetId: string) {
   const [row] = await db
     .select({value: count()})
     .from(questions)
@@ -527,24 +573,32 @@ const VENDORED = path.join(process.cwd(), 'models')
 
 let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
 
-async function getExtractor(): Promise<FeatureExtractionPipeline> {
-  extractorPromise ??= import('@huggingface/transformers').then(
-    ({env, pipeline}) => {
+function getExtractor() {
+  if (!extractorPromise) {
+    extractorPromise = import('@huggingface/transformers').then((mod) => {
       if (existsSync(VENDORED)) {
-        env.localModelPath = VENDORED
-        env.allowRemoteModels = false
+        mod.env.localModelPath = VENDORED
+        mod.env.allowRemoteModels = false
       }
 
-      return pipeline('feature-extraction', EMBEDDING_MODEL, {dtype: 'q8'}) as Promise<FeatureExtractionPipeline>
-    },
-  )
+      return mod.pipeline('feature-extraction', EMBEDDING_MODEL, {
+        dtype: 'q8',
+      }) as Promise<FeatureExtractionPipeline>
+    })
+  }
 
   return extractorPromise
 }
 
-export async function embed(text: string): Promise<number[]> {
+export async function embed(text: string) {
   const trimmed = text.trim()
-  if (!trimmed) return new Array(EMBEDDING_DIMENSIONS).fill(0)
+
+  if (!trimmed) {
+    const zeros: number[] = []
+    for (let i = 0; i < EMBEDDING_DIMENSIONS; i++) zeros.push(0)
+
+    return zeros
+  }
 
   const extractor = await getExtractor()
 

@@ -6,7 +6,7 @@ import {enqueueJob, pendingTopicJob, workerStatus} from '@/lib/queue'
 import {lessonSchema, ProviderRefused, ProviderUnavailable} from '@/lib/ai/types'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
-import {guardRateLimit, LESSON_LIMIT} from '@/lib/api'
+import {guardRateLimit, LESSON_LIMIT, readJson} from '@/lib/api'
 import {ollamaConfig} from '@/lib/ai/ollama'
 import {resolveProvider} from '@/lib/ai/resolve'
 import {topics} from '@/lib/schema'
@@ -25,7 +25,7 @@ async function postTopicidLesson(_request: Request, {params}: {params: Promise<R
   const {topicId} = await params
 
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
   const userId = session.user.id
@@ -48,7 +48,7 @@ async function postTopicidLesson(_request: Request, {params}: {params: Promise<R
   const limited = await guardRateLimit(
     db,
     LESSON_LIMIT,
-    `user:${userId}`,
+    'user:' + userId,
     'You have asked for a lot of lessons. Try again shortly.',
   )
   if (limited) return limited
@@ -93,7 +93,9 @@ async function postTopicidLesson(_request: Request, {params}: {params: Promise<R
   try {
     const generated = await generateLesson(db, provider, topicId)
 
-    const lesson = generated ?? (await getLesson(db, topicId, null))
+    let lesson = generated
+    if (!lesson) lesson = await getLesson(db, topicId, null)
+
     if (!lesson) {
       return NextResponse.json(
         {error: 'Could not generate that lesson. Try again.'},
@@ -133,7 +135,7 @@ async function putTopicidLesson(request: Request, {params}: {params: Promise<Rec
   const {topicId} = await params
 
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
   const userId = session.user.id
@@ -157,7 +159,7 @@ async function putTopicidLesson(request: Request, {params}: {params: Promise<Rec
     )
   }
 
-  const parsed = storedSchema.safeParse(await request.json().catch(() => ({})))
+  const parsed = storedSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -167,13 +169,10 @@ async function putTopicidLesson(request: Request, {params}: {params: Promise<Rec
     return NextResponse.json({lesson: serialize(existing)})
   }
 
-  const lesson = await storeLesson(
-    db,
-    topicId,
-    userId,
-    parsed.data.lesson,
-    parsed.data.model ?? null,
-  )
+  let model = null
+  if (parsed.data.model) model = parsed.data.model
+
+  const lesson = await storeLesson(db, topicId, userId, parsed.data.lesson, model)
 
   return NextResponse.json({lesson: serialize(lesson)})
 }

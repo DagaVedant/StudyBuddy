@@ -7,7 +7,7 @@ import {OllamaProvider} from '@/lib/ai/ollama'
 import {explainOllamaFailure, fetchJson} from '@/lib/client/http'
 import {type PracticeInput, validated} from '@/lib/ai/types'
 
-interface PracticeResponse {
+type PracticeResponse = {
   error?: string
   created?: number
   runsHere?: boolean
@@ -17,23 +17,20 @@ interface PracticeResponse {
   writerOnline?: boolean
 }
 
-const QUEUED =
-  'Queued for the GPU that writes these. They land in your review queue once ' +
-  'they are written.'
-
-const QUEUED_OFFLINE =
-  'The GPU that writes these is not running right now. This is saved, and they ' +
-  'land in your review queue once it is back.'
+async function readBody(response: Response) {
+  try {
+    return (await response.json()) as PracticeResponse
+  } catch {
+    return {} as PracticeResponse
+  }
+}
 
 export function GeneratePracticeButton({topicId}: {topicId: string}) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
-  async function writeHere(
-    input: PracticeInput,
-    ollama: {baseUrl: string; textModel: string},
-  ): Promise<number> {
+  async function writeHere(input: PracticeInput, ollama: {baseUrl: string; textModel: string}) {
     setMessage('Your machine is writing them. Keep this tab open.')
 
     const provider = validated(
@@ -45,25 +42,29 @@ export function GeneratePracticeButton({topicId}: {topicId: string}) {
       }),
     )
 
-    const questions = await provider
-      .writePractice(input)
-      .catch((cause: unknown) => {
-        throw new Error(explainOllamaFailure(cause, ollama.baseUrl))
-      })
+    let questions
+    try {
+      questions = await provider.writePractice(input)
+    } catch (cause) {
+      throw new Error(explainOllamaFailure(cause, ollama.baseUrl))
+    }
 
-    const stored = await fetchJson(`/api/topics/${topicId}/practice`, {
+    const stored = await fetchJson('/api/topics/' + topicId + '/practice', {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({questions, count: input.count, model: ollama.textModel}),
     })
 
-    const body = (await stored.json().catch(() => ({}))) as PracticeResponse
+    const body = await readBody(stored)
 
     if (!stored.ok) {
-      throw new Error(body.error ?? 'Could not keep those practice questions.')
+      let problem = body.error
+      if (!problem) problem = 'Could not keep those practice questions.'
+      throw new Error(problem)
     }
 
-    return body.created ?? 0
+    if (!body.created) return 0
+    return body.created
   }
 
   async function generate() {
@@ -71,26 +72,39 @@ export function GeneratePracticeButton({topicId}: {topicId: string}) {
     setMessage(null)
 
     try {
-      const response = await fetchJson(`/api/topics/${topicId}/practice`, {method: 'POST'})
-      const body = (await response.json().catch(() => ({}))) as PracticeResponse
+      const response = await fetchJson('/api/topics/' + topicId + '/practice', {method: 'POST'})
+      const body = await readBody(response)
 
       if (!response.ok) {
-        throw new Error(body.error ?? 'Could not write practice questions. Try again.')
+        let problem = body.error
+        if (!problem) problem = 'Could not write practice questions. Try again.'
+        throw new Error(problem)
       }
 
       if (body.status === 'queued') {
-        setMessage(body.writerOnline === false ? QUEUED_OFFLINE : QUEUED)
+        if (body.writerOnline === false) {
+          setMessage(
+            'The GPU that writes these is not running right now. This is saved, and they land in your review queue once it is back.',
+          )
+        } else {
+          setMessage(
+            'Queued for the GPU that writes these. They land in your review queue once they are written.',
+          )
+        }
         return
       }
 
-      let created = body.created ?? 0
+      let created = 0
+      if (body.created) created = body.created
+
       if (body.runsHere && body.input && body.ollama) {
         created = await writeHere(body.input, body.ollama)
       }
 
-      setMessage(
-        `${created} new ${created === 1 ? 'question' : 'questions'} added to your review queue.`,
-      )
+      let word = 'questions'
+      if (created === 1) word = 'question'
+
+      setMessage(created + ' new ' + word + ' added to your review queue.')
       router.refresh()
     } catch (cause) {
       setMessage((cause as Error).message)
@@ -99,19 +113,27 @@ export function GeneratePracticeButton({topicId}: {topicId: string}) {
     }
   }
 
+  let buttonText = 'Write me practice questions'
+  if (busy) buttonText = 'Writing…'
+
+  let hint =
+    'Four new questions on this topic, written by a model and dropped into your review queue.'
+  if (message) hint = message
+
   return (
     <div>
       <button
         type="button"
         disabled={busy}
-        onClick={() => void generate()}
+        onClick={() => {
+          generate()
+        }}
         className="card px-3 py-1.5 text-sm hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
       >
-        {busy ? 'Writing…' : 'Write me practice questions'}
+        {buttonText}
       </button>
       <p aria-live="polite" className="hint">
-        {message ??
-          'Four new questions on this topic, written by a model and dropped into your review queue.'}
+        {hint}
       </p>
     </div>
   )

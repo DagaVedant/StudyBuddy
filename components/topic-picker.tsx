@@ -1,41 +1,62 @@
 'use client'
 
-import {useEffect, useId, useMemo, useRef, useState} from 'react'
+import {useEffect, useId, useRef, useState} from 'react'
 
-export interface TopicChoice {
+export type TopicChoice = {
   id: string
   slug: string
   name: string
   path: string
 }
 
-interface Props {
-  topics: TopicChoice[]
-  value: string | null
-  onChange: (topicId: string | null) => void
-}
-
-const MAX_RESULTS = 40
-
-function score(topic: TopicChoice, query: string): number {
-  const name = topic.name.toLowerCase()
-  const path = topic.path.toLowerCase()
+function score(topic: TopicChoice, query: string) {
+  let name = topic.name.toLowerCase()
+  let path = topic.path.toLowerCase()
 
   if (name === query) return 0
   if (name.startsWith(query)) return 1
   if (name.includes(query)) return 2
   if (path.includes(query)) return 3
-  return Number.POSITIVE_INFINITY
+  return -1
 }
 
-export function TopicPicker({topics, value, onChange}: Props) {
+function search(topics: TopicChoice[], query: string) {
+  let trimmed = query.trim().toLowerCase()
+  if (!trimmed) return topics.slice(0, 40)
+
+  let matches = []
+
+  for (let topic of topics) {
+    let rank = score(topic, trimmed)
+    if (rank >= 0) matches.push({topic: topic, rank: rank})
+  }
+
+  matches.sort(function (a, b) {
+    if (a.rank !== b.rank) return a.rank - b.rank
+    if (a.topic.path < b.topic.path) return -1
+    if (a.topic.path > b.topic.path) return 1
+    return 0
+  })
+
+  let out = []
+  for (let i = 0; i < matches.length && i < 40; i++) {
+    out.push(matches[i].topic)
+  }
+
+  return out
+}
+
+export function TopicPicker({
+  topics,
+  value,
+  onChange,
+}: {
+  topics: TopicChoice[]
+  value: string | null
+  onChange: (topicId: string | null) => void
+}) {
   const inputId = useId()
   const listId = useId()
-
-  const selected = useMemo(
-    () => topics.find((topic) => topic.id === value) ?? null,
-    [topics, value],
-  )
 
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -43,50 +64,81 @@ export function TopicPicker({topics, value, onChange}: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const results = useMemo(() => {
-    const trimmed = query.trim().toLowerCase()
-    if (!trimmed) return topics.slice(0, MAX_RESULTS)
+  let selected: TopicChoice | null = null
+  for (let topic of topics) {
+    if (topic.id === value) selected = topic
+  }
 
-    return topics
-      .map((topic) => ({topic, rank: score(topic, trimmed)}))
-      .filter((entry) => Number.isFinite(entry.rank))
-      .sort((a, b) => a.rank - b.rank || a.topic.path.localeCompare(b.topic.path))
-      .slice(0, MAX_RESULTS)
-      .map((entry) => entry.topic)
-  }, [topics, query])
+  let results = search(topics, query)
 
   useEffect(() => {
     if (!open) return
-    const onPointerDown = (event: PointerEvent) => {
-      if (containerRef.current?.contains(event.target as Node)) return
-      updateQuery('')
+
+    function onPointerDown(event: PointerEvent) {
+      let container = containerRef.current
+      if (container && container.contains(event.target as Node)) return
+
+      setQuery('')
+      setActive(0)
       setOpen(false)
     }
+
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [open])
 
   useEffect(() => {
     if (!open) return
-    listRef.current
-      ?.querySelector(`[data-index="${active}"]`)
-      ?.scrollIntoView({block: 'nearest'})
+
+    let list = listRef.current
+    if (!list) return
+
+    let option = list.querySelector('[data-index="' + active + '"]')
+    if (option) option.scrollIntoView({block: 'nearest'})
   }, [active, open])
 
-  function updateQuery(next: string) {
-    setQuery(next)
-    setActive(0)
-  }
-
   function commit(topic: TopicChoice | null) {
-    onChange(topic?.id ?? null)
-    updateQuery('')
+    if (topic) {
+      onChange(topic.id)
+    } else {
+      onChange(null)
+    }
+
+    setQuery('')
+    setActive(0)
     setOpen(false)
   }
 
+  let options = []
+  for (let index = 0; index < results.length; index++) {
+    let topic = results[index]
+
+    let optionClass = 'cursor-pointer px-3 py-2 text-left text-sm'
+    if (index === active) optionClass = optionClass + ' bg-accent/10'
+
+    options.push(
+      <div
+        key={topic.id}
+        id={listId + '-' + index}
+        data-index={index}
+        role="option"
+        aria-selected={index === active}
+        className={optionClass}
+        onPointerEnter={() => setActive(index)}
+        onClick={() => commit(topic)}
+      >
+        <span className="block truncate font-medium">{topic.name}</span>
+        <span className="block truncate text-xs text-muted">{topic.path}</span>
+      </div>,
+    )
+  }
+
+  let activeId = undefined
+  if (open && results[active]) activeId = listId + '-' + active
+
   return (
     <div ref={containerRef} className="relative">
-      <span className="label" id={`${inputId}-label`}>
+      <span className="label" id={inputId + '-label'}>
         Topic
       </span>
 
@@ -100,7 +152,10 @@ export function TopicPicker({topics, value, onChange}: Props) {
             className="btn-compact shrink-0 rounded px-2 text-sm text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             onClick={() => {
               setOpen(true)
-              requestAnimationFrame(() => document.getElementById(inputId)?.focus())
+              requestAnimationFrame(() => {
+                const field = document.getElementById(inputId)
+                if (field) field.focus()
+              })
             }}
           >
             Change
@@ -111,11 +166,11 @@ export function TopicPicker({topics, value, onChange}: Props) {
           id={inputId}
           type="text"
           role="combobox"
-          aria-labelledby={`${inputId}-label`}
+          aria-labelledby={inputId + '-label'}
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
-          aria-activedescendant={open && results[active] ? `${listId}-${active}` : undefined}
+          aria-activedescendant={activeId}
           autoComplete="off"
           spellCheck={false}
           placeholder="Search topics, e.g. triangles…"
@@ -123,17 +178,24 @@ export function TopicPicker({topics, value, onChange}: Props) {
           value={query}
           onFocus={() => setOpen(true)}
           onChange={(event) => {
-            updateQuery(event.target.value)
+            setQuery(event.target.value)
+            setActive(0)
             setOpen(true)
           }}
           onKeyDown={(event) => {
             if (event.key === 'ArrowDown') {
               event.preventDefault()
               setOpen(true)
-              setActive((index) => Math.min(index + 1, results.length - 1))
+
+              let next = active + 1
+              if (next > results.length - 1) next = results.length - 1
+              setActive(next)
             } else if (event.key === 'ArrowUp') {
               event.preventDefault()
-              setActive((index) => Math.max(index - 1, 0))
+
+              let next = active - 1
+              if (next < 0) next = 0
+              setActive(next)
             } else if (event.key === 'Enter') {
               if (open && results[active]) {
                 event.preventDefault()
@@ -161,23 +223,7 @@ export function TopicPicker({topics, value, onChange}: Props) {
             aria-label="Topics"
             className="max-h-64 overflow-y-auto"
           >
-            {results.map((topic, index) => (
-              <div
-                key={topic.id}
-                id={`${listId}-${index}`}
-                data-index={index}
-                role="option"
-                aria-selected={index === active}
-                className={`cursor-pointer px-3 py-2 text-left text-sm ${
-                  index === active ? 'bg-accent/10' : ''
-                }`}
-                onPointerEnter={() => setActive(index)}
-                onClick={() => commit(topic)}
-              >
-                <span className="block truncate font-medium">{topic.name}</span>
-                <span className="block truncate text-xs text-muted">{topic.path}</span>
-              </div>
-            ))}
+            {options}
           </div>
 
           {selected && (

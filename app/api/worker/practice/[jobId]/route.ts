@@ -27,17 +27,20 @@ export async function GET(
   }
 
   const checkpoint = job.checkpoint as {topicId?: string; count?: number} | null
-  const topicId = checkpoint?.topicId
+
+  let topicId = undefined
+  let count = undefined
+
+  if (checkpoint) {
+    topicId = checkpoint.topicId
+    count = checkpoint.count
+  }
 
   if (!topicId) {
     return NextResponse.json({error: 'Job names no topic'}, {status: 400})
   }
 
-  const input = await practiceInput(db, {
-    userId: job.userId,
-    topicId,
-    count: checkpoint?.count,
-  })
+  const input = await practiceInput(db, {userId: job.userId, topicId, count})
 
   return NextResponse.json({topicId, ...input})
 }

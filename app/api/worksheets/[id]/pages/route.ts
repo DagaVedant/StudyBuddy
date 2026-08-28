@@ -4,7 +4,7 @@ import {z} from 'zod'
 import {MAX_DECODED_PIXELS, MAX_PAGE_BYTES, MAX_PAGE_DIMENSION, MAX_SOURCE_PAGE_NUMBER} from '@/lib/upload'
 import {worksheetPages, worksheets} from '@/lib/schema'
 import {guardWorksheet} from '@/lib/queue'
-import {consumeRateLimit, PAGE_UPLOAD_LIMIT} from '@/lib/api'
+import {consumeRateLimit, PAGE_UPLOAD_LIMIT, readJson} from '@/lib/api'
 import {db} from '@/lib/db'
 import {pageImageKey, storage} from '@/lib/queue'
 
@@ -23,7 +23,7 @@ export async function POST(request: Request, {params}: Params) {
   const allowance = await consumeRateLimit(
     db,
     PAGE_UPLOAD_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
   )
 
   if (!allowance.ok) {
@@ -72,7 +72,10 @@ export async function POST(request: Request, {params}: Params) {
     .from(worksheetPages)
     .where(eq(worksheetPages.worksheetId, worksheetId))
 
-  const replacing = stored.some((row) => row.pageNumber === pageNumber)
+  let replacing = false
+  for (const row of stored) {
+    if (row.pageNumber === pageNumber) replacing = true
+  }
   if (!replacing && stored.length >= sheet.pageCount) {
     return NextResponse.json(
       {error: 'That is more pages than this worksheet was created for.'},
@@ -147,16 +150,19 @@ export async function PATCH(request: Request, {params}: Params) {
     return NextResponse.json({error: 'Not found'}, {status: guard.status})
   }
 
-  const parsed = ocrSchema.safeParse(await request.json().catch(() => null))
+  const parsed = ocrSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
 
-  const {pageId, ocrText, ocrEngine, textLines} = parsed.data
+  const {pageId, ocrText, ocrEngine} = parsed.data
+
+  let textLines = null
+  if (parsed.data.textLines) textLines = parsed.data.textLines
 
   await db
     .update(worksheetPages)
-    .set({ocrText, ocrEngine, textLines: textLines ?? null})
+    .set({ocrText, ocrEngine, textLines: textLines})
     .where(
       and(
         eq(worksheetPages.id, pageId),

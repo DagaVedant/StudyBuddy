@@ -28,14 +28,14 @@ export type IngestStage =
   | 'finishing'
   | 'done'
 
-export interface IngestProgress {
+export type IngestProgress = {
   stage: IngestStage
   completed: number
   total: number
   detail: string
 }
 
-export interface IngestOptions {
+export type IngestOptions = {
   files: File[]
   title: string
   subjectHint?: string | null
@@ -46,96 +46,135 @@ export interface IngestOptions {
   signal?: AbortSignal
 }
 
-export interface IngestResult {
+export type IngestResult = {
   worksheetId: string
   pageCount: number
   next: string
   message?: string
 }
 
-class IngestError extends Error {}
-
-async function expectOk(response: Response): Promise<unknown> {
-  if (response.ok) return response.json()
-
-  const body = (await response.json().catch(() => null)) as {error?: string} | null
-  throw new IngestError(body?.error ?? `Request failed (${response.status}).`)
+function ingestError(message: string) {
+  const error = new Error(message)
+  error.name = 'IngestError'
+  return error
 }
 
-export async function ingestWorksheet({
-  files,
-  title,
-  subjectHint,
-  pageRange = null,
-  expectedQuestionCount = null,
-  onProgress,
-  onWorksheetCreated,
-  signal,
-}: IngestOptions): Promise<IngestResult> {
-  if (files.length === 0) throw new IngestError('Pick at least one file.')
+async function expectOk(response: Response) {
+  if (response.ok) return response.json()
 
-  const oversized = files.find((file) => file.size > MAX_SOURCE_BYTES)
-  if (oversized) {
-    throw new IngestError(`"${oversized.name}" is too large to upload.`)
+  let problem = 'Request failed (' + response.status + ').'
+
+  try {
+    const body = (await response.json()) as {error?: string}
+    if (body.error) problem = body.error
+  } catch {
+    problem = 'Request failed (' + response.status + ').'
+  }
+
+  throw ingestError(problem)
+}
+
+export async function ingestWorksheet(options: IngestOptions): Promise<IngestResult> {
+  const files = options.files
+  const title = options.title
+  const subjectHint = options.subjectHint
+  const onProgress = options.onProgress
+  const onWorksheetCreated = options.onWorksheetCreated
+  const signal = options.signal
+
+  let pageRange: PageRange | null = null
+  if (options.pageRange) pageRange = options.pageRange
+
+  let expectedQuestionCount: number | null = null
+  if (options.expectedQuestionCount !== undefined && options.expectedQuestionCount !== null) {
+    expectedQuestionCount = options.expectedQuestionCount
+  }
+
+  if (files.length === 0) throw ingestError('Pick at least one file.')
+
+  for (let file of files) {
+    if (file.size > MAX_SOURCE_BYTES) {
+      throw ingestError('"' + file.name + '" is too large to upload.')
+    }
   }
 
   onProgress({stage: 'reading', completed: 0, total: 1, detail: 'Reading files'})
 
-  const pdfs = files.filter((file) => file.type === 'application/pdf')
-  const images = files.filter((file) => file.type !== 'application/pdf')
+  let pdfs = []
+  let images = []
+
+  for (let file of files) {
+    if (file.type === 'application/pdf') {
+      pdfs.push(file)
+    } else {
+      images.push(file)
+    }
+  }
 
   const pages: RasterPage[] = []
   let sawPdf = false
-
   let offset = 0
 
-  for (const file of pdfs) {
+  for (let file of pdfs) {
     throwIfCancelled(signal)
     sawPdf = true
 
     const rendered = await rasterizePdf(
       file,
-      ({page, total}) => {
+      (progress) => {
         onProgress({
           stage: 'rasterizing',
-          completed: page,
-          total,
-          detail: `Rendering ${file.name}`,
+          completed: progress.page,
+          total: progress.total,
+          detail: 'Rendering ' + file.name,
         })
       },
       {offset, range: pageRange, signal},
     )
 
-    pages.push(...rendered.pages)
-    offset += rendered.totalPages
+    for (let page of rendered.pages) pages.push(page)
+    offset = offset + rendered.totalPages
   }
 
-  for (const file of images) {
+  for (let file of images) {
     throwIfCancelled(signal)
-    offset += 1
+    offset = offset + 1
     if (!pageInRange(offset, pageRange)) continue
 
     onProgress({
       stage: 'rasterizing',
       completed: pages.length + 1,
       total: pages.length + 1,
-      detail: `Processing ${file.name}`,
+      detail: 'Processing ' + file.name,
     })
+
     pages.push(await rasterizeImage(file, offset, signal))
   }
 
   if (pages.length === 0) {
-    throw new IngestError(
-      pageRange
-        ? `No pages in ${describePageRange(pageRange)}. That upload has ${offset} ${offset === 1 ? 'page' : 'pages'}.`
-        : 'Nothing readable in those files.',
+    if (!pageRange) throw ingestError('Nothing readable in those files.')
+
+    let word = 'pages'
+    if (offset === 1) word = 'page'
+
+    throw ingestError(
+      'No pages in ' +
+        describePageRange(pageRange) +
+        '. That upload has ' +
+        offset +
+        ' ' +
+        word +
+        '.',
     )
   }
 
-  const digital = sawPdf && hasUsableTextLayer(pages)
-  const fromCamera = images.some(
-    (file) => file.type === 'image/heic' || file.type === 'image/heif',
-  )
+  let digital = false
+  if (sawPdf && hasUsableTextLayer(pages)) digital = true
+
+  let fromCamera = false
+  for (let file of images) {
+    if (file.type === 'image/heic' || file.type === 'image/heif') fromCamera = true
+  }
 
   let sourceType = 'image'
   if (digital) sourceType = 'pdf_digital'
@@ -146,7 +185,7 @@ export async function ingestWorksheet({
 
   throwIfCancelled(signal)
 
-  const {worksheetId} = (await expectOk(
+  const created = (await expectOk(
     await fetchJson('/api/worksheets', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -161,27 +200,31 @@ export async function ingestWorksheet({
     }),
   )) as {worksheetId: string}
 
-  onWorksheetCreated?.(worksheetId)
+  const worksheetId = created.worksheetId
+
+  if (onWorksheetCreated) onWorksheetCreated(worksheetId)
 
   const pageIds: string[] = []
 
-  for (const [index, page] of pages.entries()) {
+  for (let index = 0; index < pages.length; index++) {
+    let page = pages[index]
+
     throwIfCancelled(signal)
     onProgress({
       stage: 'uploading',
       completed: index + 1,
       total: pages.length,
-      detail: `Uploading page ${page.pageNumber}`,
+      detail: 'Uploading page ' + page.pageNumber,
     })
 
     const form = new FormData()
-    form.set('image', page.blob, `page-${page.pageNumber}.webp`)
+    form.set('image', page.blob, 'page-' + page.pageNumber + '.webp')
     form.set('pageNumber', String(page.pageNumber))
     form.set('width', String(page.width))
     form.set('height', String(page.height))
 
     const uploaded = (await expectOk(
-      await fetchJson(`/api/worksheets/${worksheetId}/pages`, {
+      await fetchJson('/api/worksheets/' + worksheetId + '/pages', {
         method: 'POST',
         body: form,
         signal,
@@ -191,29 +234,35 @@ export async function ingestWorksheet({
     pageIds.push(uploaded.pageId)
   }
 
-  for (const [index, page] of pages.entries()) {
-    throwIfCancelled(signal)
-    onProgress({
-      stage: 'ocr',
-      completed: index + 1,
-      total: pages.length,
-      detail: digital
-        ? `Reading text from page ${page.pageNumber}`
-        : `Recognizing text on page ${page.pageNumber}`,
-    })
+  for (let index = 0; index < pages.length; index++) {
+    let page = pages[index]
 
-    const {text, lines} = digital
-      ? {text: page.embeddedText, lines: page.embeddedLines}
-      : await ocrPage(page.blob, signal)
+    throwIfCancelled(signal)
+
+    let detail = 'Recognizing text on page ' + page.pageNumber
+    if (digital) detail = 'Reading text from page ' + page.pageNumber
+
+    onProgress({stage: 'ocr', completed: index + 1, total: pages.length, detail: detail})
+
+    let text = page.embeddedText
+    let lines = page.embeddedLines
+    let engine = 'pdf_text'
+
+    if (!digital) {
+      const read = await ocrPage(page.blob, signal)
+      text = read.text
+      lines = read.lines
+      engine = 'tesseract'
+    }
 
     await expectOk(
-      await fetchJson(`/api/worksheets/${worksheetId}/pages`, {
+      await fetchJson('/api/worksheets/' + worksheetId + '/pages', {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           pageId: pageIds[index],
-          ocrText: text.slice(0, 200_000),
-          ocrEngine: digital ? 'pdf_text' : 'tesseract',
+          ocrText: text.slice(0, 200000),
+          ocrEngine: engine,
           textLines: lines.slice(0, 4000),
         }),
         signal,
@@ -224,30 +273,32 @@ export async function ingestWorksheet({
   onProgress({stage: 'finishing', completed: 1, total: 1, detail: 'Wrapping up'})
 
   const finished = (await expectOk(
-    await fetchJson(`/api/worksheets/${worksheetId}/complete`, {method: 'POST', signal}),
+    await fetchJson('/api/worksheets/' + worksheetId + '/complete', {method: 'POST', signal}),
   )) as {next: string; message?: string}
 
   onProgress({stage: 'done', completed: 1, total: 1, detail: 'Done'})
 
   return {
-    worksheetId,
+    worksheetId: worksheetId,
     pageCount: pages.length,
     next: finished.next,
     message: finished.message,
   }
 }
 
-export interface PageImage {
+export type PageImage = {
   image: Uint8Array
   mediaType: string
 }
 
 export async function toPngBytes(blob: Blob): Promise<PageImage> {
   if (blob.type === 'image/png' || blob.type === 'image/jpeg') {
-    return {image: new Uint8Array(await blob.arrayBuffer()), mediaType: blob.type}
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    return {image: bytes, mediaType: blob.type}
   }
 
   const bitmap = await createImageBitmap(blob)
+
   try {
     const canvas = document.createElement('canvas')
     canvas.width = bitmap.width
@@ -257,21 +308,24 @@ export async function toPngBytes(blob: Blob): Promise<PageImage> {
     if (!context) {
       throw new Error('This browser would not give us a canvas to convert the page on.')
     }
+
     context.drawImage(bitmap, 0, 0)
 
-    const png = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/png'),
-    )
+    const png = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/png')
+    })
+
     if (!png) throw new Error('The page image could not be converted to PNG.')
 
-    return {image: new Uint8Array(await png.arrayBuffer()), mediaType: 'image/png'}
+    const bytes = new Uint8Array(await png.arrayBuffer())
+    return {image: bytes, mediaType: 'image/png'}
   } finally {
     bitmap.close()
   }
 }
 
-export async function fetchPageImage(imageKey: string): Promise<PageImage> {
-  const response = await fetch(`/api/files/${imageKey}`)
+export async function fetchPageImage(imageKey: string) {
+  const response = await fetch('/api/files/' + imageKey)
   if (!response.ok) throw new Error('Could not load the page image.')
 
   return toPngBytes(await response.blob())
@@ -279,19 +333,28 @@ export async function fetchPageImage(imageKey: string): Promise<PageImage> {
 
 let extractorPromise: Promise<FeatureExtractionPipeline> | null = null
 
-async function getExtractor(): Promise<FeatureExtractionPipeline> {
-  extractorPromise ??= import('@huggingface/transformers').then(({env, pipeline}) => {
-    env.allowLocalModels = false
+function getExtractor() {
+  if (!extractorPromise) {
+    extractorPromise = import('@huggingface/transformers').then((mod) => {
+      mod.env.allowLocalModels = false
 
-    return pipeline('feature-extraction', EMBEDDING_MODEL, {dtype: 'q8'}) as Promise<FeatureExtractionPipeline>
-  })
+      return mod.pipeline('feature-extraction', EMBEDDING_MODEL, {
+        dtype: 'q8',
+      }) as Promise<FeatureExtractionPipeline>
+    })
+  }
 
   return extractorPromise
 }
 
-export async function embedInBrowser(text: string): Promise<number[]> {
+export async function embedInBrowser(text: string) {
   const trimmed = text.trim()
-  if (!trimmed) return new Array(EMBEDDING_DIMENSIONS).fill(0)
+
+  if (!trimmed) {
+    let zeros: number[] = []
+    for (let i = 0; i < EMBEDDING_DIMENSIONS; i++) zeros.push(0)
+    return zeros
+  }
 
   const extractor = await getExtractor()
 

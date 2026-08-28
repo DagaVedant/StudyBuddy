@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server'
+import {readJson} from '@/lib/api'
 import {and, eq} from 'drizzle-orm'
 import {z} from 'zod'
 import {questions, worksheets} from '@/lib/schema'
@@ -106,7 +107,7 @@ export async function POST(request: Request, {params}: Params) {
     return NextResponse.json({error: 'Not found'}, {status: guard.status})
   }
 
-  const parsed = schema.safeParse(await request.json().catch(() => ({})))
+  const parsed = schema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -182,7 +183,7 @@ export async function POST(request: Request, {params}: Params) {
       } catch (error) {
         failed += 1
         console.error(
-          `[classify] question ${question.id} could not be tagged:`,
+          '[classify] question ' + question.id + ' could not be tagged:',
           (error as Error).message,
         )
       }
@@ -255,7 +256,7 @@ export async function POST(request: Request, {params}: Params) {
     } catch (error) {
       failed += 1
       console.error(
-        `[classify] question ${question.id} could not be classified:`,
+        '[classify] question ' + question.id + ' could not be classified:',
         (error as Error).message,
       )
     }

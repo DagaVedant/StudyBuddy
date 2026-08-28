@@ -14,14 +14,16 @@ export async function GET(
 
   const guard = await guardWorksheet(worksheetId)
   if (!guard.ok) {
-    const message = guard.status === 401 ? 'Unauthorized' : 'Not found'
+    let message = 'Not found'
+    if (guard.status === 401) message = 'Unauthorized'
+
     return new NextResponse(message, {status: guard.status})
   }
 
   const limited = await guardRateLimit(
     db,
     EXPORT_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
     'Too many exports. Try again shortly.',
   )
   if (limited) return limited

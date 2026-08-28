@@ -17,27 +17,57 @@ if (!connectionString) {
   )
 }
 
-const client =
-  globalForDb.__sql ??
-  postgres(connectionString ?? 'postgresql://unset:unset@127.0.0.1:1/unset', {
-    max: Number(process.env.DATABASE_POOL_MAX ?? 5),
+function numberFromEnv(name: string, fallback: number) {
+  const raw = process.env[name]
+  if (!raw) return fallback
+
+  return Number(raw)
+}
+
+let client = globalForDb.__sql
+
+if (!client) {
+  let url = connectionString
+  if (!url) url = 'postgresql://unset:unset@127.0.0.1:1/unset'
+
+  client = postgres(url, {
+    max: numberFromEnv('DATABASE_POOL_MAX', 5),
     prepare: false,
-    idle_timeout: Number(process.env.DATABASE_IDLE_TIMEOUT ?? 30),
-    max_lifetime: Number(process.env.DATABASE_MAX_LIFETIME ?? 60 * 30),
+    idle_timeout: numberFromEnv('DATABASE_IDLE_TIMEOUT', 30),
+    max_lifetime: numberFromEnv('DATABASE_MAX_LIFETIME', 60 * 30),
     connect_timeout: 15,
   })
+}
 
 globalForDb.__sql = client
 
 export const db = drizzle(client, {schema: tables}) as unknown as Db
 export type Db = PgDatabase<PgQueryResultHKT, typeof tables>
 
+function hasUniqueCode(value: unknown) {
+  if (!value || typeof value !== 'object') return false
+
+  const coded = value as { code?: unknown }
+
+  return coded.code === '23505'
+}
+
 export function isUniqueViolation(error: unknown): boolean {
-  const cause = (error as {cause?: unknown} | null)?.cause
-  return [error, cause].some((value) => (value as {code?: unknown} | null)?.code === '23505')
+  if (hasUniqueCode(error)) return true
+
+  if (error && typeof error === 'object') {
+    const wrapped = error as { cause?: unknown }
+    if (hasUniqueCode(wrapped.cause)) return true
+  }
+
+  return false
 }
 
 export function unwrapDriverRows<T>(result: unknown): T[] {
   if (Array.isArray(result)) return result as T[]
-  return (result as {rows?: T[]}).rows ?? []
+
+  const wrapped = result as { rows?: T[] }
+  if (!wrapped || !wrapped.rows) return []
+
+  return wrapped.rows
 }

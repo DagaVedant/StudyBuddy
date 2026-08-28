@@ -7,6 +7,7 @@ import {z} from 'zod'
 import {
   FINAL_PASSES,
   persistQuestions,
+  type RepairPass,
   runExtraction,
   runRepairPasses,
   VERIFYING_PASSES,
@@ -133,46 +134,36 @@ type LessonBody = z.infer<typeof lessonResultSchema>
 type PracticeBody = z.infer<typeof practiceResultSchema>
 type FailBody = z.infer<typeof failSchema>
 
-export async function handleFail(
-  db: Db,
-  jobId: string,
-  job: Job,
-  body: FailBody,
-): Promise<NextResponse> {
-  const {permanent} = await failJob(db, jobId, body.message)
+export async function handleFail(db: Db, jobId: string, job: Job, body: FailBody) {
+  const outcome = await failJob(db, jobId, body.message)
 
-  if (permanent) {
+  if (outcome.permanent) {
     await applyPermanentFailure(db, job)
   }
 
-  return NextResponse.json({ok: true, permanent})
+  return NextResponse.json({ok: true, permanent: outcome.permanent})
 }
 
-export async function handlePhase(
-  db: Db,
-  jobId: string,
-  job: Job,
-  body: PhaseBody,
-): Promise<NextResponse> {
-  await runRepairPasses(db, job.worksheetId, {
-    only: body.phase === 'classifying' ? FINAL_PASSES : VERIFYING_PASSES,
-  })
+export async function handlePhase(db: Db, jobId: string, job: Job, body: PhaseBody) {
+  let passes: readonly RepairPass[] = VERIFYING_PASSES
+  let progress = VERIFYING_AT
 
-  await checkpointJob(
-    db,
-    jobId,
-    body.phase === 'classifying' ? CLASSIFYING_AT : VERIFYING_AT,
-    job.checkpoint ?? {},
-  )
+  if (body.phase === 'classifying') {
+    passes = FINAL_PASSES
+    progress = CLASSIFYING_AT
+  }
+
+  await runRepairPasses(db, job.worksheetId, {only: passes})
+
+  let checkpoint = job.checkpoint
+  if (!checkpoint) checkpoint = {}
+
+  await checkpointJob(db, jobId, progress, checkpoint)
 
   return NextResponse.json({ok: true})
 }
 
-export async function handlePageReview(
-  db: Db,
-  job: Job,
-  body: PageReviewBody,
-): Promise<NextResponse> {
+export async function handlePageReview(db: Db, job: Job, body: PageReviewBody) {
   const [target] = await db
     .select({
       id: worksheetPages.id,
@@ -187,33 +178,44 @@ export async function handlePageReview(
     return NextResponse.json({error: 'Page does not belong to this job'}, {status: 400})
   }
 
-  const doubted = body.replace.length
-    ? await db
-        .select({id: questions.id, printedNumber: questions.printedNumber})
-        .from(questions)
-        .where(
-          and(eq(questions.worksheetId, job.worksheetId), inArray(questions.id, body.replace)),
-        )
-    : []
+  let doubted: {id: string; printedNumber: number | null}[] = []
 
-  const {removable: suspects, held} = await partitionByDeletability(db, doubted)
+  if (body.replace.length > 0) {
+    doubted = await db
+      .select({id: questions.id, printedNumber: questions.printedNumber})
+      .from(questions)
+      .where(
+        and(
+          eq(questions.worksheetId, job.worksheetId),
+          inArray(questions.id, body.replace),
+        ),
+      )
+  }
+
+  const split = await partitionByDeletability(db, doubted)
+  const suspects = split.removable
+  const held = split.held
 
   if (held.length > 0) {
     console.log(
-      `[review] kept ${held.length} doubted question(s) on ${job.worksheetId}: ` +
-        'somebody has already answered them, and damaged beats absent',
+      '[review] kept ' +
+        held.length +
+        ' doubted question(s) on ' +
+        job.worksheetId +
+        ': somebody has already answered them, and damaged beats absent',
     )
   }
 
-  const plan = planPageReplacement(target.ocrText ?? '', body.questions, suspects)
+  let ocrText = ''
+  if (target.ocrText) ocrText = target.ocrText
+
+  const plan = planPageReplacement(ocrText, body.questions, suspects)
 
   if (plan.replace.length > 0) {
-    await db.delete(questions).where(
-      inArray(
-        questions.id,
-        plan.replace.map((row) => row.id),
-      ),
-    )
+    const ids = []
+    for (const row of plan.replace) ids.push(row.id)
+
+    await db.delete(questions).where(inArray(questions.id, ids))
   }
 
   const restored = await persistQuestions(db, job, target.id, plan.replacements)
@@ -227,11 +229,7 @@ export async function handlePageReview(
   })
 }
 
-export async function handleExplanation(
-  db: Db,
-  job: Job,
-  body: ExplanationBody,
-): Promise<NextResponse> {
+export async function handleExplanation(db: Db, job: Job, body: ExplanationBody) {
   const [question] = await db
     .select({id: questions.id})
     .from(questions)
@@ -239,14 +237,23 @@ export async function handleExplanation(
     .limit(1)
 
   if (!question) {
-    return NextResponse.json({error: 'Question does not belong to this job'}, {status: 400})
+    return NextResponse.json(
+      {error: 'Question does not belong to this job'},
+      {status: 400},
+    )
   }
+
+  let attemptId = null
+  if (body.attemptId) attemptId = body.attemptId
+
+  let misconceptionNote = null
+  if (body.misconceptionNote) misconceptionNote = body.misconceptionNote
 
   await db.insert(explanations).values({
     questionId: body.questionId,
-    attemptId: body.attemptId ?? null,
+    attemptId: attemptId,
     bodyMd: body.bodyMd,
-    misconceptionNote: body.misconceptionNote ?? null,
+    misconceptionNote: misconceptionNote,
     provider: null,
     model: body.model,
   })
@@ -254,21 +261,13 @@ export async function handleExplanation(
   return NextResponse.json({ok: true})
 }
 
-export async function handleLesson(
-  db: Db,
-  job: Job,
-  body: LessonBody,
-): Promise<NextResponse> {
+export async function handleLesson(db: Db, job: Job, body: LessonBody) {
   await storeLesson(db, body.topicId, null, body.lesson, body.model)
 
   return NextResponse.json({ok: true})
 }
 
-export async function handlePractice(
-  db: Db,
-  job: Job,
-  body: PracticeBody,
-): Promise<NextResponse> {
+export async function handlePractice(db: Db, job: Job, body: PracticeBody) {
   const outcome = await acceptPractice(
     db,
     {name: 'operator_gpu', answeringModel: body.model},
@@ -284,7 +283,7 @@ export async function handleSolution(
   jobId: string,
   job: Job,
   body: SolutionBody,
-): Promise<NextResponse> {
+) {
   const [question] = await db
     .select({
       id: questions.id,
@@ -296,7 +295,10 @@ export async function handleSolution(
     .limit(1)
 
   if (!question || question.worksheetId !== job.worksheetId) {
-    return NextResponse.json({error: 'Question does not belong to this job'}, {status: 400})
+    return NextResponse.json(
+      {error: 'Question does not belong to this job'},
+      {status: 400},
+    )
   }
 
   const choices = await db
@@ -331,11 +333,7 @@ export async function handleSolution(
   return NextResponse.json({ok: true, promoted})
 }
 
-export async function handleComplete(
-  db: Db,
-  jobId: string,
-  job: Job,
-): Promise<NextResponse> {
+export async function handleComplete(db: Db, jobId: string, job: Job) {
   await completeJob(db, jobId)
 
   if (job.stage === 'lesson' || job.stage === 'practice') {
@@ -371,7 +369,7 @@ export async function handlePageResult(
   jobId: string,
   job: Job,
   body: PageResultBody,
-): Promise<NextResponse> {
+) {
   const [page] = await db
     .select({id: worksheetPages.id, worksheetId: worksheetPages.worksheetId})
     .from(worksheetPages)
@@ -384,44 +382,76 @@ export async function handlePageResult(
 
   const created = await persistQuestions(db, job, page.id, body.questions)
 
-  const previous = (job.checkpoint as {donePages?: number[]} | null)?.donePages ?? []
-  const donePages = [...new Set([...previous, body.pageNumber])].sort((a, b) => a - b)
+  const checkpoint = job.checkpoint as {donePages?: number[]} | null
 
-  await checkpointJob(
-    db,
-    jobId,
-    readingProgress(donePages.length, body.totalPages),
-    {donePages, lastPageNumber: Math.max(...donePages)},
-  )
+  const seen = new Set<number>()
 
-  return NextResponse.json({ok: true, created, duplicates: body.questions.length - created})
+  if (checkpoint && checkpoint.donePages) {
+    for (const pageNumber of checkpoint.donePages) seen.add(pageNumber)
+  }
+
+  seen.add(body.pageNumber)
+
+  const donePages: number[] = []
+  for (const pageNumber of seen) donePages.push(pageNumber)
+
+  donePages.sort(function (a, b) {
+    return a - b
+  })
+
+  let lastPageNumber = donePages[0]
+  for (const pageNumber of donePages) {
+    if (pageNumber > lastPageNumber) lastPageNumber = pageNumber
+  }
+
+  await checkpointJob(db, jobId, readingProgress(donePages.length, body.totalPages), {
+    donePages,
+    lastPageNumber,
+  })
+
+  return NextResponse.json({
+    ok: true,
+    created,
+    duplicates: body.questions.length - created,
+  })
 }
 
-function safeEquals(a: string, b: string): boolean {
+function safeEquals(a: string, b: string) {
   const left = Buffer.from(a)
   const right = Buffer.from(b)
+
   if (left.length !== right.length) return false
+
   return timingSafeEqual(left, right)
 }
 
-export type WorkerAuth =
-  | {ok: true}
-  | {ok: false; status: 401 | 403; message: string}
+export type WorkerAuth = {
+  ok: boolean
+  status: number
+  message: string
+}
 
 export function authenticateWorker(request: Request): WorkerAuth {
   const expected = process.env.WORKER_API_TOKEN
+
   if (!expected) {
     return {ok: false, status: 403, message: 'Worker API is not configured.'}
   }
 
-  const header = request.headers.get('authorization') ?? ''
-  const token = header.startsWith('Bearer ') ? header.slice(7) : ''
+  let header = request.headers.get('authorization')
+  if (!header) header = ''
+
+  let token = ''
+  if (header.startsWith('Bearer ')) token = header.slice(7)
 
   if (!token || !safeEquals(token, expected)) {
     return {ok: false, status: 401, message: 'Bad worker credential.'}
   }
 
-  const configured = (process.env.WORKER_ALLOWED_IPS ?? '').trim()
+  let configured = process.env.WORKER_ALLOWED_IPS
+  if (!configured) configured = ''
+
+  configured = configured.trim()
 
   if (!configured) {
     return {
@@ -433,51 +463,100 @@ export function authenticateWorker(request: Request): WorkerAuth {
   }
 
   if (configured !== '*') {
-    const allowed = configured
-      .split(',')
-      .map((ip) => ip.trim())
-      .filter(Boolean)
+    const allowed: string[] = []
+
+    for (const value of configured.split(',')) {
+      const ip = value.trim()
+      if (ip) allowed.push(ip)
+    }
 
     const ip = clientIp(request.headers)
+
     if (!ip || !allowed.includes(ip)) {
       return {ok: false, status: 403, message: 'Worker credential not valid from here.'}
     }
   }
 
-  return {ok: true}
+  return {ok: true, status: 200, message: ''}
 }
 
 const SOLVE_BATCH = 25
 
-export async function drainServerQueue(db: Db, limit = 1): Promise<void> {
-  for (let i = 0; i < limit; i += 1) {
-    let job
-    try {
-      job = await claimJob(db, 'server')
-    } catch (error) {
-      console.error('[server-job] could not claim:', (error as Error).message)
-      return
+async function handOverClassification(
+  db: Db,
+  job: {worksheetId: string; userId: string},
+) {
+  await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.workerQueued)
+
+  await enqueueJob(db, {
+    worksheetId: job.worksheetId,
+    userId: job.userId,
+    stage: 'classify',
+    executor: 'operator_gpu',
+    priority: 'low',
+  })
+}
+
+async function runSolvingJob(
+  db: Db,
+  provider: AIProvider,
+  job: {id: string; worksheetId: string; userId: string},
+) {
+  try {
+    const progress = await deriveSolutions(db, provider, job.worksheetId, SOLVE_BATCH)
+
+    await completeJob(db, job.id)
+
+    const attempted = progress.solved + progress.refused + progress.failed
+
+    let line =
+      '[server-job] solved ' +
+      progress.solved +
+      ' of ' +
+      attempted +
+      ' on ' +
+      job.worksheetId
+
+    if (progress.promoted > 0) {
+      line = line + ', ' + progress.promoted + ' promoted to the answer'
     }
 
-    if (!job) return
+    if (progress.refused > 0) {
+      line = line + ', ' + progress.refused + ' declined'
+    }
 
-    await runOneServerJob(db, job)
+    console.log(line)
+
+    if (attempted >= SOLVE_BATCH && progress.solved + progress.refused > 0) {
+      await enqueueJob(db, {
+        worksheetId: job.worksheetId,
+        userId: job.userId,
+        stage: 'answer_key',
+        executor: 'server',
+        priority: 'low',
+      })
+    }
+  } catch (error) {
+    const outcome = await failJob(db, job.id, (error as Error).message)
+
+    let where = '[server-job] solving failed on ' + job.worksheetId
+    if (outcome.permanent) where = where + ' (permanently)'
+
+    console.error(where + ':', (error as Error).message)
   }
 }
 
-async function runOneServerJob(db: Db, job: ClaimedJob): Promise<void> {
-  const {provider, executor} = await resolveProvider(db, job.userId)
+async function runOneServerJob(db: Db, job: ClaimedJob) {
+  const resolved = await resolveProvider(db, job.userId)
+  const provider = resolved.provider
 
-  if (executor !== 'server') {
-    await failJob(
-      db,
-      job.id,
-      'No model is configured for this account anymore.',
-      true,
-    )
+  if (resolved.executor !== 'server') {
+    await failJob(db, job.id, 'No model is configured for this account anymore.', true)
+
     await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
       status: 'failed',
     })
+
     return
   }
 
@@ -490,9 +569,10 @@ async function runOneServerJob(db: Db, job: ClaimedJob): Promise<void> {
     await failJob(
       db,
       job.id,
-      `The server runner has no ${job.stage} stage. Nothing should have enqueued this.`,
+      'The server runner has no ' + job.stage + ' stage. Nothing should have enqueued this.',
       true,
     )
+
     return
   }
 
@@ -507,34 +587,37 @@ async function runOneServerJob(db: Db, job: ClaimedJob): Promise<void> {
       .where(eq(worksheets.id, job.worksheetId))
       .limit(1)
 
-    try {
-      const {classified, coarse, failed} = await classifyWorksheet(
-        db,
-        provider,
-        job.worksheetId,
-        worksheet?.subjectHint,
-      )
+    let subjectHint = null
+    if (worksheet) subjectHint = worksheet.subjectHint
 
-      console.log(
-        `[server-job] classified ${classified} question(s) on ${job.worksheetId}` +
-          `${coarse > 0 ? `, ${coarse} raised a topic proposal` : ''}` +
-          `${failed > 0 ? `, ${failed} failed` : ''}`,
-      )
+    try {
+      const counts = await classifyWorksheet(db, provider, job.worksheetId, subjectHint)
+
+      let line =
+        '[server-job] classified ' + counts.classified + ' question(s) on ' + job.worksheetId
+
+      if (counts.coarse > 0) line = line + ', ' + counts.coarse + ' raised a topic proposal'
+      if (counts.failed > 0) line = line + ', ' + counts.failed + ' failed'
+
+      console.log(line)
     } catch (error) {
       if (error instanceof EmbeddingUnavailableError) {
         await handOverClassification(db, job)
 
         console.error(
-          `[server-job] the embedding model will not load on this host: ${error.message}. ` +
-            `Worksheet ${job.worksheetId} is extracted but untagged, and so is every ` +
-            `other one until it loads. Sorting is queued for the operator GPU, and ` +
-            `the student can still do it in their browser.`,
+          '[server-job] the embedding model will not load on this host: ' +
+            error.message +
+            '. Worksheet ' +
+            job.worksheetId +
+            ' is extracted but untagged, and so is every other one until it loads. ' +
+            'Sorting is queued for the operator GPU, and the student can still do it ' +
+            'in their browser.',
         )
       } else {
         await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.classifierFailed)
 
         console.error(
-          `[server-job] classification failed on ${job.worksheetId}:`,
+          '[server-job] classification failed on ' + job.worksheetId + ':',
           (error as Error).message,
         )
       }
@@ -554,8 +637,9 @@ async function runOneServerJob(db: Db, job: ClaimedJob): Promise<void> {
       priority: 'low',
     })
   } catch (error) {
-    const {permanent} = await failJob(db, job.id, (error as Error).message)
-    if (permanent) {
+    const outcome = await failJob(db, job.id, (error as Error).message)
+
+    if (outcome.permanent) {
       await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
         status: 'failed',
       })
@@ -563,55 +647,19 @@ async function runOneServerJob(db: Db, job: ClaimedJob): Promise<void> {
   }
 }
 
-async function handOverClassification(
-  db: Db,
-  job: {worksheetId: string; userId: string},
-): Promise<void> {
-  await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.workerQueued)
+export async function drainServerQueue(db: Db, limit = 1) {
+  for (let i = 0; i < limit; i++) {
+    let job
 
-  await enqueueJob(db, {
-    worksheetId: job.worksheetId,
-    userId: job.userId,
-    stage: 'classify',
-    executor: 'operator_gpu',
-    priority: 'low',
-  })
-}
-
-async function runSolvingJob(
-  db: Db,
-  provider: AIProvider,
-  job: {id: string; worksheetId: string; userId: string},
-): Promise<void> {
-  try {
-    const progress = await deriveSolutions(db, provider, job.worksheetId, SOLVE_BATCH)
-
-    await completeJob(db, job.id)
-
-    const attempted = progress.solved + progress.refused + progress.failed
-
-    console.log(
-      `[server-job] solved ${progress.solved} of ${attempted} on ${job.worksheetId}` +
-        `${progress.promoted > 0 ? `, ${progress.promoted} promoted to the answer` : ''}` +
-        `${progress.refused > 0 ? `, ${progress.refused} declined` : ''}`,
-    )
-
-    if (attempted >= SOLVE_BATCH && progress.solved + progress.refused > 0) {
-      await enqueueJob(db, {
-        worksheetId: job.worksheetId,
-        userId: job.userId,
-        stage: 'answer_key',
-        executor: 'server',
-        priority: 'low',
-      })
+    try {
+      job = await claimJob(db, 'server')
+    } catch (error) {
+      console.error('[server-job] could not claim:', (error as Error).message)
+      return
     }
-  } catch (error) {
-    const {permanent} = await failJob(db, job.id, (error as Error).message)
 
-    console.error(
-      `[server-job] solving failed on ${job.worksheetId}` +
-        `${permanent ? ' (permanently)' : ''}:`,
-      (error as Error).message,
-    )
+    if (!job) return
+
+    await runOneServerJob(db, job)
   }
 }

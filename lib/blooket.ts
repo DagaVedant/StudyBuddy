@@ -17,13 +17,13 @@ const HEADERS = [
   'Answer 4 (Optional)', 'Time Limit (sec)', 'Correct Answer(s)',
 ]
 
-export interface ExportChoice {
+export type ExportChoice = {
   label: string
   text: string
   isCorrect: boolean
 }
 
-export interface ExportQuestion {
+export type ExportQuestion = {
   id: string
   promptText: string
   questionType: string
@@ -31,175 +31,243 @@ export interface ExportQuestion {
   choices: ExportChoice[]
 }
 
-export type SkipReason = 'no-prompt' | 'no-answer'
-
-export interface BlooketCsv {
-  csv: string
-  included: number
-  skipped: {questionId: string; reason: SkipReason}[]
+type ShapedChoice = {
+  label: string
+  text: string
+  isCorrect: boolean
+  correct: boolean
 }
 
-function exportFilename(on: string, title?: string): string {
-  const slug = (title ?? '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .slice(0, 60)
-    .replace(/^-+|-+$/g, '')
-
-  return `studybuddy-missed-${slug ? `${slug}-` : ''}${on}.csv`
-}
-
-interface Row {
+type Row = {
+  skip: string
   prompt: string
   answers: string[]
   correct: number[]
   typed: boolean
 }
 
-function quote(value: string): string {
-  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+function exportFilename(on: string, title?: string) {
+  let slug = ''
+
+  if (title) {
+    slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .slice(0, 60)
+      .replace(/^-+|-+$/g, '')
+  }
+
+  if (slug) return 'studybuddy-missed-' + slug + '-' + on + '.csv'
+  return 'studybuddy-missed-' + on + '.csv'
 }
 
-function line(fields: string[]): string {
-  const padded = fields.slice(0, WIDTH)
+function quote(value: string) {
+  if (!/[",\r\n]/.test(value)) return value
+  return '"' + value.replace(/"/g, '""') + '"'
+}
+
+function line(fields: string[]) {
+  let padded = fields.slice(0, WIDTH)
   while (padded.length < WIDTH) padded.push('')
-  return padded.map(quote).join(',')
+
+  let out = []
+  for (let field of padded) out.push(quote(field))
+
+  return out.join(',')
 }
 
-function cell(text: string): string {
+function cell(text: string) {
   return reflowText(text).replace(/\s+/g, ' ').trim()
 }
 
-function labelKey(value: string): string {
+function labelKey(value: string) {
   return value.trim().replace(/[.):]+$/, '').toLowerCase()
 }
 
-function correctChoices(
-  choices: ExportChoice[],
-  correctAnswer: string | null,
-): Set<ExportChoice> {
-  const flagged = choices.filter((choice) => choice.isCorrect)
-  if (flagged.length > 0) return new Set(flagged)
+function markCorrect(choices: ShapedChoice[], correctAnswer: string | null) {
+  let found = false
 
-  const key = labelKey(correctAnswer ?? '')
-  if (!key) return new Set()
-
-  const byLabel = choices.filter((choice) => labelKey(choice.label) === key)
-  if (byLabel.length > 0) return new Set(byLabel)
-
-  return new Set(choices.filter((choice) => choice.text.toLowerCase() === key))
-}
-
-function trimToFour(
-  choices: ExportChoice[],
-  marked: Set<ExportChoice>,
-): ExportChoice[] {
-  if (choices.length <= MAX_ANSWERS) return choices
-
-  const correct = choices.filter((choice) => marked.has(choice))
-  if (correct.length >= MAX_ANSWERS) return correct.slice(0, MAX_ANSWERS)
-
-  const distractors = choices
-    .filter((choice) => !marked.has(choice))
-    .slice(0, MAX_ANSWERS - correct.length)
-
-  const kept = new Set([...correct, ...distractors])
-  return choices.filter((choice) => kept.has(choice))
-}
-
-function shape(question: ExportQuestion): Row | SkipReason {
-  const prompt = cell(question.promptText)
-  if (!prompt) return 'no-prompt'
-
-  const choices = question.choices
-    .map((choice) => ({...choice, text: cell(choice.text)}))
-    .filter((choice) => choice.text)
-
-  const marked = correctChoices(choices, question.correctAnswer)
-
-  if (choices.length >= 2 && marked.size > 0) {
-    const kept = trimToFour(choices, marked)
-
-    const correct: number[] = []
-    for (const [index, choice] of kept.entries()) {
-      if (marked.has(choice)) correct.push(index + 1)
+  for (let choice of choices) {
+    if (choice.isCorrect) {
+      choice.correct = true
+      found = true
     }
-
-    return {prompt, answers: kept.map((choice) => choice.text), correct, typed: false}
   }
 
-  const answer = cell(question.correctAnswer ?? '')
-  if (!answer) return 'no-answer'
+  if (found) return
+
+  let key = labelKey(correctAnswer || '')
+  if (!key) return
+
+  for (let choice of choices) {
+    if (labelKey(choice.label) === key) {
+      choice.correct = true
+      found = true
+    }
+  }
+
+  if (found) return
+
+  for (let choice of choices) {
+    if (choice.text.toLowerCase() === key) choice.correct = true
+  }
+}
+
+function trimToFour(choices: ShapedChoice[]) {
+  if (choices.length <= MAX_ANSWERS) return choices
+
+  let correct = []
+  for (let choice of choices) {
+    if (choice.correct) correct.push(choice)
+  }
+
+  if (correct.length >= MAX_ANSWERS) return correct.slice(0, MAX_ANSWERS)
+
+  let kept = []
+  for (let choice of correct) kept.push(choice)
+
+  let room = MAX_ANSWERS - correct.length
+  for (let choice of choices) {
+    if (choice.correct) continue
+    if (room === 0) break
+
+    kept.push(choice)
+    room = room - 1
+  }
+
+  let out = []
+  for (let choice of choices) {
+    if (kept.indexOf(choice) >= 0) out.push(choice)
+  }
+
+  return out
+}
+
+function skipRow(reason: string): Row {
+  return {skip: reason, prompt: '', answers: [], correct: [], typed: false}
+}
+
+function shape(question: ExportQuestion): Row {
+  let prompt = cell(question.promptText)
+  if (!prompt) return skipRow('no-prompt')
+
+  let choices: ShapedChoice[] = []
+
+  for (let choice of question.choices) {
+    let text = cell(choice.text)
+    if (!text) continue
+
+    choices.push({
+      label: choice.label,
+      text: text,
+      isCorrect: choice.isCorrect,
+      correct: false,
+    })
+  }
+
+  markCorrect(choices, question.correctAnswer)
+
+  let markedCount = 0
+  for (let choice of choices) {
+    if (choice.correct) markedCount = markedCount + 1
+  }
+
+  if (choices.length >= 2 && markedCount > 0) {
+    let kept = trimToFour(choices)
+
+    let answers = []
+    let correct = []
+
+    for (let i = 0; i < kept.length; i++) {
+      answers.push(kept[i].text)
+      if (kept[i].correct) correct.push(i + 1)
+    }
+
+    return {skip: '', prompt: prompt, answers: answers, correct: correct, typed: false}
+  }
+
+  let answer = cell(question.correctAnswer || '')
+  if (!answer) return skipRow('no-answer')
 
   if (question.questionType === 'true_false') {
     let truth = 0
     if (/^(true|t)$/i.test(answer)) truth = 1
-    else if (/^(false|f)$/i.test(answer)) truth = 2
+    if (/^(false|f)$/i.test(answer)) truth = 2
 
     if (truth > 0) {
-      return {prompt, answers: ['True', 'False'], correct: [truth], typed: false}
+      return {
+        skip: '',
+        prompt: prompt,
+        answers: ['True', 'False'],
+        correct: [truth],
+        typed: false,
+      }
     }
   }
 
-  return {prompt, answers: [answer], correct: [1], typed: true}
+  return {skip: '', prompt: prompt, answers: [answer], correct: [1], typed: true}
 }
 
-function toBlooketCsv(questions: ExportQuestion[]): BlooketCsv {
-  const skipped: BlooketCsv['skipped'] = []
-  const lines = [line(BANNER), line(HEADERS)]
-
+function toBlooketCsv(list: ExportQuestion[]) {
+  let skipped = []
+  let lines = [line(BANNER), line(HEADERS)]
   let included = 0
 
-  for (const question of questions) {
-    const row = shape(question)
+  for (let question of list) {
+    let row = shape(question)
 
-    if (typeof row === 'string') {
-      skipped.push({questionId: question.id, reason: row})
+    if (row.skip) {
+      skipped.push({questionId: question.id, reason: row.skip})
       continue
     }
 
-    included += 1
+    included = included + 1
 
-    const answers = [...row.answers]
+    let answers = []
+    for (let answer of row.answers) answers.push(answer)
     while (answers.length < MAX_ANSWERS) answers.push('')
 
-    lines.push(
-      line([
-        String(included), row.prompt, ...answers, String(TIME_LIMIT), row.correct.join(','),
-        '', row.typed ? 'typing' : '',
-      ]),
-    )
+    let typed = ''
+    if (row.typed) typed = 'typing'
+
+    let fields = [String(included), row.prompt]
+    for (let answer of answers) fields.push(answer)
+    fields.push(String(TIME_LIMIT))
+    fields.push(row.correct.join(','))
+    fields.push('')
+    fields.push(typed)
+
+    lines.push(line(fields))
   }
 
-  return {csv: `﻿${lines.join('\r\n')}\r\n`, included, skipped}
+  return {csv: '\ufeff' + lines.join('\r\n') + '\r\n', included: included, skipped: skipped}
 }
 
-export function blooketDownload(
-  missed: ExportQuestion[],
-  title?: string,
-): NextResponse {
-  const {csv, included, skipped} = toBlooketCsv(missed)
+export function blooketDownload(missed: ExportQuestion[], title?: string) {
+  let result = toBlooketCsv(missed)
 
-  if (included === 0) {
-    return new NextResponse(
-      skipped.length > 0
-        ? 'None of the questions you missed have an answer key, so there is nothing Blooket could score.'
-        : 'Nothing to export yet.',
-      {status: 404},
-    )
+  if (result.included === 0) {
+    let body = 'Nothing to export yet.'
+
+    if (result.skipped.length > 0) {
+      body =
+        'None of the questions you missed have an answer key, so there is nothing Blooket could score.'
+    }
+
+    return new NextResponse(body, {status: 404})
   }
 
-  return new NextResponse(csv, {
+  let on = new Date().toISOString().slice(0, 10)
+  let filename = exportFilename(on, title)
+
+  return new NextResponse(result.csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="${exportFilename(
-        new Date().toISOString().slice(0, 10),
-        title,
-      )}"`,
+      'Content-Disposition': 'attachment; filename="' + filename + '"',
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
-      'X-Export-Included': String(included),
-      'X-Export-Skipped': String(skipped.length),
+      'X-Export-Included': String(result.included),
+      'X-Export-Skipped': String(result.skipped.length),
     },
   })
 }
@@ -216,24 +284,28 @@ function everMissed(userId: string) {
 }
 
 function missedBy(userId: string, worksheetId?: string) {
+  let sameWorksheet = undefined
+  if (worksheetId) sameWorksheet = eq(questions.worksheetId, worksheetId)
+
   return and(
     eq(questions.userId, userId),
     eq(questions.origin, 'extracted'),
-    worksheetId ? eq(questions.worksheetId, worksheetId) : undefined,
+    sameWorksheet,
     everMissed(userId),
   )
 }
 
-export interface MissedFilter {
+export type MissedFilter = {
   worksheetId?: string
   limit?: number
 }
 
-export async function getMissedQuestions(
-  db: Db,
-  userId: string,
-  {worksheetId, limit = EXPORT_LIMIT}: MissedFilter = {},
-): Promise<ExportQuestion[]> {
+export async function getMissedQuestions(db: Db, userId: string, filter: MissedFilter = {}) {
+  let worksheetId = filter.worksheetId
+
+  let limit = EXPORT_LIMIT
+  if (filter.limit !== undefined) limit = filter.limit
+
   const rows = await db
     .select({
       id: questions.id,
@@ -249,6 +321,9 @@ export async function getMissedQuestions(
 
   if (rows.length === 0) return []
 
+  let ids = []
+  for (let row of rows) ids.push(row.id)
+
   const choices = await db
     .select({
       questionId: answerChoices.questionId,
@@ -257,36 +332,41 @@ export async function getMissedQuestions(
       isCorrect: answerChoices.isCorrect,
     })
     .from(answerChoices)
-    .where(
-      inArray(
-        answerChoices.questionId,
-        rows.map((row) => row.id),
-      ),
-    )
+    .where(inArray(answerChoices.questionId, ids))
     .orderBy(...CHOICE_ORDER)
 
-  const choicesFor = new Map<string, ExportQuestion['choices']>()
-  for (const choice of choices) {
-    const list = choicesFor.get(choice.questionId)
-    const entry = {label: choice.label, text: choice.text, isCorrect: choice.isCorrect}
-    if (list) list.push(entry)
-    else choicesFor.set(choice.questionId, [entry])
+  let choicesFor = new Map<string, ExportChoice[]>()
+
+  for (let choice of choices) {
+    let entry = {label: choice.label, text: choice.text, isCorrect: choice.isCorrect}
+    let list = choicesFor.get(choice.questionId)
+
+    if (list) {
+      list.push(entry)
+    } else {
+      choicesFor.set(choice.questionId, [entry])
+    }
   }
 
-  return rows.map((row) => ({
-    id: row.id,
-    promptText: row.promptText,
-    questionType: row.questionType,
-    correctAnswer: row.correctAnswer,
-    choices: choicesFor.get(row.id) ?? [],
-  }))
+  let out: ExportQuestion[] = []
+
+  for (let row of rows) {
+    let list = choicesFor.get(row.id)
+    if (!list) list = []
+
+    out.push({
+      id: row.id,
+      promptText: row.promptText,
+      questionType: row.questionType,
+      correctAnswer: row.correctAnswer,
+      choices: list,
+    })
+  }
+
+  return out
 }
 
-export async function countExportableQuestions(
-  db: Db,
-  userId: string,
-  worksheetId?: string,
-): Promise<number> {
+export async function countExportableQuestions(db: Db, userId: string, worksheetId?: string) {
   const [row] = await db
     .select({value: sql<number>`count(*)::int`})
     .from(questions)

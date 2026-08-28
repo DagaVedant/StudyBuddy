@@ -1,15 +1,19 @@
 import {type StudyDay} from '@/lib/dashboard'
 
-const DAY_MS = 86_400_000
-
-function bestRun(days: StudyDay[]): number {
+function bestRun(days: StudyDay[]) {
   let best = 0
   let run = 0
   let previous: number | null = null
 
-  for (const day of days) {
-    const at = Date.parse(`${day.day}T00:00:00Z`)
-    run = previous !== null && at - previous === DAY_MS ? run + 1 : 1
+  for (let day of days) {
+    let at = Date.parse(day.day + 'T00:00:00Z')
+
+    if (previous !== null && at - previous === 86400000) {
+      run = run + 1
+    } else {
+      run = 1
+    }
+
     if (run > best) best = run
     previous = at
   }
@@ -26,9 +30,22 @@ export function StudyCalendar({
   streak: number
   weeks: number
 }) {
-  const studied = days.filter((day) => day.total > 0).length
-  const answered = days.reduce((sum, day) => sum + day.total, 0)
-  const span = weeks * 7
+  let studied = 0
+  let answered = 0
+
+  for (let day of days) {
+    if (day.total > 0) studied = studied + 1
+    answered = answered + day.total
+  }
+
+  let span = weeks * 7
+  let longest = bestRun(days)
+
+  let streakWord = 'days'
+  if (streak === 1) streakWord = 'day'
+
+  let longestWord = 'days'
+  if (longest === 1) longestWord = 'day'
 
   return (
     <dl className="text-sm">
@@ -45,13 +62,13 @@ export function StudyCalendar({
       <div>
         <dt className="inline text-muted">Current streak: </dt>
         <dd className="inline tabular-nums">
-          {streak} {streak === 1 ? 'day' : 'days'}
+          {streak} {streakWord}
         </dd>
       </div>
       <div>
         <dt className="inline text-muted">Longest streak: </dt>
         <dd className="inline tabular-nums">
-          {bestRun(days)} {bestRun(days) === 1 ? 'day' : 'days'}
+          {longest} {longestWord}
         </dd>
       </div>
     </dl>

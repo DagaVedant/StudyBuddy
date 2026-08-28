@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
 const WORKSHEETS_SHOWN = 50
 
 function likeLiteral(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`)
+  return value.replace(/[\\%_]/g, (char) => '\\' + char)
 }
 
 const WHEN = new Intl.DateTimeFormat(undefined, {
@@ -47,22 +47,34 @@ export default async function WorksheetsPage({
   searchParams: Promise<{q?: string | string[]; before?: string | string[]}>
 }) {
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const params = await searchParams
-  const first = (value: string | string[] | undefined) =>
-    Array.isArray(value) ? value[0] : value
 
-  const query = (first(params.q) ?? '').trim().slice(0, 100)
+  function first(value: string | string[] | undefined) {
+    if (Array.isArray(value)) return value[0]
+
+    return value
+  }
+
+  let query = first(params.q)
+  if (!query) query = ''
+  query = query.trim().slice(0, 100)
 
   const beforeRaw = first(params.before)
-  const before = beforeRaw ? new Date(beforeRaw) : null
-  const cursor = before && !Number.isNaN(before.getTime()) ? before : null
+
+  let cursor: Date | null = null
+
+  if (beforeRaw) {
+    const before = new Date(beforeRaw)
+    if (!Number.isNaN(before.getTime())) cursor = before
+  }
 
   const filters = [
     eq(worksheets.userId, session.user.id), eq(worksheets.origin, 'extracted'),
   ]
-  if (query) filters.push(ilike(worksheets.title, `%${likeLiteral(query)}%`))
+
+  if (query) filters.push(ilike(worksheets.title, '%' + likeLiteral(query) + '%'))
   if (cursor) filters.push(lt(worksheets.createdAt, cursor))
 
   const rows = await db
@@ -97,25 +109,39 @@ export default async function WorksheetsPage({
   const hasOlder = rows.length > WORKSHEETS_SHOWN
   if (hasOlder) rows.pop()
 
-  const olderThan = rows.at(-1)?.createdAt
+  let olderThan = null
+  if (rows.length > 0) olderThan = rows[rows.length - 1].createdAt
 
-  const thumbnails = rows.length
-    ? await db
-        .select({
-          worksheetId: worksheetPages.worksheetId,
-          imageKey: sql<string>`min(${worksheetPages.imageKey})`,
-        })
-        .from(worksheetPages)
-        .where(
-          inArray(
-            worksheetPages.worksheetId,
-            rows.map((row) => row.id),
-          ),
-        )
-        .groupBy(worksheetPages.worksheetId)
-    : []
+  const thumbnailFor = new Map<string, string>()
 
-  const thumbnailFor = new Map(thumbnails.map((row) => [row.worksheetId, row.imageKey]))
+  if (rows.length > 0) {
+    const ids = []
+    for (const row of rows) ids.push(row.id)
+
+    const thumbnails = await db
+      .select({
+        worksheetId: worksheetPages.worksheetId,
+        imageKey: sql<string>`min(${worksheetPages.imageKey})`,
+      })
+      .from(worksheetPages)
+      .where(inArray(worksheetPages.worksheetId, ids))
+      .groupBy(worksheetPages.worksheetId)
+
+    for (const row of thumbnails) thumbnailFor.set(row.worksheetId, row.imageKey)
+  }
+
+  let newestHref = '/worksheets'
+  if (query) newestHref = '/worksheets?q=' + encodeURIComponent(query)
+
+  let olderHref = '/worksheets'
+
+  if (olderThan) {
+    const search = new URLSearchParams()
+    if (query) search.set('q', query)
+    search.set('before', olderThan.toISOString())
+
+    olderHref = '/worksheets?' + search.toString()
+  }
 
   let emptyMessage: React.ReactNode = null
   if (rows.length === 0) {
@@ -182,7 +208,17 @@ export default async function WorksheetsPage({
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((sheet) => {
-            const {href, cta} = destination(sheet.id, sheet)
+            const target = destination(sheet.id, sheet)
+            const href = target.href
+            const cta = target.cta
+
+            const thumbnail = thumbnailFor.get(sheet.id)
+
+            let statusStyle = STATUS_STYLE[sheet.status]
+            if (!statusStyle) statusStyle = 'text-muted'
+
+            let statusLabel = STATUS_LABEL[sheet.status]
+            if (!statusLabel) statusLabel = sheet.status
 
             return (
               <li
@@ -194,17 +230,18 @@ export default async function WorksheetsPage({
                   className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <div className="aspect-4/3 overflow-hidden bg-bg">
-                    {thumbnailFor.get(sheet.id) ? (
+                    {thumbnail && (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={`/api/files/${thumbnailFor.get(sheet.id)}`}
-                        alt={`First page of ${sheet.title}`}
+                        src={'/api/files/' + thumbnail}
+                        alt={'First page of ' + sheet.title}
                         loading="lazy"
                         width={400}
                         height={300}
                         className="size-full object-cover object-top"
                       />
-                    ) : (
+                    )}
+                    {!thumbnail && (
                       <div className="grid size-full place-items-center text-sm text-muted">
                         No pages
                       </div>
@@ -247,7 +284,7 @@ export default async function WorksheetsPage({
 
                   {sheet.missedCount > 0 && (
                     <a
-                      href={`/api/export/blooket/${sheet.id}`}
+                      href={'/api/export/blooket/' + sheet.id}
                       download
                       className="mt-2 self-start text-sm text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     >
@@ -256,10 +293,8 @@ export default async function WorksheetsPage({
                   )}
 
                   <div className="mt-3 flex items-center justify-between gap-2 pt-3">
-                    <span
-                      className={`text-xs font-medium ${STATUS_STYLE[sheet.status] ?? 'text-muted'}`}
-                    >
-                      {STATUS_LABEL[sheet.status] ?? sheet.status}
+                    <span className={'text-xs font-medium ' + statusStyle}>
+                      {statusLabel}
                     </span>
                     <div className="flex items-center gap-3">
                       <Link
@@ -283,25 +318,16 @@ export default async function WorksheetsPage({
           aria-label="More worksheets"
           className="mt-6 flex flex-wrap items-center justify-between gap-3"
         >
-          {cursor ? (
-            <Link
-              href={query ? `/worksheets?q=${encodeURIComponent(query)}` : '/worksheets'}
-              className="btn btn-secondary sm:w-auto sm:px-4"
-            >
+          {cursor && (
+            <Link href={newestHref} className="btn btn-secondary sm:w-auto sm:px-4">
               Back to the newest
             </Link>
-          ) : (
-            <span />
           )}
 
+          {!cursor && <span />}
+
           {hasOlder && olderThan && (
-            <Link
-              href={`/worksheets?${new URLSearchParams({
-                ...(query ? {q: query} : {}),
-                before: olderThan.toISOString(),
-              })}`}
-              className="btn btn-secondary sm:w-auto sm:px-4"
-            >
+            <Link href={olderHref} className="btn btn-secondary sm:w-auto sm:px-4">
               Show older
             </Link>
           )}

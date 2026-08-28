@@ -34,17 +34,19 @@ import {
   type PageInput,
   parseModelJson,
   type PracticeInput,
+  type ProviderName,
   type RawAIProvider,
   type RawQuestionReviewer,
   type ReviewCandidate,
   type TopicCandidate,
 } from './types'
 
-function toBase64(bytes: Uint8Array): string {
+function toBase64(bytes: Uint8Array) {
   if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')
 
   const CHUNK = 0x8000
   let binary = ''
+
   for (let index = 0; index < bytes.length; index += CHUNK) {
     binary += String.fromCharCode(...bytes.subarray(index, index + CHUNK))
   }
@@ -52,7 +54,7 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-export interface OllamaCallStats {
+export type OllamaCallStats = {
   model: string
   promptTokens: number
   evalTokens: number
@@ -64,16 +66,16 @@ export interface OllamaCallStats {
 
 class EmptyReplyError extends Error {
   constructor(model: string) {
-    super(`${model} returned an empty response.`)
+    super(model + ' returned an empty response.')
     this.name = 'EmptyReplyError'
   }
 }
 
-const ANSWER_CONTEXT_TOKENS = 8_192
-const LESSON_CONTEXT_TOKENS = 12_288
-const TAGS_TIMEOUT_MS = 10_000
+const ANSWER_CONTEXT_TOKENS = 8192
+const LESSON_CONTEXT_TOKENS = 12288
+const TAGS_TIMEOUT_MS = 10000
 
-export interface OllamaOptions {
+export type OllamaOptions = {
   baseUrl: string
   visionModel: string
   textModel: string
@@ -89,8 +91,24 @@ export interface OllamaOptions {
   onStats?: (stats: OllamaCallStats) => void
 }
 
+type OllamaReply = {
+  message?: {content?: string}
+  prompt_eval_count?: number
+  eval_count?: number
+  prompt_eval_duration?: number
+  eval_duration?: number
+  total_duration?: number
+  load_duration?: number
+}
+
+function nsOrZero(value: number | undefined) {
+  if (!value) return 0
+
+  return value
+}
+
 export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
-  readonly name = 'ollama' as const
+  readonly name: ProviderName = 'ollama'
   readonly supportsVision = true
   readonly executionSite: ExecutionSite
   readonly model: string
@@ -109,45 +127,34 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   constructor(options: OllamaOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '')
     this.model = options.textModel
-    this.answeringModel = options.answerModel ?? options.textModel
     this.visionModel = options.visionModel
-    this.reviewModel = options.reviewModel ?? options.textModel
-    this.executionSite = options.executionSite ?? 'browser'
-    this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis)
-    this.timeoutMs = options.timeoutMs ?? 10 * 60_000
-    this.contextTokens = options.contextTokens ?? 24_576
-    this.maxOutputTokens = options.maxOutputTokens ?? 8_192
-    this.maxAttempts = Math.max(1, options.maxAttempts ?? 3)
+
+    this.answeringModel = options.textModel
+    if (options.answerModel) this.answeringModel = options.answerModel
+
+    this.reviewModel = options.textModel
+    if (options.reviewModel) this.reviewModel = options.reviewModel
+
+    this.executionSite = 'browser'
+    if (options.executionSite) this.executionSite = options.executionSite
+
+    this.fetchImpl = globalThis.fetch.bind(globalThis)
+    if (options.fetchImpl) this.fetchImpl = options.fetchImpl
+
+    this.timeoutMs = 10 * 60000
+    if (options.timeoutMs) this.timeoutMs = options.timeoutMs
+
+    this.contextTokens = 24576
+    if (options.contextTokens) this.contextTokens = options.contextTokens
+
+    this.maxOutputTokens = 8192
+    if (options.maxOutputTokens) this.maxOutputTokens = options.maxOutputTokens
+
+    this.maxAttempts = 3
+    if (options.maxAttempts) this.maxAttempts = options.maxAttempts
+    if (this.maxAttempts < 1) this.maxAttempts = 1
+
     this.onStats = options.onStats
-  }
-
-  private async chat(
-    model: string,
-    system: string,
-    userText: string,
-    images: string[] | undefined,
-    schema: Record<string, unknown>,
-    contextTokens = this.contextTokens,
-  ): Promise<unknown> {
-    for (let attempt = 1; ; attempt += 1) {
-      try {
-        return await this.chatOnce(
-          model,
-          system,
-          userText,
-          images,
-          schema,
-          attempt,
-          contextTokens,
-        )
-      } catch (error) {
-        if (!(error instanceof EmptyReplyError) || attempt >= this.maxAttempts) throw error
-
-        console.warn(
-          `[ollama] ${model} generated nothing on attempt ${attempt}, asking again`,
-        )
-      }
-    }
   }
 
   private async chatOnce(
@@ -163,7 +170,17 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     const timer = setTimeout(() => controller.abort(), this.timeoutMs)
 
     try {
-      const response = await this.fetchImpl(`${this.baseUrl}/api/chat`, {
+      let temperature = 0
+      if (attempt > 1) temperature = 0.2 * (attempt - 1)
+
+      let userMessage
+      if (images && images.length > 0) {
+        userMessage = {role: 'user', content: userText, images}
+      } else {
+        userMessage = {role: 'user', content: userText}
+      }
+
+      const response = await this.fetchImpl(this.baseUrl + '/api/chat', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         signal: controller.signal,
@@ -172,75 +189,107 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
           stream: false,
           format: schema,
           options: {
-            temperature: attempt === 1 ? 0 : 0.2 * (attempt - 1),
+            temperature: temperature,
             num_ctx: contextTokens,
             num_predict: this.maxOutputTokens,
           },
-          messages: [
-            {role: 'system', content: system},
-            images?.length
-              ? {role: 'user', content: userText, images}
-              : {role: 'user', content: userText},
-          ],
+          messages: [{role: 'system', content: system}, userMessage],
         }),
       })
 
       if (!response.ok) {
         throw new Error(
-          `Ollama responded ${response.status}. Is it running, and is ${model} pulled?`,
+          'Ollama responded ' +
+            response.status +
+            '. Is it running, and is ' +
+            model +
+            ' pulled?',
         )
       }
 
-      const body = (await response.json()) as {
-        message?: {content?: string}
-        prompt_eval_count?: number
-        eval_count?: number
-        prompt_eval_duration?: number
-        eval_duration?: number
-        total_duration?: number
-        load_duration?: number
+      const body = (await response.json()) as OllamaReply
+
+      if (this.onStats) {
+        this.onStats({
+          model,
+          promptTokens: nsOrZero(body.prompt_eval_count),
+          evalTokens: nsOrZero(body.eval_count),
+          promptDurationNs: nsOrZero(body.prompt_eval_duration),
+          evalDurationNs: nsOrZero(body.eval_duration),
+          totalDurationNs: nsOrZero(body.total_duration),
+          loadDurationNs: nsOrZero(body.load_duration),
+        })
       }
 
-      this.onStats?.({
-        model,
-        promptTokens: body.prompt_eval_count ?? 0,
-        evalTokens: body.eval_count ?? 0,
-        promptDurationNs: body.prompt_eval_duration ?? 0,
-        evalDurationNs: body.eval_duration ?? 0,
-        totalDurationNs: body.total_duration ?? 0,
-        loadDurationNs: body.load_duration ?? 0,
-      })
+      let content = ''
+      if (body.message && body.message.content) content = body.message.content
 
-      const content = body.message?.content
-      if (!content?.trim()) throw new EmptyReplyError(model)
+      if (!content.trim()) throw new EmptyReplyError(model)
 
-      const {value, truncated} = parseModelJson(content)
-      if (truncated) {
+      const parsed = parseModelJson(content)
+
+      if (parsed.truncated) {
         console.warn(
-          `[ollama] reply truncated at ${content.length} chars; salvaged the complete entries`,
+          '[ollama] reply truncated at ' +
+            content.length +
+            ' chars; salvaged the complete entries',
         )
       }
 
-      return value
+      return parsed.value
     } finally {
       clearTimeout(timer)
     }
   }
 
+  private async chat(
+    model: string,
+    system: string,
+    userText: string,
+    images: string[] | undefined,
+    schema: Record<string, unknown>,
+    contextTokens = this.contextTokens,
+  ): Promise<unknown> {
+    let attempt = 1
+
+    while (true) {
+      try {
+        return await this.chatOnce(
+          model,
+          system,
+          userText,
+          images,
+          schema,
+          attempt,
+          contextTokens,
+        )
+      } catch (error) {
+        if (!(error instanceof EmptyReplyError)) throw error
+        if (attempt >= this.maxAttempts) throw error
+
+        console.warn(
+          '[ollama] ' + model + ' generated nothing on attempt ' + attempt + ', asking again',
+        )
+
+        attempt = attempt + 1
+      }
+    }
+  }
+
   async extractQuestions(page: PageInput): Promise<unknown> {
+    let expect: number[] = []
+    if (page.expect) expect = page.expect
+
     return this.chat(
       this.visionModel,
       EXTRACTION_SYSTEM,
-      extractionUserText(page, page.expect ?? []),
+      extractionUserText(page, expect),
       [toBase64(page.image)],
       EXTRACTION_JSON_SCHEMA,
     )
   }
 
-  async classifyTopic(
-    promptText: string,
-    candidates: TopicCandidate[],
-  ): Promise<unknown> {
+  async classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown> {
     return this.chat(
       this.model,
       CLASSIFY_SYSTEM,
@@ -253,13 +302,24 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
   async answerQuestion(input: AnswerInput): Promise<unknown> {
     const image = input.image
 
+    if (!image) {
+      return this.chat(
+        this.answeringModel,
+        ANSWER_SYSTEM,
+        answerUserText(input),
+        undefined,
+        ANSWER_JSON_SCHEMA,
+        ANSWER_CONTEXT_TOKENS,
+      )
+    }
+
     return this.chat(
-      image ? this.visionModel : this.answeringModel,
+      this.visionModel,
       ANSWER_SYSTEM,
       answerUserText(input),
-      image ? [toBase64(image)] : undefined,
+      [toBase64(image)],
       ANSWER_JSON_SCHEMA,
-      image ? this.contextTokens : ANSWER_CONTEXT_TOKENS,
+      this.contextTokens,
     )
   }
 
@@ -307,19 +367,27 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     )
   }
 
-  async listModels(): Promise<string[]> {
-    const response = await this.fetchImpl(`${this.baseUrl}/api/tags`, {
+  async listModels() {
+    const response = await this.fetchImpl(this.baseUrl + '/api/tags', {
       signal: AbortSignal.timeout(TAGS_TIMEOUT_MS),
     })
-    if (!response.ok) throw new Error(`Ollama responded ${response.status}`)
+
+    if (!response.ok) throw new Error('Ollama responded ' + response.status)
+
     const body = (await response.json()) as {models?: {name: string}[]}
-    return (body.models ?? []).map((model) => model.name)
+
+    const names: string[] = []
+    if (body.models) {
+      for (const model of body.models) names.push(model.name)
+    }
+
+    return names
   }
 }
 
 const OLLAMA_FALLBACK_MODEL = 'qwen2.5vl:7b'
 
-export interface OllamaConfig {
+export type OllamaConfig = {
   baseUrl: string
   visionModel: string
   textModel: string
@@ -341,11 +409,13 @@ export async function ollamaConfig(
     )
     .limit(1)
 
-  if (!credential?.baseUrl) return null
+  if (!credential || !credential.baseUrl) return null
 
-  return {
-    baseUrl: credential.baseUrl,
-    visionModel: credential.visionModel ?? OLLAMA_FALLBACK_MODEL,
-    textModel: credential.textModel ?? OLLAMA_FALLBACK_MODEL,
-  }
+  let visionModel = OLLAMA_FALLBACK_MODEL
+  if (credential.visionModel) visionModel = credential.visionModel
+
+  let textModel = OLLAMA_FALLBACK_MODEL
+  if (credential.textModel) textModel = credential.textModel
+
+  return {baseUrl: credential.baseUrl, visionModel, textModel}
 }

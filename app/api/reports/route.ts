@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server'
 import {z} from 'zod'
 
 import {auth} from '@/auth'
-import {guardRateLimit, REPORT_LIMIT} from '@/lib/api'
+import {guardRateLimit, readJson, REPORT_LIMIT} from '@/lib/api'
 import {db} from '@/lib/db'
 import {recordReport} from '@/lib/mail'
 
@@ -21,29 +21,32 @@ const schema = z.discriminatedUnion('kind', [
 
 export async function POST(request: Request) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
   const limited = await guardRateLimit(
     db,
     REPORT_LIMIT,
-    `user:${session.user.id}`,
+    'user:' + session.user.id,
     "That's a lot of reports at once. Try again shortly.",
   )
   if (limited) return limited
 
-  const parsed = schema.safeParse(await request.json().catch(() => ({})))
+  const parsed = schema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
 
   const outcome = await recordReport(db, session.user.id, parsed.data)
+
   if (!outcome.ok) {
-    const error =
-      outcome.reason === 'nothing_to_report'
-        ? 'There is no explanation on that question yet.'
-        : 'Not found'
+    let error = 'Not found'
+
+    if (outcome.reason === 'nothing_to_report') {
+      error = 'There is no explanation on that question yet.'
+    }
+
     return NextResponse.json({error}, {status: 404})
   }
 

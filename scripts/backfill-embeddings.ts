@@ -26,16 +26,19 @@ async function backfillTopics(db: Db): Promise<number> {
     return 0
   }
 
-  console.log(`Topics: embedding ${pending.length}...`)
+  console.log('Topics: embedding ' + pending.length + '...')
 
   let done = 0
   for (const topic of pending) {
-    const vector = await embed(pathBySlug.get(topic.slug) ?? topic.name)
+    let text = pathBySlug.get(topic.slug)
+    if (!text) text = topic.name
+
+    const vector = await embed(text)
 
     await db.update(topics).set({embedding: vector}).where(eq(topics.id, topic.id))
 
     done += 1
-    if (done % REPORT_EVERY === 0) console.log(`  ${done}/${pending.length}`)
+    if (done % REPORT_EVERY === 0) console.log('  ' + done + '/' + pending.length)
   }
 
   return done
@@ -52,7 +55,7 @@ async function backfillQuestions(db: Db): Promise<number> {
     return 0
   }
 
-  console.log(`Questions: embedding ${pending.length}...`)
+  console.log('Questions: embedding ' + pending.length + '...')
 
   let done = 0
   let skipped = 0
@@ -60,7 +63,12 @@ async function backfillQuestions(db: Db): Promise<number> {
   for (const question of pending) {
     const vector = await embed(question.promptText)
 
-    if (vector.every((value) => value === 0)) {
+    let allZero = true
+    for (const value of vector) {
+      if (value !== 0) allZero = false
+    }
+
+    if (allZero) {
       skipped += 1
       continue
     }
@@ -71,10 +79,10 @@ async function backfillQuestions(db: Db): Promise<number> {
       .where(eq(questions.id, question.id))
 
     done += 1
-    if (done % REPORT_EVERY === 0) console.log(`  ${done}/${pending.length}`)
+    if (done % REPORT_EVERY === 0) console.log('  ' + done + '/' + pending.length)
   }
 
-  if (skipped > 0) console.log(`  ${skipped} left NULL: nothing to embed in the prompt.`)
+  if (skipped > 0) console.log('  ' + skipped + ' left NULL: nothing to embed in the prompt.')
 
   return done
 }
@@ -85,7 +93,7 @@ async function main() {
 
   const only = process.argv[2]
   if (only && only !== '--topics' && only !== '--questions') {
-    throw new Error(`Unknown argument ${only}. Use --topics or --questions, or neither.`)
+    throw new Error('Unknown argument ' + only + '. Use --topics or --questions, or neither.')
   }
 
   const sql = connect(url)
@@ -97,7 +105,7 @@ async function main() {
     const topicCount = only === '--questions' ? 0 : await backfillTopics(db)
     const questionCount = only === '--topics' ? 0 : await backfillQuestions(db)
 
-    console.log(`Done. ${topicCount} topics and ${questionCount} questions embedded.`)
+    console.log('Done. ' + topicCount + ' topics and ' + questionCount + ' questions embedded.')
   } finally {
     await sql.end()
   }

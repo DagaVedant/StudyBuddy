@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server'
 import {z} from 'zod'
-import {ACCOUNT_LIMIT, guardRateLimit} from '@/lib/api'
+import {ACCOUNT_LIMIT, guardRateLimit, readJson} from '@/lib/api'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
 import {saveIdentity} from '@/lib/auth/identity'
@@ -12,11 +12,11 @@ const bodySchema = z.object({
 
 export async function PATCH(request: Request) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null))
+  const parsed = bodySchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -24,7 +24,7 @@ export async function PATCH(request: Request) {
   const limited = await guardRateLimit(
     db,
     ACCOUNT_LIMIT,
-    `user:${session.user.id}`,
+    'user:' + session.user.id,
     'Too many changes to this account. Try again shortly.',
   )
   if (limited) return limited

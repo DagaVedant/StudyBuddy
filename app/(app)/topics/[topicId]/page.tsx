@@ -26,13 +26,14 @@ export default async function TopicPage({
   const {topicId} = await params
 
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
   const userId = session.user.id
 
   const [topic] = await db.select().from(topics).where(eq(topics.id, topicId)).limit(1)
   if (!topic) notFound()
 
-  const path = pathBySlug().get(topic.slug) ?? topic.name
+  let path = pathBySlug().get(topic.slug)
+  if (!path) path = topic.name
   const lesson = await getLesson(db, topicId, userId)
   const generated = await countGenerated(db, userId, topicId)
 
@@ -88,21 +89,46 @@ export default async function TopicPage({
     .orderBy(desc(attempts.createdAt))
     .limit(50)
 
-  const choiceRows = vault.some((row) => row.selectedChoiceId)
-    ? await db
-        .select({
-          id: answerChoices.id,
-          label: answerChoices.label,
-          text: answerChoices.text,
-          isCorrect: answerChoices.isCorrect,
-          questionId: answerChoices.questionId,
-        })
-        .from(answerChoices)
-        .innerJoin(questions, eq(questions.id, answerChoices.questionId))
-        .innerJoin(questionTopics, eq(questionTopics.questionId, questions.id))
-        .where(eq(questionTopics.topicId, topicId))
-        .orderBy(...CHOICE_ORDER)
-    : []
+  let anyChosen = false
+  for (const row of vault) {
+    if (row.selectedChoiceId) anyChosen = true
+  }
+
+  let choiceRows: {
+    id: string
+    label: string
+    text: string
+    isCorrect: boolean
+    questionId: string
+  }[] = []
+
+  if (anyChosen) {
+    choiceRows = await db
+      .select({
+        id: answerChoices.id,
+        label: answerChoices.label,
+        text: answerChoices.text,
+        isCorrect: answerChoices.isCorrect,
+        questionId: answerChoices.questionId,
+      })
+      .from(answerChoices)
+      .innerJoin(questions, eq(questions.id, answerChoices.questionId))
+      .innerJoin(questionTopics, eq(questionTopics.questionId, questions.id))
+      .where(eq(questionTopics.topicId, topicId))
+      .orderBy(...CHOICE_ORDER)
+  }
+
+  let lessonModel = 'a model'
+  if (lesson && lesson.model) lessonModel = lesson.model
+
+  let practiceLine =
+    'Every question above came off a paper you uploaded. This writes new ones on the same topic so there is something to practise on once you have worked through your own.'
+
+  if (generated > 0) {
+    practiceLine =
+      generated +
+      ' written for you so far. They sit in your review queue alongside the questions you missed, and they are kept out of your accuracy, because a model wrote the answer key.'
+  }
 
   return (
     <main className="w-full px-4 py-8 sm:px-6">
@@ -223,8 +249,8 @@ export default async function TopicPage({
           )}
 
           <p className="hint mt-6 text-pretty">
-            Written by {lesson.model ?? 'a model'}, not by a teacher. Each question
-            below says which paper it came from.
+            Written by {lessonModel}, not by a teacher. Each question below says which
+            paper it came from.
           </p>
         </section>
       )}
@@ -233,11 +259,7 @@ export default async function TopicPage({
         <h2 id="practice-heading" className="text-sm font-medium">
           Practice questions
         </h2>
-        <p className="hint mt-1 text-pretty">
-          {generated === 0
-            ? 'Every question above came off a paper you uploaded. This writes new ones on the same topic so there is something to practise on once you have worked through your own.'
-            : `${generated} written for you so far. They sit in your review queue alongside the questions you missed, and they are kept out of your accuracy, because a model wrote the answer key.`}
-        </p>
+        <p className="hint mt-1 text-pretty">{practiceLine}</p>
         <div className="mt-3">
           <GeneratePracticeButton topicId={topicId} />
         </div>
@@ -258,14 +280,20 @@ export default async function TopicPage({
         ) : (
           <ul className="divide-y divide-fg/20">
             {vault.map((row, index) => {
-              const chosen = choiceRows.find((c) => c.id === row.selectedChoiceId)
-              const correct = choiceRows.find(
-                (c) => c.questionId === row.questionId && c.isCorrect,
-              )
+              let chosen = undefined
+              let correct = undefined
+
+              for (const choice of choiceRows) {
+                if (choice.id === row.selectedChoiceId) chosen = choice
+
+                if (choice.questionId === row.questionId && choice.isCorrect) {
+                  if (!correct) correct = choice
+                }
+              }
 
               return (
                 <RevisitQuestion
-                  key={`${row.questionId}-${index}`}
+                  key={row.questionId + '-' + index}
                   promptText={row.promptText}
                   outcome={row.outcome}
                   answeredAt={row.answeredAt}
@@ -281,7 +309,7 @@ export default async function TopicPage({
 
         <div className="mt-4">
           <Link
-            href={`/review?topic=${topicId}`}
+            href={'/review?topic=' + topicId}
             className="btn btn-primary sm:w-auto sm:px-6"
           >
             Review these now

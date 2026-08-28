@@ -11,7 +11,7 @@ export async function GET(
   {params}: {params: Promise<{key: string[]}>},
 ) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return new NextResponse('Unauthorized', {status: 401})
   }
 

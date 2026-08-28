@@ -5,9 +5,12 @@ import {POLICY_UPDATED, contactEmail} from '@/lib/api'
 export const metadata = {title: 'Copyright (DMCA) · StudyBuddy'}
 
 export default function DmcaPage() {
-  const contact = contactEmail()
-  const noContact =
+  const contactAddress = contactEmail()
+
+  let contactLine =
     'No contact address is set on this deployment. Whoever runs it should set CONTACT_EMAIL.'
+
+  if (contactAddress) contactLine = contactAddress
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-12">
@@ -76,7 +79,7 @@ export default function DmcaPage() {
         </p>
 
         <h2 className="pt-4 text-base font-medium">Where to send it</h2>
-        <p>{contact ?? noContact}</p>
+        <p>{contactLine}</p>
       </section>
 
       <p className="hint mt-10 flex gap-4">

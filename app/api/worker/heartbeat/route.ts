@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server'
+import {readJson} from '@/lib/api'
 import {z} from 'zod'
 import {authenticateWorker} from '@/lib/worker/jobs'
 import {db} from '@/lib/db'
@@ -17,19 +18,25 @@ export async function POST(request: Request) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
   }
 
-  const parsed = schema.safeParse(await request.json().catch(() => ({})))
+  const parsed = schema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
 
-  const {workerName, modelName, jobsInFlight, shuttingDown} = parsed.data
+  const workerName = parsed.data.workerName
+  const jobsInFlight = parsed.data.jobsInFlight
 
-  if (shuttingDown) {
+  let modelName = null
+  if (parsed.data.modelName) modelName = parsed.data.modelName
+
+  if (parsed.data.shuttingDown) {
     await markWorkerOffline(db, workerName)
     return NextResponse.json({ok: true})
   }
 
-  await heartbeat(db, workerName, modelName ?? null, jobsInFlight)
+  await heartbeat(db, workerName, modelName, jobsInFlight)
 
-  return NextResponse.json({ok: true, depth: await queueDepth(db, 'operator_gpu')})
+  const depth = await queueDepth(db, 'operator_gpu')
+
+  return NextResponse.json({ok: true, depth})
 }

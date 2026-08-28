@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server'
+import {readJson} from '@/lib/api'
 import {eq} from 'drizzle-orm'
 import {
   authenticateWorker,
@@ -26,7 +27,7 @@ export async function POST(
   }
 
   const {jobId} = await params
-  const parsed = bodySchema.safeParse(await request.json().catch(() => ({})))
+  const parsed = bodySchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -45,7 +46,7 @@ export async function POST(
 
   if (body.action !== 'fail' && job.status !== 'claimed' && job.status !== 'running') {
     return NextResponse.json(
-      {error: `Job is ${job.status}, not accepting work`, status: job.status},
+      {error: 'Job is ' + job.status + ', not accepting work', status: job.status},
       {status: 409},
     )
   }

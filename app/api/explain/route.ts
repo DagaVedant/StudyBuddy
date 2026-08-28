@@ -6,7 +6,7 @@ import {answerChoices, attempts, explanations, processingJobs, questions} from '
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {ProviderRefused, ProviderUnavailable} from '@/lib/ai/types'
 import {auth} from '@/auth'
-import {EXPLAIN_LIMIT, guardRateLimit} from '@/lib/api'
+import {EXPLAIN_LIMIT, guardRateLimit, readJson} from '@/lib/api'
 import {consumeTrial, resolveProvider, storedProvider} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 import {enqueueJob, pendingExplainJob, workerStatus} from '@/lib/queue'
@@ -22,14 +22,14 @@ async function writerStatus(
     .where(eq(processingJobs.id, jobId))
     .limit(1)
 
-  if (job?.executor === 'browser') return {runsHere: true, writerOnline: true}
+  if (job && job.executor === 'browser') return {runsHere: true, writerOnline: true}
 
   return {runsHere: false, writerOnline: (await workerStatus(db)).online}
 }
 
 export async function GET(request: Request) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
@@ -68,11 +68,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
-  const parsed = schema.safeParse(await request.json().catch(() => ({})))
+  const parsed = schema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
   const limited = await guardRateLimit(
     db,
     EXPLAIN_LIMIT,
-    `user:${userId}`,
+    'user:' + userId,
     'You have asked for a lot of explanations. Try again shortly.',
   )
   if (limited) return limited
@@ -126,12 +126,28 @@ export async function POST(request: Request) {
     .orderBy(desc(attempts.createdAt))
     .limit(1)
 
-  const studentAnswer =
-    choices.find((choice) => choice.id === lastAttempt?.selectedChoiceId)?.label ??
-    lastAttempt?.freeTextAnswer ??
-    null
+  let studentAnswer: string | null = null
 
-  const {provider, tier, executor} = await resolveProvider(db, userId)
+  if (lastAttempt) {
+    for (const choice of choices) {
+      if (choice.id === lastAttempt.selectedChoiceId) {
+        studentAnswer = choice.label
+        break
+      }
+    }
+
+    if (studentAnswer === null && lastAttempt.freeTextAnswer) {
+      studentAnswer = lastAttempt.freeTextAnswer
+    }
+  }
+
+  const resolved = await resolveProvider(db, userId)
+  const provider = resolved.provider
+  const tier = resolved.tier
+  const executor = resolved.executor
+
+  let attemptId = null
+  if (lastAttempt) attemptId = lastAttempt.id
 
   if (tier === 'trial' && session.user.role !== 'admin') {
     const charge = await consumeTrial(db, userId, 'explanations', 1)
@@ -146,16 +162,21 @@ export async function POST(request: Request) {
   ) {
     const existing = await pendingExplainJob(db, userId, question.id)
 
-    const jobId =
-      existing ??
-      (await enqueueJob(db, {
+    let jobExecutor: 'browser' | 'operator_gpu' = 'operator_gpu'
+    if (executor === 'browser') jobExecutor = 'browser'
+
+    let jobId = existing
+
+    if (!jobId) {
+      jobId = await enqueueJob(db, {
         worksheetId: question.worksheetId,
         userId,
         stage: 'explain',
-        executor: executor === 'browser' ? 'browser' : 'operator_gpu',
+        executor: jobExecutor,
         priority: 'high',
-        checkpoint: {questionId: question.id, attemptId: lastAttempt?.id ?? null},
-      }))
+        checkpoint: {questionId: question.id, attemptId: attemptId},
+      })
+    }
 
     return NextResponse.json(
       {status: 'queued', jobId, ...(await writerStatus(jobId))},
@@ -163,18 +184,31 @@ export async function POST(request: Request) {
     )
   }
 
+  let correctAnswer = question.correctAnswer
+
+  for (const choice of choices) {
+    if (choice.isCorrect) {
+      correctAnswer = choice.label
+      break
+    }
+  }
+
+  const plainChoices = []
+  for (const choice of choices) {
+    plainChoices.push({label: choice.label, text: choice.text})
+  }
+
   try {
     const result = await provider.explain({
       promptText: question.promptText,
-      choices: choices.map((choice) => ({label: choice.label, text: choice.text})),
-      correctAnswer:
-        choices.find((choice) => choice.isCorrect)?.label ?? question.correctAnswer,
+      choices: plainChoices,
+      correctAnswer: correctAnswer,
       studentAnswer,
     })
 
     await db.insert(explanations).values({
       questionId: question.id,
-      attemptId: lastAttempt?.id ?? null,
+      attemptId: attemptId,
       bodyMd: result.body_md,
       misconceptionNote: result.misconception_note,
       provider: storedProvider(provider.name),

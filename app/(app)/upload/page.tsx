@@ -13,44 +13,61 @@ import UploadClient, {type SubjectGroup} from './upload-client'
 
 export const metadata = {title: 'Upload a Worksheet · StudyBuddy'}
 
-interface Props {
+type Props = {
   searchParams: Promise<{sample?: string}>
 }
 
 function subjectGroups(): SubjectGroup[] {
   const topics = flattenTaxonomy()
-  const roots = topics.filter((topic) => topic.depth === 0)
+  const groups: SubjectGroup[] = []
 
-  return roots.map((root) => {
-    const children = topics.filter(
-      (topic) => topic.depth === 1 && topic.parentSlug === root.slug,
-    )
+  for (const root of topics) {
+    if (root.depth !== 0) continue
 
-    return {
-      label: root.name,
-      options: [
-        {slug: root.slug, label: `All of ${root.name}`},
-        ...children.map((child) => ({slug: child.slug, label: child.name})),
-      ],
+    const options = [{slug: root.slug, label: 'All of ' + root.name}]
+
+    for (const child of topics) {
+      if (child.depth !== 1) continue
+      if (child.parentSlug !== root.slug) continue
+
+      options.push({slug: child.slug, label: child.name})
     }
-  })
+
+    groups.push({label: root.name, options})
+  }
+
+  return groups
 }
 
 export default async function UploadPage({searchParams}: Props) {
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const {sample} = await searchParams
   const resolved = await resolveProvider(db, session.user.id)
 
-  const onOperatorGpu = resolved.executor === 'operator_gpu'
-  const [worker, queue] = onOperatorGpu
-    ? await Promise.all([workerStatus(db), queueDepth(db, 'operator_gpu')])
-    : [null, null]
+  let waiting = false
+  let ahead = 0
 
-  const waiting = worker !== null && !worker.online
-  const ahead = queue?.pending ?? 0
+  if (resolved.executor === 'operator_gpu') {
+    const [worker, queue] = await Promise.all([
+      workerStatus(db),
+      queueDepth(db, 'operator_gpu'),
+    ])
+
+    if (!worker.online) waiting = true
+    ahead = queue.pending
+  }
+
   const noReader = resolved.executor === 'none'
+
+  let aheadLine = ahead + ' papers are'
+  if (ahead === 1) aheadLine = 'One paper is'
+
+  const startingSample = findSample(sample)
+
+  let initialSample = undefined
+  if (startingSample) initialSample = startingSample.slug
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
@@ -93,15 +110,11 @@ export default async function UploadPage({searchParams}: Props) {
 
       {!waiting && ahead > 0 && (
         <p role="status" className="hint mb-6 text-pretty">
-          {ahead === 1 ? 'One paper is' : `${ahead} papers are`} ahead of yours in
-          the queue.
+          {aheadLine} ahead of yours in the queue.
         </p>
       )}
 
-      <UploadClient
-        subjects={subjectGroups()}
-        initialSample={findSample(sample)?.slug}
-      />
+      <UploadClient subjects={subjectGroups()} initialSample={initialSample} />
     </main>
   )
 }

@@ -37,7 +37,8 @@ test('the cached sample is free the first time', async () => {
 
   const match = await findMatchingSample(db, worksheetId, userId)
 
-  assert.equal(match?.sample.slug, SAMPLE.slug)
+  assert.ok(match)
+  assert.equal(match.sample.slug, SAMPLE.slug)
 })
 
 test('the same sample twice does not keep skipping the trial', async () => {

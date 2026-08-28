@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server'
+import {readJson} from '@/lib/api'
 import {eq} from 'drizzle-orm'
 import {z} from 'zod'
 import {applyClassification, pendingQuestions} from '@/lib/taxonomy'
@@ -57,7 +58,7 @@ export async function POST(request: Request, {params}: {params: Promise<Record<s
   }
 
   const {worksheetId} = await params
-  const parsed = resultsSchema.safeParse(await request.json().catch(() => ({})))
+  const parsed = resultsSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -99,7 +100,7 @@ export async function POST(request: Request, {params}: {params: Promise<Record<s
       if (outcome.topicId) applied += 1
       if (outcome.coarse) coarse += 1
     } catch (cause) {
-      console.error(`[classify] ${entry.questionId} could not be applied:`, cause)
+      console.error('[classify] ' + entry.questionId + ' could not be applied:', cause)
     }
   }
 

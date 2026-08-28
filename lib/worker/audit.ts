@@ -1,15 +1,15 @@
-export interface PageFindings {
+export type PageFindings = {
   pageNumber: number
   printed: number[]
   expectsQuestions?: boolean
 }
 
-export interface RetryTarget {
+export type RetryTarget = {
   pageNumber: number
   expect: number[]
 }
 
-export interface AuditResult {
+export type AuditResult = {
   missing: number[]
   retry: RetryTarget[]
   found: number
@@ -18,50 +18,97 @@ export interface AuditResult {
   silent: number[]
 }
 
+function byNumber(a: number, b: number) {
+  return a - b
+}
+
 export function auditExtraction(
   pages: PageFindings[],
   expectedTotal: number | null,
 ): AuditResult {
   const seen = new Set<number>()
+
   for (const page of pages) {
     for (const number of page.printed) {
       if (Number.isInteger(number) && number >= 1) seen.add(number)
     }
   }
 
-  const hasNumbers = seen.size > 0
-  const lowest = hasNumbers ? Math.min(...seen) : 1
-  const highest = hasNumbers ? Math.max(...seen) : 0
+  let lowest = 1
+  let highest = 0
 
-  const expected = expectedTotal !== null && expectedTotal > 0 ? expectedTotal : null
+  if (seen.size > 0) {
+    let first = true
 
-  const ceiling = expected !== null && lowest === 1 ? Math.max(expected, highest) : highest
+    for (const number of seen) {
+      if (first) {
+        lowest = number
+        highest = number
+        first = false
+        continue
+      }
+
+      if (number < lowest) lowest = number
+      if (number > highest) highest = number
+    }
+  }
+
+  let expected: number | null = null
+  if (expectedTotal !== null && expectedTotal > 0) expected = expectedTotal
+
+  let ceiling = highest
+  if (expected !== null && lowest === 1 && expected > highest) ceiling = expected
 
   const missing: number[] = []
-  for (let number = lowest; number <= ceiling; number += 1) {
+  for (let number = lowest; number <= ceiling; number++) {
     if (!seen.has(number)) missing.push(number)
   }
 
-  const silent = pages
-    .filter((page) => page.expectsQuestions === true && page.printed.length === 0)
-    .map((page) => page.pageNumber)
-    .sort((a, b) => a - b)
+  const silent: number[] = []
+  for (const page of pages) {
+    if (page.expectsQuestions === true && page.printed.length === 0) {
+      silent.push(page.pageNumber)
+    }
+  }
+
+  silent.sort(byNumber)
 
   const retry = pagesToRetry(pages, missing, silent)
-  const targeted = new Set(retry.map((target) => target.pageNumber))
+
+  const targeted = new Set<number>()
+  for (const target of retry) targeted.add(target.pageNumber)
 
   for (const pageNumber of silent) {
     if (!targeted.has(pageNumber)) retry.push({pageNumber, expect: []})
   }
 
+  retry.sort(function (a, b) {
+    return a.pageNumber - b.pageNumber
+  })
+
+  const extra: number[] = []
+  if (expected) {
+    for (const number of seen) {
+      if (number > expected) extra.push(number)
+    }
+
+    extra.sort(byNumber)
+  }
+
   return {
     missing,
-    retry: retry.sort((a, b) => a.pageNumber - b.pageNumber),
+    retry,
     found: seen.size,
     expected,
-    extra: expected ? [...seen].filter((n) => n > expected).sort((a, b) => a - b) : [],
+    extra,
     silent,
   }
+}
+
+type NumberedPage = {
+  pageNumber: number
+  low: number
+  high: number
 }
 
 function pagesToRetry(
@@ -71,38 +118,70 @@ function pagesToRetry(
 ): RetryTarget[] {
   if (missing.length === 0) return []
 
-  const numbered = pages
-    .filter((page) => page.printed.length > 0)
-    .map((page) => ({
-      pageNumber: page.pageNumber,
-      low: Math.min(...page.printed),
-      high: Math.max(...page.printed),
-    }))
-    .sort((a, b) => a.pageNumber - b.pageNumber)
+  const numbered: NumberedPage[] = []
+
+  for (const page of pages) {
+    if (page.printed.length === 0) continue
+
+    let low = page.printed[0]
+    let high = page.printed[0]
+
+    for (const number of page.printed) {
+      if (number < low) low = number
+      if (number > high) high = number
+    }
+
+    numbered.push({pageNumber: page.pageNumber, low: low, high: high})
+  }
+
+  numbered.sort(function (a, b) {
+    return a.pageNumber - b.pageNumber
+  })
 
   const expectByPage = new Map<number, Set<number>>()
 
-  const add = (pageNumber: number, number: number) => {
-    const set = expectByPage.get(pageNumber) ?? new Set<number>()
+  function add(pageNumber: number, number: number) {
+    let set = expectByPage.get(pageNumber)
+
+    if (!set) {
+      set = new Set<number>()
+      expectByPage.set(pageNumber, set)
+    }
+
     set.add(number)
-    expectByPage.set(pageNumber, set)
   }
 
   for (const number of missing) {
-    const containing = numbered.filter((p) => number > p.low && number < p.high)
+    const containing: NumberedPage[] = []
+    for (const page of numbered) {
+      if (number > page.low && number < page.high) containing.push(page)
+    }
+
     if (containing.length > 0) {
       for (const page of containing) add(page.pageNumber, number)
       continue
     }
 
-    const before = numbered.findLast((p) => p.high < number)
-    const after = numbered.find((p) => p.low > number)
+    let before: NumberedPage | null = null
+    for (const page of numbered) {
+      if (page.high < number) before = page
+    }
 
-    const between = silent.filter(
-      (pageNumber) =>
-        (!before || pageNumber > before.pageNumber) &&
-        (!after || pageNumber < after.pageNumber),
-    )
+    let after: NumberedPage | null = null
+    for (const page of numbered) {
+      if (page.low > number) {
+        after = page
+        break
+      }
+    }
+
+    const between: number[] = []
+    for (const pageNumber of silent) {
+      if (before && pageNumber <= before.pageNumber) continue
+      if (after && pageNumber >= after.pageNumber) continue
+
+      between.push(pageNumber)
+    }
 
     if (between.length > 0) {
       for (const pageNumber of between) add(pageNumber, number)
@@ -113,13 +192,26 @@ function pagesToRetry(
     if (after) add(after.pageNumber, number)
 
     if (!before && !after) {
-      for (const page of pages.filter((p) => p.printed.length === 0)) {
-        add(page.pageNumber, number)
+      for (const page of pages) {
+        if (page.printed.length === 0) add(page.pageNumber, number)
       }
     }
   }
 
-  return [...expectByPage.entries()]
-    .map(([pageNumber, expect]) => ({pageNumber, expect: [...expect].sort((a, b) => a - b)}))
-    .sort((a, b) => a.pageNumber - b.pageNumber)
+  const targets: RetryTarget[] = []
+
+  for (const [pageNumber, expect] of expectByPage) {
+    const wanted: number[] = []
+    for (const number of expect) wanted.push(number)
+
+    wanted.sort(byNumber)
+
+    targets.push({pageNumber, expect: wanted})
+  }
+
+  targets.sort(function (a, b) {
+    return a.pageNumber - b.pageNumber
+  })
+
+  return targets
 }

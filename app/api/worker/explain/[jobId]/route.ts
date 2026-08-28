@@ -26,7 +26,10 @@ export async function GET(
     return NextResponse.json({error: 'Not found'}, {status: 404})
   }
 
-  const questionId = (job.checkpoint as {questionId?: string} | null)?.questionId
+  const checkpoint = job.checkpoint as {questionId?: string} | null
+
+  let questionId = undefined
+  if (checkpoint) questionId = checkpoint.questionId
   if (!questionId) {
     return NextResponse.json({error: 'Job names no question'}, {status: 400})
   }

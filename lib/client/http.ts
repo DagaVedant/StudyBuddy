@@ -1,107 +1,148 @@
 import {safeNextPath} from '@/lib/auth/policy'
 
-function redirectToSignIn(): void {
+function redirectToSignIn() {
   if (typeof window === 'undefined') return
 
   const next = safeNextPath(window.location.pathname + window.location.search)
-  window.location.assign(`/signin?next=${encodeURIComponent(next)}`)
+  window.location.assign('/signin?next=' + encodeURIComponent(next))
 }
 
-class SessionExpiredError extends Error {
-  constructor() {
-    super('Your session expired. Redirecting you to sign in.')
-    this.name = 'SessionExpiredError'
-  }
+function sessionExpired() {
+  const error = new Error('Your session expired. Redirecting you to sign in.')
+  error.name = 'SessionExpiredError'
+  return error
 }
 
-export async function fetchJson(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<Response> {
+function cancelled() {
+  const error = new Error('Upload cancelled.')
+  error.name = 'CancelledError'
+  return error
+}
+
+export async function fetchJson(input: RequestInfo | URL, init?: RequestInit) {
   const response = await fetch(input, init)
 
   if (response.status === 401) {
     redirectToSignIn()
-    throw new SessionExpiredError()
+    throw sessionExpired()
   }
 
   return response
 }
 
-class CancelledError extends Error {
-  constructor() {
-    super('Upload cancelled.')
-    this.name = 'CancelledError'
-  }
+export function throwIfCancelled(signal?: AbortSignal) {
+  if (signal && signal.aborted) throw cancelled()
 }
 
-export function throwIfCancelled(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new CancelledError()
-}
-
-export function untilCancelled<T>(work: Promise<T>, signal?: AbortSignal): Promise<T> {
+export function untilCancelled<T>(work: Promise<T>, signal?: AbortSignal) {
   if (!signal) return work
-  if (signal.aborted) return Promise.reject(new CancelledError())
+  if (signal.aborted) return Promise.reject(cancelled())
 
   return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(new CancelledError())
-    signal.addEventListener('abort', onAbort, {once: true})
+    function onAbort() {
+      reject(cancelled())
+    }
 
-    const cleanup = () => signal.removeEventListener('abort', onAbort)
+    signal.addEventListener('abort', onAbort, {once: true})
 
     work.then(
       (value) => {
-        cleanup()
+        signal.removeEventListener('abort', onAbort)
         resolve(value)
       },
       (error: unknown) => {
-        cleanup()
+        signal.removeEventListener('abort', onAbort)
         reject(error)
       },
     )
   })
 }
 
-const UNREACHABLE = /failed to fetch|networkerror|load failed|network request failed/i
+export function explainOllamaFailure(cause: unknown, baseUrl: string) {
+  let message = String(cause)
+  if (cause instanceof Error) message = cause.message
 
-export function explainOllamaFailure(cause: unknown, baseUrl: string): string {
-  const message = cause instanceof Error ? cause.message : String(cause)
+  if (!/failed to fetch|networkerror|load failed|network request failed/i.test(message)) {
+    return message
+  }
 
-  if (!UNREACHABLE.test(message)) return message
-
-  const origin = typeof window === 'undefined' ? 'this site' : window.location.origin
+  let origin = 'this site'
+  if (typeof window !== 'undefined') origin = window.location.origin
 
   return (
-    `Your browser could not reach Ollama at ${baseUrl}. Either it is not ` +
-    `running, or it has not been told to accept requests from ${origin}: set ` +
-    `OLLAMA_ORIGINS to ${origin} and restart Ollama. Settings has the exact ` +
-    `command and a connection test.`
+    'Your browser could not reach Ollama at ' +
+    baseUrl +
+    '. Either it is not running, or it has not been told to accept requests from ' +
+    origin +
+    ': set OLLAMA_ORIGINS to ' +
+    origin +
+    ' and restart Ollama. Settings has the exact command and a connection test.'
   )
 }
 
 export type MarkupOutcome = 'correct' | 'unsure' | 'wrong'
 
-export interface MarkupDraft {
-  outcomes: Record<string, MarkupOutcome>
-  answers: Record<string, string>
+export type MarkupDraft = {
+  outcomes: {[id: string]: MarkupOutcome}
+  answers: {[id: string]: string}
   cursor: number
 }
 
-const EMPTY: MarkupDraft = {outcomes: {}, answers: {}, cursor: 0}
-
-function key(worksheetId: string): string {
-  return `studybuddy:markup:${worksheetId}`
+function emptyDraft(): MarkupDraft {
+  return {outcomes: {}, answers: {}, cursor: 0}
 }
 
-export function readMarkupDraft(worksheetId: string): MarkupDraft {
-  if (typeof window === 'undefined') return EMPTY
+function key(worksheetId: string) {
+  return 'studybuddy:markup:' + worksheetId
+}
+
+function pickOutcomes(value: unknown) {
+  let out: {[id: string]: MarkupOutcome} = {}
+  if (typeof value !== 'object' || value === null) return out
+
+  let source = value as {[id: string]: unknown}
+
+  for (let id of Object.keys(source)) {
+    let outcome = source[id]
+
+    if (outcome === 'correct' || outcome === 'unsure' || outcome === 'wrong') {
+      out[id] = outcome
+    }
+  }
+
+  return out
+}
+
+function pickAnswers(value: unknown) {
+  let out: {[id: string]: string} = {}
+  if (typeof value !== 'object' || value === null) return out
+
+  let source = value as {[id: string]: unknown}
+
+  for (let id of Object.keys(source)) {
+    let answer = source[id]
+    if (typeof answer === 'string' && answer.length <= 2000) out[id] = answer
+  }
+
+  return out
+}
+
+function pickCursor(value: unknown) {
+  if (typeof value !== 'number') return 0
+  if (!Number.isInteger(value)) return 0
+  if (value < 0) return 0
+  return value
+}
+
+export function readMarkupDraft(worksheetId: string) {
+  if (typeof window === 'undefined') return emptyDraft()
 
   try {
     const raw = window.localStorage.getItem(key(worksheetId))
-    if (!raw) return EMPTY
+    if (!raw) return emptyDraft()
 
     const parsed = JSON.parse(raw) as unknown
-    if (typeof parsed !== 'object' || parsed === null) return EMPTY
+    if (typeof parsed !== 'object' || parsed === null) return emptyDraft()
 
     const draft = parsed as Partial<MarkupDraft>
 
@@ -111,11 +152,11 @@ export function readMarkupDraft(worksheetId: string): MarkupDraft {
       cursor: pickCursor(draft.cursor),
     }
   } catch {
-    return EMPTY
+    return emptyDraft()
   }
 }
 
-export function writeMarkupDraft(worksheetId: string, draft: MarkupDraft): void {
+export function writeMarkupDraft(worksheetId: string, draft: MarkupDraft) {
   if (typeof window === 'undefined') return
 
   try {
@@ -123,38 +164,10 @@ export function writeMarkupDraft(worksheetId: string, draft: MarkupDraft): void 
   } catch {}
 }
 
-export function clearMarkupDraft(worksheetId: string): void {
+export function clearMarkupDraft(worksheetId: string) {
   if (typeof window === 'undefined') return
 
   try {
     window.localStorage.removeItem(key(worksheetId))
   } catch {}
-}
-
-const OUTCOMES = new Set<MarkupOutcome>(['correct', 'unsure', 'wrong'])
-
-function pickOutcomes(value: unknown): Record<string, MarkupOutcome> {
-  if (typeof value !== 'object' || value === null) return {}
-
-  const out: Record<string, MarkupOutcome> = {}
-  for (const [id, outcome] of Object.entries(value)) {
-    if (typeof outcome === 'string' && OUTCOMES.has(outcome as MarkupOutcome)) {
-      out[id] = outcome as MarkupOutcome
-    }
-  }
-  return out
-}
-
-function pickAnswers(value: unknown): Record<string, string> {
-  if (typeof value !== 'object' || value === null) return {}
-
-  const out: Record<string, string> = {}
-  for (const [id, answer] of Object.entries(value)) {
-    if (typeof answer === 'string' && answer.length <= 2000) out[id] = answer
-  }
-  return out
-}
-
-function pickCursor(value: unknown): number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0
 }

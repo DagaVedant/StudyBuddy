@@ -15,31 +15,93 @@ import {type Db, isUniqueViolation} from '@/lib/db'
 
 import {isAdminEmail} from './policy'
 
-export type SaveIdentityResult =
-  | {ok: true; name: string | null; username: string | null}
-  | {ok: false; status: 400 | 409; reason: string}
+const MIN_USERNAME_LENGTH = 3
+const MAX_USERNAME_LENGTH = 20
+
+const USERNAME_SHAPE = /^[a-z][a-z0-9_]*$/
+
+export type UsernameCheck = {
+  ok: boolean
+  username: string | null
+  reason: string
+}
+
+function validateUsername(input: string | null | undefined): UsernameCheck {
+  let raw = ''
+  if (input) raw = input
+
+  const trimmed = raw.trim().toLowerCase()
+
+  if (!trimmed) return {ok: false, username: null, reason: 'Enter a username.'}
+
+  if (trimmed.length < MIN_USERNAME_LENGTH) {
+    return {
+      ok: false,
+      username: null,
+      reason: 'At least ' + MIN_USERNAME_LENGTH + ' characters.',
+    }
+  }
+
+  if (trimmed.length > MAX_USERNAME_LENGTH) {
+    return {
+      ok: false,
+      username: null,
+      reason: MAX_USERNAME_LENGTH + ' characters or fewer.',
+    }
+  }
+
+  if (!USERNAME_SHAPE.test(trimmed)) {
+    return {
+      ok: false,
+      username: null,
+      reason: 'Letters, numbers and underscores only, starting with a letter.',
+    }
+  }
+
+  return {ok: true, username: trimmed, reason: ''}
+}
+
+export type SaveIdentityResult = {
+  ok: boolean
+  status: number
+  name: string | null
+  username: string | null
+  reason: string
+}
 
 export async function saveIdentity(
   db: Db,
   userId: string,
   input: {name: string | null; username: string | null},
 ): Promise<SaveIdentityResult> {
-  const name = input.name?.trim() || null
+  let name: string | null = null
+  if (input.name && input.name.trim()) name = input.name.trim()
 
   let username: string | null = null
+
   if (input.username && input.username.trim()) {
     const checked = validateUsername(input.username)
-    if (!checked.ok) return {ok: false, status: 400, reason: checked.reason}
+
+    if (!checked.ok) {
+      return {ok: false, status: 400, name: null, username: null, reason: checked.reason}
+    }
+
     username = checked.username
 
     const [taken] = await db
       .select({id: users.id})
       .from(users)
-      .where(eq(users.username, username))
+      .where(eq(users.username, username as string))
       .limit(1)
 
     if (taken && taken.id !== userId) {
-      return {ok: false, status: 409, reason: 'That username is taken.'}
+      return {
+        ok: false,
+        status: 409,
+        name: null,
+        username: null,
+        reason: 'That username is taken.',
+      }
     }
   }
 
@@ -47,47 +109,22 @@ export async function saveIdentity(
     await db.update(users).set({name, username}).where(eq(users.id, userId))
   } catch (error) {
     if (isUniqueViolation(error)) {
-      return {ok: false, status: 409, reason: 'That username is taken.'}
+      return {
+        ok: false,
+        status: 409,
+        name: null,
+        username: null,
+        reason: 'That username is taken.',
+      }
     }
+
     throw error
   }
 
-  return {ok: true, name, username}
+  return {ok: true, status: 200, name, username, reason: ''}
 }
 
-const MIN_USERNAME_LENGTH = 3
-const MAX_USERNAME_LENGTH = 20
-
-const USERNAME_SHAPE = /^[a-z][a-z0-9_]*$/
-
-export type UsernameCheck =
-  | {ok: true; username: string}
-  | {ok: false; reason: string}
-
-function validateUsername(input: string | null | undefined): UsernameCheck {
-  const trimmed = (input ?? '').trim().toLowerCase()
-
-  if (!trimmed) return {ok: false, reason: 'Enter a username.'}
-
-  if (trimmed.length < MIN_USERNAME_LENGTH) {
-    return {ok: false, reason: `At least ${MIN_USERNAME_LENGTH} characters.`}
-  }
-
-  if (trimmed.length > MAX_USERNAME_LENGTH) {
-    return {ok: false, reason: `${MAX_USERNAME_LENGTH} characters or fewer.`}
-  }
-
-  if (!USERNAME_SHAPE.test(trimmed)) {
-    return {
-      ok: false,
-      reason: 'Letters, numbers and underscores only, starting with a letter.',
-    }
-  }
-
-  return {ok: true, username: trimmed}
-}
-
-export async function emailTwinExists(db: Db, canonical: string): Promise<boolean> {
+export async function emailTwinExists(db: Db, canonical: string) {
   const [twin] = await db
     .select({id: users.id})
     .from(users)
@@ -100,14 +137,12 @@ export async function emailTwinExists(db: Db, canonical: string): Promise<boolea
     )
     .limit(1)
 
-  return Boolean(twin)
+  if (!twin) return false
+
+  return true
 }
 
-export async function accountMayBeAdmin(
-  db: Db,
-  userId: string,
-  email: string,
-): Promise<boolean> {
+export async function accountMayBeAdmin(db: Db, userId: string, email: string) {
   if (!isAdminEmail(email)) return false
 
   const [link] = await db
@@ -116,31 +151,29 @@ export async function accountMayBeAdmin(
     .where(and(eq(accounts.userId, userId), eq(accounts.provider, 'google')))
     .limit(1)
 
-  return Boolean(link)
+  if (!link) return false
+
+  return true
 }
 
-export async function signInThrottled(
-  db: Db,
-  headers: Headers,
-  email: string,
-): Promise<boolean> {
+export async function signInThrottled(db: Db, headers: Headers, email: string) {
   const [byIp, byEmail] = await Promise.all([
-    consumeRateLimit(db, SIGNIN_IP_LIMIT, `ip:${callerIp(headers)}`),
-    consumeRateLimit(db, SIGNIN_EMAIL_LIMIT, `email:${email}`),
+    consumeRateLimit(db, SIGNIN_IP_LIMIT, 'ip:' + callerIp(headers)),
+    consumeRateLimit(db, SIGNIN_EMAIL_LIMIT, 'email:' + email),
   ])
 
-  return !byIp.ok || !byEmail.ok
+  if (!byIp.ok) return true
+  if (!byEmail.ok) return true
+
+  return false
 }
 
-export interface DeletedAccount {
+export type DeletedAccount = {
   imagesRemoved: number
   imagesFailed: number
 }
 
-export async function deleteAccount(
-  db: Db,
-  userId: string,
-): Promise<DeletedAccount> {
+export async function deleteAccount(db: Db, userId: string): Promise<DeletedAccount> {
   const keys = await db
     .select({imageKey: worksheetPages.imageKey})
     .from(worksheetPages)
@@ -149,35 +182,44 @@ export async function deleteAccount(
 
   await db.delete(users).where(eq(users.id, userId))
 
-  const removals = await Promise.allSettled(
-    keys.map((page) => storage.remove(page.imageKey)),
-  )
+  const pending = []
+  for (const page of keys) pending.push(storage.remove(page.imageKey))
 
-  const imagesFailed = removals.filter((result) => result.status === 'rejected').length
+  const removals = await Promise.allSettled(pending)
+
+  let imagesFailed = 0
+  for (const result of removals) {
+    if (result.status === 'rejected') imagesFailed = imagesFailed + 1
+  }
 
   if (imagesFailed > 0) {
     console.error(
-      `[account] deleted ${userId} but ${imagesFailed} of ${keys.length} page image(s) ` +
-        'could not be removed; they are orphaned in blob storage',
+      '[account] deleted ' +
+        userId +
+        ' but ' +
+        imagesFailed +
+        ' of ' +
+        keys.length +
+        ' page image(s) could not be removed; they are orphaned in blob storage',
     )
   }
 
   return {imagesRemoved: keys.length - imagesFailed, imagesFailed}
 }
 
-const RESET_TOKEN_TTL_MS = 60 * 60_000
+const RESET_TOKEN_TTL_MS = 60 * 60000
 
 const TOKEN_BYTES = 32
 
-function hashResetToken(token: string): string {
+function hashResetToken(token: string) {
   return createHash('sha256').update(token).digest('hex')
 }
 
-export function resetLink(token: string): string {
-  return `${appBaseUrl()}/reset/${token}`
+export function resetLink(token: string) {
+  return appBaseUrl() + '/reset/' + token
 }
 
-export async function issueResetToken(db: Db, userId: string): Promise<string> {
+export async function issueResetToken(db: Db, userId: string) {
   const token = randomBytes(TOKEN_BYTES).toString('base64url')
 
   await db.insert(passwordResetTokens).values({
@@ -189,7 +231,7 @@ export async function issueResetToken(db: Db, userId: string): Promise<string> {
   return token
 }
 
-export interface ResetTarget {
+export type ResetTarget = {
   tokenId: string
   userId: string
 }
@@ -219,7 +261,8 @@ export async function findResetTarget(
   const found = Buffer.from(row.tokenHash)
   const wanted = Buffer.from(hashResetToken(token))
 
-  if (found.length !== wanted.length || !timingSafeEqual(found, wanted)) return null
+  if (found.length !== wanted.length) return null
+  if (!timingSafeEqual(found, wanted)) return null
 
   return {tokenId: row.id, userId: row.userId}
 }
@@ -228,7 +271,7 @@ export async function consumeResetToken(
   db: Db,
   target: ResetTarget,
   passwordHash: string,
-): Promise<void> {
+) {
   const now = new Date()
 
   await db.transaction(async (tx) => {
@@ -253,16 +296,23 @@ export async function consumeResetToken(
   })
 }
 
-export function inviteRequired(): boolean {
-  return Boolean(process.env.SIGNUP_INVITE_CODE?.trim())
+export function inviteRequired() {
+  const code = process.env.SIGNUP_INVITE_CODE
+
+  if (!code || !code.trim()) return false
+
+  return true
 }
 
-export function inviteAccepted(offered: string): boolean {
-  const expected = process.env.SIGNUP_INVITE_CODE?.trim()
-  if (!expected) return true
+export function inviteAccepted(offered: string) {
+  const code = process.env.SIGNUP_INVITE_CODE
+
+  if (!code || !code.trim()) return true
 
   const left = Buffer.from(offered.trim())
-  const right = Buffer.from(expected)
+  const right = Buffer.from(code.trim())
 
-  return left.length === right.length && timingSafeEqual(left, right)
+  if (left.length !== right.length) return false
+
+  return timingSafeEqual(left, right)
 }

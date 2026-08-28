@@ -34,11 +34,11 @@ export type JobPriority = 'high' | 'normal' | 'low'
 
 const MAX_ATTEMPTS = 3
 
-export const CLAIM_TTL_MS = 15 * 60_000
+export const CLAIM_TTL_MS = 15 * 60000
 
-const HEARTBEAT_TTL_MS = 90_000
+const HEARTBEAT_TTL_MS = 90000
 
-export interface EnqueueArgs {
+export type EnqueueArgs = {
   worksheetId: string
   userId: string
   stage: JobStage
@@ -51,7 +51,7 @@ export const MAX_IN_FLIGHT_EXTRACTS = 1
 
 const IN_FLIGHT = ['pending', 'claimed', 'running'] as const
 
-export async function inFlightExtractCount(db: Db, userId: string): Promise<number> {
+export async function inFlightExtractCount(db: Db, userId: string) {
   const [row] = await db
     .select({count: count()})
     .from(processingJobs)
@@ -67,7 +67,13 @@ export async function inFlightExtractCount(db: Db, userId: string): Promise<numb
   return Number(row.count)
 }
 
-export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {
+export async function enqueueJob(db: Db, args: EnqueueArgs) {
+  let priority: JobPriority = 'normal'
+  if (args.priority) priority = args.priority
+
+  let checkpoint = null
+  if (args.checkpoint) checkpoint = args.checkpoint
+
   const [row] = await db
     .insert(processingJobs)
     .values({
@@ -75,9 +81,9 @@ export async function enqueueJob(db: Db, args: EnqueueArgs): Promise<string> {
       userId: args.userId,
       stage: args.stage,
       executor: args.executor,
-      priority: args.priority ?? 'normal',
+      priority: priority,
       status: 'pending',
-      checkpoint: args.checkpoint ?? null,
+      checkpoint: checkpoint,
     })
     .returning({id: processingJobs.id})
 
@@ -89,7 +95,7 @@ export async function pendingWorksheetJob(
   userId: string,
   stage: JobStage,
   worksheetId: string,
-): Promise<string | null> {
+) {
   const [row] = await db
     .select({id: processingJobs.id})
     .from(processingJobs)
@@ -103,7 +109,8 @@ export async function pendingWorksheetJob(
     )
     .limit(1)
 
-  return row?.id ?? null
+  if (!row) return null
+  return row.id
 }
 
 export async function pendingTopicJob(
@@ -111,7 +118,7 @@ export async function pendingTopicJob(
   userId: string,
   stage: 'lesson' | 'practice',
   topicId: string,
-): Promise<string | null> {
+) {
   const [row] = await db
     .select({id: processingJobs.id})
     .from(processingJobs)
@@ -125,14 +132,11 @@ export async function pendingTopicJob(
     )
     .limit(1)
 
-  return row?.id ?? null
+  if (!row) return null
+  return row.id
 }
 
-export async function pendingExplainJob(
-  db: Db,
-  userId: string,
-  questionId: string,
-): Promise<string | null> {
+export async function pendingExplainJob(db: Db, userId: string, questionId: string) {
   const [row] = await db
     .select({id: processingJobs.id})
     .from(processingJobs)
@@ -146,10 +150,11 @@ export async function pendingExplainJob(
     )
     .limit(1)
 
-  return row?.id ?? null
+  if (!row) return null
+  return row.id
 }
 
-export interface ClaimedJob {
+export type ClaimedJob = {
   id: string
   worksheetId: string
   userId: string
@@ -168,7 +173,9 @@ export async function claimJob(
 ): Promise<ClaimedJob | null> {
   const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS).toISOString()
   const claimedAt = now.toISOString()
-  const wanted = stages?.length ? stages.join(',') : null
+
+  let wanted = null
+  if (stages && stages.length > 0) wanted = stages.join(',')
 
   const result = await db.execute(sql`
     with next_job as (
@@ -235,19 +242,18 @@ export async function checkpointJob(
   jobId: string,
   progress: number,
   checkpoint: Record<string, unknown>,
-): Promise<void> {
+) {
+  let clamped = progress
+  if (clamped < 0) clamped = 0
+  if (clamped > 1) clamped = 1
+
   await db
     .update(processingJobs)
-    .set({
-      status: 'running',
-      progress: Math.max(0, Math.min(1, progress)),
-      checkpoint,
-      claimedAt: new Date(),
-    })
+    .set({status: 'running', progress: clamped, checkpoint, claimedAt: new Date()})
     .where(eq(processingJobs.id, jobId))
 }
 
-export async function touchJob(db: Db, jobId: string): Promise<void> {
+export async function touchJob(db: Db, jobId: string) {
   await db
     .update(processingJobs)
     .set({status: 'running', claimedAt: new Date()})
@@ -259,42 +265,53 @@ export async function touchJob(db: Db, jobId: string): Promise<void> {
     )
 }
 
-export async function completeJob(db: Db, jobId: string): Promise<void> {
+export async function completeJob(db: Db, jobId: string) {
   await db
     .update(processingJobs)
     .set({status: 'completed', progress: 1, completedAt: new Date(), error: null})
     .where(eq(processingJobs.id, jobId))
 }
 
-export async function failJob(
-  db: Db,
-  jobId: string,
-  message: string,
-  force = false,
-): Promise<{permanent: boolean}> {
+export async function failJob(db: Db, jobId: string, message: string, force = false) {
   const [row] = await db
     .select({attemptCount: processingJobs.attemptCount})
     .from(processingJobs)
     .where(eq(processingJobs.id, jobId))
     .limit(1)
 
-  const permanent = force || (row?.attemptCount ?? MAX_ATTEMPTS) >= MAX_ATTEMPTS
+  let attempts = MAX_ATTEMPTS
+  if (row) attempts = row.attemptCount
 
-  await db
-    .update(processingJobs)
-    .set({
-      status: permanent ? 'failed' : 'pending',
-      error: message.slice(0, 2000),
-      claimedBy: null,
-      claimedAt: null,
-      ...(permanent ? {completedAt: new Date()} : {}),
-    })
-    .where(eq(processingJobs.id, jobId))
+  let permanent = false
+  if (force || attempts >= MAX_ATTEMPTS) permanent = true
 
-  return {permanent}
+  if (permanent) {
+    await db
+      .update(processingJobs)
+      .set({
+        status: 'failed',
+        error: message.slice(0, 2000),
+        claimedBy: null,
+        claimedAt: null,
+        completedAt: new Date(),
+      })
+      .where(eq(processingJobs.id, jobId))
+  } else {
+    await db
+      .update(processingJobs)
+      .set({
+        status: 'pending',
+        error: message.slice(0, 2000),
+        claimedBy: null,
+        claimedAt: null,
+      })
+      .where(eq(processingJobs.id, jobId))
+  }
+
+  return {permanent: permanent}
 }
 
-export interface AbandonedJob {
+export type AbandonedJob = {
   id: string
   stage: JobStage
   userId: string
@@ -305,7 +322,7 @@ export async function reapAbandonedJobs(db: Db): Promise<AbandonedJob[]> {
   const now = new Date()
   const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS)
 
-  const reaped = await db
+  return db
     .update(processingJobs)
     .set({
       status: 'failed',
@@ -327,20 +344,15 @@ export async function reapAbandonedJobs(db: Db): Promise<AbandonedJob[]> {
       userId: processingJobs.userId,
       worksheetId: processingJobs.worksheetId,
     })
-
-  return reaped
 }
 
-export interface QueueDepth {
+export type QueueDepth = {
   pending: number
   running: number
   oldestPendingAt: Date | null
 }
 
-export async function queueDepth(
-  db: Db,
-  executor: JobExecutor,
-): Promise<QueueDepth> {
+export async function queueDepth(db: Db, executor: JobExecutor): Promise<QueueDepth> {
   const [row] = await db
     .select({
       pending: sql<number>`count(*) filter (where ${processingJobs.status} = 'pending')::int`,
@@ -350,10 +362,13 @@ export async function queueDepth(
     .from(processingJobs)
     .where(eq(processingJobs.executor, executor))
 
+  let oldestPendingAt = null
+  if (row.oldest) oldestPendingAt = new Date(row.oldest)
+
   return {
     pending: Number(row.pending),
     running: Number(row.running),
-    oldestPendingAt: row.oldest ? new Date(row.oldest) : null,
+    oldestPendingAt: oldestPendingAt,
   }
 }
 
@@ -362,7 +377,7 @@ export async function heartbeat(
   name: string,
   modelName: string | null,
   jobsInFlight = 0,
-): Promise<string> {
+) {
   const [row] = await db
     .insert(gpuWorkers)
     .values({name, modelName, status: 'online', jobsInFlight, lastHeartbeatAt: new Date()})
@@ -375,7 +390,7 @@ export async function heartbeat(
   return row.id
 }
 
-export interface WorkerStatus {
+export type WorkerStatus = {
   online: boolean
   onlineCount: number
   name: string | null
@@ -394,25 +409,40 @@ export async function workerStatus(db: Db): Promise<WorkerStatus> {
     .orderBy(sql`${gpuWorkers.lastHeartbeatAt} desc nulls last`)
     .limit(WORKERS_CONSIDERED)
 
-  const live = rows.filter(
-    (row) =>
-      row.status === 'online' &&
-      row.lastHeartbeatAt !== null &&
-      now.getTime() - row.lastHeartbeatAt.getTime() < HEARTBEAT_TTL_MS,
-  )
+  let live = []
 
-  const representative = live[0] ?? rows[0] ?? null
+  for (let row of rows) {
+    if (row.status !== 'online') continue
+    if (row.lastHeartbeatAt === null) continue
+    if (now.getTime() - row.lastHeartbeatAt.getTime() >= HEARTBEAT_TTL_MS) continue
+
+    live.push(row)
+  }
+
+  let representative = null
+  if (live.length > 0) representative = live[0]
+  else if (rows.length > 0) representative = rows[0]
+
+  if (!representative) {
+    return {
+      online: false,
+      onlineCount: 0,
+      name: null,
+      modelName: null,
+      lastHeartbeatAt: null,
+    }
+  }
 
   return {
     online: live.length > 0,
     onlineCount: live.length,
-    name: representative?.name ?? null,
-    modelName: representative?.modelName ?? null,
-    lastHeartbeatAt: representative?.lastHeartbeatAt ?? null,
+    name: representative.name,
+    modelName: representative.modelName,
+    lastHeartbeatAt: representative.lastHeartbeatAt,
   }
 }
 
-export async function markWorkerOffline(db: Db, name: string): Promise<void> {
+export async function markWorkerOffline(db: Db, name: string) {
   await db
     .update(gpuWorkers)
     .set({status: 'offline', jobsInFlight: 0})
@@ -429,7 +459,7 @@ export async function transitionWorksheet(
   worksheetId: string,
   from: readonly WorksheetStatus[],
   set: Partial<typeof worksheets.$inferInsert> & {status: WorksheetStatus},
-): Promise<boolean> {
+) {
   const claimed = await db
     .update(worksheets)
     .set(set)
@@ -446,24 +476,27 @@ export async function claimWorksheetForCompletion(
   worksheetId: string,
   status: CompletedStatus,
   tierUsed: Tier,
-): Promise<boolean> {
+) {
   return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, {status, tierUsed})
 }
 
-export async function claimWorksheetForManualFallback(
-  db: Db,
-  worksheetId: string,
-): Promise<boolean> {
+export async function claimWorksheetForManualFallback(db: Db, worksheetId: string) {
   return transitionWorksheet(db, worksheetId, BEFORE_COMPLETION, {status: 'failed'})
 }
 
-export type Guarded =
-  | {ok: true; userId: string; role: 'student' | 'admin'}
-  | {ok: false; status: 401 | 404}
+export type Guarded = {
+  ok: boolean
+  status: number
+  userId: string
+  role: 'student' | 'admin'
+}
 
 export async function guardWorksheet(worksheetId: string): Promise<Guarded> {
   const session = await auth()
-  if (!session?.user?.id) return {ok: false, status: 401}
+
+  if (!session || !session.user || !session.user.id) {
+    return {ok: false, status: 401, userId: '', role: 'student'}
+  }
 
   const [worksheet] = await db
     .select({userId: worksheets.userId})
@@ -472,15 +505,15 @@ export async function guardWorksheet(worksheetId: string): Promise<Guarded> {
     .limit(1)
 
   if (!worksheet || worksheet.userId !== session.user.id) {
-    return {ok: false, status: 404}
+    return {ok: false, status: 404, userId: '', role: 'student'}
   }
 
-  return {ok: true, userId: session.user.id, role: session.user.role}
+  return {ok: true, status: 200, userId: session.user.id, role: session.user.role}
 }
 
-const ABANDONED_AFTER_MS = 60 * 60_000
+const ABANDONED_AFTER_MS = 60 * 60000
 
-export async function sweepAbandonedUploads(db: Db, userId: string): Promise<number> {
+export async function sweepAbandonedUploads(db: Db, userId: string) {
   const now = new Date()
   const cutoff = new Date(now.getTime() - ABANDONED_AFTER_MS)
 
@@ -508,7 +541,7 @@ export async function sweepAbandonedUploads(db: Db, userId: string): Promise<num
 
   if (stale.length === 0) return 0
 
-  for (const sheet of stale) {
+  for (let sheet of stale) {
     const pages = await db
       .select({imageKey: worksheetPages.imageKey})
       .from(worksheetPages)
@@ -516,24 +549,27 @@ export async function sweepAbandonedUploads(db: Db, userId: string): Promise<num
 
     await db.delete(worksheets).where(eq(worksheets.id, sheet.id))
 
-    await Promise.allSettled(pages.map((page) => storage.remove(page.imageKey)))
+    let removals = []
+    for (let page of pages) removals.push(storage.remove(page.imageKey))
+
+    await Promise.allSettled(removals)
   }
 
   return stale.length
 }
 
-export interface StoredObject {
+export type StoredObject = {
   body: Buffer
   contentType: string
 }
 
-export interface StoredStream {
+export type StoredStream = {
   stream: ReadableStream<Uint8Array>
   contentType: string
   size: number | null
 }
 
-export interface StorageDriver {
+export type StorageDriver = {
   readonly name: 'vercel-blob' | 'local'
   put(key: string, body: Buffer, contentType: string): Promise<void>
   get(key: string): Promise<StoredObject | null>
@@ -543,13 +579,23 @@ export interface StorageDriver {
 
 const LOCAL_ROOT = join(process.cwd(), '.uploads')
 
-function safeLocalPath(key: string): string {
+function safeLocalPath(key: string) {
   const cleaned = normalize(key).replace(/^([.]{2}([/\\]|$))+/, '')
   const full = join(LOCAL_ROOT, cleaned)
+
   if (!full.startsWith(LOCAL_ROOT + sep)) {
     throw new Error('Invalid storage key')
   }
+
   return full
+}
+
+async function readContentType(path: string) {
+  try {
+    return await readFile(path + '.meta', 'utf8')
+  } catch {
+    return 'application/octet-stream'
+  }
 }
 
 const localDriver: StorageDriver = {
@@ -559,16 +605,15 @@ const localDriver: StorageDriver = {
     const path = safeLocalPath(key)
     await mkdir(dirname(path), {recursive: true})
     await writeFile(path, body)
-    await writeFile(`${path}.meta`, contentType, 'utf8')
+    await writeFile(path + '.meta', contentType, 'utf8')
   },
 
   async get(key) {
     try {
       const path = safeLocalPath(key)
-      const [body, contentType] = await Promise.all([
-        readFile(path),
-        readFile(`${path}.meta`, 'utf8').catch(() => 'application/octet-stream'),
-      ])
+      const body = await readFile(path)
+      const contentType = await readContentType(path)
+
       return {body, contentType}
     } catch {
       return null
@@ -578,10 +623,8 @@ const localDriver: StorageDriver = {
   async getStream(key) {
     try {
       const path = safeLocalPath(key)
-      const [info, contentType] = await Promise.all([
-        stat(path),
-        readFile(`${path}.meta`, 'utf8').catch(() => 'application/octet-stream'),
-      ])
+      const info = await stat(path)
+      const contentType = await readContentType(path)
 
       return {
         stream: Readable.toWeb(createReadStream(path)) as ReadableStream<Uint8Array>,
@@ -595,11 +638,11 @@ const localDriver: StorageDriver = {
 
   async remove(key) {
     const path = safeLocalPath(key)
-    await Promise.allSettled([unlink(path), unlink(`${path}.meta`)])
+    await Promise.allSettled([unlink(path), unlink(path + '.meta')])
   },
 }
 
-function detached(body: Buffer): Buffer {
+function detached(body: Buffer) {
   const copy = Buffer.alloc(body.byteLength)
   body.copy(copy)
   return copy
@@ -621,9 +664,13 @@ const blobDriver: StorageDriver = {
     try {
       const result = await get(key, {access: 'private'})
       if (!result) return null
+
+      let contentType = result.blob.contentType
+      if (!contentType) contentType = 'application/octet-stream'
+
       return {
         body: Buffer.from(await new Response(result.stream).arrayBuffer()),
-        contentType: result.blob.contentType ?? 'application/octet-stream',
+        contentType: contentType,
       }
     } catch {
       return null
@@ -635,10 +682,16 @@ const blobDriver: StorageDriver = {
       const result = await get(key, {access: 'private'})
       if (!result) return null
 
+      let contentType = result.blob.contentType
+      if (!contentType) contentType = 'application/octet-stream'
+
+      let size = null
+      if (result.blob.size) size = result.blob.size
+
       return {
         stream: result.stream as ReadableStream<Uint8Array>,
-        contentType: result.blob.contentType ?? 'application/octet-stream',
-        size: result.blob.size ?? null,
+        contentType: contentType,
+        size: size,
       }
     } catch {
       return null
@@ -650,15 +703,10 @@ const blobDriver: StorageDriver = {
   },
 }
 
-interface StorageEnv {
-  BLOB_READ_WRITE_TOKEN?: string
-  VERCEL_ENV?: string
-}
+function selectDriver(): StorageDriver {
+  if (process.env.BLOB_READ_WRITE_TOKEN) return blobDriver
 
-function selectDriver(env: StorageEnv = process.env as StorageEnv): StorageDriver {
-  if (env.BLOB_READ_WRITE_TOKEN) return blobDriver
-
-  if (env.VERCEL_ENV) {
+  if (process.env.VERCEL_ENV) {
     throw new Error(
       'BLOB_READ_WRITE_TOKEN is not set. The local-disk fallback cannot work on a ' +
         'serverless host: uploads would be accepted and then unreadable. Set the ' +
@@ -671,6 +719,6 @@ function selectDriver(env: StorageEnv = process.env as StorageEnv): StorageDrive
 
 export const storage: StorageDriver = selectDriver()
 
-export function pageImageKey(worksheetId: string, pageNumber: number): string {
-  return `pages/${worksheetId}/${String(pageNumber).padStart(3, '0')}.webp`
+export function pageImageKey(worksheetId: string, pageNumber: number) {
+  return 'pages/' + worksheetId + '/' + String(pageNumber).padStart(3, '0') + '.webp'
 }

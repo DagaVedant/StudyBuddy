@@ -15,14 +15,14 @@ export const COUNTS_TOWARDS_ACCURACY = sql`exists (
   where scored.id = ${attempts.questionId} and scored.origin = 'extracted'
 )`
 
-export interface LoadedChoice {
+export type LoadedChoice = {
   id: string
   label: string
   text: string
   isCorrect: boolean
 }
 
-export interface LoadedQuestion {
+export type LoadedQuestion = {
   id: string
   ordinal: number
   printedNumber: number | null
@@ -37,10 +37,7 @@ export interface LoadedQuestion {
   choices: LoadedChoice[]
 }
 
-export async function loadQuestionsWithChoices(
-  db: Db,
-  worksheetId: string,
-): Promise<LoadedQuestion[]> {
+export async function loadQuestionsWithChoices(db: Db, worksheetId: string) {
   const rows = await db
     .select({
       id: questions.id,
@@ -61,6 +58,9 @@ export async function loadQuestionsWithChoices(
 
   if (rows.length === 0) return []
 
+  const ids: string[] = []
+  for (const row of rows) ids.push(row.id)
+
   const choiceRows = await db
     .select({
       id: answerChoices.id,
@@ -70,37 +70,55 @@ export async function loadQuestionsWithChoices(
       isCorrect: answerChoices.isCorrect,
     })
     .from(answerChoices)
-    .where(
-      inArray(
-        answerChoices.questionId,
-        rows.map((row) => row.id),
-      ),
-    )
+    .where(inArray(answerChoices.questionId, ids))
     .orderBy(...CHOICE_ORDER)
 
   const choicesFor = new Map<string, LoadedChoice[]>()
+
   for (const choice of choiceRows) {
-    const list = choicesFor.get(choice.questionId)
     const entry = {
       id: choice.id,
       label: choice.label,
       text: choice.text,
       isCorrect: choice.isCorrect,
     }
+
+    const list = choicesFor.get(choice.questionId)
     if (list) list.push(entry)
     else choicesFor.set(choice.questionId, [entry])
   }
 
-  return rows.map((row) => ({
-    ...row,
-    top: Array.isArray(row.bbox) ? row.bbox[1] : null,
-    choices: choicesFor.get(row.id) ?? [],
-  }))
+  const loaded: LoadedQuestion[] = []
+
+  for (const row of rows) {
+    let top = null
+    if (Array.isArray(row.bbox)) top = row.bbox[1]
+
+    let choices = choicesFor.get(row.id)
+    if (!choices) choices = []
+
+    loaded.push({
+      id: row.id,
+      ordinal: row.ordinal,
+      printedNumber: row.printedNumber,
+      promptText: row.promptText,
+      questionType: row.questionType,
+      bbox: row.bbox,
+      top: top,
+      contentHash: row.contentHash,
+      userVerified: row.userVerified,
+      pageId: row.pageId,
+      pageNumber: row.pageNumber,
+      choices: choices,
+    })
+  }
+
+  return loaded
 }
 
 const NEAR_DISTANCE = 0.06
 
-export interface LibraryDuplicate {
+export type LibraryDuplicate = {
   questionId: string
   matchQuestionId: string
   matchWorksheetId: string
@@ -126,9 +144,10 @@ export async function findLibraryDuplicates(
 
   const found = new Map<string, LibraryDuplicate>()
 
-  const hashes = mine
-    .map((row) => row.contentHash)
-    .filter((hash): hash is string => Boolean(hash))
+  const hashes: string[] = []
+  for (const row of mine) {
+    if (row.contentHash) hashes.push(row.contentHash)
+  }
 
   if (hashes.length > 0) {
     const exact = await db
@@ -148,10 +167,15 @@ export async function findLibraryDuplicates(
         ),
       )
 
-    const byHash = new Map(exact.map((row) => [row.contentHash, row]))
+    const byHash = new Map<string, (typeof exact)[number]>()
+    for (const row of exact) {
+      if (row.contentHash) byHash.set(row.contentHash, row)
+    }
 
     for (const row of mine) {
-      const match = row.contentHash ? byHash.get(row.contentHash) : undefined
+      if (!row.contentHash) continue
+
+      const match = byHash.get(row.contentHash)
       if (!match) continue
 
       found.set(row.id, {
@@ -167,7 +191,7 @@ export async function findLibraryDuplicates(
   for (const row of mine) {
     if (found.has(row.id) || !row.embedding) continue
 
-    const literal = `[${row.embedding.join(',')}]`
+    const literal = '[' + row.embedding.join(',') + ']'
 
     const [match] = await db
       .select({
@@ -199,12 +223,15 @@ export async function findLibraryDuplicates(
     })
   }
 
-  return [...found.values()]
+  const duplicates: LibraryDuplicate[] = []
+  for (const duplicate of found.values()) duplicates.push(duplicate)
+
+  return duplicates
 }
 
-export interface ReferenceCheck {
+export type ReferenceCheck = {
   ok: boolean
-  field?: 'pageId' | 'topicId'
+  field: string
 }
 
 export async function checkReferences(
@@ -237,20 +264,23 @@ export async function checkReferences(
     if (!topic) return {ok: false, field: 'topicId'}
   }
 
-  return {ok: true}
+  return {ok: true, field: ''}
 }
 
-export function referenceError(field: 'pageId' | 'topicId'): string {
-  return field === 'pageId'
-    ? 'That page is not part of this worksheet.'
-    : 'That topic no longer exists. Pick another one.'
+export function referenceError(field: string) {
+  if (field === 'pageId') return 'That page is not part of this worksheet.'
+
+  return 'That topic no longer exists. Pick another one.'
 }
 
 export async function verifyRemaining(
   db: Db,
   worksheetId: string,
   exclude: string[] = [],
-): Promise<string[]> {
+) {
+  let notExcluded = undefined
+  if (exclude.length > 0) notExcluded = notInArray(questions.id, exclude)
+
   const updated = await db
     .update(questions)
     .set({userVerified: true})
@@ -258,24 +288,26 @@ export async function verifyRemaining(
       and(
         eq(questions.worksheetId, worksheetId),
         eq(questions.userVerified, false),
-        exclude.length > 0 ? notInArray(questions.id, exclude) : undefined,
+        notExcluded,
       ),
     )
     .returning({id: questions.id})
 
-  return updated.map((row) => row.id)
+  const ids: string[] = []
+  for (const row of updated) ids.push(row.id)
+
+  return ids
 }
 
-export async function unverifyQuestions(
-  db: Db,
-  worksheetId: string,
-  ids: string[],
-): Promise<string[]> {
+export async function unverifyQuestions(db: Db, worksheetId: string, ids: string[]) {
   const updated = await db
     .update(questions)
     .set({userVerified: false})
     .where(and(eq(questions.worksheetId, worksheetId), inArray(questions.id, ids)))
     .returning({id: questions.id})
 
-  return updated.map((row) => row.id)
+  const changed: string[] = []
+  for (const row of updated) changed.push(row.id)
+
+  return changed
 }

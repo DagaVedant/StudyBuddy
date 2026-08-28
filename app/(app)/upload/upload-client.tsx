@@ -12,12 +12,12 @@ import {
   SAMPLE_WORKSHEETS,
 } from '@/lib/upload'
 
-export interface SubjectGroup {
+export type SubjectGroup = {
   label: string
   options: {slug: string; label: string}[]
 }
 
-interface Props {
+type Props = {
   subjects: SubjectGroup[]
   initialSample?: string
 }
@@ -34,7 +34,7 @@ const STAGE_LABEL: Record<IngestProgress['stage'], string> = {
 const BYTES = new Intl.NumberFormat(undefined, {maximumFractionDigits: 1})
 
 function formatSize(bytes: number): string {
-  return `${BYTES.format(bytes / 1_000_000)} MB`
+  return (BYTES.format(bytes / 1_000_000)) + ' MB'
 }
 
 function defaultTitle(files: File[]): string {
@@ -60,6 +60,9 @@ export default function UploadClient({subjects, initialSample}: Props) {
   const [pageTo, setPageTo] = useState('')
   const [questionCount, setQuestionCount] = useState('')
   const [dragging, setDragging] = useState(false)
+
+  let dropClass = 'card-sunk p-6 text-center'
+  if (dragging) dropClass = 'card-sunk p-6 text-center bg-accent/10'
   const [progress, setProgress] = useState<IngestProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -82,10 +85,12 @@ export default function UploadClient({subjects, initialSample}: Props) {
 
   useEffect(() => {
     return () => {
-      abortRef.current?.abort()
-      void import('@/lib/client/rasterize').then(({terminateOcr}) =>
-        terminateOcr().catch(() => {}),
-      )
+      const controller = abortRef.current
+      if (controller) controller.abort()
+
+      import('@/lib/client/rasterize').then((mod) => {
+        mod.terminateOcr().catch(() => {})
+      })
     }
   }, [])
 
@@ -109,11 +114,11 @@ export default function UploadClient({subjects, initialSample}: Props) {
       setLoadingSample(slug)
 
       try {
-        const response = await fetch(`/samples/${slug}.pdf`)
+        const response = await fetch('/samples/' + slug + '.pdf')
         if (!response.ok) throw new Error(String(response.status))
 
         const blob = await response.blob()
-        const name = `${sample.title}.pdf`
+        const name = sample.title + '.pdf'
 
         addFiles([new File([blob], name, {type: 'application/pdf'})])
 
@@ -154,7 +159,10 @@ export default function UploadClient({subjects, initialSample}: Props) {
 
   function cancel() {
     runningRef.current = false
-    abortRef.current?.abort()
+
+    const controller = abortRef.current
+    if (controller) controller.abort()
+
     abortRef.current = null
     setProgress(null)
     setPending(null)
@@ -169,7 +177,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
 
     setNotice('Upload cancelled. Removing what had already gone up…')
 
-    fetch(`/api/worksheets/${started}`, {method: 'DELETE'})
+    fetch('/api/worksheets/' + started, {method: 'DELETE'})
       .then(() => setNotice('Upload cancelled. Nothing was kept.'))
       .catch(() => setNotice('Upload cancelled.'))
   }
@@ -257,9 +265,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
           addFiles(event.dataTransfer.files)
         }}
         aria-labelledby="add-heading"
-        className={`card-sunk p-6 text-center ${
-          dragging ? 'bg-accent/10' : ''
-        }`}
+        className={dropClass}
       >
         <h2 id="add-heading" className="text-pretty font-medium">
           Drop your pages here, or choose a file
@@ -314,7 +320,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
           <ul className="mt-2 divide-y divide-fg/20">
             {files.map((file, index) => (
               <li
-                key={`${file.name}-${index}`}
+                key={file.name + '-' + index}
                 className="flex items-center gap-3 py-2"
               >
                 <span className="min-w-0 flex-1 truncate text-sm" title={file.name}>
@@ -327,7 +333,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
                   type="button"
                   onClick={() => removeFile(index)}
                   disabled={busy}
-                  aria-label={`Remove ${file.name}`}
+                  aria-label={'Remove ' + file.name}
                   className="btn-compact shrink-0 rounded px-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
                 >
                   Remove
@@ -486,7 +492,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
           >
             <div
               className="h-full bg-accent"
-              style={{width: `${pct}%`}}
+              style={{width: pct + '%'}}
             />
           </div>
 

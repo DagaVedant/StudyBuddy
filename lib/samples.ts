@@ -5,7 +5,7 @@ import {type Db} from '@/lib/db'
 import {persistQuestions} from '@/lib/worker/pipeline'
 import {answerChoices, questions, questionTopics, topics, worksheetPages, worksheets} from '@/lib/schema'
 
-export interface CachedSample {
+export type CachedSample = {
   slug: string
   title: string
   topicSlug: string
@@ -374,15 +374,11 @@ export const CACHED_SAMPLES: CachedSample[] = [
   },
 ]
 
-function squash(text: string): string {
+function squash(text: string) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
-export async function findMatchingSample(
-  db: Db,
-  worksheetId: string,
-  userId: string,
-): Promise<{sample: CachedSample; pages: {id: string}[]} | null> {
+export async function findMatchingSample(db: Db, worksheetId: string, userId: string) {
   const pages = await db
     .select({id: worksheetPages.id, ocrText: worksheetPages.ocrText})
     .from(worksheetPages)
@@ -391,7 +387,10 @@ export async function findMatchingSample(
 
   if (pages.length === 0) return null
 
-  const firstPage = squash(pages[0].ocrText ?? '')
+  let firstText = ''
+  if (pages[0].ocrText) firstText = pages[0].ocrText
+
+  const firstPage = squash(firstText)
 
   for (const sample of CACHED_SAMPLES) {
     if (pages.length !== sample.pages.length) continue
@@ -415,7 +414,7 @@ async function applySampleKey(
   db: Db,
   worksheetId: string,
   answers: Record<number, string>,
-): Promise<void> {
+) {
   const rows = await db
     .select({id: questions.id, ordinal: questions.ordinal})
     .from(questions)
@@ -451,11 +450,18 @@ export async function applyCachedSample(
   userId: string,
   sample: CachedSample,
   pages: {id: string}[],
-): Promise<number> {
+) {
   let total = 0
 
-  for (const [index, page] of pages.entries()) {
-    total += await persistQuestions(db, {worksheetId, userId}, page.id, sample.pages[index])
+  for (let index = 0; index < pages.length; index++) {
+    const added = await persistQuestions(
+      db,
+      {worksheetId, userId},
+      pages[index].id,
+      sample.pages[index],
+    )
+
+    total = total + added
   }
 
   await applySampleKey(db, worksheetId, sample.answers)
@@ -475,18 +481,19 @@ export async function applyCachedSample(
 
   if (rows.length === 0) return total
 
-  await db
-    .insert(questionTopics)
-    .values(
-      rows.map((row) => ({
-        questionId: row.id,
-        topicId: topic.id,
-        confidence: 1,
-        assignedBy: 'ai' as const,
-        isPrimary: true,
-      })),
-    )
-    .onConflictDoNothing()
+  const tags = []
+
+  for (const row of rows) {
+    tags.push({
+      questionId: row.id,
+      topicId: topic.id,
+      confidence: 1,
+      assignedBy: 'ai' as const,
+      isPrimary: true,
+    })
+  }
+
+  await db.insert(questionTopics).values(tags).onConflictDoNothing()
 
   return total
 }

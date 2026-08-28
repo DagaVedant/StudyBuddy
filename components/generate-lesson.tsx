@@ -7,7 +7,7 @@ import {OllamaProvider} from '@/lib/ai/ollama'
 import {fetchJson} from '@/lib/client/http'
 import {type LessonInput, validated} from '@/lib/ai/types'
 
-interface LessonResponse {
+type LessonResponse = {
   error?: string
   runsHere?: boolean
   input?: LessonInput
@@ -16,12 +16,13 @@ interface LessonResponse {
   writerOnline?: boolean
 }
 
-const QUEUED =
-  'Queued for the GPU that writes these. It appears here once it is written.'
-
-const QUEUED_OFFLINE =
-  'The GPU that writes these is not running right now. This is saved, and the ' +
-  'lesson appears here once it is back.'
+async function readBody(response: Response) {
+  try {
+    return (await response.json()) as LessonResponse
+  } catch {
+    return {} as LessonResponse
+  }
+}
 
 export function GenerateLessonButton({topicId}: {topicId: string}) {
   const router = useRouter()
@@ -41,15 +42,17 @@ export function GenerateLessonButton({topicId}: {topicId: string}) {
 
     const lesson = await provider.teachTopic(input)
 
-    const stored = await fetchJson(`/api/topics/${topicId}/lesson`, {
+    const stored = await fetchJson('/api/topics/' + topicId + '/lesson', {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({lesson, model: ollama.textModel}),
     })
 
     if (!stored.ok) {
-      const detail = (await stored.json().catch(() => ({}))) as {error?: string}
-      throw new Error(detail.error ?? 'Could not save that lesson. Try again.')
+      const detail = await readBody(stored)
+      let message = detail.error
+      if (!message) message = 'Could not save that lesson. Try again.'
+      throw new Error(message)
     }
   }
 
@@ -58,15 +61,23 @@ export function GenerateLessonButton({topicId}: {topicId: string}) {
     setError(null)
 
     try {
-      const response = await fetchJson(`/api/topics/${topicId}/lesson`, {method: 'POST'})
-      const body = (await response.json().catch(() => ({}))) as LessonResponse
+      const response = await fetchJson('/api/topics/' + topicId + '/lesson', {method: 'POST'})
+      const body = await readBody(response)
 
       if (!response.ok) {
-        throw new Error(body.error ?? 'Could not generate that lesson. Try again.')
+        let message = body.error
+        if (!message) message = 'Could not generate that lesson. Try again.'
+        throw new Error(message)
       }
 
       if (body.status === 'queued') {
-        setQueued(body.writerOnline === false ? QUEUED_OFFLINE : QUEUED)
+        if (body.writerOnline === false) {
+          setQueued(
+            'The GPU that writes these is not running right now. This is saved, and the lesson appears here once it is back.',
+          )
+        } else {
+          setQueued('Queued for the GPU that writes these. It appears here once it is written.')
+        }
         return
       }
 
@@ -82,20 +93,27 @@ export function GenerateLessonButton({topicId}: {topicId: string}) {
     }
   }
 
+  let buttonText = 'Generate lesson overview'
+  if (busy) buttonText = 'Writing…'
+
+  let hint = 'Written by a model, from questions in this topic. Takes a moment.'
+  if (queued) hint = queued
+  if (error) hint = error
+
   return (
     <div>
       <button
         type="button"
         disabled={busy}
-        onClick={() => void generate()}
+        onClick={() => {
+          generate()
+        }}
         className="card px-3 py-1.5 text-sm hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
       >
-        {busy ? 'Writing…' : 'Generate lesson overview'}
+        {buttonText}
       </button>
       <p aria-live="polite" className="hint">
-        {error ??
-          queued ??
-          'Written by a model, from questions in this topic. Takes a moment.'}
+        {hint}
       </p>
     </div>
   )

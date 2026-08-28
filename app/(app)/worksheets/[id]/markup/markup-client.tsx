@@ -13,7 +13,7 @@ import {reflowText} from '@/lib/questions/shape'
 
 export type Outcome = 'correct' | 'unsure' | 'wrong'
 
-export interface MarkableQuestion {
+export type MarkableQuestion = {
   id: string
   ordinal: number
   promptText: string
@@ -22,7 +22,7 @@ export interface MarkableQuestion {
   choices: {id: string; label: string; text: string}[]
 }
 
-interface Props {
+type Props = {
   worksheetId: string
   questions: MarkableQuestion[]
 }
@@ -32,6 +32,15 @@ const OUTCOMES: {value: Outcome; label: string; hint: string; key: string}[] = [
   {value: 'unsure', label: 'Unsure', hint: 'Right, but I guessed', key: '2'},
   {value: 'wrong', label: 'Missed it', hint: 'Wrong answer', key: '3'},
 ]
+
+const CHOICE_BASE =
+  'flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm touch-manipulation has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent '
+
+function choiceClass(active: boolean) {
+  if (active) return CHOICE_BASE + 'border-accent bg-accent/10'
+
+  return CHOICE_BASE + 'border-rule hover:border-accent hover:bg-accent/5'
+}
 
 export default function MarkupClient({worksheetId, questions}: Props) {
   const router = useRouter()
@@ -71,10 +80,19 @@ export default function MarkupClient({worksheetId, questions}: Props) {
   }, [marked, submitting])
 
   const currentQuestion = questions[cursor]
-  const unresolved = questions.filter((question) => {
+
+  const unresolved = []
+  for (const question of questions) {
     const outcome = outcomes[question.id]
-    return outcome === 'wrong' || outcome === 'unsure'
-  })
+    if (outcome === 'wrong' || outcome === 'unsure') unresolved.push(question)
+  }
+
+  function answerFor(questionId: string) {
+    const value = answers[questionId]
+    if (!value) return ''
+
+    return value
+  }
 
   const mark = useCallback(
     (questionId: string, outcome: Outcome, index: number) => {
@@ -109,37 +127,55 @@ export default function MarkupClient({worksheetId, questions}: Props) {
     setSubmitting(true)
     setError(null)
 
-    const marks = questions
-      .filter((question) => outcomes[question.id])
-      .map((question) => {
-        const answer = answers[question.id]
-        const choice = question.choices.find((option) => option.id === answer)
-        return {
-          questionId: question.id,
-          outcome: outcomes[question.id],
-          selectedChoiceId: choice?.id ?? null,
-          freeTextAnswer: choice ? null : (answer ?? null),
-        }
+    const marks = []
+
+    for (const question of questions) {
+      if (!outcomes[question.id]) continue
+
+      const answer = answers[question.id]
+
+      let choiceId: string | null = null
+      for (const option of question.choices) {
+        if (option.id === answer) choiceId = option.id
+      }
+
+      let freeTextAnswer: string | null = null
+      if (!choiceId && answer) freeTextAnswer = answer
+
+      marks.push({
+        questionId: question.id,
+        outcome: outcomes[question.id],
+        selectedChoiceId: choiceId,
+        freeTextAnswer: freeTextAnswer,
       })
+    }
 
     try {
-      const response = await fetchJson(`/api/worksheets/${worksheetId}/attempts`, {
+      const response = await fetchJson('/api/worksheets/' + worksheetId + '/attempts', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({marks}),
       })
       const body = (await response.json()) as {next?: string; error?: string}
+
       if (!response.ok && response.status !== 409) {
-        throw new Error(body.error ?? 'Could not save')
+        let message = 'Could not save'
+        if (body.error) message = body.error
+
+        throw new Error(message)
       }
 
       clearMarkupDraft(worksheetId)
-      router.push(body.next ?? '/dashboard')
+
+      let next = '/dashboard'
+      if (body.next) next = body.next
+
+      router.push(next)
     } catch (cause) {
       setSubmitting(false)
       setError(
         cause instanceof Error
-          ? `${cause.message}. Your marks are still here. Try again.`
+          ? cause.message + '. Your marks are still here. Try again.'
           : 'Could not save your marks. Try again.',
       )
     }
@@ -181,15 +217,11 @@ export default function MarkupClient({worksheetId, questions}: Props) {
                       return (
                         <label
                           key={choice.id}
-                          className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm touch-manipulation has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
-                            active
-                              ? 'border-accent bg-accent/10'
-                              : 'border-rule hover:border-accent hover:bg-accent/5'
-                          }`}
+                          className={choiceClass(active)}
                         >
                           <input
                             type="radio"
-                            name={`answer-${question.id}`}
+                            name={'answer-' + question.id}
                             className="sr-only"
                             checked={active}
                             onChange={() =>
@@ -210,15 +242,15 @@ export default function MarkupClient({worksheetId, questions}: Props) {
                 </fieldset>
               ) : (
                 <div className="mt-3">
-                  <label className="label" htmlFor={`answer-${question.id}`}>
+                  <label className="label" htmlFor={'answer-' + question.id}>
                     Your answer
                   </label>
                   <input
-                    id={`answer-${question.id}`}
+                    id={'answer-' + question.id}
                     type="text"
                     autoComplete="off"
                     className="field"
-                    value={answers[question.id] ?? ''}
+                    value={answerFor(question.id)}
                     onChange={(event) =>
                       setAnswers((current) => ({
                         ...current,
@@ -285,7 +317,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
         >
           <div
             className="h-full bg-accent"
-            style={{width: `${(marked / questions.length) * 100}%`}}
+            style={{width: (marked / questions.length) * 100 + '%'}}
           />
         </div>
       </div>
@@ -404,7 +436,7 @@ export default function MarkupClient({worksheetId, questions}: Props) {
   )
 }
 
-export interface MarkedQuestion {
+export type MarkedQuestion = {
   id: string
   ordinal: number
   promptText: string
@@ -426,18 +458,32 @@ export function CorrectionsClient({
   worksheetId: string
   questions: MarkedQuestion[]
 }) {
-  const [marks, setMarks] = useState(() =>
-    Object.fromEntries(
-      questions.map((question) => [
-        question.id,
-        {outcome: question.outcome, selectedChoiceId: question.selectedChoiceId},
-      ]),
-    ),
-  )
+  const [marks, setMarks] = useState(() => {
+    const starting: Record<
+      string,
+      {outcome: Outcome; selectedChoiceId: string | null}
+    > = {}
+
+    for (const question of questions) {
+      starting[question.id] = {
+        outcome: question.outcome,
+        selectedChoiceId: question.selectedChoiceId,
+      }
+    }
+
+    return starting
+  })
+
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const groupId = useId()
+
+  function selectedFor(mark: {selectedChoiceId: string | null}) {
+    if (!mark.selectedChoiceId) return ''
+
+    return mark.selectedChoiceId
+  }
 
   async function correct(
     questionId: string,
@@ -451,17 +497,23 @@ export function CorrectionsClient({
     setSaved(null)
 
     try {
-      const response = await fetchJson(`/api/worksheets/${worksheetId}/attempts`, {
+      const response = await fetchJson('/api/worksheets/' + worksheetId + '/attempts', {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({questionId, ...next}),
       })
 
       if (!response.ok) {
-        const detail = (await response.json().catch(() => null)) as {
-          error?: string
-        } | null
-        throw new Error(detail?.error ?? 'That change did not save.')
+        let message = 'That change did not save.'
+
+        try {
+          const detail = (await response.json()) as {error?: string}
+          if (detail.error) message = detail.error
+        } catch {
+          message = 'That change did not save.'
+        }
+
+        throw new Error(message)
       }
 
       setSaved(questionId)
@@ -534,15 +586,15 @@ export function CorrectionsClient({
                 <div className="mt-3">
                   <label
                     className="label"
-                    htmlFor={`${groupId}-${question.id}`}
+                    htmlFor={groupId + '-' + question.id}
                   >
                     What you put
                   </label>
                   <select
-                    id={`${groupId}-${question.id}`}
+                    id={groupId + '-' + question.id}
                     className="field"
                     disabled={saving === question.id}
-                    value={mark.selectedChoiceId ?? ''}
+                    value={selectedFor(mark)}
                     onChange={(event) =>
                       void correct(question.id, {
                         outcome: mark.outcome,

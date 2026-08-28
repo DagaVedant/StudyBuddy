@@ -4,17 +4,17 @@ import {z} from 'zod'
 import {reviewCards} from '@/lib/schema'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
-import {guardRateLimit, REVIEW_LIMIT} from '@/lib/api'
+import {guardRateLimit, readJson, REVIEW_LIMIT} from '@/lib/api'
 
 const schema = z.object({cardId: z.string().min(1)})
 
 export async function POST(request: Request) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
-  const parsed = schema.safeParse(await request.json().catch(() => null))
+  const parsed = schema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const limited = await guardRateLimit(
     db,
     REVIEW_LIMIT,
-    `user:${session.user.id}`,
+    'user:' + session.user.id,
     'That is a lot of reviewing in one hour. Take a break and come back.',
   )
   if (limited) return limited

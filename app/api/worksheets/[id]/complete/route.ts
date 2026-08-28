@@ -24,17 +24,23 @@ async function alreadyCompleted(worksheetId: string) {
     .where(eq(worksheets.id, worksheetId))
     .limit(1)
 
-  const queued = current?.status === 'queued' || current?.status === 'processing'
+  let queued = false
+  let tier = null
 
-  return NextResponse.json({
-    ok: true,
-    tier: current?.tierUsed ?? null,
-    mode: queued ? 'queued' : 'manual',
-    alreadyCompleted: true,
-    next: queued
-      ? `/worksheets/${worksheetId}/status`
-      : `/worksheets/${worksheetId}/edit`,
-  })
+  if (current) {
+    if (current.status === 'queued' || current.status === 'processing') queued = true
+    tier = current.tierUsed
+  }
+
+  let mode = 'manual'
+  let next = '/worksheets/' + worksheetId + '/edit'
+
+  if (queued) {
+    mode = 'queued'
+    next = '/worksheets/' + worksheetId + '/status'
+  }
+
+  return NextResponse.json({ok: true, tier, mode, alreadyCompleted: true, next})
 }
 
 async function postIdComplete(_request: Request, {params}: {params: Promise<Record<string, string>>}) {
@@ -48,7 +54,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
   const limited = await guardRateLimit(
     db,
     WORKSHEET_WRITE_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited
@@ -73,7 +79,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
     } catch (error) {
       // a claimed worksheet with no job would sit in the queue forever
       console.error(
-        `[sample] ${match.sample.slug} failed on ${worksheetId}:`,
+        '[sample] ' + match.sample.slug + ' failed on ' + worksheetId + ':',
         (error as Error).message,
       )
     }
@@ -89,7 +95,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       tier: 'free',
       mode: 'sample',
       questionCount: kept,
-      next: `/worksheets/${worksheetId}/status?sample=${match.sample.slug}`,
+      next: '/worksheets/' + worksheetId + '/status?sample=' + match.sample.slug,
     })
   }
 
@@ -107,7 +113,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       message:
         'Your free reads are used up. Papers are read on one GPU we run, so ' +
         'there is a limit per account. Add this one’s questions by hand.',
-      next: `/worksheets/${worksheetId}/edit`,
+      next: '/worksheets/' + worksheetId + '/edit',
     })
   }
 
@@ -127,7 +133,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
         message:
           'Another worksheet of yours is still being read. This one was not counted ' +
           'against your trial: add its questions here, or come back once the first finishes.',
-        next: `/worksheets/${worksheetId}/edit`,
+        next: '/worksheets/' + worksheetId + '/edit',
       })
     }
 
@@ -146,7 +152,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
           message:
             'The free trial has hit its limit for today, so this one was not counted ' +
             'against yours. Add its questions here, or come back tomorrow.',
-          next: `/worksheets/${worksheetId}/edit`,
+          next: '/worksheets/' + worksheetId + '/edit',
         })
       }
     }
@@ -171,7 +177,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
         tier: 'free',
         mode: 'manual',
         message: charge.reason,
-        next: `/worksheets/${worksheetId}/edit`,
+        next: '/worksheets/' + worksheetId + '/edit',
       })
     }
 
@@ -193,7 +199,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       trialWorksheetsRemaining: Number.isFinite(charge.remaining)
         ? charge.remaining
         : null,
-      next: `/worksheets/${worksheetId}/status`,
+      next: '/worksheets/' + worksheetId + '/status',
     })
   }
 
@@ -214,7 +220,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       ok: true,
       tier,
       mode: 'browser',
-      next: `/worksheets/${worksheetId}/status`,
+      next: '/worksheets/' + worksheetId + '/status',
     })
   }
 
@@ -244,7 +250,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
     ok: true,
     tier,
     mode: 'queued',
-    next: `/worksheets/${worksheetId}/status`,
+    next: '/worksheets/' + worksheetId + '/status',
   })
 }
 

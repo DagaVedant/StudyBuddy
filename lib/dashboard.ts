@@ -1,4 +1,4 @@
-import {and, desc, eq, inArray, isNotNull, lte, sql} from 'drizzle-orm'
+import {and, asc, desc, eq, inArray, isNotNull, lte, sql} from 'drizzle-orm'
 
 import {COUNTS_TOWARDS_ACCURACY, IS_QUESTION} from '@/lib/questions/queries'
 import {inReviewQueue} from '@/lib/review'
@@ -10,69 +10,110 @@ import {attempts, questionTopics, questions, reviewCards, topics, worksheets} fr
 const TREND_BAND = 0.1
 
 export async function getTopicStats(db: Db, userId: string): Promise<TopicStats[]> {
-  const result = rows<{
-    topic_id: string
-    topic_name: string
-    slug: string
-    subject_root: string
-    correct: number
-    unsure: number
-    wrong: number
-    earlier_rate: string | null
-    recent_rate: string | null
-  }>(
-    await db.execute(sql`
-      with ranked as (
-        select
-          ${questionTopics.topicId} as topic_id,
-          ${attempts.outcome} as outcome,
-          row_number() over (
-            partition by ${questionTopics.topicId}
-            order by ${attempts.createdAt}, ${attempts.id}
-          ) as seq,
-          count(*) over (partition by ${questionTopics.topicId}) as total
-        from ${attempts}
-        join ${questionTopics}
-          on ${questionTopics.questionId} = ${attempts.questionId}
-          and ${questionTopics.isPrimary} = true
-        where ${attempts.userId} = ${userId} and ${COUNTS_TOWARDS_ACCURACY}
-      )
-      select
-        t.id as topic_id,
-        t.name as topic_name,
-        t.slug,
-        t.subject_root,
-        count(*) filter (where r.outcome = 'correct')::int as correct,
-        count(*) filter (where r.outcome = 'unsure')::int as unsure,
-        count(*) filter (where r.outcome = 'wrong')::int as wrong,
-        avg(case when r.outcome = 'wrong' then 0.0 else 1.0 end)
-          filter (where r.seq <= r.total / 2.0) as earlier_rate,
-        avg(case when r.outcome = 'wrong' then 0.0 else 1.0 end)
-          filter (where r.seq > r.total / 2.0) as recent_rate
-      from ranked r
-      join ${topics} t on t.id = r.topic_id
-      group by t.id, t.name, t.slug, t.subject_root
-    `),
-  )
+  const answered = await db
+    .select({
+      topicId: topics.id,
+      topicName: topics.name,
+      slug: topics.slug,
+      subjectRoot: topics.subjectRoot,
+      outcome: attempts.outcome,
+    })
+    .from(attempts)
+    .innerJoin(
+      questionTopics,
+      and(
+        eq(questionTopics.questionId, attempts.questionId),
+        eq(questionTopics.isPrimary, true),
+      ),
+    )
+    .innerJoin(topics, eq(topics.id, questionTopics.topicId))
+    .where(and(eq(attempts.userId, userId), COUNTS_TOWARDS_ACCURACY))
+    .orderBy(asc(attempts.createdAt), asc(attempts.id))
 
-  return result.map((row) => {
-    const earlier = row.earlier_rate === null ? null : Number(row.earlier_rate)
-    const recent = row.recent_rate === null ? null : Number(row.recent_rate)
+  type Bucket = {
+    topicId: string
+    topicName: string
+    topicPath: string
+    subjectRoot: string
+    outcomes: string[]
+  }
 
-    return {
-      topicId: row.topic_id,
-      topicName: row.topic_name,
-      topicPath: row.slug,
-      subjectRoot: row.subject_root,
-      correct: Number(row.correct),
-      unsure: Number(row.unsure),
-      wrong: Number(row.wrong),
-      trend: trendOf(earlier, recent),
+  let byTopic = new Map<string, Bucket>()
+
+  for (let row of answered) {
+    let bucket = byTopic.get(row.topicId)
+
+    if (!bucket) {
+      bucket = {
+        topicId: row.topicId,
+        topicName: row.topicName,
+        topicPath: row.slug,
+        subjectRoot: row.subjectRoot,
+        outcomes: [],
+      }
+
+      byTopic.set(row.topicId, bucket)
     }
-  })
+
+    bucket.outcomes.push(row.outcome)
+  }
+
+  let out: TopicStats[] = []
+
+  for (let bucket of byTopic.values()) {
+    let correct = 0
+    let unsure = 0
+    let wrong = 0
+
+    for (let outcome of bucket.outcomes) {
+      if (outcome === 'correct') correct = correct + 1
+      if (outcome === 'unsure') unsure = unsure + 1
+      if (outcome === 'wrong') wrong = wrong + 1
+    }
+
+    let total = bucket.outcomes.length
+    let half = total / 2
+
+    let earlierRight = 0
+    let earlierSeen = 0
+    let recentRight = 0
+    let recentSeen = 0
+
+    for (let i = 0; i < total; i++) {
+      let right = 1
+      if (bucket.outcomes[i] === 'wrong') right = 0
+
+      if (i + 1 <= half) {
+        earlierRight = earlierRight + right
+        earlierSeen = earlierSeen + 1
+      } else {
+        recentRight = recentRight + right
+        recentSeen = recentSeen + 1
+      }
+    }
+
+    let earlier = null
+    if (earlierSeen > 0) earlier = earlierRight / earlierSeen
+
+    let recent = null
+    if (recentSeen > 0) recent = recentRight / recentSeen
+
+    out.push({
+      topicId: bucket.topicId,
+      topicName: bucket.topicName,
+      topicPath: bucket.topicPath,
+      subjectRoot: bucket.subjectRoot,
+      correct: correct,
+      unsure: unsure,
+      wrong: wrong,
+      trend: trendOf(earlier, recent),
+    })
+  }
+
+  return out
 }
 
-function trendOf(earlier: number | null, recent: number | null): TopicStats['trend'] {
+function trendOf(earlier: number | null, recent: number | null): string | null {
   if (earlier === null || recent === null) return null
 
   const move = recent - earlier
@@ -81,7 +122,7 @@ function trendOf(earlier: number | null, recent: number | null): TopicStats['tre
   return 'flat'
 }
 
-export interface Overview {
+export type Overview = {
   questionsTracked: number
   worksheetsUploaded: number
   dueNow: number
@@ -139,7 +180,7 @@ export async function getOverview(db: Db, userId: string): Promise<Overview> {
 
 const UNTAGGED_WORKSHEETS_SHOWN = 20
 
-export interface UntaggedWorksheet {
+export type UntaggedWorksheet = {
   id: string
   title: string
 }
@@ -159,7 +200,7 @@ export async function listUntaggedWorksheets(
     .limit(limit)
 }
 
-export interface RecentWorksheet {
+export type RecentWorksheet = {
   id: string
   title: string
   status: string
@@ -229,27 +270,42 @@ export async function getRecentWorksheets(
     : []
 
   const topicsFor = new Map<string, RecentWorksheet['topics']>()
+
   for (const row of topicRows) {
-    const list = topicsFor.get(row.worksheetId) ?? []
+    let list = topicsFor.get(row.worksheetId)
+
+    if (!list) {
+      list = []
+      topicsFor.set(row.worksheetId, list)
+    }
+
     list.push({
       topicId: row.topicId,
       topicName: row.topicName,
       questionCount: Number(row.questionCount),
     })
-    topicsFor.set(row.worksheetId, list)
   }
 
-  return result.map((row) => ({
-    ...row,
-    questionCount: Number(row.questionCount),
-    wrongCount: Number(row.wrongCount),
-    markedCount: Number(row.markedCount),
-    correctCount: Number(row.correctCount),
-    topics: topicsFor.get(row.id) ?? [],
-  }))
+  const recent: RecentWorksheet[] = []
+
+  for (const row of result) {
+    let topics = topicsFor.get(row.id)
+    if (!topics) topics = []
+
+    recent.push({
+      ...row,
+      questionCount: Number(row.questionCount),
+      wrongCount: Number(row.wrongCount),
+      markedCount: Number(row.markedCount),
+      correctCount: Number(row.correctCount),
+      topics,
+    })
+  }
+
+  return recent
 }
 
-export interface DistractorPattern {
+export type DistractorPattern = {
   questionId: string
   promptText: string
   choiceLabel: string
@@ -282,7 +338,7 @@ export async function getDistractorPatterns(
   )
 }
 
-export interface AccountAccuracy {
+export type AccountAccuracy = {
   correct: number
   attempts: number
   accuracy: number

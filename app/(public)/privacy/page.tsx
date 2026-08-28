@@ -5,9 +5,12 @@ import {POLICY_UPDATED, contactEmail} from '@/lib/api'
 export const metadata = {title: 'Privacy · StudyBuddy'}
 
 export default function PrivacyPage() {
-  const contact = contactEmail()
-  const noContact =
+  const contactAddress = contactEmail()
+
+  let contactLine =
     'No contact address is set on this deployment. Whoever runs it should set CONTACT_EMAIL.'
+
+  if (contactAddress) contactLine = contactAddress
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-12">
@@ -97,7 +100,7 @@ export default function PrivacyPage() {
         <p>
           Accounts require you to be 13 or older, and the check runs on the
           server rather than only in the date box. If you believe a younger child
-          has an account, write to {contact ?? noContact} and it will be deleted.
+          has an account, write to {contactLine} and it will be deleted.
         </p>
 
         <h2 className="pt-4 text-base font-medium">Deleting your data</h2>
@@ -111,7 +114,7 @@ export default function PrivacyPage() {
 
         <h2 className="pt-4 text-base font-medium">Contact</h2>
         <p>
-          Questions, corrections, or a request for a copy of your data: {contact ?? noContact}
+          Questions, corrections, or a request for a copy of your data: {contactLine}
         </p>
       </section>
 

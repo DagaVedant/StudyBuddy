@@ -3,7 +3,7 @@ import {and, eq, inArray, sql} from 'drizzle-orm'
 import {z} from 'zod'
 import {answerChoices, attempts, questions, reviewCards, reviewLogs} from '@/lib/schema'
 import {guardWorksheet} from '@/lib/queue'
-import {guardRateLimit, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
+import {guardRateLimit, readJson, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
 import {correctMarkupAttempt, scheduleFromOutcome, type StoredCard} from '@/lib/review'
 import {db} from '@/lib/db'
 
@@ -24,7 +24,7 @@ export async function PATCH(request: Request, {params}: {params: Promise<Record<
     return NextResponse.json({error: 'Not found'}, {status: guard.status})
   }
 
-  const parsed = markSchema.safeParse(await request.json().catch(() => null))
+  const parsed = markSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -32,7 +32,7 @@ export async function PATCH(request: Request, {params}: {params: Promise<Record<
   const limited = await guardRateLimit(
     db,
     WORKSHEET_WRITE_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited
@@ -62,7 +62,7 @@ export async function POST(request: Request, {params}: {params: Promise<Record<s
     return NextResponse.json({error: 'Not found'}, {status: guard.status})
   }
 
-  const parsed = batchSchema.safeParse(await request.json().catch(() => null))
+  const parsed = batchSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -70,7 +70,7 @@ export async function POST(request: Request, {params}: {params: Promise<Record<s
   const limited = await guardRateLimit(
     db,
     WORKSHEET_WRITE_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited
@@ -158,25 +158,30 @@ export async function POST(request: Request, {params}: {params: Promise<Record<s
       return {mark, ...scheduleFromOutcome(stored, mark.outcome, now)}
     })
 
-    await tx
-      .insert(attempts)
-      .values(
-        accepted.map((mark) => {
-          const choiceId = mark.selectedChoiceId ?? null
-          const ownsChoice =
-            choiceId !== null && choiceOwner.get(choiceId) === mark.questionId
+    const rows = []
 
-          return {
-            userId: guard.userId,
-            questionId: mark.questionId,
-            outcome: mark.outcome,
-            selectedChoiceId: ownsChoice ? choiceId : null,
-            freeTextAnswer: mark.freeTextAnswer ?? null,
-            source: 'markup' as const,
-          }
-        }),
-      )
-      .onConflictDoNothing()
+    for (const mark of accepted) {
+      let choiceId = null
+      if (mark.selectedChoiceId) choiceId = mark.selectedChoiceId
+
+      if (choiceId !== null && choiceOwner.get(choiceId) !== mark.questionId) {
+        choiceId = null
+      }
+
+      let freeTextAnswer = null
+      if (mark.freeTextAnswer) freeTextAnswer = mark.freeTextAnswer
+
+      rows.push({
+        userId: guard.userId,
+        questionId: mark.questionId,
+        outcome: mark.outcome,
+        selectedChoiceId: choiceId,
+        freeTextAnswer: freeTextAnswer,
+        source: 'markup' as const,
+      })
+    }
+
+    await tx.insert(attempts).values(rows).onConflictDoNothing()
 
     const saved = await tx
       .insert(reviewCards)

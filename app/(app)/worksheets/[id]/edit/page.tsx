@@ -22,9 +22,23 @@ async function leafTopics(): Promise<TopicChoice[]> {
     .from(topics)
     .where(eq(topics.isLeaf, true))
 
-  return rows
-    .map((row) => ({...row, path: paths.get(row.slug) ?? row.name}))
-    .sort((a, b) => a.path.localeCompare(b.path))
+  const listed = []
+
+  for (const row of rows) {
+    let path = paths.get(row.slug)
+    if (!path) path = row.name
+
+    listed.push({...row, path})
+  }
+
+  listed.sort(function (a, b) {
+    if (a.path < b.path) return -1
+    if (a.path > b.path) return 1
+
+    return 0
+  })
+
+  return listed
 }
 
 export default async function EditPage({
@@ -38,7 +52,7 @@ export default async function EditPage({
   const {focus} = await searchParams
 
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const [worksheet] = await db
     .select({
@@ -99,21 +113,48 @@ export default async function EditPage({
     .innerJoin(questions, eq(questionTopics.questionId, questions.id))
     .where(eq(questions.worksheetId, id))
 
-  const pages: EditablePage[] = pageRows.map((page, index) => ({
-    id: page.id,
-    pageNumber: page.pageNumber,
-    imageSrc: `/api/files/${page.imageKey}`,
-    width: page.width ?? 1000,
-    height: page.height ?? 1400,
-    textLines: index === 0 ? roundLines(page.textLines) : [],
-  }))
+  const pages: EditablePage[] = []
+
+  for (let index = 0; index < pageRows.length; index++) {
+    const page = pageRows[index]
+
+    let width = 1000
+    if (page.width) width = page.width
+
+    let height = 1400
+    if (page.height) height = page.height
+
+    let textLines: ReturnType<typeof roundLines> = []
+    if (index === 0) textLines = roundLines(page.textLines)
+
+    pages.push({
+      id: page.id,
+      pageNumber: page.pageNumber,
+      imageSrc: '/api/files/' + page.imageKey,
+      width,
+      height,
+      textLines,
+    })
+  }
 
   const choicesFor = new Map<string, EditableQuestion['choices']>()
-  for (const {questionId, id: choiceId, label, text, isCorrect} of choiceRows) {
-    const choice = {id: choiceId, label, text, isCorrect}
-    const list = choicesFor.get(questionId)
-    if (list) list.push(choice)
-    else choicesFor.set(questionId, [choice])
+
+  for (const row of choiceRows) {
+    const choice = {
+      id: row.id,
+      label: row.label,
+      text: row.text,
+      isCorrect: row.isCorrect,
+    }
+
+    let list = choicesFor.get(row.questionId)
+
+    if (!list) {
+      list = []
+      choicesFor.set(row.questionId, list)
+    }
+
+    list.push(choice)
   }
 
   const topicFor = new Map<string, string>()
@@ -121,22 +162,55 @@ export default async function EditPage({
     if (!topicFor.has(row.questionId)) topicFor.set(row.questionId, row.topicId)
   }
 
-  const initialQuestions: EditableQuestion[] = questionRows.map((question) => ({
-    id: question.id,
-    pageId: question.pageId,
-    ordinal: question.ordinal,
-    printedNumber: question.printedNumber,
-    promptText: question.promptText,
-    questionType: question.questionType,
-    bbox: question.bbox,
-    correctAnswer: question.correctAnswer,
-    choices: choicesFor.get(question.id) ?? [],
-    topicId: topicFor.get(question.id) ?? null,
-  }))
+  const initialQuestions: EditableQuestion[] = []
 
-  const overCount = worksheet.expectedQuestionCount
-    ? initialQuestions.length - worksheet.expectedQuestionCount
-    : 0
+  for (const question of questionRows) {
+    let choices = choicesFor.get(question.id)
+    if (!choices) choices = []
+
+    let topicId = null
+    const found = topicFor.get(question.id)
+    if (found) topicId = found
+
+    initialQuestions.push({
+      id: question.id,
+      pageId: question.pageId,
+      ordinal: question.ordinal,
+      printedNumber: question.printedNumber,
+      promptText: question.promptText,
+      questionType: question.questionType,
+      bbox: question.bbox,
+      correctAnswer: question.correctAnswer,
+      choices,
+      topicId,
+    })
+  }
+
+  let overCount = 0
+  if (worksheet.expectedQuestionCount) {
+    overCount = initialQuestions.length - worksheet.expectedQuestionCount
+  }
+
+  let focusId = null
+  if (focus) focusId = focus
+
+  let heading = 'Add your questions'
+  let intro =
+    'Drag a box around each question on the page. The text fills in automatically from what we could read. Fix anything that came out wrong. Nothing counts toward your stats until you confirm.'
+
+  if (initialQuestions.length > 0) {
+    heading = 'Edit what we found'
+
+    let noun = 'questions'
+    if (initialQuestions.length === 1) noun = 'question'
+
+    intro =
+      'We pulled ' +
+      initialQuestions.length +
+      ' ' +
+      noun +
+      ' off the page automatically. Compare them against the original. Fix anything that came out wrong, and drag a box on the page if one was missed. Nothing counts toward your stats until you confirm.'
+  }
 
   return (
     <main className="w-full px-4 py-8 sm:px-6">
@@ -149,14 +223,8 @@ export default async function EditPage({
         </Link>
       </nav>
 
-      <h1 className="text-balance text-2xl font-semibold tracking-tight">
-        {initialQuestions.length > 0 ? 'Edit what we found' : 'Add your questions'}
-      </h1>
-      <p className="hint mb-6 text-pretty">
-        {initialQuestions.length > 0
-          ? `We pulled ${initialQuestions.length} ${initialQuestions.length === 1 ? 'question' : 'questions'} off the page automatically. Compare them against the original. Fix anything that came out wrong, and drag a box on the page if one was missed. Nothing counts toward your stats until you confirm.`
-          : 'Drag a box around each question on the page. The text fills in automatically from what we could read. Fix anything that came out wrong. Nothing counts toward your stats until you confirm.'}
-      </p>
+      <h1 className="text-balance text-2xl font-semibold tracking-tight">{heading}</h1>
+      <p className="hint mb-6 text-pretty">{intro}</p>
 
       {overCount > 0 && (
         <p
@@ -177,7 +245,7 @@ export default async function EditPage({
         pages={pages}
         initialQuestions={initialQuestions}
         topics={await leafTopics()}
-        focusId={focus ?? null}
+        focusId={focusId}
       />
     </main>
   )

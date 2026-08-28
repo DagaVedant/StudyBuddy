@@ -19,9 +19,10 @@ async function applyMigrations() {
   const onVercel = Boolean(process.env.VERCEL_ENV)
 
   if (fromBuild && process.env.MIGRATE_ON_BUILD !== '1') {
-    const where = process.env.VERCEL_ENV ?? 'local'
+    let where = 'local'
+    if (process.env.VERCEL_ENV) where = process.env.VERCEL_ENV
     console.log(
-      `Not migrating from a ${where} build.\n` +
+      'Not migrating from a ' + where + ' build.\n' +
         'Run `npm run db:migrate` against the target database first, then build.\n' +
         'Set MIGRATE_ON_BUILD=1 to migrate from the build anyway.',
     )
@@ -34,7 +35,7 @@ async function applyMigrations() {
     if (fromBuild) {
       if (onVercel) {
         throw new Error(
-          `DATABASE_URL is not set on this ${process.env.VERCEL_ENV} deployment. ` +
+          'DATABASE_URL is not set on this ' + process.env.VERCEL_ENV + ' deployment. ' +
             'Add it in the Vercel project settings before deploying.',
         )
       }
@@ -54,7 +55,7 @@ async function applyMigrations() {
   console.log('Migrations applied.')
 }
 
-interface JournalEntry {
+type JournalEntry = {
   idx: number
   when: number
   tag: string
@@ -82,8 +83,12 @@ const UNREACHABLE = new Set([
 ])
 
 function cannotReach(error: unknown): boolean {
-  const code = (error as {code?: string} | null)?.code
-  return code !== undefined && UNREACHABLE.has(code)
+  if (!error || typeof error !== 'object') return false
+
+  const code = (error as {code?: string}).code
+  if (code === undefined) return false
+
+  return UNREACHABLE.has(code)
 }
 
 async function lastApplied(url: string): Promise<number | null> {
@@ -100,7 +105,10 @@ async function lastApplied(url: string): Promise<number | null> {
       select created_at from drizzle.__drizzle_migrations order by created_at desc limit 1
     `) as unknown as {created_at: string | number | null}[]
 
-    return row?.created_at == null ? null : Number(row.created_at)
+    if (!row) return null
+    if (row.created_at === null || row.created_at === undefined) return null
+
+    return Number(row.created_at)
   } finally {
     await sql.end()
   }
@@ -123,19 +131,19 @@ async function checkPending(): Promise<void> {
   } catch (error: unknown) {
     if (!cannotReach(error)) throw error
 
-    console.log(`Could not reach ${describe(url)}, skipping the migration check.`)
+    console.log('Could not reach ' + (describe(url)) + ', skipping the migration check.')
     return
   }
 
   const pending = entries.filter((entry) => applied === null || applied < entry.when)
 
   if (pending.length === 0) {
-    console.log(`${entries.length} migration(s), all applied to ${describe(url)}.`)
+    console.log(entries.length + ' migration(s), all applied to ' + (describe(url)) + '.')
     return
   }
 
-  console.log(`${pending.length} of ${entries.length} migration(s) missing from ${describe(url)}:`)
-  for (const entry of pending) console.log(`  ${entry.tag}`)
+  console.log(pending.length + ' of ' + entries.length + ' migration(s) missing from ' + (describe(url)) + ':')
+  for (const entry of pending) console.log('  ' + entry.tag)
   console.log('\nApply them with: npm run db:migrate')
 
   process.exit(1)

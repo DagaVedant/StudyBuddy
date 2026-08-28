@@ -27,7 +27,9 @@ function isLocalDatabaseUrl(url: string): boolean {
 
   if (parsed.username || parsed.password || parsed.port) return false
 
-  const pgHost = process.env.PGHOST?.trim()
+  let pgHost = ''
+  if (process.env.PGHOST) pgHost = process.env.PGHOST.trim()
+
   if (!pgHost) return true
 
   if (pgHost.startsWith('/')) return true

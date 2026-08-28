@@ -11,7 +11,7 @@ import {
   type CloudProvider,
 } from '@/lib/ai/types'
 
-interface Credential {
+type Credential = {
   provider: string
   keyLast4: string | null
   ollamaBaseUrl: string | null
@@ -19,7 +19,7 @@ interface Credential {
   verified: boolean
 }
 
-interface Props {
+type Props = {
   showCloud: boolean
   showOllama: boolean
   credentials: Credential[]
@@ -45,20 +45,26 @@ async function probeOllama(baseUrl: string, appUrl: string): Promise<ProbeResult
 
     const family = OLLAMA_VISION_MODEL.split(':')[0]
 
-    return {
-      ok: true,
-      models,
-      hasVisionModel: models.some((name) => name.startsWith(family)),
+    let hasVisionModel = false
+    for (const name of models) {
+      if (name.startsWith(family)) hasVisionModel = true
     }
+
+    return {ok: true, models, hasVisionModel}
   } catch (cause) {
     const reason = (cause as Error).message
 
     return {
       ok: false,
       message:
-        `Could not reach Ollama at ${baseUrl} (${reason}). Check it is running, ` +
-        `then check it is allowed to talk to this site: OLLAMA_ORIGINS must ` +
-        `include ${appUrl}, and Ollama has to be restarted after setting it.`,
+        'Could not reach Ollama at ' +
+        baseUrl +
+        ' (' +
+        reason +
+        '). Check it is running, then check it is allowed to talk to this site: ' +
+        'OLLAMA_ORIGINS must include ' +
+        appUrl +
+        ', and Ollama has to be restarted after setting it.',
     }
   }
 }
@@ -67,11 +73,21 @@ function probeMessage(probe: ProbeResult): string {
   if (!probe.ok) return probe.message
 
   if (!probe.hasVisionModel) {
-    return `Connected, but ${OLLAMA_VISION_MODEL} is not pulled. Run "ollama pull ${OLLAMA_VISION_MODEL}" first: it is the model that reads your pages.`
+    return (
+      'Connected, but ' +
+      OLLAMA_VISION_MODEL +
+      ' is not pulled. Run "ollama pull ' +
+      OLLAMA_VISION_MODEL +
+      '" first: it is the model that reads your pages.'
+    )
   }
 
   const count = probe.models.length
-  return `Connected. ${count} model${count === 1 ? '' : 's'} available.`
+
+  let noun = 'models'
+  if (count === 1) noun = 'model'
+
+  return 'Connected. ' + count + ' ' + noun + ' available.'
 }
 
 export default function SettingsClient({
@@ -99,10 +115,24 @@ export default function SettingsClient({
 
   const [justSaved, setJustSaved] = useState<Credential | null>(null)
 
-  const cloud =
-    justSaved ??
-    credentials.find((row) => (CLOUD_PROVIDERS as readonly string[]).includes(row.provider))
-  const ollama = credentials.find((row) => row.provider === 'ollama')
+  let cloud = justSaved
+
+  if (!cloud) {
+    for (const row of credentials) {
+      if ((CLOUD_PROVIDERS as readonly string[]).includes(row.provider)) {
+        cloud = row
+        break
+      }
+    }
+  }
+
+  let ollama = null
+  for (const row of credentials) {
+    if (row.provider === 'ollama') {
+      ollama = row
+      break
+    }
+  }
 
   async function save(body: unknown) {
     setBusy(true)
@@ -121,18 +151,30 @@ export default function SettingsClient({
         verified?: boolean
         message?: string
       }
-      if (!response.ok) throw new Error(result.error ?? 'Could not save that.')
+      if (!response.ok) {
+        let message = 'Could not save that.'
+        if (result.error) message = result.error
+
+        throw new Error(message)
+      }
 
       setApiKey('')
-      setNotice(result.message ?? 'Saved.')
+
+      let notice = 'Saved.'
+      if (result.message) notice = result.message
+
+      setNotice(notice)
 
       if (result.last4) {
+        let verified = false
+        if (result.verified) verified = true
+
         setJustSaved({
           provider,
           keyLast4: result.last4,
           ollamaBaseUrl: null,
           visionModelName: model || null,
-          verified: result.verified ?? false,
+          verified: verified,
         })
       }
 
@@ -151,15 +193,21 @@ export default function SettingsClient({
 
     try {
       const response = await fetchJson(
-        `/api/settings/credentials?provider=${target}`,
+        '/api/settings/credentials?provider=' + target,
         {method: 'DELETE'},
       )
 
       if (!response.ok) {
-        const detail = (await response.json().catch(() => null)) as {
-          error?: string
-        } | null
-        throw new Error(detail?.error ?? 'Could not remove that.')
+        let message = 'Could not remove that.'
+
+        try {
+          const detail = (await response.json()) as {error?: string}
+          if (detail.error) message = detail.error
+        } catch {
+          message = 'Could not remove that.'
+        }
+
+        throw new Error(message)
       }
 
       setJustSaved(null)
@@ -365,7 +413,7 @@ export default function SettingsClient({
                 Ollama. On Windows:
               </p>
               <pre className="mt-2 overflow-x-auto rounded-lg p-2 text-xs">
-                <code>{`setx OLLAMA_ORIGINS "${appUrl}"`}</code>
+                <code>{'setx OLLAMA_ORIGINS "' + appUrl + '"'}</code>
               </pre>
             </details>
 
@@ -432,6 +480,16 @@ export function DeleteAccount({email}: {email: string}) {
 
   const matches = typed.trim().toLowerCase() === email.toLowerCase()
 
+  function openDialog() {
+    const dialog = dialogRef.current
+    if (dialog) dialog.showModal()
+  }
+
+  function closeDialog() {
+    const dialog = dialogRef.current
+    if (dialog) dialog.close()
+  }
+
   async function remove() {
     setDeleting(true)
     setError(null)
@@ -444,8 +502,16 @@ export function DeleteAccount({email}: {email: string}) {
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as {error?: string} | null
-        throw new Error(body?.error ?? 'Could not delete the account')
+        let message = 'Could not delete the account'
+
+        try {
+          const detail = (await response.json()) as {error?: string}
+          if (detail.error) message = detail.error
+        } catch {
+          message = 'Could not delete the account'
+        }
+
+        throw new Error(message)
       }
 
       window.location.href = '/'
@@ -471,7 +537,7 @@ export function DeleteAccount({email}: {email: string}) {
         onClick={() => {
           setTyped('')
           setError(null)
-          dialogRef.current?.showModal()
+          openDialog()
         }}
       >
         Delete account
@@ -526,7 +592,7 @@ export function DeleteAccount({email}: {email: string}) {
             autoFocus
             className="btn btn-secondary touch-manipulation sm:w-auto sm:px-6"
             disabled={deleting}
-            onClick={() => dialogRef.current?.close()}
+            onClick={() => closeDialog()}
           >
             Keep my account
           </button>

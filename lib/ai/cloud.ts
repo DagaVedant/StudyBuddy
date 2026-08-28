@@ -24,53 +24,65 @@ import {
 } from './prompts'
 import {
   type AnswerInput,
+  type ExecutionSite,
   type ExplainInput,
   type LessonInput,
   type PageInput,
   parseModelJson,
   type PracticeInput,
+  type ProviderName,
   ProviderRefused,
   type RawAIProvider,
   type TopicCandidate,
 } from './types'
 
-const CLOUD_TIMEOUT_MS = 120_000
+const CLOUD_TIMEOUT_MS = 120000
 
-function upstreamFailure(label: string, status: number, body: string): Error {
-  console.error(`[ai] ${label} responded ${status}: ${body.slice(0, 2000)}`)
+function describeStatus(label: string, status: number) {
+  if (status === 401 || status === 403) {
+    return label + ' rejected the API key. Check it in settings.'
+  }
+
+  if (status === 402) {
+    return label + ' reports this account is out of credit.'
+  }
+
+  if (status === 429) {
+    return label + ' is rate limiting this key. Try again in a few minutes.'
+  }
+
+  if (status >= 500) {
+    return label + ' is having trouble right now. Try again shortly.'
+  }
+
+  return label + ' rejected the request (HTTP ' + status + ').'
+}
+
+function upstreamFailure(label: string, status: number, body: string) {
+  console.error('[ai] ' + label + ' responded ' + status + ': ' + body.slice(0, 2000))
+
   return new Error(describeStatus(label, status))
 }
 
-function describeStatus(label: string, status: number): string {
-  if (status === 401 || status === 403) {
-    return `${label} rejected the API key. Check it in settings.`
+function upstreamUnreachable(label: string, cause: unknown) {
+  console.error('[ai] ' + label + ' call failed:', cause)
+
+  let name = ''
+  if (cause && typeof cause === 'object') {
+    const named = cause as {name?: unknown}
+    if (typeof named.name === 'string') name = named.name
   }
-  if (status === 402) {
-    return `${label} reports this account is out of credit.`
+
+  if (/timeout/i.test(name)) {
+    const seconds = Math.round(CLOUD_TIMEOUT_MS / 1000)
+
+    return new Error(label + ' did not answer within ' + seconds + ' seconds. Try again.')
   }
-  if (status === 429) {
-    return `${label} is rate limiting this key. Try again in a few minutes.`
-  }
-  if (status >= 500) {
-    return `${label} is having trouble right now. Try again shortly.`
-  }
-  return `${label} rejected the request (HTTP ${status}).`
+
+  return new Error(label + ' could not be reached. Try again shortly.')
 }
 
-function upstreamUnreachable(label: string, cause: unknown): Error {
-  console.error(`[ai] ${label} call failed:`, cause)
-
-  const name = (cause as {name?: unknown} | null | undefined)?.name
-  const timedOut = typeof name === 'string' && /timeout/i.test(name)
-
-  return new Error(
-    timedOut
-      ? `${label} did not answer within ${Math.round(CLOUD_TIMEOUT_MS / 1000)} seconds. Try again.`
-      : `${label} could not be reached. Try again shortly.`,
-  )
-}
-
-interface ModelRequest {
+type ModelRequest = {
   system: string
   userText: string
   schemaName: string
@@ -80,29 +92,34 @@ interface ModelRequest {
 }
 
 abstract class CloudClient implements RawAIProvider {
-  abstract readonly name: RawAIProvider['name']
+  abstract readonly name: ProviderName
   readonly supportsVision = true
-  readonly executionSite = 'server' as const
+  readonly executionSite: ExecutionSite = 'server'
   readonly model: string
 
   constructor(model: string) {
     this.model = model
   }
 
-  get answeringModel(): string {
+  get answeringModel() {
     return this.model
   }
 
   protected abstract send(request: ModelRequest): Promise<string>
 
   private async ask(request: ModelRequest): Promise<unknown> {
-    return parseModelJson(await this.send(request)).value
+    const reply = await this.send(request)
+
+    return parseModelJson(reply).value
   }
 
   extractQuestions(page: PageInput): Promise<unknown> {
+    let expect: number[] = []
+    if (page.expect) expect = page.expect
+
     return this.ask({
       system: EXTRACTION_SYSTEM,
-      userText: extractionUserText(page, page.expect ?? []),
+      userText: extractionUserText(page, expect),
       schemaName: 'extraction',
       schema: EXTRACTION_JSON_SCHEMA,
       maxTokens: 16000,
@@ -162,7 +179,7 @@ abstract class CloudClient implements RawAIProvider {
 }
 
 export class AnthropicProvider extends CloudClient {
-  readonly name = 'anthropic' as const
+  readonly name: ProviderName = 'anthropic'
 
   private readonly client: Anthropic
 
@@ -171,7 +188,7 @@ export class AnthropicProvider extends CloudClient {
     this.client = new Anthropic({apiKey})
   }
 
-  protected async send(request: ModelRequest): Promise<string> {
+  protected async send(request: ModelRequest) {
     const content: Anthropic.ContentBlockParam[] = []
 
     if (request.image) {
@@ -188,6 +205,7 @@ export class AnthropicProvider extends CloudClient {
     content.push({type: 'text', text: request.userText})
 
     let response: Anthropic.Message
+
     try {
       response = await this.client.messages.create(
         {
@@ -203,30 +221,39 @@ export class AnthropicProvider extends CloudClient {
       if (error instanceof Anthropic.APIError && typeof error.status === 'number') {
         throw upstreamFailure('Anthropic', error.status, error.message)
       }
+
       throw upstreamUnreachable('Anthropic', error)
     }
 
     if (response.stop_reason === 'refusal') {
-      throw new ProviderRefused(response.stop_details?.category ?? null)
+      let category = null
+      if (response.stop_details && response.stop_details.category) {
+        category = response.stop_details.category
+      }
+
+      throw new ProviderRefused(category)
     }
 
-    return response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('')
+    let text = ''
+
+    for (const block of response.content) {
+      if (block.type === 'text') text = text + block.text
+    }
+
+    return text
   }
 }
 
-interface ChatCompletionsOptions {
+type ChatCompletionsOptions = {
   endpoint?: string
   label?: string
   headers?: Record<string, string>
   fetchImpl?: typeof fetch
-  name?: RawAIProvider['name']
+  name?: ProviderName
 }
 
 export class OpenAIProvider extends CloudClient {
-  readonly name: RawAIProvider['name']
+  readonly name: ProviderName
 
   private readonly apiKey: string
   private readonly fetchImpl: typeof fetch
@@ -238,45 +265,62 @@ export class OpenAIProvider extends CloudClient {
     super(model)
 
     this.apiKey = apiKey
-    this.fetchImpl = options.fetchImpl ?? fetch
-    this.endpoint = options.endpoint ?? 'https://api.openai.com/v1/chat/completions'
-    this.label = options.label ?? 'OpenAI'
-    this.headers = options.headers ?? {}
-    this.name = options.name ?? 'openai'
+
+    this.fetchImpl = fetch
+    if (options.fetchImpl) this.fetchImpl = options.fetchImpl
+
+    this.endpoint = 'https://api.openai.com/v1/chat/completions'
+    if (options.endpoint) this.endpoint = options.endpoint
+
+    this.label = 'OpenAI'
+    if (options.label) this.label = options.label
+
+    this.headers = {}
+    if (options.headers) this.headers = options.headers
+
+    this.name = 'openai'
+    if (options.name) this.name = options.name
   }
 
-  protected async send(request: ModelRequest): Promise<string> {
-    const content = request.image
-      ? [
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${request.image.mediaType};base64,${Buffer.from(request.image.data).toString('base64')}`,
-            },
-          },
-          {type: 'text', text: request.userText},
-        ]
-      : request.userText
+  protected async send(request: ModelRequest) {
+    let content: unknown = request.userText
 
-    const response = await this.fetchImpl(this.endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        ...this.headers,
-      },
-      signal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
-      body: JSON.stringify({
-        model: this.model,
-        messages: [{role: 'system', content: request.system}, {role: 'user', content}],
-        response_format: {
-          type: 'json_schema',
-          json_schema: {name: request.schemaName, strict: true, schema: request.schema},
-        },
-      }),
-    }).catch((error) => {
+    if (request.image) {
+      const encoded = Buffer.from(request.image.data).toString('base64')
+      const url = 'data:' + request.image.mediaType + ';base64,' + encoded
+
+      content = [
+        {type: 'image_url', image_url: {url}},
+        {type: 'text', text: request.userText},
+      ]
+    }
+
+    const headers: Record<string, string> = {
+      Authorization: 'Bearer ' + this.apiKey,
+      'Content-Type': 'application/json',
+    }
+
+    for (const key of Object.keys(this.headers)) headers[key] = this.headers[key]
+
+    let response
+
+    try {
+      response = await this.fetchImpl(this.endpoint, {
+        method: 'POST',
+        headers,
+        signal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
+        body: JSON.stringify({
+          model: this.model,
+          messages: [{role: 'system', content: request.system}, {role: 'user', content}],
+          response_format: {
+            type: 'json_schema',
+            json_schema: {name: request.schemaName, strict: true, schema: request.schema},
+          },
+        }),
+      })
+    } catch (error) {
       throw upstreamUnreachable(this.label, error)
-    })
+    }
 
     if (!response.ok) {
       throw upstreamFailure(this.label, response.status, await response.text())
@@ -286,8 +330,14 @@ export class OpenAIProvider extends CloudClient {
       choices?: {message?: {content?: string}}[]
     }
 
-    const text = body.choices?.[0]?.message?.content
-    if (!text) throw new Error(`${this.label} returned an empty response.`)
+    let text = ''
+
+    if (body.choices && body.choices[0]) {
+      const message = body.choices[0].message
+      if (message && message.content) text = message.content
+    }
+
+    if (!text) throw new Error(this.label + ' returned an empty response.')
 
     return text
   }
@@ -306,8 +356,82 @@ export class OpenRouterProvider extends OpenAIProvider {
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
+const GEMINI_ALLOWED_KEYS = new Set([
+  'type',
+  'format',
+  'description',
+  'nullable',
+  'enum',
+  'items',
+  'properties',
+  'required',
+])
+
+function geminiWalk(node: unknown): unknown {
+  if (Array.isArray(node)) {
+    const items = []
+    for (const entry of node) items.push(geminiWalk(entry))
+
+    return items
+  }
+
+  if (node === null || typeof node !== 'object') return node
+
+  const source = node as Record<string, unknown>
+
+  if (Array.isArray(source.anyOf)) {
+    const variants = source.anyOf as Record<string, unknown>[]
+
+    const concrete = []
+    for (const variant of variants) {
+      if (!variant || variant.type !== 'null') concrete.push(variant)
+    }
+
+    if (concrete.length === 1 && concrete.length < variants.length) {
+      const inner = geminiWalk(concrete[0]) as Record<string, unknown>
+      const withNull: Record<string, unknown> = {}
+
+      for (const key of Object.keys(inner)) withNull[key] = inner[key]
+      withNull.nullable = true
+
+      return withNull
+    }
+  }
+
+  const out: Record<string, unknown> = {}
+
+  for (const key of Object.keys(source)) {
+    if (!GEMINI_ALLOWED_KEYS.has(key)) continue
+
+    const value = source[key]
+
+    if (key !== 'properties') {
+      out[key] = geminiWalk(value)
+      continue
+    }
+
+    if (value === null || typeof value !== 'object') {
+      out[key] = value
+      continue
+    }
+
+    const properties: Record<string, unknown> = {}
+    const inner = value as Record<string, unknown>
+
+    for (const name of Object.keys(inner)) properties[name] = geminiWalk(inner[name])
+
+    out[key] = properties
+  }
+
+  return out
+}
+
+function geminiSchema(schema: Record<string, unknown>) {
+  return geminiWalk(schema) as Record<string, unknown>
+}
+
 export class GeminiProvider extends CloudClient {
-  readonly name = 'google' as const
+  readonly name: ProviderName = 'google'
 
   private readonly apiKey: string
   private readonly fetchImpl: typeof fetch
@@ -322,7 +446,7 @@ export class GeminiProvider extends CloudClient {
     this.fetchImpl = fetchImpl
   }
 
-  protected async send(request: ModelRequest): Promise<string> {
+  protected async send(request: ModelRequest) {
     const parts: unknown[] = []
 
     if (request.image) {
@@ -336,9 +460,12 @@ export class GeminiProvider extends CloudClient {
 
     parts.push({text: request.userText})
 
-    const response = await this.fetchImpl(
-      `${GEMINI_BASE}/${encodeURIComponent(this.model)}:generateContent`,
-      {
+    const url = GEMINI_BASE + '/' + encodeURIComponent(this.model) + ':generateContent'
+
+    let response
+
+    try {
+      response = await this.fetchImpl(url, {
         method: 'POST',
         headers: {'x-goog-api-key': this.apiKey, 'Content-Type': 'application/json'},
         signal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
@@ -351,10 +478,10 @@ export class GeminiProvider extends CloudClient {
             responseSchema: geminiSchema(request.schema),
           },
         }),
-      },
-    ).catch((error) => {
+      })
+    } catch (error) {
       throw upstreamUnreachable('Gemini', error)
-    })
+    }
 
     if (!response.ok) {
       throw upstreamFailure('Gemini', response.status, await response.text())
@@ -365,57 +492,24 @@ export class GeminiProvider extends CloudClient {
       promptFeedback?: {blockReason?: string}
     }
 
-    const blocked = body.promptFeedback?.blockReason
-    if (blocked) {
-      throw new Error(`Gemini declined the page (${blocked}).`)
+    if (body.promptFeedback && body.promptFeedback.blockReason) {
+      throw new Error('Gemini declined the page (' + body.promptFeedback.blockReason + ').')
     }
 
-    const text = body.candidates?.[0]?.content?.parts
-      ?.map((part) => part.text ?? '')
-      .join('')
+    let text = ''
+
+    if (body.candidates && body.candidates[0]) {
+      const content = body.candidates[0].content
+
+      if (content && content.parts) {
+        for (const part of content.parts) {
+          if (part.text) text = text + part.text
+        }
+      }
+    }
 
     if (!text) throw new Error('Gemini returned an empty response.')
 
     return text
   }
-}
-
-function geminiSchema(schema: Record<string, unknown>): Record<string, unknown> {
-  const allowed = new Set([
-    'type', 'format', 'description', 'nullable', 'enum', 'items', 'properties', 'required',
-  ])
-
-  const walk = (node: unknown): unknown => {
-    if (Array.isArray(node)) return node.map(walk)
-    if (node === null || typeof node !== 'object') return node
-
-    const source = node as Record<string, unknown>
-
-    if (Array.isArray(source.anyOf)) {
-      const variants = source.anyOf as Record<string, unknown>[]
-      const concrete = variants.filter((variant) => variant?.type !== 'null')
-
-      if (concrete.length === 1 && concrete.length < variants.length) {
-        return {...(walk(concrete[0]) as object), nullable: true}
-      }
-    }
-
-    const out: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(source)) {
-      if (!allowed.has(key)) continue
-      out[key] = key === 'properties' ? mapValues(value, walk) : walk(value)
-    }
-    return out
-  }
-
-  return walk(schema) as Record<string, unknown>
-}
-
-function mapValues(value: unknown, fn: (input: unknown) => unknown): unknown {
-  if (value === null || typeof value !== 'object') return value
-  const out: Record<string, unknown> = {}
-  for (const [key, inner] of Object.entries(value as Record<string, unknown>)) {
-    out[key] = fn(inner)
-  }
-  return out
 }

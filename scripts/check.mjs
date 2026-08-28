@@ -5,7 +5,10 @@ import picomatch from 'picomatch'
 
 function checkDocs() {
   const schema = readFileSync('lib/schema.ts', 'utf8')
-  const tableCount = (schema.match(/=\s*pgTable\(/g) ?? []).length
+  const found = schema.match(/=\s*pgTable\(/g)
+
+  let tableCount = 0
+  if (found) tableCount = found.length
 
   const files = ['README.md']
   let bad = false
@@ -15,16 +18,16 @@ function checkDocs() {
     const match = text.match(/creates (\d+) tables/)
 
     if (!match) {
-      console.log(`  skip  ${file}: no "creates N tables" line found`)
+      console.log('  skip  ' + file + ': no "creates N tables" line found')
       continue
     }
 
     const stated = Number(match[1])
     if (stated === tableCount) {
-      console.log(`  ok    ${file}: says ${stated}, schema has ${tableCount}`)
+      console.log('  ok    ' + file + ': says ' + stated + ', schema has ' + tableCount)
     } else {
       bad = true
-      console.log(`  BAD   ${file}: says ${stated}, schema has ${tableCount}`)
+      console.log('  BAD   ' + file + ': says ' + stated + ', schema has ' + tableCount)
     }
   }
 
@@ -33,7 +36,7 @@ function checkDocs() {
     return false
   }
 
-  console.log(`\nAll table counts match the schema (${tableCount} tables).`)
+  console.log('\nAll table counts match the schema (' + tableCount + ' tables).')
   return true
 }
 
@@ -76,7 +79,7 @@ function checkTracing() {
 
     if (hits.length === 0) {
       bad = true
-      console.log(`  BAD   tracing key "${key}" matches no route`)
+      console.log('  BAD   tracing key "' + key + '" matches no route')
     } else {
       console.log(`  ok    tracing key "${key}" -> ${hits.join(', ')}`)
     }
@@ -135,8 +138,15 @@ const runs = TASKS.map(
 
       child.on('close', (code) => {
         const seconds = ((Date.now() - started) / 1000).toFixed(1)
-        console.log(`${code === 0 ? 'ok  ' : 'FAIL'} ${task.name.padEnd(7)} ${seconds}s`)
-        resolve({name: task.name, code: code ?? 1, output})
+        let mark = 'FAIL'
+        if (code === 0) mark = 'ok  '
+
+        console.log(mark + ' ' + task.name.padEnd(7) + ' ' + seconds + 's')
+
+        let exitCode = 1
+        if (code !== null) exitCode = code
+
+        resolve({name: task.name, code: exitCode, output})
       })
     }),
 )
@@ -149,6 +159,6 @@ for (const result of failed) {
   console.log(result.output.trim())
 }
 
-console.log(`\n${((Date.now() - started) / 1000).toFixed(1)}s total`)
+console.log('\n' + (((Date.now() - started) / 1000).toFixed(1)) + 's total')
 
 process.exit(failed.length > 0 || !docsOk || !tracingOk ? 1 : 0)

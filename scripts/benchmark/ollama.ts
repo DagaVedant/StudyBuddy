@@ -81,12 +81,15 @@ const CANDIDATES: TopicCandidate[] = [
 ]
 
 function seconds(start: number): string {
-  return `${((Date.now() - start) / 1000).toFixed(1)}s`
+  return (((Date.now() - start) / 1000).toFixed(1)) + 's'
 }
 
 async function main() {
-  const baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434'
-  const visionModel = process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:7b'
+  let baseUrl = 'http://127.0.0.1:11434'
+  if (process.env.OLLAMA_BASE_URL) baseUrl = process.env.OLLAMA_BASE_URL
+
+  let visionModel = 'qwen2.5vl:7b'
+  if (process.env.OLLAMA_VISION_MODEL) visionModel = process.env.OLLAMA_VISION_MODEL
 
   const raw = new OllamaProvider({
     baseUrl,
@@ -97,8 +100,8 @@ async function main() {
 
   const provider = validated(raw)
 
-  console.log(`Ollama: ${baseUrl}`)
-  console.log(`Model:  ${visionModel}\n`)
+  console.log('Ollama: ' + baseUrl)
+  console.log('Model:  ' + visionModel + '\n')
 
   const models = await raw.listModels()
   if (!models.includes(visionModel)) {
@@ -121,11 +124,11 @@ async function main() {
   })
   const extractTime = seconds(start)
 
-  console.log(`Found ${questions.length} of ${EXPECTED} questions in ${extractTime}`)
+  console.log('Found ' + questions.length + ' of ' + EXPECTED + ' questions in ' + extractTime)
   for (const question of questions) {
     const choices = question.choices.map((c) => c.label).join('')
     console.log(
-      `  ${String(question.ordinal).padStart(2)}. [${question.question_type}] ` +
+      '  ' + (String(question.ordinal).padStart(2)) + '. [' + question.question_type + '] ' +
         `${question.prompt_text.slice(0, 68)}${choices ? `  (${choices})` : ''}`,
     )
   }
@@ -143,20 +146,31 @@ async function main() {
     start = Date.now()
     try {
       const result = await provider.classifyTopic(question, CANDIDATES)
-      const hit = result.topic_slug?.endsWith(expectedSuffix) ?? false
+      let hit = false
+      if (result.topic_slug && result.topic_slug.endsWith(expectedSuffix)) hit = true
+
       if (hit) correct += 1
+
+      let mark = 'MISS'
+      if (hit) mark = 'OK  '
+
+      let chosen = '(abstain)'
+      if (result.topic_slug) {
+        const parts = result.topic_slug.split('.')
+        chosen = parts[parts.length - 1]
+      }
+
       console.log(
-        `  ${hit ? 'OK  ' : 'MISS'} ${question.slice(0, 46).padEnd(48)} -> ` +
-          `${result.topic_slug?.split('.').pop() ?? '(abstain)'} ` +
-          `[conf ${result.confidence.toFixed(2)}, ${seconds(start)}]`,
+        '  ' + mark + ' ' + question.slice(0, 46).padEnd(48) + ' -> ' + chosen +
+          ' [conf ' + result.confidence.toFixed(2) + ', ' + seconds(start) + ']',
       )
     } catch (error) {
       console.log(
-        `  ERR  ${question.slice(0, 46).padEnd(48)} -> ${(error as Error).message.slice(0, 80)}`,
+        '  ERR  ' + (question.slice(0, 46).padEnd(48)) + ' -> ' + ((error as Error).message.slice(0, 80)),
       )
     }
   }
-  console.log(`  ${correct}/${expectations.length} correct`)
+  console.log('  ' + correct + '/' + expectations.length + ' correct')
 
   console.log('\n--- Explanation (text) ---')
   start = Date.now()
@@ -169,14 +183,17 @@ async function main() {
     correctAnswer: 'A',
     studentAnswer: 'B',
   })
-  console.log(`  (${seconds(start)})`)
+  console.log('  (' + (seconds(start)) + ')')
   console.log(`  ${explanation.body_md.replace(/\n/g, '\n  ').slice(0, 700)}`)
-  console.log(`\n  misconception: ${explanation.misconception_note ?? '(none)'}`)
+  let misconception = '(none)'
+  if (explanation.misconception_note) misconception = explanation.misconception_note
+
+  console.log('\n  misconception: ' + misconception)
 
   console.log('\n=== Verdict ===')
-  console.log(`Extraction recall : ${questions.length}/${EXPECTED}`)
-  console.log(`Classification    : ${correct}/${expectations.length}`)
-  console.log(`Extraction time   : ${extractTime} for one page`)
+  console.log('Extraction recall : ' + questions.length + '/' + EXPECTED)
+  console.log('Classification    : ' + correct + '/' + expectations.length)
+  console.log('Extraction time   : ' + extractTime + ' for one page')
 }
 
 main().catch((error) => {

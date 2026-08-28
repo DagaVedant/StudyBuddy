@@ -4,31 +4,7 @@ import {useState} from 'react'
 
 import {reflowText} from '@/lib/questions/shape'
 
-const WHEN = new Intl.DateTimeFormat(undefined, {month: 'short', day: 'numeric'})
-
-const OUTCOME_STYLE: Record<string, string> = {
-  wrong: 'border-danger text-danger',
-  unsure: 'border-caution text-caution',
-  correct: 'border-success text-success',
-}
-
-const OUTCOME_LABEL: Record<string, string> = {
-  wrong: 'Missed',
-  unsure: 'Unsure',
-  correct: 'Got it',
-}
-
 type Choice = {label: string; text: string}
-
-interface RevisitQuestionProps {
-  promptText: string
-  outcome: string
-  answeredAt: Date
-  worksheetTitle: string
-  chosen?: Choice
-  correct?: Choice
-  freeText: string | null
-}
 
 export function RevisitQuestion({
   promptText,
@@ -38,9 +14,42 @@ export function RevisitQuestion({
   chosen,
   correct,
   freeText,
-}: RevisitQuestionProps) {
+}: {
+  promptText: string
+  outcome: string
+  answeredAt: Date
+  worksheetTitle: string
+  chosen?: Choice
+  correct?: Choice
+  freeText: string | null
+}) {
   const [revealed, setRevealed] = useState(false)
-  const hasAnswerDetail = Boolean(chosen || correct || freeText)
+
+  let badgeStyle = 'text-muted'
+  let badgeLabel = outcome
+
+  if (outcome === 'wrong') {
+    badgeStyle = 'border-danger text-danger'
+    badgeLabel = 'Missed'
+  }
+
+  if (outcome === 'unsure') {
+    badgeStyle = 'border-caution text-caution'
+    badgeLabel = 'Unsure'
+  }
+
+  if (outcome === 'correct') {
+    badgeStyle = 'border-success text-success'
+    badgeLabel = 'Got it'
+  }
+
+  let hasAnswerDetail = false
+  if (chosen || correct || freeText) hasAnswerDetail = true
+
+  let yourAnswer = freeText
+  if (chosen) yourAnswer = chosen.label + '. ' + chosen.text
+
+  let when = answeredAt.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})
 
   return (
     <li className="py-3 first:pt-0">
@@ -48,18 +57,14 @@ export function RevisitQuestion({
         <p className="min-w-0 flex-1 whitespace-pre-line text-sm">
           {reflowText(promptText)}
         </p>
-        <span
-          className={`shrink-0 border px-2 py-0.5 text-xs ${
-            OUTCOME_STYLE[outcome] ?? 'text-muted'
-          }`}
-        >
-          {OUTCOME_LABEL[outcome] ?? outcome}
+        <span className={'shrink-0 border px-2 py-0.5 text-xs ' + badgeStyle}>
+          {badgeLabel}
         </span>
       </div>
 
       {hasAnswerDetail && (
         <div className="mt-2">
-          {!revealed ? (
+          {!revealed && (
             <button
               type="button"
               className="btn-compact touch-manipulation rounded-xl px-1 text-xs text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -67,12 +72,11 @@ export function RevisitQuestion({
             >
               Show answer
             </button>
-          ) : (
+          )}
+
+          {revealed && (
             <p className="text-xs text-muted">
-              You put{' '}
-              <span className="text-danger">
-                {chosen ? `${chosen.label}. ${chosen.text}` : freeText}
-              </span>
+              You put <span className="text-danger">{yourAnswer}</span>
               {correct && (
                 <>
                   {' · answer '}
@@ -87,7 +91,7 @@ export function RevisitQuestion({
       )}
 
       <p className="mt-1 text-xs text-muted">
-        {worksheetTitle} · {WHEN.format(answeredAt)}
+        {worksheetTitle} · {when}
       </p>
     </li>
   )

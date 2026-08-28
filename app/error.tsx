@@ -11,7 +11,10 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('[error boundary]', error.digest ?? '(no digest)', error)
+    let digest = '(no digest)'
+    if (error.digest) digest = error.digest
+
+    console.error('[error boundary]', digest, error)
   }, [error])
 
   return (

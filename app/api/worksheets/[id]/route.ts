@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server'
 import {and, eq} from 'drizzle-orm'
 import {z} from 'zod'
 import {worksheetPages, worksheets} from '@/lib/schema'
-import {guardRateLimit, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
+import {guardRateLimit, readJson, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
 import {storage} from '@/lib/queue'
@@ -13,13 +13,13 @@ type Params = {params: Promise<{id: string}>}
 
 export async function PATCH(request: Request, {params}: Params) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
   const {id} = await params
 
-  const parsed = renameSchema.safeParse(await request.json().catch(() => null))
+  const parsed = renameSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json(
       {error: 'A title has to be between 1 and 200 characters.'},
@@ -30,7 +30,7 @@ export async function PATCH(request: Request, {params}: Params) {
   const limited = await guardRateLimit(
     db,
     WORKSHEET_WRITE_LIMIT,
-    `user:${session.user.id}`,
+    'user:' + session.user.id,
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited
@@ -50,7 +50,7 @@ export async function PATCH(request: Request, {params}: Params) {
 
 export async function DELETE(_request: Request, {params}: Params) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
 
@@ -69,7 +69,7 @@ export async function DELETE(_request: Request, {params}: Params) {
   const limited = await guardRateLimit(
     db,
     WORKSHEET_WRITE_LIMIT,
-    `user:${session.user.id}`,
+    'user:' + session.user.id,
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited

@@ -50,7 +50,7 @@ export default async function MarkupPage({
   const {id} = await params
 
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const [worksheet] = await db
     .select()
@@ -162,7 +162,7 @@ export default async function MarkupPage({
         <p className="hint">
           This worksheet has no questions yet.{' '}
           <Link
-            href={`/worksheets/${id}/edit`}
+            href={'/worksheets/' + id + '/edit'}
             className="text-accent"
           >
             Add some first

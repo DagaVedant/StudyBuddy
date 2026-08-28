@@ -18,7 +18,7 @@ type Params = {params: Promise<{id: string}>}
 
 export default async function CheckPage({params}: Params) {
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const {id} = await params
 

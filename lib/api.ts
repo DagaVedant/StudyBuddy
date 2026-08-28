@@ -4,14 +4,14 @@ import {sql} from 'drizzle-orm'
 
 import {type Db, unwrapDriverRows} from '@/lib/db'
 
-export interface LimitDecision {
+export type LimitDecision = {
   ok: boolean
   remaining: number
   retryAfter: number
-  reason?: 'limited' | 'unavailable'
+  reason: string
 }
 
-export interface LimitRule {
+export type LimitRule = {
   action: string
   limit: number
   windowSeconds: number
@@ -102,43 +102,22 @@ export const WORKSHEET_WRITE_LIMIT: LimitRule = {
   windowSeconds: 3600,
 }
 
-function limitsEnforced(): boolean {
+function limitsEnforced() {
   return process.env.DISABLE_RATE_LIMITS !== 'true'
 }
 
-export async function consumeRateLimit(
-  db: Db,
-  rule: LimitRule,
-  subject: string,
-): Promise<LimitDecision> {
-  if (!limitsEnforced()) return {ok: true, remaining: rule.limit, retryAfter: 0}
-
-  const now = new Date()
-  const key = `${rule.action}:${subject.slice(0, 180)}`
-  const nowIso = now.toISOString()
-
-  let rows: unknown
-  try {
-    rows = await runCounter(db, key, nowIso, rule.windowSeconds)
-  } catch (error) {
-    if (rule.failClosed) {
-      console.error(`[rate-limit] counter failed, refusing ${rule.action}:`, error)
-      return unreadable(rule)
-    }
-
-    console.error('[rate-limit] counter failed, allowing the request:', error)
-    return {ok: true, remaining: rule.limit, retryAfter: 0}
-  }
-
-  return decide(rows, rule, now)
+function allowed(rule: LimitRule): LimitDecision {
+  return {ok: true, remaining: rule.limit, retryAfter: 0, reason: ''}
 }
 
-async function runCounter(
-  db: Db,
-  key: string,
-  nowIso: string,
-  windowSeconds: number,
-): Promise<unknown> {
+function unreadable(rule: LimitRule): LimitDecision {
+  let retryAfter = rule.windowSeconds
+  if (retryAfter > 60) retryAfter = 60
+
+  return {ok: false, remaining: 0, retryAfter: retryAfter, reason: 'unavailable'}
+}
+
+async function runCounter(db: Db, key: string, nowIso: string, windowSeconds: number) {
   return db.execute(sql`
     INSERT INTO rate_limits (key, count, window_start)
     VALUES (${key}, 1, ${nowIso}::timestamptz)
@@ -159,21 +138,13 @@ async function runCounter(
   `)
 }
 
-function unreadable(rule: LimitRule): LimitDecision {
-  return {
-    ok: false,
-    remaining: 0,
-    retryAfter: Math.min(60, rule.windowSeconds),
-    reason: 'unavailable',
-  }
-}
-
 function decide(rows: unknown, rule: LimitRule, now: Date): LimitDecision {
-  const first = unwrapDriverRows<{count: number | string; window_start: string | Date}>(rows)[0]
+  const found = unwrapDriverRows<{count: number | string; window_start: string | Date}>(rows)
+  const first = found[0]
 
   if (!first) {
     if (rule.failClosed) return unreadable(rule)
-    return {ok: true, remaining: rule.limit, retryAfter: 0}
+    return allowed(rule)
   }
 
   const count = Number(first.count)
@@ -181,15 +152,44 @@ function decide(rows: unknown, rule: LimitRule, now: Date): LimitDecision {
   const resetsAt = windowStart.getTime() + rule.windowSeconds * 1000
 
   if (count > rule.limit) {
-    return {
-      ok: false,
-      remaining: 0,
-      retryAfter: Math.max(1, Math.ceil((resetsAt - now.getTime()) / 1000)),
-      reason: 'limited',
-    }
+    let retryAfter = Math.ceil((resetsAt - now.getTime()) / 1000)
+    if (retryAfter < 1) retryAfter = 1
+
+    return {ok: false, remaining: 0, retryAfter: retryAfter, reason: 'limited'}
   }
 
-  return {ok: true, remaining: Math.max(0, rule.limit - count), retryAfter: 0}
+  let remaining = rule.limit - count
+  if (remaining < 0) remaining = 0
+
+  return {ok: true, remaining: remaining, retryAfter: 0, reason: ''}
+}
+
+export async function consumeRateLimit(
+  db: Db,
+  rule: LimitRule,
+  subject: string,
+): Promise<LimitDecision> {
+  if (!limitsEnforced()) return allowed(rule)
+
+  const now = new Date()
+  const key = rule.action + ':' + subject.slice(0, 180)
+  const nowIso = now.toISOString()
+
+  let rows: unknown
+
+  try {
+    rows = await runCounter(db, key, nowIso, rule.windowSeconds)
+  } catch (error) {
+    if (rule.failClosed) {
+      console.error('[rate-limit] counter failed, refusing ' + rule.action + ':', error)
+      return unreadable(rule)
+    }
+
+    console.error('[rate-limit] counter failed, allowing the request:', error)
+    return allowed(rule)
+  }
+
+  return decide(rows, rule, now)
 }
 
 export async function guardRateLimit(
@@ -197,7 +197,7 @@ export async function guardRateLimit(
   rule: LimitRule,
   subject: string,
   message: string,
-): Promise<Response | null> {
+) {
   const decision = await consumeRateLimit(db, rule, subject)
   if (decision.ok) return null
 
@@ -207,48 +207,82 @@ export async function guardRateLimit(
   )
 }
 
-function safeEquals(a: string, b: string): boolean {
+function safeEquals(a: string, b: string) {
   const left = Buffer.from(a)
   const right = Buffer.from(b)
+
   if (left.length !== right.length) return false
+
   return timingSafeEqual(left, right)
 }
 
-export type CronAuth = {ok: true} | {ok: false; status: 401 | 403; message: string}
+export type CronAuth = {
+  ok: boolean
+  status: number
+  message: string
+}
 
 export function authenticateCron(request: Request): CronAuth {
   const expected = process.env.CRON_SECRET
+
   if (!expected) {
     return {ok: false, status: 403, message: 'CRON_SECRET is not configured.'}
   }
 
-  const header = request.headers.get('authorization') ?? ''
-  const token = header.startsWith('Bearer ') ? header.slice(7) : ''
+  let header = request.headers.get('authorization')
+  if (!header) header = ''
+
+  let token = ''
+  if (header.startsWith('Bearer ')) token = header.slice(7)
 
   if (!token || !safeEquals(token, expected)) {
     return {ok: false, status: 401, message: 'Bad cron credential.'}
   }
 
-  return {ok: true}
+  return {ok: true, status: 200, message: ''}
 }
 
-export function clientIp(headers: Headers): string | null {
-  const forwarded = headers.get('x-forwarded-for')?.split(',')[0].trim()
-  if (forwarded) return forwarded
-  return headers.get('x-real-ip')?.trim() || null
+export function clientIp(headers: Headers) {
+  const forwarded = headers.get('x-forwarded-for')
+
+  if (forwarded) {
+    const first = forwarded.split(',')[0].trim()
+    if (first) return first
+  }
+
+  const real = headers.get('x-real-ip')
+  if (real && real.trim()) return real.trim()
+
+  return null
 }
 
-export function callerIp(headers: Headers): string {
-  return clientIp(headers) ?? 'unknown'
+export function callerIp(headers: Headers) {
+  const ip = clientIp(headers)
+  if (!ip) return 'unknown'
+
+  return ip
 }
 
-export function appBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+export function appBaseUrl() {
+  let raw = process.env.NEXT_PUBLIC_APP_URL
+  if (!raw) raw = 'http://localhost:3000'
+
   return raw.trim().replace(/\/+$/, '')
 }
 
 export const POLICY_UPDATED = '18 August 2026'
 
-export function contactEmail(): string | null {
-  return process.env.CONTACT_EMAIL?.trim() || null
+export function contactEmail() {
+  const raw = process.env.CONTACT_EMAIL
+  if (!raw || !raw.trim()) return null
+
+  return raw.trim()
+}
+
+export async function readJson(request: Request) {
+  try {
+    return (await request.json()) as unknown
+  } catch {
+    return null
+  }
 }

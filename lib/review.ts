@@ -44,14 +44,21 @@ export function inReviewQueue(userId: string, now: Date = new Date()) {
   )
 }
 
-export interface ReviewChoice {
+export type ReviewChoice = {
   id: string
   label: string
   text: string
   isCorrect: boolean
 }
 
-export interface ReviewItem {
+export type ReviewIntervals = {
+  again: string
+  hard: string
+  good: string
+  easy: string
+}
+
+export type ReviewItem = {
   cardId: string
   questionId: string
   promptText: string
@@ -66,7 +73,7 @@ export interface ReviewItem {
   explanation: {body: string; reportedWrong: boolean} | null
   evidence: QuestionEvidence | null
   dueAt: string
-  intervals: Record<ReviewRating, string>
+  intervals: ReviewIntervals
 }
 
 export async function countReviewQueue(
@@ -74,7 +81,7 @@ export async function countReviewQueue(
   userId: string,
   now: Date = new Date(),
   topicId?: string | null,
-): Promise<number> {
+) {
   const [row] = await db
     .select({value: sql<number>`count(*)::int`})
     .from(reviewCards)
@@ -126,7 +133,8 @@ export async function getDueCards(
 
   if (cards.length === 0) return []
 
-  const questionIds = cards.map((card) => card.questionId)
+  const questionIds: string[] = []
+  for (const card of cards) questionIds.push(card.questionId)
 
   const [choices, lastAttempts, topicRows, explanationRows] = await Promise.all([
     db
@@ -137,9 +145,7 @@ export async function getDueCards(
     db
       .select()
       .from(attempts)
-      .where(
-        and(eq(attempts.userId, userId), inArray(attempts.questionId, questionIds)),
-      )
+      .where(and(eq(attempts.userId, userId), inArray(attempts.questionId, questionIds)))
       .orderBy(desc(attempts.createdAt)),
     db
       .select({questionId: questionTopics.questionId, name: topics.name})
@@ -182,7 +188,9 @@ export async function getDueCards(
     if (!topicNameFor.has(row.questionId)) topicNameFor.set(row.questionId, row.name)
   }
 
-  return cards.map((card) => {
+  const items: ReviewItem[] = []
+
+  for (const card of cards) {
     const last = lastAttemptFor.get(card.questionId)
     const explanation = explanationFor.get(card.questionId)
 
@@ -202,33 +210,62 @@ export async function getDueCards(
       now,
     )
 
-    return {
+    const cardChoices: ReviewChoice[] = []
+    const stored = choicesFor.get(card.questionId)
+
+    if (stored) {
+      for (const choice of stored) {
+        cardChoices.push({
+          id: choice.id,
+          label: choice.label,
+          text: choice.text,
+          isCorrect: choice.isCorrect,
+        })
+      }
+    }
+
+    let topicName: string | null = null
+    const named = topicNameFor.get(card.questionId)
+    if (named) topicName = named
+
+    let lastOutcome = null
+    let lastChoiceId = null
+    let lastFreeText = null
+
+    if (last) {
+      lastOutcome = last.outcome
+      lastChoiceId = last.selectedChoiceId
+      lastFreeText = last.freeTextAnswer
+    }
+
+    let explanationOut = null
+    if (explanation) {
+      explanationOut = {body: explanation.bodyMd, reportedWrong: explanation.reportedWrong}
+    }
+
+    let evidence = null
+    if (card.pageImageKey) {
+      evidence = evidenceFor(card.bbox, {
+        imageKey: card.pageImageKey,
+        width: card.pageWidth,
+        height: card.pageHeight,
+      })
+    }
+
+    items.push({
       cardId: card.cardId,
       questionId: card.questionId,
       promptText: card.promptText,
       questionType: card.questionType,
       correctAnswer: card.correctAnswer,
       answerSource: card.answerSource,
-      choices: (choicesFor.get(card.questionId) ?? []).map((choice) => ({
-        id: choice.id,
-        label: choice.label,
-        text: choice.text,
-        isCorrect: choice.isCorrect,
-      })),
-      topicName: topicNameFor.get(card.questionId) ?? null,
-      lastOutcome: last?.outcome ?? null,
-      lastChoiceId: last?.selectedChoiceId ?? null,
-      lastFreeText: last?.freeTextAnswer ?? null,
-      explanation: explanation
-        ? {body: explanation.bodyMd, reportedWrong: explanation.reportedWrong}
-        : null,
-      evidence: card.pageImageKey
-        ? evidenceFor(card.bbox, {
-            imageKey: card.pageImageKey,
-            width: card.pageWidth,
-            height: card.pageHeight,
-          })
-        : null,
+      choices: cardChoices,
+      topicName: topicName,
+      lastOutcome: lastOutcome,
+      lastChoiceId: lastChoiceId,
+      lastFreeText: lastFreeText,
+      explanation: explanationOut,
+      evidence: evidence,
       dueAt: card.dueAt.toISOString(),
       intervals: {
         again: formatInterval(preview.again, now),
@@ -236,33 +273,21 @@ export async function getDueCards(
         good: formatInterval(preview.good, now),
         easy: formatInterval(preview.easy, now),
       },
-    }
-  })
+    })
+  }
+
+  return items
 }
 
 const scheduler = fsrs()
 
 export type Outcome = 'correct' | 'unsure' | 'wrong'
 export type CardStateName = 'new' | 'learning' | 'review' | 'relearning'
+export type ReviewRating = 'again' | 'hard' | 'good' | 'easy'
 
 const STATE_NAMES: CardStateName[] = ['new', 'learning', 'review', 'relearning']
 
-const GRADE_BY_OUTCOME: Record<Outcome, Grade> = {
-  wrong: Rating.Again,
-  unsure: Rating.Hard,
-  correct: Rating.Good,
-}
-
-const REVIEW_GRADES = {
-  again: Rating.Again,
-  hard: Rating.Hard,
-  good: Rating.Good,
-  easy: Rating.Easy,
-} as const
-
-export type ReviewRating = keyof typeof REVIEW_GRADES
-
-export interface StoredCard {
+export type StoredCard = {
   dueAt: Date
   stability: number
   difficulty: number
@@ -275,7 +300,7 @@ export interface StoredCard {
   lastReview: Date | null
 }
 
-export interface ScheduleResult {
+export type ScheduleResult = {
   card: StoredCard
   log: {
     rating: number
@@ -285,16 +310,19 @@ export interface ScheduleResult {
   }
 }
 
-function toStateName(state: State): CardStateName {
+function toStateName(state: State) {
   return STATE_NAMES[state]
 }
 
-function toStateValue(name: CardStateName): State {
+function toStateValue(name: CardStateName) {
   return STATE_NAMES.indexOf(name) as State
 }
 
 function toFsrsCard(stored: StoredCard | null, now: Date): Card {
   if (!stored) return createEmptyCard(now)
+
+  let lastReview = undefined
+  if (stored.lastReview) lastReview = stored.lastReview
 
   return {
     due: stored.dueAt,
@@ -306,11 +334,14 @@ function toFsrsCard(stored: StoredCard | null, now: Date): Card {
     reps: stored.reps,
     lapses: stored.lapses,
     state: toStateValue(stored.state),
-    last_review: stored.lastReview ?? undefined,
+    last_review: lastReview,
   }
 }
 
 function fromFsrsCard(card: Card): StoredCard {
+  let lastReview = null
+  if (card.last_review) lastReview = card.last_review
+
   return {
     dueAt: card.due,
     stability: card.stability,
@@ -321,87 +352,97 @@ function fromFsrsCard(card: Card): StoredCard {
     reps: card.reps,
     lapses: card.lapses,
     state: toStateName(card.state),
-    lastReview: card.last_review ?? null,
+    lastReview: lastReview,
   }
 }
 
-function schedule(
-  stored: StoredCard | null,
-  grade: Grade,
-  now: Date,
-): ScheduleResult {
-  const {card, log} = scheduler.next(toFsrsCard(stored, now), now, grade)
+function schedule(stored: StoredCard | null, grade: Grade, now: Date): ScheduleResult {
+  const next = scheduler.next(toFsrsCard(stored, now), now, grade)
 
   return {
-    card: fromFsrsCard(card),
+    card: fromFsrsCard(next.card),
     log: {
-      rating: log.rating,
-      state: toStateName(log.state),
-      elapsedDays: log.elapsed_days,
-      scheduledDays: log.scheduled_days,
+      rating: next.log.rating,
+      state: toStateName(next.log.state),
+      elapsedDays: next.log.elapsed_days,
+      scheduledDays: next.log.scheduled_days,
     },
   }
+}
+
+function gradeForOutcome(outcome: Outcome): Grade {
+  if (outcome === 'wrong') return Rating.Again
+  if (outcome === 'unsure') return Rating.Hard
+
+  return Rating.Good
+}
+
+function gradeForRating(rating: ReviewRating): Grade {
+  if (rating === 'again') return Rating.Again
+  if (rating === 'hard') return Rating.Hard
+  if (rating === 'easy') return Rating.Easy
+
+  return Rating.Good
 }
 
 export function scheduleFromOutcome(
   stored: StoredCard | null,
   outcome: Outcome,
   now: Date = new Date(),
-): ScheduleResult {
-  return schedule(stored, GRADE_BY_OUTCOME[outcome], now)
+) {
+  return schedule(stored, gradeForOutcome(outcome), now)
 }
 
 export function scheduleFromReview(
   stored: StoredCard,
   rating: ReviewRating,
   now: Date = new Date(),
-): ScheduleResult {
-  return schedule(stored, REVIEW_GRADES[rating], now)
+) {
+  return schedule(stored, gradeForRating(rating), now)
 }
 
-function previewIntervals(
-  stored: StoredCard,
-  now: Date = new Date(),
-): Record<ReviewRating, Date> {
-  const dueAfter = (grade: Grade) =>
-    scheduler.next(toFsrsCard(stored, now), now, grade).card.due
+function previewIntervals(stored: StoredCard, now: Date = new Date()) {
+  const base = toFsrsCard(stored, now)
 
   return {
-    again: dueAfter(REVIEW_GRADES.again),
-    hard: dueAfter(REVIEW_GRADES.hard),
-    good: dueAfter(REVIEW_GRADES.good),
-    easy: dueAfter(REVIEW_GRADES.easy),
+    again: scheduler.next(base, now, Rating.Again).card.due,
+    hard: scheduler.next(base, now, Rating.Hard).card.due,
+    good: scheduler.next(base, now, Rating.Good).card.due,
+    easy: scheduler.next(base, now, Rating.Easy).card.due,
   }
 }
 
-function formatInterval(due: Date, now: Date = new Date()): string {
-  const minutes = Math.round((due.getTime() - now.getTime()) / 60_000)
+function formatInterval(due: Date, now: Date = new Date()) {
+  const minutes = Math.round((due.getTime() - now.getTime()) / 60000)
 
   if (minutes < 1) return '<1 min'
-  if (minutes < 60) return `${minutes} min`
+  if (minutes < 60) return minutes + ' min'
 
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} h`
+  if (hours < 24) return hours + ' h'
 
   const days = Math.round(hours / 24)
-  if (days < 30) return `${days} d`
+  if (days < 30) return days + ' d'
 
   const months = Math.round(days / 30)
-  if (months < 12) return `${months} mo`
+  if (months < 12) return months + ' mo'
 
-  return `${Math.round(days / 365)} y`
+  return Math.round(days / 365) + ' y'
 }
 
-export interface Correction {
+export type Correction = {
   questionId: string
   outcome: Outcome
   selectedChoiceId?: string | null
   freeTextAnswer?: string | null
 }
 
-export type CorrectionResult =
-  | {ok: true; outcome: Outcome; rescheduled: boolean}
-  | {ok: false; reason: 'no-question' | 'not-marked'}
+export type CorrectionResult = {
+  ok: boolean
+  outcome: Outcome | null
+  rescheduled: boolean
+  reason: string
+}
 
 export async function correctMarkupAttempt(
   db: Db,
@@ -417,7 +458,9 @@ export async function correctMarkupAttempt(
     )
     .limit(1)
 
-  if (!question) return {ok: false, reason: 'no-question'}
+  if (!question) {
+    return {ok: false, outcome: null, rescheduled: false, reason: 'no-question'}
+  }
 
   const [existing] = await db
     .select({id: attempts.id})
@@ -431,20 +474,29 @@ export async function correctMarkupAttempt(
     )
     .limit(1)
 
-  if (!existing) return {ok: false, reason: 'not-marked'}
+  if (!existing) {
+    return {ok: false, outcome: null, rescheduled: false, reason: 'not-marked'}
+  }
 
-  const [choice] = input.selectedChoiceId
-    ? await db
-        .select({id: answerChoices.id})
-        .from(answerChoices)
-        .where(
-          and(
-            eq(answerChoices.id, input.selectedChoiceId),
-            eq(answerChoices.questionId, input.questionId),
-          ),
-        )
-        .limit(1)
-    : []
+  let choiceId: string | null = null
+
+  if (input.selectedChoiceId) {
+    const [choice] = await db
+      .select({id: answerChoices.id})
+      .from(answerChoices)
+      .where(
+        and(
+          eq(answerChoices.id, input.selectedChoiceId),
+          eq(answerChoices.questionId, input.questionId),
+        ),
+      )
+      .limit(1)
+
+    if (choice) choiceId = choice.id
+  }
+
+  let freeText: string | null = null
+  if (input.freeTextAnswer) freeText = input.freeTextAnswer
 
   const now = new Date()
   let rescheduled = false
@@ -454,8 +506,8 @@ export async function correctMarkupAttempt(
       .update(attempts)
       .set({
         outcome: input.outcome,
-        selectedChoiceId: choice?.id ?? null,
-        freeTextAnswer: input.freeTextAnswer ?? null,
+        selectedChoiceId: choiceId,
+        freeTextAnswer: freeText,
       })
       .where(eq(attempts.id, existing.id))
 
@@ -473,7 +525,8 @@ export async function correctMarkupAttempt(
 
     if (practised) return
 
-    const {card} = scheduleFromOutcome(null, input.outcome, now)
+    const scheduled = scheduleFromOutcome(null, input.outcome, now)
+    const card = scheduled.card
 
     await tx
       .insert(reviewCards)
@@ -486,5 +539,5 @@ export async function correctMarkupAttempt(
     rescheduled = true
   })
 
-  return {ok: true, outcome: input.outcome, rescheduled}
+  return {ok: true, outcome: input.outcome, rescheduled, reason: ''}
 }

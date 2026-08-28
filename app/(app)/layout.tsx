@@ -9,7 +9,7 @@ import {db} from '@/lib/db'
 
 async function AppTopbar() {
   const session = await auth()
-  if (!session?.user) return null
+  if (!session || !session.user) return null
 
   return (
     <header className="inset-safe-top bg-bg">
@@ -49,9 +49,12 @@ export default async function AppLayout({children}: {children: React.ReactNode})
   const session = await auth()
 
   let runsHere = false
-  if (browserTierEnabled() && session?.user?.id) {
+  if (browserTierEnabled() && session && session.user && session.user.id) {
     const credentials = await getCredentialSummary(db, session.user.id)
-    runsHere = credentials.some((row) => row.provider === 'ollama' && row.ollamaBaseUrl)
+
+    for (const row of credentials) {
+      if (row.provider === 'ollama' && row.ollamaBaseUrl) runsHere = true
+    }
   }
 
   return (

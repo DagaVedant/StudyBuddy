@@ -5,7 +5,10 @@ import {questions, worksheetPages, worksheets} from '@/lib/schema'
 import {countQuestionStarts, isAnswerPage} from '@/lib/questions/shape'
 import {db} from '@/lib/db'
 
-export async function GET(request: Request, {params}: {params: Promise<Record<string, string>>}) {
+export async function GET(
+  request: Request,
+  {params}: {params: Promise<Record<string, string>>},
+) {
   const auth = authenticateWorker(request)
   if (!auth.ok) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
@@ -39,22 +42,35 @@ export async function GET(request: Request, {params}: {params: Promise<Record<st
     .where(eq(questions.worksheetId, worksheetId))
 
   const byPage = new Map<string, number[]>()
+
   for (const row of rows) {
     if (!row.pageId || row.printedNumber === null) continue
-    const list = byPage.get(row.pageId) ?? []
+
+    let list = byPage.get(row.pageId)
+
+    if (!list) {
+      list = []
+      byPage.set(row.pageId, list)
+    }
+
     list.push(row.printedNumber)
-    byPage.set(row.pageId, list)
   }
 
-  return NextResponse.json({
-    pages: pages.map((page) => {
-      const text = page.ocrText ?? ''
+  const coverage = []
 
-      return {
-        pageNumber: page.pageNumber,
-        printed: byPage.get(page.id) ?? [],
-        expectsQuestions: countQuestionStarts(text) > 0 && !isAnswerPage(text),
-      }
-    }),
-  })
+  for (const page of pages) {
+    let text = ''
+    if (page.ocrText) text = page.ocrText
+
+    let printed = byPage.get(page.id)
+    if (!printed) printed = []
+
+    coverage.push({
+      pageNumber: page.pageNumber,
+      printed: printed,
+      expectsQuestions: countQuestionStarts(text) > 0 && !isAnswerPage(text),
+    })
+  }
+
+  return NextResponse.json({pages: coverage})
 }

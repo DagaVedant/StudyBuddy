@@ -14,7 +14,10 @@ export function normalizeChoiceLabel(label: string): string {
   const cleaned = label.trim().replace(/^[([]+/, '').replace(/[.)\]\s]+$/, '')
   const letterOnly = /^([A-Za-z])\s*[.):\]]\s*\S/.exec(cleaned)
 
-  return (letterOnly?.[1] ?? (cleaned || label.trim())).slice(0, 8)
+  if (letterOnly) return letterOnly[1].slice(0, 8)
+  if (cleaned) return cleaned.slice(0, 8)
+
+  return label.trim().slice(0, 8)
 }
 
 const choiceSchema = z.object({
@@ -52,19 +55,24 @@ export function normalizeOptionText(value: string): string {
 }
 
 function contentHashSource(promptText: string, choices: { text: string }[]): string {
-  return [
-    normalizeForCompare(promptText),
-    ...choices.map((choice) => normalizeForCompare(choice.text)),
-  ]
-    .filter(Boolean)
-    .join('|')
+  const parts: string[] = []
+
+  const stem = normalizeForCompare(promptText)
+  if (stem) parts.push(stem)
+
+  for (const choice of choices) {
+    const text = normalizeForCompare(choice.text)
+    if (text) parts.push(text)
+  }
+
+  return parts.join('|')
 }
 
 export function hashQuestion(promptText: string, choices: { text: string }[]): string {
   return createHash('sha256').update(contentHashSource(promptText, choices)).digest('hex')
 }
 
-export interface FoldableQuestion {
+export type FoldableQuestion = {
   prompt_text: string
   choices: { label: string; text: string }[]
 }
@@ -73,34 +81,58 @@ const ALPHABETIC = /^[a-z]$/i
 const NUMERIC = /^\d+$/
 
 export function foldLeadInChoices<T extends FoldableQuestion>(question: T): T {
-  const lettered = question.choices.filter((choice) =>
-    ALPHABETIC.test(choice.label.trim()),
-  )
-  const numbered = question.choices.filter((choice) => NUMERIC.test(choice.label.trim()))
+  let lettered = 0
+  const numbered = []
+  const kept = []
 
-  if (lettered.length < 2 || numbered.length === 0) return question
+  for (const choice of question.choices) {
+    const label = choice.label.trim()
+
+    if (ALPHABETIC.test(label)) lettered = lettered + 1
+
+    if (NUMERIC.test(label)) numbered.push(choice)
+    else kept.push(choice)
+  }
+
+  if (lettered < 2 || numbered.length === 0) return question
 
   const stem = question.prompt_text.trim()
-  const seen = new Set([normalizeForCompare(stem)].filter(Boolean))
-  const lines: string[] = []
 
-  for (const choice of [...numbered].sort(
-    (a, b) => Number(a.label) - Number(b.label),
-  )) {
+  const seen = new Set<string>()
+  const stemText = normalizeForCompare(stem)
+  if (stemText) seen.add(stemText)
+
+  numbered.sort(function (a, b) {
+    return Number(a.label) - Number(b.label)
+  })
+
+  const parts = [stem]
+
+  for (const choice of numbered) {
     const text = choice.text.trim()
     if (!text) continue
 
     const normalized = normalizeForCompare(text)
-    if (!normalized || [...seen].some((prior) => prior.includes(normalized))) continue
+    if (!normalized) continue
+
+    let already = false
+    for (const prior of seen) {
+      if (prior.includes(normalized)) {
+        already = true
+        break
+      }
+    }
+
+    if (already) continue
 
     seen.add(normalized)
-    lines.push(`${Number(choice.label)}. ${text}`)
+    parts.push(Number(choice.label) + '. ' + text)
   }
 
   return {
     ...question,
-    prompt_text: [stem, ...lines].join('\n'),
-    choices: question.choices.filter((choice) => !NUMERIC.test(choice.label.trim())),
+    prompt_text: parts.join('\n'),
+    choices: kept,
   }
 }
 
@@ -117,8 +149,8 @@ const LETTER_FOR_CONTROL = new Map([
 
 function recoverEatenCommands(text: string): string {
   return text.replace(/[\u0008\u000c\n\r\t]([a-zA-Z]+)/g, (match, run: string) => {
-    const command = `${LETTER_FOR_CONTROL.get(match[0])}${run}`
-    return ESCAPE_COLLIDING_COMMANDS.has(command) ? `\\${command}` : match
+    const command = (LETTER_FOR_CONTROL.get(match[0])) + run
+    return ESCAPE_COLLIDING_COMMANDS.has(command) ? '\\' + command : match
   })
 }
 
@@ -133,11 +165,17 @@ function unwrapInlineMath(text: string): string {
   return text.replace(
     /\$([^$\n]+)\$/g,
     (match, inner: string, offset: number, whole: string) => {
-      if (/^\d/.test(inner) && /\d/.test(whole[offset + match.length] ?? '')) {
+      let after = whole[offset + match.length]
+      if (!after) after = ''
+
+      if (/^\d/.test(inner) && /\d/.test(after)) {
         return match
       }
 
-      return !/\s/.test(inner) || LOOKS_LIKE_MATHS.test(inner) ? inner : match
+      if (!/\s/.test(inner)) return inner
+      if (LOOKS_LIKE_MATHS.test(inner)) return inner
+
+      return match
     },
   )
 }
@@ -154,7 +192,7 @@ const COMMANDS: [RegExp, string][] = [
 export function normalizeMath(input: string): string {
   let text = recoverEatenCommands(input)
 
-  for (let pass = 0; pass < 2; pass += 1) {
+  for (let pass = 0; pass < 2; pass++) {
     for (const [pattern, replacement] of DELIMITERS) text = text.replace(pattern, replacement)
     text = unwrapInlineMath(text)
     for (const [pattern, replacement] of COMMANDS) text = text.replace(pattern, replacement)
@@ -173,23 +211,32 @@ export function normalizeMath(input: string): string {
 }
 
 export function roundLines(lines: TextLine[] | null): TextLine[] {
-  return (lines ?? []).map((line) => {
+  const rounded: TextLine[] = []
+  if (!lines) return rounded
+
+  for (const line of lines) {
     const bbox: BBox = [
       Math.round(line.bbox[0]), Math.round(line.bbox[1]), Math.round(line.bbox[2]),
       Math.round(line.bbox[3]),
     ]
-    return { text: line.text, bbox }
-  })
+
+    rounded.push({ text: line.text, bbox })
+  }
+
+  return rounded
 }
 
 const QUESTION_START = /^[ \t]*\(?(\d{1,3})[.)]?[ \t]+(?=[A-Z(])(.{12,})$/gm
 const PROSE = /[a-z]{3,}/g
 
 function looksLikeQuestion(line: string): boolean {
-  return (line.match(PROSE) ?? []).length >= 3
+  const words = line.match(PROSE)
+  if (!words) return false
+
+  return words.length >= 3
 }
 
-export interface QuestionStart {
+export type QuestionStart = {
   number: number
   at: number
   bodyFrom: number
@@ -212,7 +259,10 @@ function questionStartsOn(text: string): QuestionStart[] {
 }
 
 export function firstQuestionAt(text: string): number {
-  return questionStartsOn(text)[0]?.at ?? text.length
+  const starts = questionStartsOn(text)
+  if (starts.length === 0) return text.length
+
+  return starts[0].at
 }
 
 export function countQuestionStarts(text: string): number {
@@ -226,7 +276,10 @@ function tailOf(text: string): string {
 
   const cut = text.slice(text.length - SEAM_CHARS)
   const firstBreak = cut.indexOf('\n')
-  return (firstBreak === -1 ? cut : cut.slice(firstBreak + 1)).trim()
+
+  if (firstBreak === -1) return cut.trim()
+
+  return cut.slice(firstBreak + 1).trim()
 }
 
 function headOf(text: string): string {
@@ -234,7 +287,20 @@ function headOf(text: string): string {
 
   const cut = text.slice(0, SEAM_CHARS)
   const lastBreak = cut.lastIndexOf('\n')
-  return (lastBreak === -1 ? cut : cut.slice(0, lastBreak)).trim()
+
+  if (lastBreak === -1) return cut.trim()
+
+  return cut.slice(0, lastBreak).trim()
+}
+
+function ocrTextAt(
+  pages: readonly { ocrText?: string | null }[],
+  index: number,
+): string {
+  const page = pages[index]
+  if (!page || !page.ocrText) return ''
+
+  return page.ocrText
 }
 
 export function seamAround(
@@ -242,64 +308,98 @@ export function seamAround(
   index: number,
 ): { before: string; after: string } {
   return {
-    before: tailOf(pages[index - 1]?.ocrText ?? ''),
-    after: headOf(pages[index + 1]?.ocrText ?? ''),
+    before: tailOf(ocrTextAt(pages, index - 1)),
+    after: headOf(ocrTextAt(pages, index + 1)),
   }
 }
 
-export interface PagePosition {
+export type PagePosition = {
   printedNumber: number | null
   top: number | null
   position: number
 }
 
 export function sortWithinPage<T extends PagePosition>(page: T[]): T[] {
-  const numbered = page.every((question) => question.printedNumber !== null)
-  const geometric = page.every((question) => question.top !== null)
+  let numbered = true
+  let geometric = true
 
-  const key = (question: T): number => {
+  for (const question of page) {
+    if (question.printedNumber === null) numbered = false
+    if (question.top === null) geometric = false
+  }
+
+  function key(question: T): number {
     if (numbered) return question.printedNumber as number
     if (geometric) return question.top as number
+
     return question.position
   }
 
-  return [...page].sort((a, b) => key(a) - key(b) || a.position - b.position)
+  const ordered = page.slice()
+
+  ordered.sort(function (a, b) {
+    const left = key(a)
+    const right = key(b)
+
+    if (left !== right) return left - right
+
+    return a.position - b.position
+  })
+
+  return ordered
 }
 
 const ITEM_START = /^(?:[-•*·–—]\s|\(?(?:[IVX]{1,4}|[A-H]|\d{1,2})[).]\s)/
 
-export function reflowText(input: string): string {
-  return input
-    .replace(/\r\n?/g, '\n')
-    .split(/\n{2,}/)
-    .map((paragraph) => {
-      const lines = paragraph
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
+function joinParagraph(paragraph: string): string {
+  let joined = ''
 
-      return lines.reduce((joined, line) => {
-        if (!joined) return line
-        if (ITEM_START.test(line)) return `${joined}\n${line}`
-        if (/[a-z]-$/.test(joined) && /^[a-z]/.test(line)) {
-          return `${joined.slice(0, -1)}${line}`
-        }
-        return `${joined} ${line}`
-      }, '')
-    })
-    .filter(Boolean)
-    .join('\n\n')
-    .trim()
+  for (const raw of paragraph.split('\n')) {
+    const line = raw.trim()
+    if (!line) continue
+
+    if (!joined) {
+      joined = line
+      continue
+    }
+
+    if (ITEM_START.test(line)) {
+      joined = joined + '\n' + line
+      continue
+    }
+
+    if (/[a-z]-$/.test(joined) && /^[a-z]/.test(line)) {
+      joined = joined.slice(0, -1) + line
+      continue
+    }
+
+    joined = joined + ' ' + line
+  }
+
+  return joined
 }
 
-export interface QuestionEvidence {
+export function reflowText(input: string): string {
+  const paragraphs = input.replace(/\r\n?/g, '\n').split(/\n{2,}/)
+
+  const kept: string[] = []
+
+  for (const paragraph of paragraphs) {
+    const joined = joinParagraph(paragraph)
+    if (joined) kept.push(joined)
+  }
+
+  return kept.join('\n\n').trim()
+}
+
+export type QuestionEvidence = {
   src: string
   width: number
   height: number
   bbox: BBox
 }
 
-export interface EvidencePage {
+export type EvidencePage = {
   imageKey: string
   width: number | null
   height: number | null
@@ -309,21 +409,30 @@ export function evidenceFor(
   bbox: BBox | null,
   page: EvidencePage | undefined,
 ): QuestionEvidence | null {
-  if (!bbox || !page?.width || !page.height) return null
+  if (!bbox || !page || !page.width || !page.height) return null
 
-  const [x0, y0, x1, y1] = bbox
+  const x0 = bbox[0]
+  const y0 = bbox[1]
+  const x1 = bbox[2]
+  const y1 = bbox[3]
+
   if (x1 <= x0 || y1 <= y0) return null
   if (x0 >= page.width || y0 >= page.height || x1 <= 0 || y1 <= 0) return null
 
-  return {src: `/api/files/${page.imageKey}`, width: page.width, height: page.height, bbox}
+  return {
+    src: '/api/files/' + page.imageKey,
+    width: page.width,
+    height: page.height,
+    bbox,
+  }
 }
 
 const LABEL = '[A-Ea-e]'
 
-const SOLUTION_LINE = new RegExp(`(?:^|\\s)(\\d{1,3})[.)]\\s*Answer:?\\s*\\(?(${LABEL})\\)?`, 'g')
+const SOLUTION_LINE = new RegExp('(?:^|\\s)(\\d{1,3})[.)]\\s*Answer:?\\s*\\(?(' + LABEL + ')\\)?', 'g')
 
-const GRID_LINE = new RegExp(`^(?:\\d{1,3}[.)]\\s*\\(?${LABEL}\\)?[\\s,;]*)+$`)
-const GRID_PAIR = new RegExp(`(\\d{1,3})[.)]\\s*\\(?(${LABEL})\\)?`, 'g')
+const GRID_LINE = new RegExp('^(?:\\d{1,3}[.)]\\s*\\(?' + LABEL + '\\)?[\\s,;]*)+$')
+const GRID_PAIR = new RegExp('(\\d{1,3})[.)]\\s*\\(?(' + LABEL + ')\\)?', 'g')
 
 const MIN_ENTRIES = 3
 
@@ -337,11 +446,17 @@ export function parseAnswerKey(pageText: string): Map<number, string> {
 
   const seen = new Map<number, Set<string>>()
 
-  const record = (number: number, label: string) => {
+  function record(number: number, label: string) {
     if (number < 1) return
-    const set = seen.get(number) ?? new Set<string>()
+
+    let set = seen.get(number)
+
+    if (!set) {
+      set = new Set<string>()
+      seen.set(number, set)
+    }
+
     set.add(label.toUpperCase())
-    seen.set(number, set)
   }
 
   SOLUTION_LINE.lastIndex = 0
@@ -360,12 +475,16 @@ export function parseAnswerKey(pageText: string): Map<number, string> {
   }
 
   const key = new Map<number, string>()
+
   for (const [number, labels] of seen) {
     if (labels.size !== 1) continue
-    key.set(number, [...labels][0])
+
+    for (const label of labels) key.set(number, label)
   }
 
-  return key.size >= MIN_ENTRIES ? key : new Map()
+  if (key.size < MIN_ENTRIES) return new Map()
+
+  return key
 }
 
 const KEY_HEADING =
@@ -377,7 +496,11 @@ function statesAnswers(text: string): boolean {
   SOLUTION_LINE.lastIndex = 0
   if (SOLUTION_LINE.exec(text)) return true
 
-  return text.split(/\r?\n/).some((line) => GRID_LINE.test(line.trim()))
+  for (const line of text.split(/\r?\n/)) {
+    if (GRID_LINE.test(line.trim())) return true
+  }
+
+  return false
 }
 
 export function isAnswerPage(pageText: string): boolean {
@@ -394,15 +517,23 @@ export function mergeAnswerKeys(keys: Map<number, string>[]): Map<number, string
 
   for (const key of keys) {
     for (const [number, label] of key) {
-      const set = seen.get(number) ?? new Set<string>()
+      let set = seen.get(number)
+
+      if (!set) {
+        set = new Set<string>()
+        seen.set(number, set)
+      }
+
       set.add(label)
-      seen.set(number, set)
     }
   }
 
   const merged = new Map<number, string>()
+
   for (const [number, labels] of seen) {
-    if (labels.size === 1) merged.set(number, [...labels][0])
+    if (labels.size !== 1) continue
+
+    for (const label of labels) merged.set(number, label)
   }
 
   return merged

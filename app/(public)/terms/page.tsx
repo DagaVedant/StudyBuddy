@@ -5,9 +5,12 @@ import {POLICY_UPDATED, contactEmail} from '@/lib/api'
 export const metadata = {title: 'Terms · StudyBuddy'}
 
 export default function TermsPage() {
-  const contact = contactEmail()
-  const noContact =
+  const contactAddress = contactEmail()
+
+  let contactLine =
     'No contact address is set on this deployment. Whoever runs it should set CONTACT_EMAIL.'
+
+  if (contactAddress) contactLine = contactAddress
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-12">
@@ -82,7 +85,7 @@ export default function TermsPage() {
         </p>
 
         <h2 className="pt-4 text-base font-medium">Contact</h2>
-        <p>{contact ?? noContact}</p>
+        <p>{contactLine}</p>
       </section>
 
       <p className="hint mt-10 flex gap-4">

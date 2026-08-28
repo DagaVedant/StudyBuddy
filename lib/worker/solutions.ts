@@ -21,7 +21,7 @@ const PROMOTE_ABOVE = 0.6
 
 const UNSOLVED_PAGE_SIZE = 500
 
-export interface UnsolvedQuestion {
+export type UnsolvedQuestion = {
   id: string
   promptText: string
   printedNumber: number | null
@@ -59,6 +59,9 @@ export async function unsolvedQuestions(
 
   if (rows.length === 0) return []
 
+  const ids: string[] = []
+  for (const row of rows) ids.push(row.id)
+
   const choices = await db
     .select({
       questionId: answerChoices.questionId,
@@ -66,43 +69,128 @@ export async function unsolvedQuestions(
       text: answerChoices.text,
     })
     .from(answerChoices)
-    .where(
-      inArray(
-        answerChoices.questionId,
-        rows.map((row) => row.id),
-      ),
-    )
+    .where(inArray(answerChoices.questionId, ids))
     .orderBy(...CHOICE_ORDER)
 
   const byQuestion = new Map<string, {label: string; text: string}[]>()
+
   for (const choice of choices) {
-    const list = byQuestion.get(choice.questionId) ?? []
+    let list = byQuestion.get(choice.questionId)
+
+    if (!list) {
+      list = []
+      byQuestion.set(choice.questionId, list)
+    }
+
     list.push({label: choice.label, text: choice.text})
-    byQuestion.set(choice.questionId, list)
   }
 
-  const pageIds = [...new Set(rows.map((row) => row.pageId).filter((id) => id !== null))]
+  const seenPages = new Set<string>()
+  const pageIds: string[] = []
 
-  const pages = pageIds.length
-    ? await db
-        .select({id: worksheetPages.id, imageKey: worksheetPages.imageKey})
-        .from(worksheetPages)
-        .where(inArray(worksheetPages.id, pageIds))
-    : []
+  for (const row of rows) {
+    if (row.pageId === null) continue
+    if (seenPages.has(row.pageId)) continue
 
-  const imageKeyFor = new Map(pages.map((page) => [page.id, page.imageKey]))
+    seenPages.add(row.pageId)
+    pageIds.push(row.pageId)
+  }
 
-  return rows.map((row) => ({
-    id: row.id,
-    promptText: row.promptText,
-    printedNumber: row.printedNumber,
-    pageId: row.pageId,
-    pageImageKey: row.pageId ? (imageKeyFor.get(row.pageId) ?? null) : null,
-    choices: byQuestion.get(row.id) ?? [],
-  }))
+  const imageKeyFor = new Map<string, string>()
+
+  if (pageIds.length > 0) {
+    const pages = await db
+      .select({id: worksheetPages.id, imageKey: worksheetPages.imageKey})
+      .from(worksheetPages)
+      .where(inArray(worksheetPages.id, pageIds))
+
+    for (const page of pages) imageKeyFor.set(page.id, page.imageKey)
+  }
+
+  const unsolved: UnsolvedQuestion[] = []
+
+  for (const row of rows) {
+    let pageImageKey: string | null = null
+
+    if (row.pageId) {
+      const key = imageKeyFor.get(row.pageId)
+      if (key) pageImageKey = key
+    }
+
+    let rowChoices = byQuestion.get(row.id)
+    if (!rowChoices) rowChoices = []
+
+    unsolved.push({
+      id: row.id,
+      promptText: row.promptText,
+      printedNumber: row.printedNumber,
+      pageId: row.pageId,
+      pageImageKey: pageImageKey,
+      choices: rowChoices,
+    })
+  }
+
+  return unsolved
 }
 
-export interface SolutionProgress {
+function storedProviderName(name: string) {
+  if (name === 'anthropic') return 'anthropic'
+  if (name === 'openai') return 'openai'
+  if (name === 'openrouter') return 'openrouter'
+  if (name === 'google') return 'google'
+  if (name === 'ollama') return 'ollama'
+
+  return null
+}
+
+function storedAnswer(answer: string, choices: {label: string; text: string}[]) {
+  const trimmed = answer.trim()
+  if (!trimmed) return null
+
+  if (choices.length === 0) return trimmed.slice(0, 200)
+
+  const label = normalizeChoiceLabel(trimmed).toLowerCase()
+
+  for (const choice of choices) {
+    if (choice.label.toLowerCase() === label) return choice.label
+  }
+
+  const wanted = trimmed.toLowerCase()
+
+  for (const choice of choices) {
+    if (choice.text.trim().toLowerCase() === wanted) return choice.label
+  }
+
+  return null
+}
+
+export async function promoteDerivedAnswer(
+  db: Db,
+  input: {
+    questionId: string
+    answer: string | null
+    confidence: number
+    choices: {label: string; text: string}[]
+    answerSource: string
+  },
+) {
+  if (input.answer === null) return false
+  if (input.answerSource !== 'none') return false
+  if (input.confidence < PROMOTE_ABOVE) return false
+
+  const stored = storedAnswer(input.answer, input.choices)
+  if (!stored) return false
+
+  const updated = await db
+    .update(questions)
+    .set({correctAnswer: stored, answerSource: 'ai_derived'})
+    .where(and(eq(questions.id, input.questionId), eq(questions.answerSource, 'none')))
+    .returning({id: questions.id})
+
+  return updated.length > 0
+}
+
+export type SolutionProgress = {
   solved: number
   promoted: number
   refused: number
@@ -167,98 +255,51 @@ export async function deriveSolutions(
         .onConflictDoNothing({target: questionSolutions.questionId})
 
       if (solution.answer === null) {
-        progress.refused += 1
-      } else {
-        progress.solved += 1
-
-        const promoted = await promoteDerivedAnswer(db, {
-          questionId: question.id,
-          answer: solution.answer,
-          confidence: solution.confidence,
-          choices,
-          answerSource: question.answerSource,
-        })
-        if (promoted) progress.promoted += 1
+        progress.refused = progress.refused + 1
+        continue
       }
+
+      progress.solved = progress.solved + 1
+
+      const promoted = await promoteDerivedAnswer(db, {
+        questionId: question.id,
+        answer: solution.answer,
+        confidence: solution.confidence,
+        choices,
+        answerSource: question.answerSource,
+      })
+
+      if (promoted) progress.promoted = progress.promoted + 1
     } catch (error) {
-      progress.failed += 1
+      progress.failed = progress.failed + 1
+
       console.log(
-        `[solutions] question ${question.id} could not be solved: ${(error as Error).message}`,
+        '[solutions] question ' +
+          question.id +
+          ' could not be solved: ' +
+          (error as Error).message,
       )
     }
   }
 
   console.log(
-    `[solutions] ${worksheetId}: ${progress.solved} solved, ${progress.promoted} promoted, ` +
-      `${progress.refused} declined, ${progress.failed} failed`,
+    '[solutions] ' +
+      worksheetId +
+      ': ' +
+      progress.solved +
+      ' solved, ' +
+      progress.promoted +
+      ' promoted, ' +
+      progress.refused +
+      ' declined, ' +
+      progress.failed +
+      ' failed',
   )
 
   return progress
 }
 
-export async function promoteDerivedAnswer(
-  db: Db,
-  input: {
-    questionId: string
-    answer: string | null
-    confidence: number
-    choices: {label: string; text: string}[]
-    answerSource: string
-  },
-): Promise<boolean> {
-  const {questionId, answer, confidence, choices, answerSource} = input
-
-  if (answer === null) return false
-  if (answerSource !== 'none') return false
-  if (confidence < PROMOTE_ABOVE) return false
-
-  const stored = storedAnswer(answer, choices)
-  if (!stored) return false
-
-  const updated = await db
-    .update(questions)
-    .set({correctAnswer: stored, answerSource: 'ai_derived'})
-    .where(and(eq(questions.id, questionId), eq(questions.answerSource, 'none')))
-    .returning({id: questions.id})
-
-  return updated.length > 0
-}
-
-function storedAnswer(
-  answer: string,
-  choices: {label: string; text: string}[],
-): string | null {
-  const trimmed = answer.trim()
-  if (!trimmed) return null
-
-  if (choices.length === 0) return trimmed.slice(0, 200)
-
-  const label = normalizeChoiceLabel(trimmed).toLowerCase()
-  const byLabel = choices.find((choice) => choice.label.toLowerCase() === label)
-  if (byLabel) return byLabel.label
-
-  const byText = choices.find(
-    (choice) => choice.text.trim().toLowerCase() === trimmed.toLowerCase(),
-  )
-  return byText ? byText.label : null
-}
-
-function storedProviderName(
-  name: string,
-): 'anthropic' | 'openai' | 'openrouter' | 'google' | 'ollama' | null {
-  switch (name) {
-    case 'anthropic':
-    case 'openai':
-    case 'openrouter':
-    case 'google':
-    case 'ollama':
-      return name
-    default:
-      return null
-  }
-}
-
-export interface ExplainInput {
+export type ExplainInput = {
   questionId: string
   attemptId: string | null
   promptText: string
@@ -293,34 +334,61 @@ export async function explainInput(
     .orderBy(desc(attempts.createdAt))
     .limit(1)
 
-  const studentAnswer =
-    choices.find((choice) => choice.id === lastAttempt?.selectedChoiceId)?.label ??
-    lastAttempt?.freeTextAnswer ??
-    null
+  let studentAnswer: string | null = null
+
+  if (lastAttempt) {
+    for (const choice of choices) {
+      if (choice.id === lastAttempt.selectedChoiceId) {
+        studentAnswer = choice.label
+        break
+      }
+    }
+
+    if (studentAnswer === null && lastAttempt.freeTextAnswer) {
+      studentAnswer = lastAttempt.freeTextAnswer
+    }
+  }
+
+  let correctAnswer = question.correctAnswer
+
+  for (const choice of choices) {
+    if (choice.isCorrect) {
+      correctAnswer = choice.label
+      break
+    }
+  }
+
+  const plainChoices = []
+  for (const choice of choices) {
+    plainChoices.push({label: choice.label, text: choice.text})
+  }
+
+  let attemptId: string | null = null
+  if (lastAttempt) attemptId = lastAttempt.id
 
   return {
     questionId: question.id,
-    attemptId: lastAttempt?.id ?? null,
+    attemptId: attemptId,
     promptText: question.promptText,
-    choices: choices.map((choice) => ({label: choice.label, text: choice.text})),
-    correctAnswer:
-      choices.find((choice) => choice.isCorrect)?.label ?? question.correctAnswer,
-    studentAnswer,
+    choices: plainChoices,
+    correctAnswer: correctAnswer,
+    studentAnswer: studentAnswer,
   }
 }
-export interface ReviewableQuestion extends ValidatableQuestion {
+
+export type ReviewableQuestion = ValidatableQuestion & {
   id: string
   pageNumber: number
 }
 
-export interface Suspect {
+export type Suspect = {
   id: string
   pageNumber: number
   printedNumber: number | null
   reasons: string[]
 }
 
-export interface ReviewPlan {
+export type ReviewPlan = {
   suspects: Suspect[]
   reread: {pageNumber: number; expect: number[]}[]
   skippedPages: number[]
@@ -329,12 +397,12 @@ export interface ReviewPlan {
 
 export type ReviewFn = (candidates: ReviewCandidate[]) => Promise<QuestionReview[]>
 
-export interface DoubtedQuestion {
+export type DoubtedQuestion = {
   id: string
   printedNumber: number | null
 }
 
-export interface PageReplacement<T> {
+export type PageReplacement<T> = {
   replace: DoubtedQuestion[]
   keep: DoubtedQuestion[]
   replacements: T[]
@@ -345,34 +413,48 @@ export function planPageReplacement<T extends {ordinal: number; prompt_text: str
   fresh: readonly T[],
   doubted: readonly DoubtedQuestion[],
 ): PageReplacement<T> {
-  const fromPage = printedNumbersFor(
-    pageText,
-    fresh.map((question) => question.prompt_text),
-  )
+  const prompts: string[] = []
+  for (const question of fresh) prompts.push(question.prompt_text)
 
-  const numberAt = (index: number): number | null => {
-    if (fromPage[index] !== null) return fromPage[index]
+  const fromPage = printedNumbersFor(pageText, prompts)
+
+  const numbers: (number | null)[] = []
+
+  for (let index = 0; index < fresh.length; index++) {
+    if (fromPage[index] !== null) {
+      numbers.push(fromPage[index])
+      continue
+    }
+
     const counted = fresh[index].ordinal
-    return counted >= 1 ? counted : null
+    if (counted >= 1) numbers.push(counted)
+    else numbers.push(null)
   }
 
-  const refound = new Set(
-    fresh.map((_, index) => numberAt(index)).filter((n): n is number => n !== null),
-  )
+  const refound = new Set<number>()
+  for (const number of numbers) {
+    if (number !== null) refound.add(number)
+  }
 
-  const replace = doubted.filter(
-    (row) => row.printedNumber !== null && refound.has(row.printedNumber),
-  )
-  const keep = doubted.filter((row) => !replace.includes(row))
+  const replace: DoubtedQuestion[] = []
+  const keep: DoubtedQuestion[] = []
 
-  const wanted = new Set(
-    replace.map((row) => row.printedNumber).filter((n): n is number => n !== null),
-  )
+  for (const row of doubted) {
+    if (row.printedNumber !== null && refound.has(row.printedNumber)) replace.push(row)
+    else keep.push(row)
+  }
 
-  const replacements = fresh.filter((_, index) => {
-    const number = numberAt(index)
-    return number !== null && wanted.has(number)
-  })
+  const wanted = new Set<number>()
+  for (const row of replace) {
+    if (row.printedNumber !== null) wanted.add(row.printedNumber)
+  }
+
+  const replacements: T[] = []
+
+  for (let index = 0; index < fresh.length; index++) {
+    const number = numbers[index]
+    if (number !== null && wanted.has(number)) replacements.push(fresh[index])
+  }
 
   return {replace, keep, replacements}
 }
@@ -388,12 +470,14 @@ export async function planReview(
 
   const suspects = new Map<string, Suspect>()
 
-  const flag = (question: ReviewableQuestion, reason: string) => {
+  function flag(question: ReviewableQuestion, reason: string) {
     const existing = suspects.get(question.id)
+
     if (existing) {
       existing.reasons.push(reason)
       return
     }
+
     suspects.set(question.id, {
       id: question.id,
       pageNumber: question.pageNumber,
@@ -404,40 +488,72 @@ export async function planReview(
 
   for (const question of questions) {
     const flags = validateQuestion(question, {expectedChoiceCount})
-    if (worthRereading(flags)) {
-      for (const f of flags) flag(question, f.detail)
-    }
+    if (!worthRereading(flags)) continue
+
+    for (const found of flags) flag(question, found.detail)
   }
 
-  const unreviewed = questions.filter(
-    (q) => !suspects.has(q.id) && q.printedNumber !== null,
-  )
+  const unreviewed: ReviewableQuestion[] = []
+  for (const question of questions) {
+    if (suspects.has(question.id)) continue
+    if (question.printedNumber === null) continue
+
+    unreviewed.push(question)
+  }
 
   let modelConsulted = false
 
   if (review && unreviewed.length > 0) {
     const byPage = new Map<number, ReviewableQuestion[]>()
+
     for (const question of unreviewed) {
-      byPage.set(question.pageNumber, [...(byPage.get(question.pageNumber) ?? []), question])
+      let onPage = byPage.get(question.pageNumber)
+
+      if (!onPage) {
+        onPage = []
+        byPage.set(question.pageNumber, onPage)
+      }
+
+      onPage.push(question)
     }
 
-    for (const [, batch] of [...byPage.entries()].sort((a, b) => a[0] - b[0])) {
+    const pageNumbers = Array.from(byPage.keys())
+    pageNumbers.sort(function (a, b) {
+      return a - b
+    })
+
+    for (const pageNumber of pageNumbers) {
+      const batch = byPage.get(pageNumber)
+      if (!batch) continue
+
       try {
-        const verdicts = await review(
-          batch.map((q) => ({
-            number: q.printedNumber as number,
-            prompt_text: q.promptText,
-            choices: q.choices,
-          })),
-        )
+        const candidates: ReviewCandidate[] = []
+
+        for (const question of batch) {
+          candidates.push({
+            number: question.printedNumber as number,
+            prompt_text: question.promptText,
+            choices: question.choices,
+          })
+        }
+
+        const verdicts = await review(candidates)
 
         modelConsulted = true
 
-        const byNumber = new Map(batch.map((q) => [q.printedNumber, q]))
+        const byNumber = new Map<number | null, ReviewableQuestion>()
+        for (const question of batch) byNumber.set(question.printedNumber, question)
+
         for (const verdict of verdicts) {
           if (verdict.intact) continue
+
           const question = byNumber.get(verdict.number)
-          if (question) flag(question, verdict.reason ?? 'the reviewer called it damaged')
+          if (!question) continue
+
+          let reason = 'the reviewer called it damaged'
+          if (verdict.reason) reason = verdict.reason
+
+          flag(question, reason)
         }
       } catch (error) {
         console.error('[review] could not review a page, continuing:', error)
@@ -445,28 +561,71 @@ export async function planReview(
     }
   }
 
-  const pages = new Set(questions.map((q) => q.pageNumber))
-  const cap = Math.max(1, Math.ceil(pages.size * maxRereadShare))
+  const pages = new Set<number>()
+  for (const question of questions) pages.add(question.pageNumber)
 
-  const byPage = new Map<number, number[]>()
+  let cap = Math.ceil(pages.size * maxRereadShare)
+  if (cap < 1) cap = 1
+
+  const numbersByPage = new Map<number, number[]>()
+
   for (const suspect of suspects.values()) {
     if (suspect.printedNumber === null) continue
-    byPage.set(suspect.pageNumber, [...(byPage.get(suspect.pageNumber) ?? []), suspect.printedNumber])
+
+    let onPage = numbersByPage.get(suspect.pageNumber)
+
+    if (!onPage) {
+      onPage = []
+      numbersByPage.set(suspect.pageNumber, onPage)
+    }
+
+    onPage.push(suspect.printedNumber)
   }
 
-  const ordered = [...byPage.entries()]
-    .map(([pageNumber, expect]) => ({
-      pageNumber,
-      expect: [...new Set(expect)].sort((a, b) => a - b),
-    }))
-    .sort((a, b) => b.expect.length - a.expect.length || a.pageNumber - b.pageNumber)
+  const ordered: {pageNumber: number; expect: number[]}[] = []
 
-  return {
-    suspects: [...suspects.values()].sort(
-      (a, b) => a.pageNumber - b.pageNumber || (a.printedNumber ?? 0) - (b.printedNumber ?? 0),
-    ),
-    reread: ordered.slice(0, cap).sort((a, b) => a.pageNumber - b.pageNumber),
-    skippedPages: ordered.slice(cap).map((p) => p.pageNumber).sort((a, b) => a - b),
-    modelConsulted,
+  for (const [pageNumber, numbers] of numbersByPage) {
+    const expect: number[] = []
+    for (const number of new Set(numbers)) expect.push(number)
+
+    expect.sort(function (a, b) {
+      return a - b
+    })
+
+    ordered.push({pageNumber, expect})
   }
+
+  ordered.sort(function (a, b) {
+    if (a.expect.length !== b.expect.length) return b.expect.length - a.expect.length
+    return a.pageNumber - b.pageNumber
+  })
+
+  const reread = ordered.slice(0, cap)
+  reread.sort(function (a, b) {
+    return a.pageNumber - b.pageNumber
+  })
+
+  const skippedPages: number[] = []
+  for (const page of ordered.slice(cap)) skippedPages.push(page.pageNumber)
+
+  skippedPages.sort(function (a, b) {
+    return a - b
+  })
+
+  const listed: Suspect[] = []
+  for (const suspect of suspects.values()) listed.push(suspect)
+
+  listed.sort(function (a, b) {
+    if (a.pageNumber !== b.pageNumber) return a.pageNumber - b.pageNumber
+
+    let left = a.printedNumber
+    if (left === null) left = 0
+
+    let right = b.printedNumber
+    if (right === null) right = 0
+
+    return left - right
+  })
+
+  return {suspects: listed, reread, skippedPages, modelConsulted}
 }

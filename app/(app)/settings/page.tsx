@@ -19,7 +19,7 @@ export const metadata = {title: 'Settings · StudyBuddy'}
 
 export default async function SettingsPage() {
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const userId = session.user.id
 
@@ -28,6 +28,18 @@ export default async function SettingsPage() {
     getTrialState(db, userId),
     workerStatus(db),
   ])
+
+  const listed = []
+
+  for (const row of credentials) {
+    listed.push({
+      provider: row.provider,
+      keyLast4: row.keyLast4,
+      ollamaBaseUrl: row.ollamaBaseUrl,
+      visionModelName: row.visionModelName,
+      verified: row.verifiedAt !== null,
+    })
+  }
 
   return (
     <main className="w-full px-6 py-10">
@@ -38,13 +50,7 @@ export default async function SettingsPage() {
       <SettingsClient
         showCloud={cloudExtractionEnabled()}
         showOllama={browserTierEnabled()}
-        credentials={credentials.map((row) => ({
-          provider: row.provider,
-          keyLast4: row.keyLast4,
-          ollamaBaseUrl: row.ollamaBaseUrl,
-          visionModelName: row.visionModelName,
-          verified: row.verifiedAt !== null,
-        }))}
+        credentials={listed}
         trial={{
           worksheetsRemaining: trial.worksheetsRemaining,
           explanationsRemaining: trial.explanationsRemaining,

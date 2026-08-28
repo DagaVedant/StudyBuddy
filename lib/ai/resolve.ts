@@ -17,6 +17,7 @@ import {
   CLOUD_PROVIDERS,
   type CloudProvider,
   DEFAULT_CLOUD_MODEL,
+  type ExecutionSite,
   type ExplainInput,
   isCloudProvider,
   type LessonInput,
@@ -35,28 +36,25 @@ export {CLOUD_PROVIDERS, DEFAULT_CLOUD_MODEL, type CloudProvider}
 
 export type Tier = 'trial' | 'free' | 'cloud' | 'ollama'
 
-export interface ResolvedProvider {
+export type ResolvedProvider = {
   provider: AIProvider
   tier: Tier
-  executor: 'server' | 'browser' | 'operator_gpu' | 'none'
+  executor: ExecutionSite
 }
 
-export function browserTierEnabled(): boolean {
+export function browserTierEnabled() {
   return process.env.ENABLE_BROWSER_TIER === 'true'
 }
 
-export function cloudExtractionEnabled(): boolean {
+export function cloudExtractionEnabled() {
   return process.env.ENABLE_CLOUD_EXTRACTION === 'true'
 }
 
-export function mockEnabled(): boolean {
+export function mockEnabled() {
   return process.env.ENABLE_MOCK_AI === 'true'
 }
 
-export async function resolveProvider(
-  db: Db,
-  userId: string,
-): Promise<ResolvedProvider> {
+export async function resolveProvider(db: Db, userId: string): Promise<ResolvedProvider> {
   const [user] = await db
     .select({trialWorksheetsUsed: users.trialWorksheetsUsed, role: users.role})
     .from(users)
@@ -68,74 +66,62 @@ export async function resolveProvider(
     .from(userAiCredentials)
     .where(eq(userAiCredentials.userId, userId))
 
-  const cloud = credentials.find(
-    (row) =>
-      isCloudProvider(row.provider) && row.encryptedKey && row.keyIv && row.keyAuthTag,
-  )
+  for (let row of credentials) {
+    if (!isCloudProvider(row.provider)) continue
+    if (!row.encryptedKey || !row.keyIv || !row.keyAuthTag) continue
 
-  if (cloud) {
     if (mockEnabled()) {
       return {provider: validated(new MockProvider()), tier: 'cloud', executor: 'server'}
     }
 
     const apiKey = openApiKey({
-      ciphertext: cloud.encryptedKey!,
-      iv: cloud.keyIv!,
-      authTag: cloud.keyAuthTag!,
+      ciphertext: row.encryptedKey,
+      iv: row.keyIv,
+      authTag: row.keyAuthTag,
     })
 
+    let model: string | undefined = undefined
+    if (row.visionModelName !== null) model = row.visionModelName
+    else if (row.modelName !== null) model = row.modelName
+
     return {
-      provider: cloudProvider(
-        cloud.provider as CloudProvider,
-        apiKey,
-        cloud.visionModelName ?? cloud.modelName ?? undefined,
-      ),
+      provider: cloudProvider(row.provider as CloudProvider, apiKey, model),
       tier: 'cloud',
       executor: 'server',
     }
   }
 
-  const ollama = credentials.find(
-    (row) => row.provider === 'ollama' && row.ollamaBaseUrl,
-  )
+  for (let row of credentials) {
+    if (row.provider !== 'ollama' || !row.ollamaBaseUrl) continue
 
-  if (ollama) {
     if (mockEnabled()) {
       return {provider: validated(new MockProvider()), tier: 'ollama', executor: 'server'}
     }
 
-    return {
-      provider: validated(new NullProvider()),
-      tier: 'ollama',
-      executor: browserTierEnabled() ? 'browser' : 'operator_gpu',
-    }
+    let executor: ExecutionSite = 'operator_gpu'
+    if (browserTierEnabled()) executor = 'browser'
+
+    return {provider: validated(new NullProvider()), tier: 'ollama', executor: executor}
   }
 
-  if (user?.role === 'admin') {
-    return {
-      provider: validated(mockEnabled() ? new MockProvider() : new NullProvider()),
-      tier: 'trial',
-      executor: 'operator_gpu',
-    }
+  let idle: RawAIProvider = new NullProvider()
+  if (mockEnabled()) idle = new MockProvider()
+
+  if (user && user.role === 'admin') {
+    return {provider: validated(idle), tier: 'trial', executor: 'operator_gpu'}
   }
 
-  const worksheetsUsed = user?.trialWorksheetsUsed ?? 0
+  let worksheetsUsed = 0
+  if (user && user.trialWorksheetsUsed) worksheetsUsed = user.trialWorksheetsUsed
+
   if (worksheetsUsed < TRIAL_WORKSHEET_LIMIT) {
-    return {
-      provider: validated(mockEnabled() ? new MockProvider() : new NullProvider()),
-      tier: 'trial',
-      executor: 'operator_gpu',
-    }
+    return {provider: validated(idle), tier: 'trial', executor: 'operator_gpu'}
   }
 
   return {provider: validated(new NullProvider()), tier: 'free', executor: 'none'}
 }
 
-export function cloudProvider(
-  provider: CloudProvider,
-  apiKey: string,
-  model?: string,
-): AIProvider {
+export function cloudProvider(provider: CloudProvider, apiKey: string, model?: string) {
   return validated(rawCloudProvider(provider, apiKey, model))
 }
 
@@ -144,21 +130,19 @@ function rawCloudProvider(
   apiKey: string,
   model?: string,
 ): RawAIProvider {
-  const chosen = model || DEFAULT_CLOUD_MODEL[provider]
+  let chosen = model
+  if (!chosen) chosen = DEFAULT_CLOUD_MODEL[provider]
 
-  switch (provider) {
-    case 'anthropic':
-      return new AnthropicProvider(apiKey, chosen)
-    case 'openai':
-      return new OpenAIProvider(apiKey, chosen)
-    case 'openrouter':
-      return new OpenRouterProvider(apiKey, chosen)
-    case 'google':
-      return new GeminiProvider(apiKey, chosen)
-  }
+  if (provider === 'anthropic') return new AnthropicProvider(apiKey, chosen)
+  if (provider === 'openai') return new OpenAIProvider(apiKey, chosen)
+  if (provider === 'openrouter') return new OpenRouterProvider(apiKey, chosen)
+
+  return new GeminiProvider(apiKey, chosen)
 }
 
-export interface CredentialSummary {
+export type StoredProvider = (typeof aiProvider.enumValues)[number]
+
+export type CredentialSummary = {
   provider: StoredProvider
   keyLast4: string | null
   ollamaBaseUrl: string | null
@@ -167,12 +151,13 @@ export interface CredentialSummary {
   verifiedAt: Date | null
 }
 
-export function canSortTopicsHere(credentials: CredentialSummary[]): boolean {
-  return credentials.some(
-    (row) =>
-      isCloudProvider(row.provider) ||
-      (row.provider === 'ollama' && Boolean(row.ollamaBaseUrl)),
-  )
+export function canSortTopicsHere(credentials: CredentialSummary[]) {
+  for (let row of credentials) {
+    if (isCloudProvider(row.provider)) return true
+    if (row.provider === 'ollama' && row.ollamaBaseUrl) return true
+  }
+
+  return false
 }
 
 export async function getCredentialSummary(
@@ -196,32 +181,27 @@ export async function deleteCredential(
   db: Db,
   userId: string,
   provider: CloudProvider | 'ollama',
-): Promise<void> {
+) {
   await db
     .delete(userAiCredentials)
     .where(
-      and(
-        eq(userAiCredentials.userId, userId),
-        eq(userAiCredentials.provider, provider),
-      ),
+      and(eq(userAiCredentials.userId, userId), eq(userAiCredentials.provider, provider)),
     )
 }
 
-export type StoredProvider = (typeof aiProvider.enumValues)[number]
+export function storedProvider(name: ProviderName) {
+  for (let value of aiProvider.enumValues) {
+    if (value === name) return value
+  }
 
-export function storedProvider(name: ProviderName): StoredProvider | null {
-  return isStored(name) ? name : null
-}
-
-function isStored(name: string): name is StoredProvider {
-  return (aiProvider.enumValues as readonly string[]).includes(name)
+  return null
 }
 
 export {TRIAL_EXPLANATION_LIMIT, TRIAL_WORKSHEET_LIMIT}
 
 export type TrialKind = 'worksheets' | 'explanations'
 
-export interface TrialState {
+export type TrialState = {
   worksheetsUsed: number
   worksheetsRemaining: number
   explanationsUsed: number
@@ -239,38 +219,31 @@ export async function getTrialState(db: Db, userId: string): Promise<TrialState>
     .where(eq(users.id, userId))
     .limit(1)
 
-  const worksheetsUsed = row?.worksheetsUsed ?? 0
-  const explanationsUsed = row?.explanationsUsed ?? 0
+  let worksheetsUsed = 0
+  if (row && row.worksheetsUsed) worksheetsUsed = row.worksheetsUsed
 
-  const worksheetsRemaining = Math.max(0, TRIAL_WORKSHEET_LIMIT - worksheetsUsed)
-  const explanationsRemaining = Math.max(
-    0,
-    TRIAL_EXPLANATION_LIMIT - explanationsUsed,
-  )
+  let explanationsUsed = 0
+  if (row && row.explanationsUsed) explanationsUsed = row.explanationsUsed
+
+  let worksheetsRemaining = TRIAL_WORKSHEET_LIMIT - worksheetsUsed
+  if (worksheetsRemaining < 0) worksheetsRemaining = 0
+
+  let explanationsRemaining = TRIAL_EXPLANATION_LIMIT - explanationsUsed
+  if (explanationsRemaining < 0) explanationsRemaining = 0
 
   return {
-    worksheetsUsed,
-    worksheetsRemaining,
-    explanationsUsed,
-    explanationsRemaining,
+    worksheetsUsed: worksheetsUsed,
+    worksheetsRemaining: worksheetsRemaining,
+    explanationsUsed: explanationsUsed,
+    explanationsRemaining: explanationsRemaining,
     exhausted: worksheetsRemaining === 0 && explanationsRemaining === 0,
   }
 }
 
-export type ConsumeResult =
-  | {ok: true; remaining: number}
-  | {ok: false; remaining: number; reason: string}
-
-function columnFor(kind: TrialKind) {
-  return kind === 'worksheets' ? users.trialWorksheetsUsed : users.trialExplanationsUsed
-}
-
-function fieldFor(kind: TrialKind) {
-  return kind === 'worksheets' ? 'trialWorksheetsUsed' : 'trialExplanationsUsed'
-}
-
-function eventKindFor(kind: TrialKind) {
-  return kind === 'worksheets' ? 'extract_page' : 'explain'
+export type ConsumeResult = {
+  ok: boolean
+  remaining: number
+  reason: string
 }
 
 export async function consumeTrial(
@@ -279,14 +252,25 @@ export async function consumeTrial(
   kind: TrialKind,
   amount = 1,
 ): Promise<ConsumeResult> {
-  if (amount <= 0) return {ok: true, remaining: 0}
+  if (amount <= 0) return {ok: true, remaining: 0, reason: ''}
 
-  const column = columnFor(kind)
-  const limit = kind === 'worksheets' ? TRIAL_WORKSHEET_LIMIT : TRIAL_EXPLANATION_LIMIT
+  let column = sql`${users.trialExplanationsUsed}`
+  let field: 'trialExplanationsUsed' | 'trialWorksheetsUsed' = 'trialExplanationsUsed'
+  let eventKind: 'explain' | 'extract_page' = 'explain'
+  let limit = TRIAL_EXPLANATION_LIMIT
+  let noun = 'explanations'
+
+  if (kind === 'worksheets') {
+    column = sql`${users.trialWorksheetsUsed}`
+    field = 'trialWorksheetsUsed'
+    eventKind = 'extract_page'
+    limit = TRIAL_WORKSHEET_LIMIT
+    noun = 'worksheets'
+  }
 
   const updated = await db
     .update(users)
-    .set({[fieldFor(kind)]: sql`${column} + ${amount}`})
+    .set({[field]: sql`${column} + ${amount}`})
     .where(and(eq(users.id, userId), sql`${column} + ${amount} <= ${limit}`))
     .returning({
       worksheetsUsed: users.trialWorksheetsUsed,
@@ -295,45 +279,56 @@ export async function consumeTrial(
 
   if (updated.length === 0) {
     const state = await getTrialState(db, userId)
-    const remaining =
-      kind === 'worksheets' ? state.worksheetsRemaining : state.explanationsRemaining
-    const noun = kind === 'worksheets' ? 'worksheets' : 'explanations'
+
+    let remaining = state.explanationsRemaining
+    if (kind === 'worksheets') remaining = state.worksheetsRemaining
 
     return {
       ok: false,
-      remaining,
+      remaining: remaining,
       reason:
-        `Your free trial covers ${limit} ${noun} and you have ${remaining} left. ` +
-        'Everything here is read on one GPU we run, so the free allowance is capped.',
+        'Your free trial covers ' +
+        limit +
+        ' ' +
+        noun +
+        ' and you have ' +
+        remaining +
+        ' left. Everything here is read on one GPU we run, so the free allowance is capped.',
     }
   }
 
-  const used =
-    kind === 'worksheets' ? updated[0].worksheetsUsed : updated[0].explanationsUsed
+  let used = updated[0].explanationsUsed
+  if (kind === 'worksheets') used = updated[0].worksheetsUsed
 
   await db.insert(usageEvents).values({
     userId,
-    kind: eventKindFor(kind),
+    kind: eventKind,
     tierUsed: 'trial',
     quantity: amount,
   })
 
-  return {ok: true, remaining: Math.max(0, limit - used)}
+  let remaining = limit - used
+  if (remaining < 0) remaining = 0
+
+  return {ok: true, remaining: remaining, reason: ''}
 }
 
-export async function refundTrial(
-  db: Db,
-  userId: string,
-  kind: TrialKind,
-  amount = 1,
-): Promise<void> {
+export async function refundTrial(db: Db, userId: string, kind: TrialKind, amount = 1) {
   if (amount <= 0) return
 
-  const column = columnFor(kind)
+  let column = sql`${users.trialExplanationsUsed}`
+  let field: 'trialExplanationsUsed' | 'trialWorksheetsUsed' = 'trialExplanationsUsed'
+  let eventKind: 'explain' | 'extract_page' = 'explain'
+
+  if (kind === 'worksheets') {
+    column = sql`${users.trialWorksheetsUsed}`
+    field = 'trialWorksheetsUsed'
+    eventKind = 'extract_page'
+  }
 
   await db
     .update(users)
-    .set({[fieldFor(kind)]: sql`greatest(${column} - ${amount}, 0)`})
+    .set({[field]: sql`greatest(${column} - ${amount}, 0)`})
     .where(eq(users.id, userId))
 
   const pending = await db
@@ -342,20 +337,21 @@ export async function refundTrial(
     .where(
       and(
         eq(usageEvents.userId, userId),
-        eq(usageEvents.kind, eventKindFor(kind)),
+        eq(usageEvents.kind, eventKind),
         eq(usageEvents.tierUsed, 'trial'),
         eq(usageEvents.refunded, false),
       ),
     )
     .orderBy(desc(usageEvents.createdAt))
 
-  const refunding: string[] = []
+  let refunding: string[] = []
   let covered = 0
 
-  for (const event of pending) {
+  for (let event of pending) {
     if (covered >= amount) break
+
     refunding.push(event.id)
-    covered += event.quantity
+    covered = covered + event.quantity
   }
 
   if (refunding.length > 0) {
@@ -366,10 +362,8 @@ export async function refundTrial(
   }
 }
 
-const DAY_MS = 24 * 3600_000
-
-export async function trialExtractionsToday(db: Db): Promise<number> {
-  const since = new Date(Date.now() - DAY_MS)
+export async function trialExtractionsToday(db: Db) {
+  const since = new Date(Date.now() - 24 * 3600000)
 
   const [row] = await db
     .select({value: sql<number>`count(*)::int`})
@@ -390,14 +384,14 @@ export async function trialExtractionsToday(db: Db): Promise<number> {
 const ALGORITHM = 'aes-256-gcm'
 const IV_BYTES = 12
 
-export interface SealedKey {
+export type SealedKey = {
   ciphertext: string
   iv: string
   authTag: string
   last4: string
 }
 
-function masterKey(): Buffer {
+function masterKey() {
   const raw = process.env.CREDENTIALS_ENC_KEY
   if (!raw) {
     throw new Error('CREDENTIALS_ENC_KEY is not set; cannot handle API keys.')
@@ -431,21 +425,25 @@ export function sealApiKey(plaintext: string): SealedKey {
   }
 }
 
-function openApiKey(sealed: {ciphertext: string; iv: string; authTag: string}): string {
+function openApiKey(sealed: {ciphertext: string; iv: string; authTag: string}) {
   const decipher = createDecipheriv(
     ALGORITHM,
     masterKey(),
     Buffer.from(sealed.iv, 'base64'),
   )
+
   decipher.setAuthTag(Buffer.from(sealed.authTag, 'base64'))
 
-  return Buffer.concat([
-    decipher.update(Buffer.from(sealed.ciphertext, 'base64')), decipher.final(),
-  ]).toString('utf8')
+  const opened = Buffer.concat([
+    decipher.update(Buffer.from(sealed.ciphertext, 'base64')),
+    decipher.final(),
+  ])
+
+  return opened.toString('utf8')
 }
 
-export function isAllowedOllamaUrl(value: string): boolean {
-  let url: URL
+export function isAllowedOllamaUrl(value: string) {
+  let url
   try {
     url = new URL(value)
   } catch {
@@ -455,43 +453,19 @@ export function isAllowedOllamaUrl(value: string): boolean {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
 
   const host = url.hostname.toLowerCase()
-  return (
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host === '::1' ||
-    host === '[::1]' ||
-    host.endsWith('.localhost')
-  )
+
+  if (host === 'localhost') return true
+  if (host === '127.0.0.1') return true
+  if (host === '::1') return true
+  if (host === '[::1]') return true
+  if (host.endsWith('.localhost')) return true
+
+  return false
 }
 
-const VERIFY_TIMEOUT_MS = 10_000
-
-export type KeyVerdict =
-  | {status: 'ok'}
-  | {status: 'rejected'; reason: string}
-  | {status: 'unreachable'; reason: string}
-
-function probe(provider: CloudProvider, apiKey: string): [string, RequestInit] {
-  switch (provider) {
-    case 'anthropic':
-      return [
-        'https://api.anthropic.com/v1/models?limit=1',
-        {headers: {'x-api-key': apiKey, 'anthropic-version': '2023-06-01'}},
-      ]
-    case 'openai':
-      return [
-        'https://api.openai.com/v1/models', {headers: {authorization: `Bearer ${apiKey}`}},
-      ]
-    case 'openrouter':
-      return [
-        'https://openrouter.ai/api/v1/key', {headers: {authorization: `Bearer ${apiKey}`}},
-      ]
-    case 'google':
-      return [
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=1`,
-        {},
-      ]
-  }
+export type KeyVerdict = {
+  status: string
+  reason: string
 }
 
 export async function verifyCloudKey(
@@ -503,100 +477,131 @@ export async function verifyCloudKey(
     return {status: 'unreachable', reason: 'mock mode is on, so nothing was checked'}
   }
 
-  const [url, init] = probe(provider, apiKey)
+  let url = ''
+  let headers: Record<string, string> = {}
 
-  let response: Response
+  if (provider === 'anthropic') {
+    url = 'https://api.anthropic.com/v1/models?limit=1'
+    headers = {'x-api-key': apiKey, 'anthropic-version': '2023-06-01'}
+  } else if (provider === 'openai') {
+    url = 'https://api.openai.com/v1/models'
+    headers = {authorization: 'Bearer ' + apiKey}
+  } else if (provider === 'openrouter') {
+    url = 'https://openrouter.ai/api/v1/key'
+    headers = {authorization: 'Bearer ' + apiKey}
+  } else {
+    url =
+      'https://generativelanguage.googleapis.com/v1beta/models?key=' +
+      encodeURIComponent(apiKey) +
+      '&pageSize=1'
+  }
+
+  let response
   try {
     response = await fetchImpl(url, {
-      ...init,
       method: 'GET',
-      signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
+      headers: headers,
+      signal: AbortSignal.timeout(10000),
     })
   } catch (error) {
-    return {
-      status: 'unreachable',
-      reason: error instanceof Error ? error.message : 'the provider did not answer',
-    }
+    let reason = 'the provider did not answer'
+    if (error instanceof Error) reason = error.message
+
+    return {status: 'unreachable', reason: reason}
   }
 
-  if (response.ok) return {status: 'ok'}
+  if (response.ok) return {status: 'ok', reason: ''}
 
   if (response.status === 401 || response.status === 403) {
-    return {status: 'rejected', reason: `${provider} did not accept that key.`}
+    return {status: 'rejected', reason: provider + ' did not accept that key.'}
   }
 
-  return {status: 'unreachable', reason: `${provider} answered ${response.status}.`}
+  return {status: 'unreachable', reason: provider + ' answered ' + response.status + '.'}
 }
 
 class MockProvider implements RawAIProvider {
-  readonly name = 'mock' as const
-  readonly model = 'mock' as const
-  readonly answeringModel = 'mock' as const
+  readonly name: ProviderName = 'mock'
+  readonly model = 'mock'
+  readonly answeringModel = 'mock'
   readonly supportsVision = true
-  readonly executionSite = 'server' as const
+  readonly executionSite: ExecutionSite = 'server'
 
   async extractQuestions(page: PageInput): Promise<unknown> {
-    const lines = page.text
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => /^\s*\d+[.)]\s+/.test(line))
-      .slice(0, 40)
+    let numbered = []
 
-    if (lines.length === 0) {
+    for (let raw of page.text.split('\n')) {
+      let line = raw.trim()
+      if (!/^\s*\d+[.)]\s+/.test(line)) continue
+
+      numbered.push(line)
+      if (numbered.length === 40) break
+    }
+
+    if (numbered.length === 0) {
+      let width = page.width
+      if (width > 100) width = 100
+
+      let height = page.height
+      if (height > 100) height = 100
+
       return {
         questions: [
           {
             ordinal: 1,
-            prompt_text: `Sample question from page ${page.pageNumber}`,
+            prompt_text: 'Sample question from page ' + page.pageNumber,
             question_type: 'multiple_choice',
             choices: [
-              {label: 'A', text: 'First option'}, {label: 'B', text: 'Second option'},
+              {label: 'A', text: 'First option'},
+              {label: 'B', text: 'Second option'},
             ],
-            bbox: [0, 0, Math.min(page.width, 100), Math.min(page.height, 100)],
+            bbox: [0, 0, width, height],
             has_figure: false,
           },
         ],
       }
     }
 
-    return {
-      questions: lines.map((line, index) => ({
+    let questions = []
+
+    for (let index = 0; index < numbered.length; index++) {
+      questions.push({
         ordinal: index + 1,
-        prompt_text: line.replace(/^\s*\d+[.)]\s+/, ''),
-        question_type: 'multiple_choice' as const,
+        prompt_text: numbered[index].replace(/^\s*\d+[.)]\s+/, ''),
+        question_type: 'multiple_choice',
         choices: [
-          {label: 'A', text: 'Option A'}, {label: 'B', text: 'Option B'},
-          {label: 'C', text: 'Option C'}, {label: 'D', text: 'Option D'},
+          {label: 'A', text: 'Option A'},
+          {label: 'B', text: 'Option B'},
+          {label: 'C', text: 'Option C'},
+          {label: 'D', text: 'Option D'},
         ],
         bbox: null,
         has_figure: false,
-      })),
+      })
     }
+
+    return {questions: questions}
   }
 
-  async classifyTopic(
-    promptText: string,
-    candidates: TopicCandidate[],
-  ): Promise<unknown> {
+  async classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown> {
     if (candidates.length === 0) {
       return {topic_slug: null, confidence: 0, abstain: true}
     }
 
-    const words = new Set(
-      promptText
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((word) => word.length > 3),
-    )
+    let words = new Set<string>()
+    for (let word of promptText.toLowerCase().split(/[^a-z0-9]+/)) {
+      if (word.length > 3) words.add(word)
+    }
 
     let best = candidates[0]
     let bestScore = -1
 
-    for (const candidate of candidates) {
-      const score = candidate.name
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((word) => words.has(word)).length
+    for (let candidate of candidates) {
+      let score = 0
+
+      for (let word of candidate.name.toLowerCase().split(/[^a-z0-9]+/)) {
+        if (words.has(word)) score = score + 1
+      }
+
       if (score > bestScore) {
         best = candidate
         bestScore = score
@@ -607,32 +612,35 @@ class MockProvider implements RawAIProvider {
       return {topic_slug: null, confidence: 0.1, abstain: true}
     }
 
-    return {
-      topic_slug: best.slug,
-      confidence: Math.min(0.5 + bestScore * 0.15, 0.95),
-      abstain: false,
-    }
+    let confidence = 0.5 + bestScore * 0.15
+    if (confidence > 0.95) confidence = 0.95
+
+    return {topic_slug: best.slug, confidence: confidence, abstain: false}
   }
 
   async answerQuestion(input: AnswerInput): Promise<unknown> {
-    const answer = input.choices[0]?.label ?? '42'
+    let answer = '42'
+    if (input.choices.length > 0) answer = input.choices[0].label
+
+    let traps = []
+    for (let i = 1; i < input.choices.length; i++) {
+      traps.push({
+        label: input.choices[i].label,
+        why: 'Mock trap for ' + input.choices[i].label + '.',
+      })
+    }
 
     return {
-      answer,
-      working: `Mock working for: ${input.promptText.slice(0, 60)}`,
-      traps: input.choices.slice(1).map((choice) => ({
-        label: choice.label,
-        why: `Mock trap for ${choice.label}.`,
-      })),
+      answer: answer,
+      working: 'Mock working for: ' + input.promptText.slice(0, 60),
+      traps: traps,
       confidence: 0.9,
     }
   }
 
   async teachTopic(input: LessonInput): Promise<unknown> {
     return {
-      body_md: `## ${input.topicName}
-
-Mock lesson for ${input.topicPath}.`,
+      body_md: '## ' + input.topicName + '\n\nMock lesson for ' + input.topicPath + '.',
       examples: [
         {question: 'Mock example one', working: 'Step one.', answer: '1'},
         {question: 'Mock example two', working: 'Step one.', answer: '2'},
@@ -642,47 +650,77 @@ Mock lesson for ${input.topicPath}.`,
   }
 
   async writePractice(input: PracticeInput): Promise<unknown> {
-    const wanted = Math.max(1, Math.min(input.count, 10))
+    let wanted = input.count
+    if (wanted < 1) wanted = 1
+    if (wanted > 10) wanted = 10
 
-    return {
-      questions: Array.from({length: wanted}, (_, index) => {
-        const first = index + 2
-        const second = index + 3
+    let questions = []
 
-        return {
-          prompt_text: `A shelf holds ${first} boxes and each box holds ${second} pens. How many pens are on the shelf?`,
-          choices: [
-            {label: 'A', text: String(first * second)},
-            {label: 'B', text: String(first + second)},
-            {label: 'C', text: String(first * second - first)},
-            {label: 'D', text: String(first * second + second)},
-          ],
-          correct_label: 'A',
-          working: `Multiply the number of boxes by the pens in each box: ${first} x ${second} = ${first * second}.`,
-        }
-      }),
+    for (let index = 0; index < wanted; index++) {
+      let first = index + 2
+      let second = index + 3
+
+      questions.push({
+        prompt_text:
+          'A shelf holds ' +
+          first +
+          ' boxes and each box holds ' +
+          second +
+          ' pens. How many pens are on the shelf?',
+        choices: [
+          {label: 'A', text: String(first * second)},
+          {label: 'B', text: String(first + second)},
+          {label: 'C', text: String(first * second - first)},
+          {label: 'D', text: String(first * second + second)},
+        ],
+        correct_label: 'A',
+        working:
+          'Multiply the number of boxes by the pens in each box: ' +
+          first +
+          ' x ' +
+          second +
+          ' = ' +
+          first * second +
+          '.',
+      })
     }
+
+    return {questions: questions}
   }
 
   async explain(input: ExplainInput): Promise<unknown> {
     const chosen = input.studentAnswer
-    const correct = input.correctAnswer ?? 'not recorded'
+
+    let correct = 'not recorded'
+    if (input.correctAnswer) correct = input.correctAnswer
+
+    if (!chosen) {
+      return {
+        body_md: 'The correct answer is **' + correct + '**.',
+        misconception_note: null,
+      }
+    }
 
     return {
-      body_md: chosen
-        ? `You answered **${chosen}**, but the correct answer is **${correct}**. Work back through the question and check which step produced ${chosen} instead.`
-        : `The correct answer is **${correct}**.`,
-      misconception_note: chosen ? `Chose ${chosen} instead of ${correct}.` : null,
+      body_md:
+        'You answered **' +
+        chosen +
+        '**, but the correct answer is **' +
+        correct +
+        '**. Work back through the question and check which step produced ' +
+        chosen +
+        ' instead.',
+      misconception_note: 'Chose ' + chosen + ' instead of ' + correct + '.',
     }
   }
 }
 
 class NullProvider implements RawAIProvider {
-  readonly name = 'null' as const
-  readonly model = 'none' as const
-  readonly answeringModel = 'none' as const
+  readonly name: ProviderName = 'null'
+  readonly model = 'none'
+  readonly answeringModel = 'none'
   readonly supportsVision = false
-  readonly executionSite = 'none' as const
+  readonly executionSite: ExecutionSite = 'none'
 
   async extractQuestions(_page: PageInput): Promise<unknown> {
     throw new ProviderUnavailable()

@@ -30,15 +30,28 @@ const RATING_COLOUR: Record<Rating, string> = {
   easy: 'bg-accent',
 }
 
-function minutesSince(start: number): string {
-  const minutes = Math.round((Date.now() - start) / 60_000)
-  if (minutes < 1) return 'under a minute'
-  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+function barWidth(count: number, total: number): number {
+  if (total <= 0) return 4
+
+  const share = (count / total) * 100
+  if (share < 4) return 4
+
+  return share
 }
 
-const EXPLAIN_DEADLINE_MS = 3 * 60_000
-const EXPLAIN_FIRST_WAIT_MS = 1_000
-const EXPLAIN_MAX_WAIT_MS = 15_000
+function minutesSince(start: number): string {
+  const minutes = Math.round((Date.now() - start) / 60000)
+  if (minutes < 1) return 'under a minute'
+
+  let noun = 'minutes'
+  if (minutes === 1) noun = 'minute'
+
+  return minutes + ' ' + noun
+}
+
+const EXPLAIN_DEADLINE_MS = 3 * 60000
+const EXPLAIN_FIRST_WAIT_MS = 1000
+const EXPLAIN_MAX_WAIT_MS = 15000
 const EXPLAIN_BACKOFF = 1.6
 
 const WRITER_OFFLINE =
@@ -121,7 +134,7 @@ export default function ReviewSession({
       wait = Math.min(wait * EXPLAIN_BACKOFF, EXPLAIN_MAX_WAIT_MS)
 
       const response = await fetchJson(
-        `/api/explain?questionId=${encodeURIComponent(questionId)}`,
+        '/api/explain?questionId=' + encodeURIComponent(questionId),
         {signal},
       )
       const body = (await response.json()) as {
@@ -147,7 +160,9 @@ export default function ReviewSession({
   }
 
   async function explain(entry: ReviewItem) {
-    explainAbort.current?.abort()
+    const previous = explainAbort.current
+    if (previous) previous.abort()
+
     const controller = new AbortController()
     explainAbort.current = controller
 
@@ -169,7 +184,10 @@ export default function ReviewSession({
         writerOnline?: boolean
       }
       if (!response.ok && response.status !== 202) {
-        throw new Error(body.error ?? 'Could not generate that.')
+        let message = 'Could not generate that.'
+        if (body.error) message = body.error
+
+        throw new Error(message)
       }
 
       if (body.status === 'queued' && body.writerOnline === false) {
@@ -198,7 +216,8 @@ export default function ReviewSession({
 
   const item = items[index]
 
-  const currentQuestionId = item?.questionId
+  let currentQuestionId = undefined
+  if (item) currentQuestionId = item.questionId
   const [explainFor, setExplainFor] = useState(currentQuestionId)
 
   if (currentQuestionId !== explainFor) {
@@ -210,7 +229,9 @@ export default function ReviewSession({
 
   useEffect(() => {
     return () => {
-      explainAbort.current?.abort()
+      const running = explainAbort.current
+      if (running) running.abort()
+
       explainAbort.current = null
     }
   }, [currentQuestionId])
@@ -353,9 +374,29 @@ export default function ReviewSession({
     )
   }
 
-  const chosen = item.choices.find((choice) => choice.id === item.lastChoiceId)
-  const correctChoice = item.choices.find((choice) => choice.isCorrect)
-  const explanation = generated[item.questionId] ?? item.explanation?.body ?? null
+  let chosen = undefined
+  let correctChoice = undefined
+
+  for (const choice of item.choices) {
+    if (choice.id === item.lastChoiceId) chosen = choice
+    if (choice.isCorrect && !correctChoice) correctChoice = choice
+  }
+
+  let explanation: string | null = null
+
+  if (generated[item.questionId]) {
+    explanation = generated[item.questionId]
+  } else if (item.explanation) {
+    explanation = item.explanation.body
+  }
+
+  let answerLine = 'No answer key was recorded.'
+
+  if (correctChoice) {
+    answerLine = correctChoice.label + '. ' + correctChoice.text
+  } else if (item.correctAnswer) {
+    answerLine = item.correctAnswer
+  }
 
   let explainLabel = 'Explain this'
   if (explaining) explainLabel = 'Writing…'
@@ -379,7 +420,7 @@ export default function ReviewSession({
         >
           <div
             className="h-full bg-fg"
-            style={{width: `${(index / items.length) * 100}%`}}
+            style={{width: (index / items.length) * 100 + '%'}}
           />
         </div>
 
@@ -423,7 +464,7 @@ export default function ReviewSession({
               return (
                 <li
                   key={choice.id}
-                  className={`flex gap-2 rounded-xl px-3 py-2 text-sm ${tone}`}
+                  className={'flex gap-2 rounded-xl px-3 py-2 text-sm ' + tone}
                 >
                   {revealed && choice.isCorrect && (
                     <Tick className="mt-[0.15rem] size-4 shrink-0" />
@@ -450,11 +491,7 @@ export default function ReviewSession({
           <div className="mt-5 space-y-4 pt-4">
             <div>
               <h2 className="eyebrow">Answer</h2>
-              <p className="mt-1 text-sm">
-                {correctChoice
-                  ? `${correctChoice.label}. ${correctChoice.text}`
-                  : (item.correctAnswer ?? 'No answer key was recorded.')}
-              </p>
+              <p className="mt-1 text-sm">{answerLine}</p>
 
               {item.answerSource === 'ai_derived' && (
                 <p className="mt-2 rounded-lg px-2 py-1 text-xs text-muted">
@@ -467,7 +504,8 @@ export default function ReviewSession({
               <div>
                 <h2 className="eyebrow">You put</h2>
                 <p className="mt-1 text-sm text-muted">
-                  {chosen ? `${chosen.label}. ${chosen.text}` : item.lastFreeText}
+                  {chosen && chosen.label + '. ' + chosen.text}
+                  {!chosen && item.lastFreeText}
                 </p>
               </div>
             )}
@@ -576,7 +614,8 @@ function Recap({
   tally: Tally
   startedAt: number
 }) {
-  const rated = RATINGS.reduce((sum, rating) => sum + tally[rating.value], 0)
+  let rated = 0
+  for (const rating of RATINGS) rated = rated + tally[rating.value]
   const recalled = rated - tally.again
 
   return (
@@ -594,7 +633,7 @@ function Recap({
               <span
                 key={rating.value}
                 className={RATING_COLOUR[rating.value]}
-                style={{width: `${Math.max((tally[rating.value] / rated) * 100, 4)}%`}}
+                style={{width: barWidth(tally[rating.value], rated) + '%'}}
               />
             ))}
           </div>
@@ -604,7 +643,7 @@ function Recap({
               <div key={rating.value} className="flex items-baseline gap-2">
                 <span
                   aria-hidden="true"
-                  className={`size-2 shrink-0 ${RATING_COLOUR[rating.value]}`}
+                  className={'size-2 shrink-0 ' + RATING_COLOUR[rating.value]}
                 />
                 <dt className="flex-1 text-sm text-muted">{rating.label}</dt>
                 <dd className="font-mono text-sm font-bold tabular-nums">

@@ -15,7 +15,7 @@ const MEMBER_SINCE = new Intl.DateTimeFormat(undefined, {month: 'long', year: 'n
 
 export default async function ProfilePage() {
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const userId = session.user.id
 
@@ -53,35 +53,6 @@ export default async function ProfilePage() {
       />
 
       <div className="mx-auto w-full max-w-2xl px-4 pb-8 sm:px-6">
-        <section aria-labelledby="key-heading" className="mt-8">
-          <h2 id="key-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
-            Your own API key
-          </h2>
-
-          <p className="hint text-pretty">
-            In progress, not ready to be used yet. Ship 2 will have it. For now
-            every paper, lesson and practice question is read on the GPU we
-            run, so there is nothing you need to plug in.
-          </p>
-
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <input
-              type="text"
-              disabled
-              placeholder="sk-…"
-              aria-label="API key (not available yet)"
-              className="field max-w-xs cursor-not-allowed opacity-60"
-            />
-            <button
-              type="button"
-              disabled
-              className="btn btn-secondary cursor-not-allowed sm:w-auto sm:px-6"
-            >
-              Coming in ship 2
-            </button>
-          </div>
-        </section>
-
         <section aria-labelledby="account-heading" className="mt-8">
           <h2 id="account-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
             Account

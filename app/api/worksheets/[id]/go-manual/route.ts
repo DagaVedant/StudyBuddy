@@ -17,14 +17,14 @@ export async function POST(_request: Request, {params}: {params: Promise<Record<
   const limited = await guardRateLimit(
     db,
     WORKSHEET_WRITE_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited
 
   const won = await claimWorksheetForManualFallback(db, worksheetId)
   if (!won) {
-    return NextResponse.json({ok: true, next: `/worksheets/${worksheetId}/edit`})
+    return NextResponse.json({ok: true, next: '/worksheets/' + worksheetId + '/edit'})
   }
 
   const openJobs = await db
@@ -49,5 +49,5 @@ export async function POST(_request: Request, {params}: {params: Promise<Record<
 
   await applyPermanentFailure(db, {stage: 'extract', userId: guard.userId, worksheetId})
 
-  return NextResponse.json({ok: true, next: `/worksheets/${worksheetId}/edit`})
+  return NextResponse.json({ok: true, next: '/worksheets/' + worksheetId + '/edit'})
 }

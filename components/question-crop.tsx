@@ -1,7 +1,5 @@
 import {type QuestionEvidence} from '@/lib/questions/shape'
 
-const CROP_MARGIN = 0.04
-
 export function QuestionCrop({
   image,
   alt,
@@ -9,18 +7,32 @@ export function QuestionCrop({
   image: QuestionEvidence
   alt: string
 }) {
-  const [x0, y0, x1, y1] = image.bbox
+  let x0 = image.bbox[0]
+  let y0 = image.bbox[1]
+  let x1 = image.bbox[2]
+  let y1 = image.bbox[3]
 
-  const padX = (x1 - x0) * CROP_MARGIN
-  const padY = (y1 - y0) * CROP_MARGIN
-  const left = Math.max(0, x0 - padX)
-  const top = Math.max(0, y0 - padY)
-  const cropWidth = Math.min(image.width, x1 + padX) - left
-  const cropHeight = Math.min(image.height, y1 + padY) - top
+  let padX = (x1 - x0) * 0.04
+  let padY = (y1 - y0) * 0.04
+
+  let left = x0 - padX
+  if (left < 0) left = 0
+
+  let top = y0 - padY
+  if (top < 0) top = 0
+
+  let right = x1 + padX
+  if (right > image.width) right = image.width
+
+  let bottom = y1 + padY
+  if (bottom > image.height) bottom = image.height
+
+  let cropWidth = right - left
+  let cropHeight = bottom - top
 
   return (
     <div className="my-0.5 overflow-hidden rounded-lg [rotate:0.35deg]">
-      <div className="relative" style={{aspectRatio: `${cropWidth} / ${cropHeight}`}}>
+      <div className="relative" style={{aspectRatio: cropWidth + ' / ' + cropHeight}}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={image.src}
@@ -29,9 +41,9 @@ export function QuestionCrop({
           height={image.height}
           className="absolute max-w-none"
           style={{
-            left: `${(-left / cropWidth) * 100}%`,
-            top: `${(-top / cropHeight) * 100}%`,
-            width: `${(image.width / cropWidth) * 100}%`,
+            left: (-left / cropWidth) * 100 + '%',
+            top: (-top / cropHeight) * 100 + '%',
+            width: (image.width / cropWidth) * 100 + '%',
             height: 'auto',
           }}
         />

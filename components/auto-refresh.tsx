@@ -3,31 +3,31 @@
 import {useEffect} from 'react'
 import {useRouter} from 'next/navigation'
 
-const INTERVAL_MS = 60_000
-
 export function AutoRefresh() {
   const router = useRouter()
 
   useEffect(() => {
     let last = Date.now()
 
-    const refresh = () => {
+    function refresh() {
       last = Date.now()
       router.refresh()
     }
 
-    const tick = setInterval(() => {
+    function onTick() {
       if (!document.hidden) refresh()
-    }, INTERVAL_MS)
-
-    const onVisible = () => {
-      if (!document.hidden && Date.now() - last >= INTERVAL_MS) refresh()
     }
 
+    function onVisible() {
+      if (document.hidden) return
+      if (Date.now() - last >= 60000) refresh()
+    }
+
+    let timer = setInterval(onTick, 60000)
     document.addEventListener('visibilitychange', onVisible)
 
     return () => {
-      clearInterval(tick)
+      clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [router])

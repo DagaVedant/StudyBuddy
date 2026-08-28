@@ -7,11 +7,17 @@ export const onRequestError: Instrumentation.onRequestError = async (
   request,
   context,
 ) => {
-  const hasDigest = typeof err === 'object' && err !== null && 'digest' in err
+  let message = String(err)
+  if (err instanceof Error) message = err.message
+
+  let digest = undefined
+  if (typeof err === 'object' && err !== null && 'digest' in err) {
+    digest = String((err as {digest?: unknown}).digest)
+  }
 
   await reportError({
-    message: err instanceof Error ? err.message : String(err),
-    digest: hasDigest ? String((err as {digest?: unknown}).digest) : undefined,
+    message: message,
+    digest: digest,
     path: request.path,
     method: request.method,
     routeType: context.routeType,

@@ -9,7 +9,7 @@ import {isAnswerPage, seamAround} from '@/lib/questions/shape'
 import {toPngBytes} from '@/lib/client/ingest'
 import {validated} from '@/lib/ai/types'
 
-interface ClaimedPage {
+type ClaimedPage = {
   id: string
   pageNumber: number
   imageKey: string
@@ -18,7 +18,7 @@ interface ClaimedPage {
   height: number | null
 }
 
-interface Claim {
+type Claim = {
   job: {
     id: string
     worksheetId: string
@@ -44,15 +44,23 @@ export function BrowserRunner({worksheetId}: {worksheetId: string}) {
   const cancelled = useRef(false)
 
   const post = useCallback(async (jobId: string, body: unknown) => {
-    const response = await fetch(`/api/browser-jobs/${jobId}`, {
+    const response = await fetch('/api/browser-jobs/' + jobId, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(body),
     })
 
     if (!response.ok) {
-      const detail = (await response.json().catch(() => null)) as {error?: string} | null
-      throw new Error(detail?.error ?? `The server refused a page (${response.status}).`)
+      let message = 'The server refused a page (' + response.status + ').'
+
+      try {
+        const detail = (await response.json()) as {error?: string}
+        if (detail.error) message = detail.error
+      } catch {
+        message = 'The server refused a page (' + response.status + ').'
+      }
+
+      throw new Error(message)
     }
 
     return response.json() as Promise<unknown>
@@ -80,15 +88,26 @@ export function BrowserRunner({worksheetId}: {worksheetId: string}) {
       }),
     )
 
-    const done = new Set(job.checkpoint?.donePages ?? [])
-    const todo = pages.filter((page) => !done.has(page.pageNumber))
+    const done = new Set<number>()
+
+    if (job.checkpoint && job.checkpoint.donePages) {
+      for (const pageNumber of job.checkpoint.donePages) done.add(pageNumber)
+    }
+
+    const todo = []
+    for (const page of pages) {
+      if (!done.has(page.pageNumber)) todo.push(page)
+    }
 
     setPhase({kind: 'reading', done: done.size, total: pages.length})
 
     for (const page of todo) {
       if (cancelled.current) return
 
-      if (isAnswerPage(page.ocrText ?? '')) {
+      let ocrText = ''
+      if (page.ocrText) ocrText = page.ocrText
+
+      if (isAnswerPage(ocrText)) {
         await post(job.id, {
           action: 'page_result',
           pageId: page.id,
@@ -101,26 +120,36 @@ export function BrowserRunner({worksheetId}: {worksheetId: string}) {
         continue
       }
 
-      const imageResponse = await fetch(`/api/files/${page.imageKey}`)
+      const imageResponse = await fetch('/api/files/' + page.imageKey)
       if (!imageResponse.ok) {
-        throw new Error(`Could not load page ${page.pageNumber}.`)
+        throw new Error('Could not load page ' + page.pageNumber + '.')
       }
 
-      const {image, mediaType} = await toPngBytes(await imageResponse.blob())
+      const decoded = await toPngBytes(await imageResponse.blob())
+
+      let width = 0
+      if (page.width) width = page.width
+
+      let height = 0
+      if (page.height) height = page.height
+
+      const seam = seamAround(pages, pages.indexOf(page))
 
       let questions: unknown[] = []
+
       try {
         questions = await provider.extractQuestions({
-          image,
-          mediaType,
-          text: page.ocrText ?? '',
-          width: page.width ?? 0,
-          height: page.height ?? 0,
+          image: decoded.image,
+          mediaType: decoded.mediaType,
+          text: ocrText,
+          width: width,
+          height: height,
           pageNumber: page.pageNumber,
-          ...seamAround(pages, pages.indexOf(page)),
+          before: seam.before,
+          after: seam.after,
         })
       } catch (error) {
-        console.warn(`[tier-c] page ${page.pageNumber} failed:`, error)
+        console.warn('[tier-c] page ' + page.pageNumber + ' failed:', error)
       }
 
       if (cancelled.current) return
@@ -174,11 +203,18 @@ export function BrowserRunner({worksheetId}: {worksheetId: string}) {
     )
   }
 
+  let line = 'Read. Sorting the questions into topics.'
+
+  if (phase.kind !== 'finishing') {
+    let at = phase.done + 1
+    if (at > phase.total) at = phase.total
+
+    line = 'Reading page ' + at + ' of ' + phase.total + ' on your own machine.'
+  }
+
   return (
     <p role="status" className="hint text-pretty">
-      {phase.kind === 'finishing'
-        ? 'Read. Sorting the questions into topics.'
-        : `Reading page ${Math.min(phase.done + 1, phase.total)} of ${phase.total} on your own machine.`}{' '}
+      {line}{' '}
       <strong className="font-medium text-fg">Keep this tab open.</strong> Ollama runs
       here rather than on our servers, so closing it stops the reading. Nothing is
       lost if you do: it carries on from the last finished page.
@@ -196,13 +232,21 @@ export function GoManualButton({worksheetId}: {worksheetId: string}) {
     setError(null)
 
     try {
-      const response = await fetchJson(`/api/worksheets/${worksheetId}/go-manual`, {
+      const response = await fetchJson('/api/worksheets/' + worksheetId + '/go-manual', {
         method: 'POST',
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as {error?: string} | null
-        throw new Error(body?.error ?? 'Could not switch to manual entry.')
+        let message = 'Could not switch to manual entry.'
+
+        try {
+          const detail = (await response.json()) as {error?: string}
+          if (detail.error) message = detail.error
+        } catch {
+          message = 'Could not switch to manual entry.'
+        }
+
+        throw new Error(message)
       }
 
       const body = (await response.json()) as {next: string}
@@ -256,7 +300,7 @@ export function SampleRunner({
 
       if (next >= holdMs) {
         clearInterval(tick)
-        router.push(`/worksheets/${worksheetId}/check`)
+        router.push('/worksheets/' + worksheetId + '/check')
       }
     }, 200)
 
@@ -272,11 +316,18 @@ export function SampleRunner({
   )
 
   let message = 'Sorting the questions into topics.'
+
   if (progress < READING_UNTIL) {
-    message = `Reading your worksheet. ${found} ${found === 1 ? 'question' : 'questions'} found so far.`
+    let noun = 'questions'
+    if (found === 1) noun = 'question'
+
+    message = 'Reading your worksheet. ' + found + ' ' + noun + ' found so far.'
   } else if (progress < VERIFYING_UNTIL) {
     message = 'Checking every question was picked up, and going back over anything that was missed.'
   }
+
+  let barWidth = percent
+  if (barWidth < 4) barWidth = 4
 
   return (
     <>
@@ -290,7 +341,7 @@ export function SampleRunner({
       >
         <div
           className="h-full bg-accent"
-          style={{width: `${Math.max(percent, 4)}%`}}
+          style={{width: barWidth + '%'}}
         />
       </div>
 

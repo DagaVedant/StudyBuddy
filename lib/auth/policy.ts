@@ -1,70 +1,90 @@
 export const MIN_AGE_YEARS = 13
 
-function adminEmails(): string[] {
-  return (process.env.ADMIN_EMAILS ?? '')
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean)
+function adminEmails() {
+  let raw = process.env.ADMIN_EMAILS
+  if (!raw) raw = ''
+
+  const emails: string[] = []
+
+  for (const value of raw.split(',')) {
+    const email = value.trim().toLowerCase()
+    if (email) emails.push(email)
+  }
+
+  return emails
 }
 
-export function isAdminEmail(email: string | null | undefined): boolean {
+export function isAdminEmail(email: string | null | undefined) {
   if (!email) return false
+
   return adminEmails().includes(email.toLowerCase())
 }
 
-function ageInYears(dob: Date, now: Date = new Date()): number {
+function ageInYears(dob: Date, now: Date = new Date()) {
   let age = now.getUTCFullYear() - dob.getUTCFullYear()
+
   const monthDelta = now.getUTCMonth() - dob.getUTCMonth()
+
   if (monthDelta < 0 || (monthDelta === 0 && now.getUTCDate() < dob.getUTCDate())) {
-    age -= 1
+    age = age - 1
   }
+
   return age
 }
 
-function meetsAgeRequirement(dob: Date, now: Date = new Date()): boolean {
-  return ageInYears(dob, now) >= MIN_AGE_YEARS
+export type AgeCheck = {
+  ok: boolean
+  dob: Date | null
+  reason: string
 }
-
-export type AgeCheck = {ok: true; dob: Date} | {ok: false; reason: string}
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 export function validateDob(input: string | Date | null | undefined): AgeCheck {
-  if (!input) return {ok: false, reason: 'Enter your date of birth.'}
+  if (!input) return {ok: false, dob: null, reason: 'Enter your date of birth.'}
 
   let dob: Date
+
   if (input instanceof Date) {
     dob = input
   } else if (ISO_DATE.test(input.trim())) {
-    dob = new Date(`${input.trim()}T00:00:00Z`)
+    dob = new Date(input.trim() + 'T00:00:00Z')
   } else {
     dob = new Date(Number.NaN)
   }
 
   if (Number.isNaN(dob.getTime())) {
-    return {ok: false, reason: 'That date of birth is not valid.'}
+    return {ok: false, dob: null, reason: 'That date of birth is not valid.'}
   }
 
   const now = new Date()
-  if (dob > now) return {ok: false, reason: 'That date of birth is in the future.'}
-  if (ageInYears(dob, now) > 120) {
-    return {ok: false, reason: 'That date of birth is not valid.'}
-  }
-  if (!meetsAgeRequirement(dob, now)) {
-    return {ok: false, reason: `You must be at least ${MIN_AGE_YEARS} to use StudyBuddy.`}
+
+  if (dob > now) {
+    return {ok: false, dob: null, reason: 'That date of birth is in the future.'}
   }
 
-  return {ok: true, dob}
+  const age = ageInYears(dob, now)
+
+  if (age > 120) {
+    return {ok: false, dob: null, reason: 'That date of birth is not valid.'}
+  }
+
+  if (age < MIN_AGE_YEARS) {
+    return {
+      ok: false,
+      dob: null,
+      reason: 'You must be at least ' + MIN_AGE_YEARS + ' to use StudyBuddy.',
+    }
+  }
+
+  return {ok: true, dob: dob, reason: ''}
 }
 
 const DEFAULT_AFTER_SIGNIN = '/dashboard'
 
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/
 
-export function safeNextPath(
-  value: unknown,
-  fallback: string = DEFAULT_AFTER_SIGNIN,
-): string {
+export function safeNextPath(value: unknown, fallback: string = DEFAULT_AFTER_SIGNIN) {
   if (typeof value !== 'string') return fallback
 
   const next = value.trim()
@@ -77,6 +97,7 @@ export function safeNextPath(
   try {
     const probe = new URL(next, 'https://studybuddy.invalid')
     if (probe.origin !== 'https://studybuddy.invalid') return fallback
+
     return probe.pathname + probe.search + probe.hash
   } catch {
     return fallback
@@ -98,12 +119,13 @@ const DISPOSABLE_DOMAINS = new Set([
   'trashmail.de', 'trashmail.me', 'trbvm.com', 'yopmail.com', 'yopmail.fr', 'yopmail.net',
 ])
 
-export function isDisposableEmail(email: string): boolean {
+export function isDisposableEmail(email: string) {
   const domain = email.trim().toLowerCase().split('@')[1]
   if (!domain) return false
 
   const labels = domain.split('.')
-  for (let i = 0; i < labels.length - 1; i += 1) {
+
+  for (let i = 0; i < labels.length - 1; i++) {
     if (DISPOSABLE_DOMAINS.has(labels.slice(i).join('.'))) return true
   }
 
@@ -112,12 +134,19 @@ export function isDisposableEmail(email: string): boolean {
 
 const DOTLESS_DOMAINS = new Set(['gmail.com', 'googlemail.com'])
 
-export function canonicalEmail(email: string): string {
-  const [rawLocal, domain] = email.trim().toLowerCase().split('@')
-  if (!domain) return email.trim().toLowerCase()
+export function canonicalEmail(email: string) {
+  const cleaned = email.trim().toLowerCase()
+  const parts = cleaned.split('@')
+
+  const rawLocal = parts[0]
+  let domain = parts[1]
+
+  if (!domain) return cleaned
 
   let local = rawLocal.split('+')[0]
   if (DOTLESS_DOMAINS.has(domain)) local = local.replace(/\./g, '')
 
-  return `${local}@${domain === 'googlemail.com' ? 'gmail.com' : domain}`
+  if (domain === 'googlemail.com') domain = 'gmail.com'
+
+  return local + '@' + domain
 }

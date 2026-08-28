@@ -6,7 +6,7 @@ import {enqueueJob, pendingTopicJob, workerStatus} from '@/lib/queue'
 import {generatedQuestionSchema, ProviderRefused, ProviderUnavailable} from '@/lib/ai/types'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
-import {guardRateLimit, PRACTICE_LIMIT} from '@/lib/api'
+import {guardRateLimit, PRACTICE_LIMIT, readJson} from '@/lib/api'
 import {ollamaConfig} from '@/lib/ai/ollama'
 import {resolveProvider} from '@/lib/ai/resolve'
 import {topics} from '@/lib/schema'
@@ -26,12 +26,12 @@ async function postTopicidPractice(request: Request, {params}: {params: Promise<
   const {topicId} = await params
 
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
   const userId = session.user.id
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => ({})))
+  const parsed = bodySchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -46,24 +46,32 @@ async function postTopicidPractice(request: Request, {params}: {params: Promise<
     return NextResponse.json({error: 'Not found'}, {status: 404})
   }
 
-  const {provider, tier, executor} = await resolveProvider(db, userId)
+  const resolved = await resolveProvider(db, userId)
+  const provider = resolved.provider
+  const tier = resolved.tier
+  const executor = resolved.executor
+
+  let wanted = PRACTICE_BATCH
+  if (parsed.data.count) wanted = parsed.data.count
 
   if (executor !== 'server' && executor !== 'browser') {
-    const wanted = parsed.data.count ?? PRACTICE_BATCH
+    let jobId = await pendingTopicJob(db, userId, 'practice', topicId)
 
-    const jobId =
-      (await pendingTopicJob(db, userId, 'practice', topicId)) ??
-      (await enqueueJob(db, {
+    if (!jobId) {
+      jobId = await enqueueJob(db, {
         worksheetId: await practiceWorksheetId(db, userId),
         userId,
         stage: 'practice',
         executor: 'operator_gpu',
         priority: 'high',
         checkpoint: {topicId, count: wanted},
-      }))
+      })
+    }
+
+    const worker = await workerStatus(db)
 
     return NextResponse.json(
-      {status: 'queued', jobId, writerOnline: (await workerStatus(db)).online},
+      {status: 'queued', jobId, writerOnline: worker.online},
       {status: 202},
     )
   }
@@ -75,7 +83,7 @@ async function postTopicidPractice(request: Request, {params}: {params: Promise<
   const limited = await guardRateLimit(
     db,
     PRACTICE_LIMIT,
-    `user:${userId}`,
+    'user:' + userId,
     'You have asked for a lot of practice today. Try again tomorrow.',
   )
   if (limited) return limited
@@ -91,7 +99,7 @@ async function postTopicidPractice(request: Request, {params}: {params: Promise<
       input: await practiceInput(db, {
         userId,
         topicId,
-        count: parsed.data.count ?? PRACTICE_BATCH,
+        count: wanted,
       }),
       ollama: {baseUrl: ollama.baseUrl, textModel: ollama.textModel},
     })
@@ -101,7 +109,7 @@ async function postTopicidPractice(request: Request, {params}: {params: Promise<
     const outcome = await generatePractice(db, provider, {
       userId,
       topicId,
-      count: parsed.data.count ?? PRACTICE_BATCH,
+      count: wanted,
       tier,
     })
 
@@ -142,12 +150,12 @@ async function putTopicidPractice(request: Request, {params}: {params: Promise<R
   const {topicId} = await params
 
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401})
   }
   const userId = session.user.id
 
-  const parsed = writtenSchema.safeParse(await request.json().catch(() => ({})))
+  const parsed = writtenSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
@@ -162,7 +170,9 @@ async function putTopicidPractice(request: Request, {params}: {params: Promise<R
     return NextResponse.json({error: 'Not found'}, {status: 404})
   }
 
-  const {tier, executor} = await resolveProvider(db, userId)
+  const resolved = await resolveProvider(db, userId)
+  const tier = resolved.tier
+  const executor = resolved.executor
 
   if (executor !== 'browser') {
     return NextResponse.json(
@@ -176,10 +186,16 @@ async function putTopicidPractice(request: Request, {params}: {params: Promise<R
     return NextResponse.json({error: NO_OLLAMA}, {status: 409})
   }
 
+  let wanted = PRACTICE_BATCH
+  if (parsed.data.count) wanted = parsed.data.count
+
+  let answeringModel = ollama.textModel
+  if (parsed.data.model) answeringModel = parsed.data.model
+
   const outcome = await acceptPractice(
     db,
-    {name: 'ollama', answeringModel: parsed.data.model ?? ollama.textModel},
-    {userId, topicId, count: parsed.data.count ?? PRACTICE_BATCH, tier},
+    {name: 'ollama', answeringModel: answeringModel},
+    {userId, topicId, count: wanted, tier},
     parsed.data.questions,
   )
 

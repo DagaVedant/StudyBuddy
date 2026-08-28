@@ -10,7 +10,7 @@ import {accounts, sessions, users, verificationTokens} from '@/lib/schema'
 
 type Role = 'student' | 'admin'
 
-interface UserClaims {
+type UserClaims = {
   role: Role
   hasDob: boolean
   hasAcceptedTerms: boolean
@@ -33,7 +33,8 @@ async function syncUserClaims(userId: string): Promise<UserClaims> {
   }
 
   const shouldBeAdmin = await accountMayBeAdmin(db, userId, row.email)
-  const desiredRole: Role = shouldBeAdmin ? 'admin' : 'student'
+  let desiredRole: Role = 'student'
+  if (shouldBeAdmin) desiredRole = 'admin'
 
   if (row.role !== desiredRole) {
     await db.update(users).set({role: desiredRole}).where(eq(users.id, userId))
@@ -67,14 +68,18 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
         password: {label: 'Password', type: 'password'},
       },
       async authorize(credentials, request) {
-        const email = String(credentials?.email ?? '')
-          .trim()
-          .toLowerCase()
-        const password = String(credentials?.password ?? '')
+        let email = ''
+        let password = ''
+
+        if (credentials) {
+          if (credentials.email) email = String(credentials.email).trim().toLowerCase()
+          if (credentials.password) password = String(credentials.password)
+        }
 
         if (!email || !password) return null
 
-        const headers = request instanceof Request ? request.headers : new Headers()
+        let headers = new Headers()
+        if (request instanceof Request) headers = request.headers
         if (await signInThrottled(db, headers, email)) return null
 
         const [user] = await db
@@ -83,7 +88,7 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
           .where(eq(users.email, email))
           .limit(1)
 
-        if (!user?.passwordHash) return null
+        if (!user || !user.passwordHash) return null
 
         const valid = await bcrypt.compare(password, user.passwordHash)
         if (!valid) return null
@@ -95,7 +100,7 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
 
   callbacks: {
     async jwt({token, user, trigger}) {
-      if (user?.id) token.id = user.id
+      if (user && user.id) token.id = user.id
 
       const shouldRefresh = Boolean(user) || trigger === 'update' || !token.role
 
@@ -111,9 +116,14 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
 
     async session({session, token}) {
       if (token.id) session.user.id = token.id
-      session.user.role = token.role ?? 'student'
-      session.user.hasDob = token.hasDob ?? false
-      session.user.hasAcceptedTerms = token.hasAcceptedTerms ?? false
+      session.user.role = 'student'
+      if (token.role) session.user.role = token.role
+
+      session.user.hasDob = false
+      if (token.hasDob) session.user.hasDob = true
+
+      session.user.hasAcceptedTerms = false
+      if (token.hasAcceptedTerms) session.user.hasAcceptedTerms = true
       return session
     },
   },

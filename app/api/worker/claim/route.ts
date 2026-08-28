@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server'
+import {readJson} from '@/lib/api'
 import {eq} from 'drizzle-orm'
 import {z} from 'zod'
 import {authenticateWorker} from '@/lib/worker/jobs'
@@ -20,20 +21,31 @@ export async function POST(request: Request) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
   }
 
-  const parsed = claimSchema.safeParse(await request.json().catch(() => ({})))
+  const parsed = claimSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
 
-  const {workerName, modelName, jobsInFlight} = parsed.data
+  const workerName = parsed.data.workerName
+  const jobsInFlight = parsed.data.jobsInFlight
 
-  const workerId = await heartbeat(db, workerName, modelName ?? null, jobsInFlight)
+  let modelName = null
+  if (parsed.data.modelName) modelName = parsed.data.modelName
 
-  for (const abandoned of await reapAbandonedJobs(db)) {
+  const workerId = await heartbeat(db, workerName, modelName, jobsInFlight)
+
+  const abandonedJobs = await reapAbandonedJobs(db)
+
+  for (const abandoned of abandonedJobs) {
     console.log(
-      `[queue] reaped abandoned ${abandoned.stage} job ${abandoned.id} on ` +
-        `worksheet ${abandoned.worksheetId}`,
+      '[queue] reaped abandoned ' +
+        abandoned.stage +
+        ' job ' +
+        abandoned.id +
+        ' on worksheet ' +
+        abandoned.worksheetId,
     )
+
     await applyPermanentFailure(db, abandoned)
   }
 
@@ -44,7 +56,7 @@ export async function POST(request: Request) {
     return NextResponse.json({job: null, depth})
   }
 
-  await heartbeat(db, workerName, modelName ?? null, jobsInFlight + 1)
+  await heartbeat(db, workerName, modelName, jobsInFlight + 1)
 
   const [worksheet] = await db
     .select({expectedQuestionCount: worksheets.expectedQuestionCount})
@@ -52,15 +64,22 @@ export async function POST(request: Request) {
     .where(eq(worksheets.id, job.worksheetId))
     .limit(1)
 
+  let expectedQuestionCount = null
+  if (worksheet && worksheet.expectedQuestionCount !== null) {
+    expectedQuestionCount = worksheet.expectedQuestionCount
+  }
+
+  const pages = await pagesForJob(db, job.worksheetId)
+
   return NextResponse.json({
     job: {
       id: job.id,
       worksheetId: job.worksheetId,
       stage: job.stage,
       attemptCount: job.attemptCount,
-      expectedQuestionCount: worksheet?.expectedQuestionCount ?? null,
+      expectedQuestionCount: expectedQuestionCount,
       checkpoint: job.checkpoint,
     },
-    pages: await pagesForJob(db, job.worksheetId),
+    pages,
   })
 }

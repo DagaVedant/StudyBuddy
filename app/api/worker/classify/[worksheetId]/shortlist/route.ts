@@ -1,4 +1,5 @@
 import {NextResponse} from 'next/server'
+import {readJson} from '@/lib/api'
 import {and, eq} from 'drizzle-orm'
 import {z} from 'zod'
 import {isEmbedding, shortlistByVector} from '@/lib/taxonomy'
@@ -24,7 +25,7 @@ export async function POST(
   }
 
   const {worksheetId} = await params
-  const parsed = schema.safeParse(await request.json().catch(() => ({})))
+  const parsed = schema.safeParse(await readJson(request))
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }

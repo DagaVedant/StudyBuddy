@@ -7,7 +7,7 @@ import {AccuracyLabel, Meter} from '@/components/meter'
 import type {AccountAccuracy} from '@/lib/dashboard'
 import {fetchJson} from '@/lib/client/http'
 
-interface Props {
+type Props = {
   name: string | null
   username: string | null
   email: string
@@ -74,8 +74,22 @@ export default function ProfileClient({
   const nameId = useId()
   const usernameId = useId()
 
-  const [nameValue, setNameValue] = useState(name ?? '')
-  const [usernameValue, setUsernameValue] = useState(username ?? '')
+  let startingName = ''
+  if (name) startingName = name
+
+  let startingUsername = ''
+  if (username) startingUsername = username
+
+  let streakLine = '—'
+  if (streak > 0) {
+    let noun = 'days'
+    if (streak === 1) noun = 'day'
+
+    streakLine = streak + ' ' + noun
+  }
+
+  const [nameValue, setNameValue] = useState(startingName)
+  const [usernameValue, setUsernameValue] = useState(startingUsername)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -96,8 +110,16 @@ export default function ProfileClient({
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as {error?: string} | null
-        throw new Error(body?.error ?? 'Could not save your profile.')
+        let message = 'Could not save your profile.'
+
+        try {
+          const body = (await response.json()) as {error?: string}
+          if (body.error) message = body.error
+        } catch {
+          message = 'Could not save your profile.'
+        }
+
+        throw new Error(message)
       }
 
       setSaved(true)
@@ -205,7 +227,7 @@ export default function ProfileClient({
           <div>
             <dt className="text-sm text-muted">Study streak</dt>
             <dd className="mt-1 text-2xl font-extrabold tabular-nums text-fg">
-              {streak > 0 ? `${streak} day${streak === 1 ? '' : 's'}` : '—'}
+              {streakLine}
             </dd>
           </div>
 

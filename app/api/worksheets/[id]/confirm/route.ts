@@ -16,7 +16,7 @@ async function postIdConfirm(_request: Request, {params}: {params: Promise<Recor
   const limited = await guardRateLimit(
     db,
     WORKSHEET_WRITE_LIMIT,
-    `user:${guard.userId}`,
+    'user:' + guard.userId,
     'Too many changes to your worksheets. Try again shortly.',
   )
   if (limited) return limited
@@ -38,7 +38,7 @@ async function postIdConfirm(_request: Request, {params}: {params: Promise<Recor
     .set({userVerified: true})
     .where(eq(questions.worksheetId, worksheetId))
 
-  const next = `/worksheets/${worksheetId}/markup`
+  const next = '/worksheets/' + worksheetId + '/markup'
 
   if (await transitionWorksheet(db, worksheetId, ['awaiting_review'], {status: 'ready'})) {
     return NextResponse.json({ok: true, next})
@@ -50,7 +50,7 @@ async function postIdConfirm(_request: Request, {params}: {params: Promise<Recor
     .where(eq(worksheets.id, worksheetId))
     .limit(1)
 
-  if (current?.status === 'ready') {
+  if (current && current.status === 'ready') {
     return NextResponse.json({ok: true, next})
   }
 

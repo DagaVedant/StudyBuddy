@@ -10,7 +10,7 @@ import {db} from '@/lib/db'
 import {getDistractorPatterns, getOverview, getRecentWorksheets, listUntaggedWorksheets, getStudyCalendar, getStudyStreak, getTopicStats} from '@/lib/dashboard'
 import {StudyCalendar} from '@/components/study-calendar'
 import {Callout, MarginNote, Note, PageFoot, SectionHead} from '@/components/note'
-import {rankWeaknesses, summarize, type TopicTrend} from '@/lib/ranking'
+import {rankWeaknesses, summarize} from '@/lib/ranking'
 import {pathBySlug} from '@/lib/taxonomy'
 import {destination} from '@/lib/upload'
 
@@ -67,28 +67,38 @@ function Empty({children}: {children: React.ReactNode}) {
   return <p className="py-1 text-sm text-muted">{children}</p>
 }
 
-function TrendArrow({trend}: {trend: TopicTrend}) {
+function TrendArrow({trend}: {trend: string | null}) {
   if (trend === null) return null
 
-  const face = {
-    up: {glyph: '↑', className: 'text-success', label: 'Improving'},
-    down: {glyph: '↓', className: 'text-danger', label: 'Getting worse'},
-    flat: {glyph: '→', className: 'text-muted', label: 'Holding steady'},
-  }[trend]
+  let glyph = '→'
+  let colour = 'text-muted'
+  let label = 'Holding steady'
+
+  if (trend === 'up') {
+    glyph = '↑'
+    colour = 'text-success'
+    label = 'Improving'
+  }
+
+  if (trend === 'down') {
+    glyph = '↓'
+    colour = 'text-danger'
+    label = 'Getting worse'
+  }
 
   return (
     <>
-      <span aria-hidden="true" className={`text-sm ${face.className}`}>
-        {face.glyph}
+      <span aria-hidden="true" className={'text-sm ' + colour}>
+        {glyph}
       </span>
-      <span className="sr-only">{face.label} since you started this topic.</span>
+      <span className="sr-only">{label} since you started this topic.</span>
     </>
   )
 }
 
 export default async function DashboardPage() {
   const session = await auth()
-  if (!session?.user?.id) redirect('/signin')
+  if (!session || !session.user || !session.user.id) redirect('/signin')
 
   const userId = session.user.id
 
@@ -114,14 +124,19 @@ export default async function DashboardPage() {
 
   const paths = pathBySlug()
 
-  const stats = rawStats.map((topic) => ({
-    ...topic,
-    topicPath: paths.get(topic.topicPath) ?? topic.topicName,
-  }))
+  let stats = []
+  for (let topic of rawStats) {
+    let path = paths.get(topic.topicPath)
+    if (!path) path = topic.topicName
+    stats.push({...topic, topicPath: path})
+  }
 
   const weakest = rankWeaknesses(stats).slice(0, 3)
 
-  const thin = stats.map(summarize).filter((topic) => !topic.ranked).length
+  let thin = 0
+  for (let topic of stats) {
+    if (!summarize(topic).ranked) thin++
+  }
   const hasData = overview.attemptsLogged > 0
 
   return (
@@ -165,7 +180,7 @@ export default async function DashboardPage() {
                       <>
                         {untagged.length === 1
                           ? 'One of your worksheets '
-                          : `${untagged.length} of your worksheets `}
+                          : untagged.length + ' of your worksheets '}
                         finished without topics assigned, so nothing from{' '}
                         {untagged.length === 1 ? 'it' : 'them'} can be ranked here.{' '}
                         {canSortHere ? (
@@ -195,7 +210,7 @@ export default async function DashboardPage() {
                     ) : (
                       <>
                         No topic has enough evidence yet.
-                        {thin > 0 && ` ${thin} more still building up data.`}
+                        {thin > 0 && ' ' + thin + ' more still building up data.'}
                       </>
                     )}
                   </Empty>
@@ -204,7 +219,7 @@ export default async function DashboardPage() {
                     {weakest.map((topic) => (
                       <li key={topic.topicId}>
                         <Link
-                          href={`/topics/${topic.topicId}`}
+                          href={'/topics/' + topic.topicId}
                           className="block py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                         >
                           <div className="flex items-baseline justify-between gap-3">
@@ -226,7 +241,7 @@ export default async function DashboardPage() {
                           </div>
                           <p className="mt-1 text-xs tabular-nums text-muted">
                             {topic.wrong} missed of {topic.attempts}
-                            {topic.unsure > 0 && ` · ${topic.unsure} unsure`}
+                            {topic.unsure > 0 && ' · ' + topic.unsure + ' unsure'}
                           </p>
                         </Link>
                       </li>
@@ -243,7 +258,7 @@ export default async function DashboardPage() {
                   />
                   <ul>
                     {distractors.map((row) => (
-                      <li key={`${row.questionId}-${row.choiceLabel}`} className="py-2">
+                      <li key={row.questionId + '-' + row.choiceLabel} className="py-2">
                         <p className="truncate text-sm">{row.promptText}</p>
                         <p className="text-xs text-muted">
                           Picked{' '}
@@ -285,7 +300,7 @@ export default async function DashboardPage() {
                     <p className="mt-0.5 text-xs tabular-nums text-muted">
                       {WHEN.format(sheet.createdAt)} · {sheet.questionCount}{' '}
                       {sheet.questionCount === 1 ? 'question' : 'questions'}
-                      {sheet.wrongCount > 0 && ` · ${sheet.wrongCount} missed`}
+                      {sheet.wrongCount > 0 && ' · ' + sheet.wrongCount + ' missed'}
                     </p>
 
                     {sheet.topics.length > 0 && (
@@ -294,7 +309,7 @@ export default async function DashboardPage() {
                           .slice(0, 3)
                           .map((topic) => topic.topicName)
                           .join(' · ')}
-                        {sheet.topics.length > 3 && ` +${sheet.topics.length - 3}`}
+                        {sheet.topics.length > 3 && ' +' + (sheet.topics.length - 3)}
                       </p>
                     )}
                   </li>

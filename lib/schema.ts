@@ -19,7 +19,7 @@ import { type AdapterAccountType } from 'next-auth/adapters'
 
 export type BBox = [number, number, number, number]
 
-export interface TextLine {
+export type TextLine = {
   text: string
   bbox: BBox
 }
