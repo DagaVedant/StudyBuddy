@@ -48,7 +48,6 @@ test('the same sample twice does not keep skipping the trial', async () => {
   const first = await uploadSample(db, userId)
   assert.ok(await findMatchingSample(db, first, userId), 'the first run was not free')
 
-  // what the completed run records, and what a second attempt has to notice
   await db
     .update(worksheets)
     .set({sampleSlug: SAMPLE.slug})
@@ -152,8 +151,6 @@ for (const sample of CACHED_SAMPLES) {
     assert.equal(rows.length, total)
 
     for (const row of rows) {
-      // the ordinal the row landed on has to be the one the key was written for,
-      // which is what breaks if persistQuestions ever renumbers
       const source = sample.pages.flat().find((entry) => entry.ordinal === row.ordinal)
       assert.ok(source, `nothing in ${sample.slug} was numbered ${row.ordinal}`)
       assert.equal(row.promptText, source.prompt_text, `#${row.ordinal} is the wrong question`)

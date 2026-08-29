@@ -28,8 +28,6 @@ function findNode(nodes: TopicTreeNode[], slug: string): TopicTreeNode | null {
 }
 
 test('the topic tree and the dashboard report the same accuracy', () => {
-  // a guessed-right answer used to count as correct in the tree but not in
-  // summarize(), so the same topic read 58% on /topics and 42% on /dashboard
   const stats = statsFor(5, 2, 5)
 
   const fromDashboard = summarize(stats)

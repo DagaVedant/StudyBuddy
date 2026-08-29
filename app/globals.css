@@ -17,7 +17,6 @@
   --warning: #8a5a00;
   --caution: #7a6100;
 
-  /* flat highlighter yellow */
   --marker: #ffef9f;
 
   --tint-lavender: #eeeeee;
@@ -57,8 +56,6 @@
   --radius-2xl: var(--radius-lg);
 }
 
-/* both of these have to be layered: an unlayered rule outranks everything in
-   @layer components, so a bare `a` selector beats .btn-primary's own colour */
 @layer base {
   body {
     background: var(--bg);
