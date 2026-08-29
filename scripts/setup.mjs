@@ -1,4 +1,3 @@
-import {execFileSync} from 'node:child_process'
 import {createHash, randomBytes} from 'node:crypto'
 import {copyFile, mkdir, readFile, writeFile} from 'node:fs/promises'
 import {createRequire} from 'node:module'
@@ -13,16 +12,6 @@ async function secrets() {
   ]
 
   console.log(lines.join('\n'))
-}
-
-async function hooks() {
-  try {
-    execFileSync('git', ['rev-parse', '--git-dir'], {stdio: 'ignore'})
-  } catch {
-    process.exit(0)
-  }
-
-  execFileSync('git', ['config', 'core.hooksPath', '.githooks'], {stdio: 'inherit'})
 }
 
 async function pdfWorker() {
@@ -148,7 +137,6 @@ async function embeddingModel() {
 
 const TASKS = {
   secrets,
-  hooks,
   'pdf-worker': pdfWorker,
   'embedding-model': embeddingModel,
 }

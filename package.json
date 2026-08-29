@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "prepare": "node scripts/setup.mjs hooks",
     "postinstall": "node scripts/setup.mjs pdf-worker",
     "predev": "node scripts/setup.mjs pdf-worker",
     "prebuild": "node scripts/setup.mjs pdf-worker && node scripts/setup.mjs embedding-model && npm run db:migrate:deploy",
