@@ -34,7 +34,9 @@ const STAGE_LABEL: Record<IngestProgress['stage'], string> = {
 const BYTES = new Intl.NumberFormat(undefined, {maximumFractionDigits: 1})
 
 function formatSize(bytes: number): string {
-  return (BYTES.format(bytes / 1_000_000)) + ' MB'
+  if (bytes < 1000) return bytes + ' B'
+  if (bytes < 1_000_000) return BYTES.format(bytes / 1000) + ' KB'
+  return BYTES.format(bytes / 1_000_000) + ' MB'
 }
 
 function defaultTitle(files: File[]): string {
