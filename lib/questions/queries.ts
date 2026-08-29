@@ -4,7 +4,8 @@ import {type BBox, answerChoices, attempts, questions, topics, worksheetPages, w
 import {type Db} from '@/lib/db'
 
 export const IS_QUESTION = sql`(
-  ${questions.promptText} ~ '([a-z]{3,}.*){3}'
+  ${questions.userVerified}
+  or ${questions.promptText} ~ '([a-z]{3,}.*){3}'
   or ${questions.promptText} ~ '[=<>+*/×÷≤≥−]|[0-9]+[[:space:]]*[-][[:space:]]*[0-9]+'
 )`
 

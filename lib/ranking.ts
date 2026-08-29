@@ -177,7 +177,7 @@ export function buildTopicTree(stats: TopicStats[]) {
     if (node.attempts === 0) {
       node.accuracy = null
     } else {
-      node.accuracy = (node.correct + node.unsure) / node.attempts
+      node.accuracy = node.correct / node.attempts
     }
 
     node.ranked = node.attempts >= MIN_ATTEMPTS

@@ -31,7 +31,10 @@ async function postTopicidPractice(request: Request, {params}: {params: Promise<
   }
   const userId = session.user.id
 
-  const parsed = bodySchema.safeParse(await readJson(request))
+  let body = await readJson(request)
+  if (body === null) body = {}
+
+  const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({error: 'Invalid request'}, {status: 400})
   }
