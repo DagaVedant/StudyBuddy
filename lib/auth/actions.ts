@@ -82,6 +82,10 @@ function textField(formData: FormData, name: string) {
   return value
 }
 
+const SIGNUP_DONE =
+  'If that email is new, your account is ready. Sign in below. If it already ' +
+  'has an account, use that password, or reset it from the sign-in page.'
+
 export async function signUp(_prev: FormState, formData: FormData): Promise<FormState> {
   const ip = callerIp(await headers())
   const attempt = await consumeRateLimit(db, SIGNUP_LIMIT, 'ip:' + ip)
@@ -128,11 +132,11 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   if (parsed.data.name) displayName = parsed.data.name
 
   if (isAdminEmail(email)) {
-    return {message: 'Your account is ready. Sign in below.'}
+    return {message: SIGNUP_DONE}
   }
 
   if (await emailTwinExists(db, canonicalEmail(email))) {
-    return {message: 'Your account is ready. Sign in below.'}
+    return {message: SIGNUP_DONE}
   }
 
   const passwordHash = await bcrypt.hash(password, 12)
@@ -145,7 +149,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     emailVerified: null,
   })
 
-  return {message: 'Your account is ready. Sign in below.'}
+  return {message: SIGNUP_DONE}
 }
 
 const SIGNIN_FAILED = 'That email and password combination did not work.'
