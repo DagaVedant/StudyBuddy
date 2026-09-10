@@ -28,6 +28,7 @@ import {
 } from './prompts'
 import {
   type AnswerInput,
+  type BatchAnswerInput,
   type ExecutionSite,
   type ExplainInput,
   type LessonInput,
@@ -289,6 +290,28 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
     )
   }
 
+  async extractPages(pages: PageInput[]): Promise<unknown> {
+    const questions: unknown[] = []
+
+    for (let index = 0; index < pages.length; index++) {
+      const raw = (await this.extractQuestions(pages[index])) as {questions?: unknown}
+      if (!raw || !Array.isArray(raw.questions)) continue
+
+      for (const item of raw.questions) {
+        if (!item || typeof item !== 'object') continue
+
+        const source = item as Record<string, unknown>
+        const row: Record<string, unknown> = {image_index: index + 1}
+
+        for (const key of Object.keys(source)) row[key] = source[key]
+
+        questions.push(row)
+      }
+    }
+
+    return {questions: questions}
+  }
+
   async classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown> {
     return this.chat(
       this.model,
@@ -321,6 +344,26 @@ export class OllamaProvider implements RawAIProvider, RawQuestionReviewer {
       ANSWER_JSON_SCHEMA,
       this.contextTokens,
     )
+  }
+
+  async answerBatch(inputs: BatchAnswerInput[]): Promise<unknown> {
+    const solutions: unknown[] = []
+
+    for (const input of inputs) {
+      const raw = (await this.answerQuestion({
+        promptText: input.promptText,
+        choices: input.choices,
+      })) as Record<string, unknown>
+
+      if (!raw || typeof raw !== 'object') continue
+
+      const row: Record<string, unknown> = {ordinal: input.ordinal}
+      for (const key of Object.keys(raw)) row[key] = raw[key]
+
+      solutions.push(row)
+    }
+
+    return {solutions: solutions}
   }
 
   async teachTopic(input: LessonInput): Promise<unknown> {

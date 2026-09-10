@@ -59,6 +59,15 @@ export const extractedQuestionSchema = z.object({
 
 export type ExtractedQuestion = z.infer<typeof extractedQuestionSchema>
 
+export type BatchedQuestion = ExtractedQuestion & {imageIndex: number}
+
+const batchedQuestionSchema = extractedQuestionSchema.extend({
+  image_index: z.coerce
+    .number()
+    .catch(0)
+    .transform((value) => (Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0)),
+})
+
 type ExtractionRejection = {
   path: string
   message: string
@@ -126,6 +135,59 @@ function parseExtraction(raw: unknown): {
   return {questions, rejections}
 }
 
+function parseBatchExtraction(raw: unknown): {
+  questions: BatchedQuestion[]
+  rejections: ExtractionRejection[]
+} {
+  const outer = z.object({questions: z.array(z.unknown()).max(400)}).safeParse(raw)
+  if (!outer.success) return {questions: [], rejections: []}
+
+  const questions: BatchedQuestion[] = []
+  const rejections: ExtractionRejection[] = []
+
+  for (const item of outer.data.questions) {
+    const parsed = batchedQuestionSchema.safeParse(item)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+
+      let path = '(root)'
+      let message = 'invalid'
+
+      if (issue) {
+        const joined = issue.path.join('.')
+        if (joined) path = joined
+        if (issue.message) message = issue.message
+      }
+
+      rejections.push({path, message, preview: previewOf(item)})
+      continue
+    }
+
+    if (RESTATEMENT.test(parsed.data.prompt_text)) {
+      rejections.push({
+        path: 'prompt_text',
+        message: 'reads as a restatement of the task rather than a question',
+        preview: previewOf(item),
+      })
+      continue
+    }
+
+    const data = parsed.data
+
+    questions.push({
+      ordinal: data.ordinal,
+      prompt_text: data.prompt_text,
+      question_type: data.question_type,
+      choices: data.choices,
+      bbox: data.bbox,
+      has_figure: data.has_figure,
+      imageIndex: data.image_index,
+    })
+  }
+
+  return {questions, rejections}
+}
+
 const confidenceSchema = z.preprocess((value) => {
   let raw = Number(value)
   if (typeof value === 'number') raw = value
@@ -169,6 +231,38 @@ const solutionSchema = z.object({
 })
 
 export type Solution = z.infer<typeof solutionSchema>
+
+export type BatchedSolution = Solution & {ordinal: number}
+
+export type BatchAnswerInput = {
+  ordinal: number
+  promptText: string
+  choices: {label: string; text: string}[]
+}
+
+const batchedSolutionSchema = solutionSchema.extend({
+  ordinal: z.coerce
+    .number()
+    .catch(0)
+    .transform((value) => (Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0)),
+})
+
+function parseAnswerBatch(raw: unknown): BatchedSolution[] {
+  const outer = z.object({solutions: z.array(z.unknown()).max(200)}).safeParse(raw)
+  if (!outer.success) return []
+
+  const solutions: BatchedSolution[] = []
+
+  for (const item of outer.data.solutions) {
+    const parsed = batchedSolutionSchema.safeParse(item)
+    if (!parsed.success) continue
+    if (parsed.data.ordinal < 1) continue
+
+    solutions.push(parsed.data)
+  }
+
+  return solutions
+}
 
 export const lessonSchema = z.object({
   body_md: z.string().min(1).max(20000),
@@ -278,6 +372,8 @@ export type TopicCandidate = {
   slug: string
   name: string
   path: string
+
+  distance?: number
 }
 
 export type AnswerInput = {
@@ -318,18 +414,22 @@ type ProviderIdentity = {
 
 export type RawAIProvider = ProviderIdentity & {
   extractQuestions(page: PageInput): Promise<unknown>
+  extractPages(pages: PageInput[]): Promise<unknown>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown>
   explain(input: ExplainInput): Promise<unknown>
   answerQuestion(input: AnswerInput): Promise<unknown>
+  answerBatch(inputs: BatchAnswerInput[]): Promise<unknown>
   teachTopic(input: LessonInput): Promise<unknown>
   writePractice(input: PracticeInput): Promise<unknown>
 }
 
 export type AIProvider = ProviderIdentity & {
   extractQuestions(page: PageInput): Promise<ExtractedQuestion[]>
+  extractPages(pages: PageInput[]): Promise<BatchedQuestion[]>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<Classification>
   explain(input: ExplainInput): Promise<Explanation>
   answerQuestion(input: AnswerInput): Promise<Solution>
+  answerBatch(inputs: BatchAnswerInput[]): Promise<BatchedSolution[]>
   teachTopic(input: LessonInput): Promise<Lesson>
   writePractice(input: PracticeInput): Promise<GeneratedQuestion[]>
 }
@@ -582,12 +682,46 @@ export function validated<T extends RawAIProvider>(provider: T): Validated<T> {
       return questions
     },
 
+    async extractPages(pages) {
+      const read = parseBatchExtraction(await provider.extractPages(pages))
+      const questions = read.questions
+      const rejections = read.rejections
+
+      if (rejections.length > 0) {
+        const onOperatorMachine = provider.executionSite === 'operator_gpu'
+
+        console.warn(
+          '[ai] ' +
+            provider.name +
+            ' batch of ' +
+            pages.length +
+            ' page(s): dropped ' +
+            rejections.length +
+            ' unreadable question(s), kept ' +
+            questions.length,
+        )
+
+        for (const rejection of rejections) {
+          let line = '  - ' + rejection.path + ': ' + rejection.message
+          if (!onOperatorMachine) line = line + ' :: ' + rejection.preview
+
+          console.warn(line)
+        }
+      }
+
+      return questions
+    },
+
     async classifyTopic(promptText, candidates) {
       return classificationSchema.parse(await provider.classifyTopic(promptText, candidates))
     },
 
     async answerQuestion(input) {
       return solutionSchema.parse(await provider.answerQuestion(input))
+    },
+
+    async answerBatch(inputs) {
+      return parseAnswerBatch(await provider.answerBatch(inputs))
     },
 
     async teachTopic(input) {

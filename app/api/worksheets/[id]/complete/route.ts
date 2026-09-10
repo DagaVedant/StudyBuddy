@@ -111,8 +111,9 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       tier,
       mode: 'manual',
       message:
-        'Your free reads are used up. Papers are read on one GPU we run, so ' +
-        'there is a limit per account. Add this one’s questions by hand.',
+        'Your free reads are used up. Nothing else changes: StudyBuddy stays free. ' +
+        'Add this one\'s questions by hand, or connect your own AI provider in ' +
+        'settings and upload it again.',
       next: '/worksheets/' + worksheetId + '/edit',
     })
   }
@@ -224,11 +225,72 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
     })
   }
 
+  if (
+    guard.role !== 'admin' &&
+    tier === 'trial' &&
+    (await inFlightExtractCount(db, guard.userId)) >= MAX_IN_FLIGHT_EXTRACTS
+  ) {
+    if (!(await claimForCompletion(worksheetId, 'awaiting_review', 'free'))) {
+      return alreadyCompleted(worksheetId)
+    }
+
+    return NextResponse.json({
+      ok: true,
+      tier: 'free',
+      mode: 'manual',
+      message:
+        'Another worksheet of yours is still being read. This one was not counted ' +
+        'against your trial: add its questions here, or come back once the first finishes.',
+      next: '/worksheets/' + worksheetId + '/edit',
+    })
+  }
+
+  if (guard.role !== 'admin' && tier === 'trial') {
+    const ceiling = trialDailyCeiling()
+
+    if ((await trialExtractionsToday(db)) >= ceiling) {
+      if (!(await claimForCompletion(worksheetId, 'awaiting_review', 'free'))) {
+        return alreadyCompleted(worksheetId)
+      }
+
+      return NextResponse.json({
+        ok: true,
+        tier: 'free',
+        mode: 'manual',
+        message:
+          'The free trial has hit its limit for today, so this one was not counted ' +
+          'against yours. Add its questions here, or come back tomorrow.',
+        next: '/worksheets/' + worksheetId + '/edit',
+      })
+    }
+  }
+
   if (!(await claimForCompletion(worksheetId, 'queued', tier))) {
     return alreadyCompleted(worksheetId)
   }
 
-  const onServer = cloudExtractionEnabled()
+  const charge =
+    guard.role === 'admin' || tier !== 'trial'
+      ? ({ok: true, remaining: Number.POSITIVE_INFINITY} as const)
+      : await consumeTrial(db, guard.userId, 'worksheets', 1)
+
+  if (!charge.ok) {
+    await transitionWorksheet(db, worksheetId, ['queued'], {
+      status: 'awaiting_review',
+      tierUsed: 'free',
+    })
+
+    return NextResponse.json({
+      ok: true,
+      tier: 'free',
+      mode: 'manual',
+      message: charge.reason,
+      next: '/worksheets/' + worksheetId + '/edit',
+    })
+  }
+
+  let onServer = cloudExtractionEnabled()
+  if (tier === 'trial') onServer = true
 
   await enqueueJob(db, {
     worksheetId,
@@ -250,6 +312,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
     ok: true,
     tier,
     mode: 'queued',
+    trialWorksheetsRemaining: Number.isFinite(charge.remaining) ? charge.remaining : null,
     next: '/worksheets/' + worksheetId + '/status',
   })
 }

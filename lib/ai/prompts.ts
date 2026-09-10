@@ -1,5 +1,6 @@
 import type {
   AnswerInput,
+  BatchAnswerInput,
   ExplainInput,
   LessonInput,
   PageInput,
@@ -125,6 +126,73 @@ export function extractionUserText(page: PageInput, expect: number[] = []): stri
   }
 
   lines.push('', 'Extract the questions.')
+
+  return lines.join('\n')
+}
+
+export const EXTRACTION_BATCH_ADDENDUM = `
+You are given SEVERAL page images in one request, in order. Each is listed
+below with its position in the batch and its pixel size. Apply every rule above
+to each image on its own, and return one combined list.
+
+One extra field on every question:
+- image_index: which image in THIS request the question came from, counting
+  from 1 for the first image. It is a position in this batch, nothing else.
+  Pages often print their own number in a header or footer. Ignore it. That
+  printed number is part of the page, not an answer to this field.
+
+Questions must appear in reading order across the whole batch: image by image,
+and within an image top to bottom.`
+
+export function extractionBatchSchema() {
+  const item = EXTRACTION_JSON_SCHEMA.properties.questions.items
+  const source = item.properties as Record<string, unknown>
+
+  const properties: Record<string, unknown> = {image_index: {type: 'integer'}}
+  for (const key of Object.keys(source)) properties[key] = source[key]
+
+  const required: string[] = ['image_index']
+  for (const key of item.required) required.push(key)
+
+  return {
+    type: 'object',
+    properties: {
+      questions: {
+        type: 'array',
+        items: {type: 'object', properties, required, additionalProperties: false},
+      },
+    },
+    required: ['questions'],
+    additionalProperties: false,
+  }
+}
+
+export function extractionBatchUserText(pages: PageInput[]): string {
+  const lines = ['Images in this batch, in order:', '']
+
+  for (let index = 0; index < pages.length; index++) {
+    const page = pages[index]
+
+    lines.push(
+      '- Image ' +
+        (index + 1) +
+        ': ' +
+        page.width +
+        'x' +
+        page.height +
+        ' pixels.',
+    )
+  }
+
+  for (let index = 0; index < pages.length; index++) {
+    const page = pages[index]
+    if (!page.text) continue
+
+    lines.push('', 'Text layer for image ' + (index + 1) + ' (may be imperfect):')
+    pushAll(lines, fence('page_text', page.text, 12000))
+  }
+
+  lines.push('', 'Extract the questions from every image.')
 
   return lines.join('\n')
 }
@@ -371,6 +439,65 @@ export const ANSWER_JSON_SCHEMA = {
   required: ['answer', 'working', 'traps', 'confidence'],
   additionalProperties: false,
 } as const
+
+export const ANSWER_BATCH_ADDENDUM = `
+You are given SEVERAL questions in one request. Solve each one on its own,
+under every rule above, and return one entry per question.
+
+Every entry carries the ordinal of the question it answers, copied exactly from
+that question's heading. Entries may come back in any order, but every question
+you were given gets exactly one entry. Never merge two questions into one
+entry, and never answer a question you were not given.
+
+Working is not optional. A question you cannot work through is a question you
+answer with null, not a guess.`
+
+export function answerBatchSchema() {
+  const source = ANSWER_JSON_SCHEMA.properties as Record<string, unknown>
+
+  const properties: Record<string, unknown> = {ordinal: {type: 'integer'}}
+  for (const key of Object.keys(source)) properties[key] = source[key]
+
+  const required: string[] = ['ordinal']
+  for (const key of ANSWER_JSON_SCHEMA.required) required.push(key)
+
+  return {
+    type: 'object',
+    properties: {
+      solutions: {
+        type: 'array',
+        items: {type: 'object', properties, required, additionalProperties: false},
+      },
+    },
+    required: ['solutions'],
+    additionalProperties: false,
+  }
+}
+
+export function answerBatchUserText(inputs: BatchAnswerInput[]): string {
+  const lines: string[] = []
+
+  for (const input of inputs) {
+    lines.push('Question ' + input.ordinal + ':')
+    pushAll(lines, fence('question', input.promptText, 8000))
+
+    if (input.choices.length > 0) {
+      lines.push('Options:')
+
+      for (const choice of input.choices) {
+        lines.push(choice.label + ') ' + choice.text)
+      }
+    } else {
+      lines.push('This question has no options. Answer with the value itself.')
+    }
+
+    lines.push('')
+  }
+
+  lines.push('Solve every question above.')
+
+  return lines.join('\n')
+}
 
 export function answerUserText(input: AnswerInput): string {
   const lines = ['Question:']

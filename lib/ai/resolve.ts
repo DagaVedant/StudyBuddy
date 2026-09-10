@@ -14,6 +14,7 @@ import {
 import {
   type AIProvider,
   type AnswerInput,
+  type BatchAnswerInput,
   CLOUD_PROVIDERS,
   type CloudProvider,
   DEFAULT_CLOUD_MODEL,
@@ -52,6 +53,56 @@ export function cloudExtractionEnabled() {
 
 export function mockEnabled() {
   return process.env.ENABLE_MOCK_AI === 'true'
+}
+
+function operatorKey() {
+  const value = process.env.OPENROUTER_API_KEY
+  if (!value) return ''
+
+  return value.trim()
+}
+
+export function operatorModel() {
+  const value = process.env.OPENROUTER_MODEL
+  if (value) return value.trim()
+
+  return DEFAULT_CLOUD_MODEL.openrouter
+}
+
+export function operatorFallbackModels() {
+  const value = process.env.OPENROUTER_FALLBACK_MODELS
+  if (!value) return []
+
+  const models: string[] = []
+
+  for (const part of value.split(',')) {
+    const model = part.trim()
+    if (model) models.push(model)
+  }
+
+  return models
+}
+
+export function operatorCloudEnabled() {
+  return operatorKey().length > 0
+}
+
+function trialProvider(idle: RawAIProvider): ResolvedProvider {
+  if (mockEnabled()) {
+    return {provider: validated(idle), tier: 'trial', executor: 'operator_gpu'}
+  }
+
+  const key = operatorKey()
+
+  if (key) {
+    return {
+      provider: cloudProvider('openrouter', key, operatorModel(), operatorFallbackModels()),
+      tier: 'trial',
+      executor: 'server',
+    }
+  }
+
+  return {provider: validated(idle), tier: 'trial', executor: 'operator_gpu'}
 }
 
 export async function resolveProvider(db: Db, userId: string): Promise<ResolvedProvider> {
@@ -108,34 +159,40 @@ export async function resolveProvider(db: Db, userId: string): Promise<ResolvedP
   if (mockEnabled()) idle = new MockProvider()
 
   if (user && user.role === 'admin') {
-    return {provider: validated(idle), tier: 'trial', executor: 'operator_gpu'}
+    return trialProvider(idle)
   }
 
   let worksheetsUsed = 0
   if (user && user.trialWorksheetsUsed) worksheetsUsed = user.trialWorksheetsUsed
 
   if (worksheetsUsed < TRIAL_WORKSHEET_LIMIT) {
-    return {provider: validated(idle), tier: 'trial', executor: 'operator_gpu'}
+    return trialProvider(idle)
   }
 
   return {provider: validated(new NullProvider()), tier: 'free', executor: 'none'}
 }
 
-export function cloudProvider(provider: CloudProvider, apiKey: string, model?: string) {
-  return validated(rawCloudProvider(provider, apiKey, model))
+export function cloudProvider(
+  provider: CloudProvider,
+  apiKey: string,
+  model?: string,
+  fallbacks: string[] = [],
+) {
+  return validated(rawCloudProvider(provider, apiKey, model, fallbacks))
 }
 
 function rawCloudProvider(
   provider: CloudProvider,
   apiKey: string,
-  model?: string,
+  model: string | undefined,
+  fallbacks: string[],
 ): RawAIProvider {
   let chosen = model
   if (!chosen) chosen = DEFAULT_CLOUD_MODEL[provider]
 
   if (provider === 'anthropic') return new AnthropicProvider(apiKey, chosen)
   if (provider === 'openai') return new OpenAIProvider(apiKey, chosen)
-  if (provider === 'openrouter') return new OpenRouterProvider(apiKey, chosen)
+  if (provider === 'openrouter') return new OpenRouterProvider(apiKey, chosen, fallbacks)
 
   return new GeminiProvider(apiKey, chosen)
 }
@@ -293,7 +350,9 @@ export async function consumeTrial(
         noun +
         ' and you have ' +
         remaining +
-        ' left. Everything here is read on one GPU we run, so the free allowance is capped.',
+        ' left. Reading a paper costs real money, so the free allowance is capped. ' +
+        'StudyBuddy stays free after that: you add the questions yourself, or you ' +
+        'connect your own AI provider in settings and there is no cap at all.',
     }
   }
 
@@ -372,7 +431,6 @@ export async function trialExtractionsToday(db: Db) {
     .where(
       and(
         eq(processingJobs.stage, 'extract'),
-        eq(processingJobs.executor, 'operator_gpu'),
         eq(worksheets.tierUsed, 'trial'),
         gte(processingJobs.createdAt, since),
       ),
@@ -582,6 +640,28 @@ class MockProvider implements RawAIProvider {
     return {questions: questions}
   }
 
+  async extractPages(pages: PageInput[]): Promise<unknown> {
+    const questions: unknown[] = []
+
+    for (let index = 0; index < pages.length; index++) {
+      const raw = (await this.extractQuestions(pages[index])) as {questions?: unknown}
+      if (!raw || !Array.isArray(raw.questions)) continue
+
+      for (const item of raw.questions) {
+        if (!item || typeof item !== 'object') continue
+
+        const source = item as Record<string, unknown>
+        const row: Record<string, unknown> = {image_index: index + 1}
+
+        for (const key of Object.keys(source)) row[key] = source[key]
+
+        questions.push(row)
+      }
+    }
+
+    return {questions: questions}
+  }
+
   async classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown> {
     if (candidates.length === 0) {
       return {topic_slug: null, confidence: 0, abstain: true}
@@ -636,6 +716,24 @@ class MockProvider implements RawAIProvider {
       traps: traps,
       confidence: 0.9,
     }
+  }
+
+  async answerBatch(inputs: BatchAnswerInput[]): Promise<unknown> {
+    const solutions: unknown[] = []
+
+    for (const input of inputs) {
+      const raw = (await this.answerQuestion({
+        promptText: input.promptText,
+        choices: input.choices,
+      })) as Record<string, unknown>
+
+      const row: Record<string, unknown> = {ordinal: input.ordinal}
+      for (const key of Object.keys(raw)) row[key] = raw[key]
+
+      solutions.push(row)
+    }
+
+    return {solutions: solutions}
   }
 
   async teachTopic(input: LessonInput): Promise<unknown> {
@@ -726,6 +824,10 @@ class NullProvider implements RawAIProvider {
     throw new ProviderUnavailable()
   }
 
+  async extractPages(_pages: PageInput[]): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
   async classifyTopic(
     _promptText: string,
     _candidates: TopicCandidate[],
@@ -734,6 +836,10 @@ class NullProvider implements RawAIProvider {
   }
 
   async answerQuestion(_input: AnswerInput): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async answerBatch(_inputs: BatchAnswerInput[]): Promise<unknown> {
     throw new ProviderUnavailable()
   }
 

@@ -19,6 +19,8 @@ import {type Db} from '@/lib/db'
 
 const PROMOTE_ABOVE = 0.6
 
+const ANSWER_BATCH = 10
+
 const UNSOLVED_PAGE_SIZE = 500
 
 export type UnsolvedQuestion = {
@@ -208,6 +210,7 @@ export async function deriveSolutions(
   const pending = await db
     .select({
       id: questions.id,
+      ordinal: questions.ordinal,
       promptText: questions.promptText,
       answerSource: questions.answerSource,
     })
@@ -215,6 +218,7 @@ export async function deriveSolutions(
     .where(
       and(
         eq(questions.worksheetId, worksheetId),
+        eq(questions.answerSource, 'none'),
         notExists(
           db
             .select({one: sql`1`})
@@ -228,18 +232,80 @@ export async function deriveSolutions(
 
   if (pending.length === 0) return progress
 
-  for (const question of pending) {
-    const choices = await db
-      .select({label: answerChoices.label, text: answerChoices.text})
-      .from(answerChoices)
-      .where(eq(answerChoices.questionId, question.id))
-      .orderBy(...CHOICE_ORDER)
+  const ids: string[] = []
+  for (const question of pending) ids.push(question.id)
 
-    try {
-      const solution = await provider.answerQuestion({
+  const choiceRows = await db
+    .select({
+      questionId: answerChoices.questionId,
+      label: answerChoices.label,
+      text: answerChoices.text,
+    })
+    .from(answerChoices)
+    .where(inArray(answerChoices.questionId, ids))
+    .orderBy(...CHOICE_ORDER)
+
+  const choicesOf = new Map<string, {label: string; text: string}[]>()
+
+  for (const row of choiceRows) {
+    let list = choicesOf.get(row.questionId)
+
+    if (!list) {
+      list = []
+      choicesOf.set(row.questionId, list)
+    }
+
+    list.push({label: row.label, text: row.text})
+  }
+
+  for (let start = 0; start < pending.length; start = start + ANSWER_BATCH) {
+    const batch = pending.slice(start, start + ANSWER_BATCH)
+
+    const byOrdinal = new Map<number, (typeof pending)[number]>()
+    const inputs = []
+
+    for (const question of batch) {
+      if (byOrdinal.has(question.ordinal)) continue
+      byOrdinal.set(question.ordinal, question)
+
+      let choices = choicesOf.get(question.id)
+      if (!choices) choices = []
+
+      inputs.push({
+        ordinal: question.ordinal,
         promptText: question.promptText,
-        choices,
+        choices: choices,
       })
+    }
+
+    let solutions
+    try {
+      solutions = await provider.answerBatch(inputs)
+    } catch (error) {
+      progress.failed = progress.failed + batch.length
+
+      console.log(
+        '[solutions] a batch of ' +
+          batch.length +
+          ' on ' +
+          worksheetId +
+          ' could not be solved: ' +
+          (error as Error).message,
+      )
+      continue
+    }
+
+    const answered = new Set<number>()
+
+    for (const solution of solutions) {
+      const question = byOrdinal.get(solution.ordinal)
+      if (!question) continue
+      if (answered.has(solution.ordinal)) continue
+
+      answered.add(solution.ordinal)
+
+      let choices = choicesOf.get(question.id)
+      if (!choices) choices = []
 
       await db
         .insert(questionSolutions)
@@ -265,19 +331,26 @@ export async function deriveSolutions(
         questionId: question.id,
         answer: solution.answer,
         confidence: solution.confidence,
-        choices,
+        choices: choices,
         answerSource: question.answerSource,
       })
 
       if (promoted) progress.promoted = progress.promoted + 1
-    } catch (error) {
-      progress.failed = progress.failed + 1
+    }
+
+    const missing = byOrdinal.size - answered.size
+
+    if (missing > 0) {
+      progress.failed = progress.failed + missing
 
       console.log(
-        '[solutions] question ' +
-          question.id +
-          ' could not be solved: ' +
-          (error as Error).message,
+        '[solutions] ' +
+          missing +
+          ' of ' +
+          byOrdinal.size +
+          ' question(s) in a batch on ' +
+          worksheetId +
+          ' came back with no entry',
       )
     }
   }

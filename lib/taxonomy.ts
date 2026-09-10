@@ -293,6 +293,8 @@ export async function demoteParentsWithChildren(db: Db) {
 
 const SHORTLIST_SIZE = 25
 
+const CONFIDENT_MARGIN = 0.06
+
 export type ClassifyOutcome = {
   topicId: string | null
   coarse: boolean
@@ -338,7 +340,11 @@ export async function shortlistByVector(
   if (options.limit) limit = options.limit
 
   const rows = await db
-    .select({slug: topics.slug, name: topics.name})
+    .select({
+      slug: topics.slug,
+      name: topics.name,
+      distance: sql<number>`${topics.embedding} <=> ${literal}::vector`,
+    })
     .from(topics)
     .where(
       and(
@@ -356,7 +362,12 @@ export async function shortlistByVector(
     let topicPath = pathBySlug().get(row.slug)
     if (!topicPath) topicPath = row.name
 
-    candidates.push({slug: row.slug, name: row.name, path: topicPath})
+    candidates.push({
+      slug: row.slug,
+      name: row.name,
+      path: topicPath,
+      distance: Number(row.distance),
+    })
   }
 
   return candidates
@@ -388,6 +399,25 @@ async function shortlistTopics(
   return shortlistByVector(db, vector, {subjectHint})
 }
 
+function settledByEmbedding(candidates: TopicCandidate[]) {
+  if (candidates.length === 0) return null
+
+  const first = candidates[0]
+  if (first.distance === undefined) return null
+  if (candidates.length === 1) return {slug: first.slug, confidence: 0.8}
+
+  const second = candidates[1]
+  if (second.distance === undefined) return null
+
+  const margin = second.distance - first.distance
+  if (margin < CONFIDENT_MARGIN) return null
+
+  let confidence = 0.7 + margin
+  if (confidence > 0.95) confidence = 0.95
+
+  return {slug: first.slug, confidence: confidence}
+}
+
 async function classifyQuestion(
   db: Db,
   provider: AIProvider,
@@ -398,6 +428,16 @@ async function classifyQuestion(
 
   if (candidates.length === 0) {
     return {topicId: null, coarse: false, confidence: 0}
+  }
+
+  const settled = settledByEmbedding(candidates)
+
+  if (settled) {
+    return applyClassification(db, question, candidates, {
+      topic_slug: settled.slug,
+      confidence: settled.confidence,
+      abstain: false,
+    })
   }
 
   const result = await provider.classifyTopic(question.promptText, candidates)

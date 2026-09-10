@@ -640,11 +640,51 @@ async function runOneServerJob(db: Db, job: ClaimedJob) {
     const outcome = await failJob(db, job.id, (error as Error).message)
 
     if (outcome.permanent) {
-      await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
-        status: 'failed',
-      })
+      await handOverExtraction(db, job, (error as Error).message)
     }
   }
+}
+
+async function handOverExtraction(
+  db: Db,
+  job: {worksheetId: string; userId: string},
+  reason: string,
+) {
+  const queued = await db
+    .select({id: processingJobs.id})
+    .from(processingJobs)
+    .where(
+      and(
+        eq(processingJobs.worksheetId, job.worksheetId),
+        eq(processingJobs.stage, 'extract'),
+        eq(processingJobs.executor, 'operator_gpu'),
+      ),
+    )
+    .limit(1)
+
+  if (queued.length > 0) {
+    await transitionWorksheet(db, job.worksheetId, ['queued', 'processing'], {
+      status: 'failed',
+    })
+
+    return
+  }
+
+  console.error(
+    '[server-job] extraction gave up on ' +
+      job.worksheetId +
+      ' (' +
+      reason +
+      '); handing it to the operator GPU',
+  )
+
+  await enqueueJob(db, {
+    worksheetId: job.worksheetId,
+    userId: job.userId,
+    stage: 'extract',
+    executor: 'operator_gpu',
+    priority: 'normal',
+  })
 }
 
 export async function drainServerQueue(db: Db, limit = 1) {

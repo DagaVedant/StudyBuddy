@@ -3,6 +3,9 @@ import Anthropic from '@anthropic-ai/sdk'
 import {appBaseUrl} from '@/lib/api'
 
 import {
+  ANSWER_BATCH_ADDENDUM,
+  answerBatchSchema,
+  answerBatchUserText,
   ANSWER_JSON_SCHEMA,
   ANSWER_SYSTEM,
   answerUserText,
@@ -12,6 +15,9 @@ import {
   EXPLAIN_JSON_SCHEMA,
   EXPLAIN_SYSTEM,
   explainUserText,
+  EXTRACTION_BATCH_ADDENDUM,
+  extractionBatchSchema,
+  extractionBatchUserText,
   EXTRACTION_JSON_SCHEMA,
   EXTRACTION_SYSTEM,
   extractionUserText,
@@ -24,6 +30,7 @@ import {
 } from './prompts'
 import {
   type AnswerInput,
+  type BatchAnswerInput,
   type ExecutionSite,
   type ExplainInput,
   type LessonInput,
@@ -36,7 +43,7 @@ import {
   type TopicCandidate,
 } from './types'
 
-const CLOUD_TIMEOUT_MS = 120000
+const CLOUD_TIMEOUT_MS = 240000
 
 function describeStatus(label: string, status: number) {
   if (status === 401 || status === 403) {
@@ -88,7 +95,7 @@ type ModelRequest = {
   schemaName: string
   schema: Record<string, unknown>
   maxTokens: number
-  image?: {data: Uint8Array; mediaType: string}
+  images?: {data: Uint8Array; mediaType: string}[]
 }
 
 abstract class CloudClient implements RawAIProvider {
@@ -123,7 +130,26 @@ abstract class CloudClient implements RawAIProvider {
       schemaName: 'extraction',
       schema: EXTRACTION_JSON_SCHEMA,
       maxTokens: 16000,
-      image: {data: page.image, mediaType: page.mediaType},
+      images: [{data: page.image, mediaType: page.mediaType}],
+    })
+  }
+
+  extractPages(pages: PageInput[]): Promise<unknown> {
+    const images = []
+    for (const page of pages) {
+      images.push({data: page.image, mediaType: page.mediaType})
+    }
+
+    let maxTokens = 4000 + pages.length * 2500
+    if (maxTokens > 64000) maxTokens = 64000
+
+    return this.ask({
+      system: EXTRACTION_SYSTEM + '\n' + EXTRACTION_BATCH_ADDENDUM,
+      userText: extractionBatchUserText(pages),
+      schemaName: 'extraction_batch',
+      schema: extractionBatchSchema(),
+      maxTokens: maxTokens,
+      images: images,
     })
   }
 
@@ -144,6 +170,19 @@ abstract class CloudClient implements RawAIProvider {
       schemaName: 'answer',
       schema: ANSWER_JSON_SCHEMA,
       maxTokens: 4000,
+    })
+  }
+
+  answerBatch(inputs: BatchAnswerInput[]): Promise<unknown> {
+    let maxTokens = 1000 + inputs.length * 700
+    if (maxTokens > 64000) maxTokens = 64000
+
+    return this.ask({
+      system: ANSWER_SYSTEM + '\n' + ANSWER_BATCH_ADDENDUM,
+      userText: answerBatchUserText(inputs),
+      schemaName: 'answer_batch',
+      schema: answerBatchSchema(),
+      maxTokens: maxTokens,
     })
   }
 
@@ -191,15 +230,17 @@ export class AnthropicProvider extends CloudClient {
   protected async send(request: ModelRequest) {
     const content: Anthropic.ContentBlockParam[] = []
 
-    if (request.image) {
-      content.push({
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: request.image.mediaType as 'image/webp',
-          data: Buffer.from(request.image.data).toString('base64'),
-        },
-      })
+    if (request.images) {
+      for (const image of request.images) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: image.mediaType as 'image/webp',
+            data: Buffer.from(image.data).toString('base64'),
+          },
+        })
+      }
     }
 
     content.push({type: 'text', text: request.userText})
@@ -250,6 +291,7 @@ type ChatCompletionsOptions = {
   headers?: Record<string, string>
   fetchImpl?: typeof fetch
   name?: ProviderName
+  extraBody?: Record<string, unknown>
 }
 
 export class OpenAIProvider extends CloudClient {
@@ -260,6 +302,7 @@ export class OpenAIProvider extends CloudClient {
   private readonly endpoint: string
   private readonly label: string
   private readonly headers: Record<string, string>
+  private readonly extraBody: Record<string, unknown>
 
   constructor(apiKey: string, model = 'gpt-4.1', options: ChatCompletionsOptions = {}) {
     super(model)
@@ -280,19 +323,27 @@ export class OpenAIProvider extends CloudClient {
 
     this.name = 'openai'
     if (options.name) this.name = options.name
+
+    this.extraBody = {}
+    if (options.extraBody) this.extraBody = options.extraBody
   }
 
   protected async send(request: ModelRequest) {
     let content: unknown = request.userText
 
-    if (request.image) {
-      const encoded = Buffer.from(request.image.data).toString('base64')
-      const url = 'data:' + request.image.mediaType + ';base64,' + encoded
+    if (request.images) {
+      const parts: unknown[] = []
 
-      content = [
-        {type: 'image_url', image_url: {url}},
-        {type: 'text', text: request.userText},
-      ]
+      for (const image of request.images) {
+        const encoded = Buffer.from(image.data).toString('base64')
+        const url = 'data:' + image.mediaType + ';base64,' + encoded
+
+        parts.push({type: 'image_url', image_url: {url}})
+      }
+
+      parts.push({type: 'text', text: request.userText})
+
+      content = parts
     }
 
     const headers: Record<string, string> = {
@@ -302,6 +353,18 @@ export class OpenAIProvider extends CloudClient {
 
     for (const key of Object.keys(this.headers)) headers[key] = this.headers[key]
 
+    const sent: Record<string, unknown> = {
+      model: this.model,
+      max_tokens: request.maxTokens,
+      messages: [{role: 'system', content: request.system}, {role: 'user', content}],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {name: request.schemaName, strict: true, schema: request.schema},
+      },
+    }
+
+    for (const key of Object.keys(this.extraBody)) sent[key] = this.extraBody[key]
+
     let response
 
     try {
@@ -309,14 +372,7 @@ export class OpenAIProvider extends CloudClient {
         method: 'POST',
         headers,
         signal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
-        body: JSON.stringify({
-          model: this.model,
-          messages: [{role: 'system', content: request.system}, {role: 'user', content}],
-          response_format: {
-            type: 'json_schema',
-            json_schema: {name: request.schemaName, strict: true, schema: request.schema},
-          },
-        }),
+        body: JSON.stringify(sent),
       })
     } catch (error) {
       throw upstreamUnreachable(this.label, error)
@@ -344,12 +400,24 @@ export class OpenAIProvider extends CloudClient {
 }
 
 export class OpenRouterProvider extends OpenAIProvider {
-  constructor(apiKey: string, model = 'google/gemini-2.5-flash') {
+  constructor(apiKey: string, model = 'google/gemini-2.5-flash', fallbacks: string[] = []) {
+    const extraBody: Record<string, unknown> = {}
+
+    if (fallbacks.length > 0) {
+      const models = [model]
+      for (const fallback of fallbacks) {
+        if (fallback !== model) models.push(fallback)
+      }
+
+      extraBody.models = models
+    }
+
     super(apiKey, model, {
       endpoint: 'https://openrouter.ai/api/v1/chat/completions',
       label: 'OpenRouter',
       name: 'openrouter',
       headers: {'HTTP-Referer': appBaseUrl(), 'X-Title': 'StudyBuddy'},
+      extraBody: extraBody,
     })
   }
 }
@@ -449,13 +517,15 @@ export class GeminiProvider extends CloudClient {
   protected async send(request: ModelRequest) {
     const parts: unknown[] = []
 
-    if (request.image) {
-      parts.push({
-        inlineData: {
-          mimeType: request.image.mediaType,
-          data: Buffer.from(request.image.data).toString('base64'),
-        },
-      })
+    if (request.images) {
+      for (const image of request.images) {
+        parts.push({
+          inlineData: {
+            mimeType: image.mediaType,
+            data: Buffer.from(image.data).toString('base64'),
+          },
+        })
+      }
     }
 
     parts.push({text: request.userText})

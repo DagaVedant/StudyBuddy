@@ -30,7 +30,7 @@ import {
 } from '@/lib/questions/shape'
 import {checkpointJob, storage} from '@/lib/queue'
 import {loadQuestionsWithChoices} from '@/lib/questions/queries'
-import {type AIProvider, type ExtractedQuestion} from '@/lib/ai/types'
+import {type AIProvider, type BatchedQuestion, type ExtractedQuestion} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 
 const ORDER = ['join', 'carried', 'math', 'numbers', 'merge', 'renumber', 'answers'] as const
@@ -462,6 +462,98 @@ export type ExtractOutcome = {
   questionsCreated: number
 }
 
+const QUESTIONS_PER_CALL = 25
+const MAX_PAGES_PER_CALL = 10
+
+function estimateQuestions(text: string) {
+  let count = 0
+
+  for (const line of text.split('\n')) {
+    if (/^\s*\d+[.)]\s+/.test(line)) count = count + 1
+  }
+
+  if (count < 1) count = 8
+
+  return count
+}
+
+type PackablePage = {ocrText: string | null}
+
+function packPages<T extends PackablePage>(pages: T[]) {
+  const groups: T[][] = []
+
+  let current: T[] = []
+  let budget = 0
+
+  for (const page of pages) {
+    let text = ''
+    if (page.ocrText) text = page.ocrText
+
+    const estimate = estimateQuestions(text)
+
+    if (current.length > 0) {
+      const tooMany = current.length >= MAX_PAGES_PER_CALL
+      const tooLong = budget + estimate > QUESTIONS_PER_CALL
+
+      if (tooMany || tooLong) {
+        groups.push(current)
+        current = []
+        budget = 0
+      }
+    }
+
+    current.push(page)
+    budget = budget + estimate
+  }
+
+  if (current.length > 0) groups.push(current)
+
+  return groups
+}
+
+function slotsFor(questions: BatchedQuestion[], size: number) {
+  let direct = true
+
+  for (const question of questions) {
+    if (question.imageIndex < 1 || question.imageIndex > size) direct = false
+  }
+
+  const slots: number[] = []
+
+  if (direct) {
+    for (const question of questions) slots.push(question.imageIndex - 1)
+
+    return {slots: slots, recovered: false}
+  }
+
+  const order: number[] = []
+  for (const question of questions) {
+    if (!order.includes(question.imageIndex)) order.push(question.imageIndex)
+  }
+
+  order.sort(function (a, b) {
+    return a - b
+  })
+
+  const mapped = new Map<number, number>()
+
+  for (let index = 0; index < order.length; index++) {
+    let slot = size - 1
+    if (index < size) slot = index
+
+    mapped.set(order[index], slot)
+  }
+
+  for (const question of questions) {
+    let slot = mapped.get(question.imageIndex)
+    if (slot === undefined) slot = 0
+
+    slots.push(slot)
+  }
+
+  return {slots: slots, recovered: true}
+}
+
 export async function runExtraction(
   db: Db,
   provider: AIProvider,
@@ -483,12 +575,17 @@ export async function runExtraction(
     startAfter = Number(job.checkpoint.lastPageNumber)
   }
 
+  const seamOf = new Map<string, {before: string; after: string}>()
+  for (let index = 0; index < pages.length; index++) {
+    seamOf.set(pages[index].id, seamAround(pages, index))
+  }
+
+  const pending: typeof pages = []
+
   let created = 0
   let processed = 0
 
-  for (let index = 0; index < pages.length; index++) {
-    const page = pages[index]
-
+  for (const page of pages) {
     if (page.pageNumber <= startAfter) {
       processed = processed + 1
       continue
@@ -500,12 +597,6 @@ export async function runExtraction(
     if (isAnswerPage(ocrText)) {
       processed = processed + 1
 
-      await checkpointJob(db, job.id, processed / pages.length, {
-        lastPageNumber: page.pageNumber,
-      })
-
-      if (onProgress) onProgress({page: page.pageNumber, total: pages.length})
-
       console.log(
         '[extract] page ' +
           page.pageNumber +
@@ -514,38 +605,80 @@ export async function runExtraction(
       continue
     }
 
-    const object = await storage.get(page.imageKey)
-    if (!object) {
-      throw new Error('Page image missing for page ' + page.pageNumber + '.')
+    pending.push(page)
+  }
+
+  const groups = packPages(pending)
+
+  for (const group of groups) {
+    const inputs = []
+
+    for (const page of group) {
+      const object = await storage.get(page.imageKey)
+      if (!object) {
+        throw new Error('Page image missing for page ' + page.pageNumber + '.')
+      }
+
+      let ocrText = ''
+      if (page.ocrText) ocrText = page.ocrText
+
+      let width = 0
+      if (page.width) width = page.width
+
+      let height = 0
+      if (page.height) height = page.height
+
+      let seam = {before: '', after: ''}
+      const found = seamOf.get(page.id)
+      if (found) seam = found
+
+      inputs.push({
+        image: new Uint8Array(object.body),
+        mediaType: object.contentType,
+        text: ocrText,
+        width: width,
+        height: height,
+        pageNumber: page.pageNumber,
+        before: seam.before,
+        after: seam.after,
+      })
     }
 
-    const seam = seamAround(pages, index)
+    const extracted = await provider.extractPages(inputs)
+    const placed = slotsFor(extracted, group.length)
 
-    let width = 0
-    if (page.width) width = page.width
+    if (placed.recovered) {
+      console.log(
+        '[extract] image_index was out of range on pages ' +
+          group[0].pageNumber +
+          '-' +
+          group[group.length - 1].pageNumber +
+          '; placed by reading order instead',
+      )
+    }
 
-    let height = 0
-    if (page.height) height = page.height
+    const buckets: ExtractedQuestion[][] = []
+    for (let index = 0; index < group.length; index++) buckets.push([])
 
-    const extracted = await provider.extractQuestions({
-      image: new Uint8Array(object.body),
-      mediaType: object.contentType,
-      text: ocrText,
-      width: width,
-      height: height,
-      pageNumber: page.pageNumber,
-      before: seam.before,
-      after: seam.after,
-    })
+    for (let index = 0; index < extracted.length; index++) {
+      let slot = placed.slots[index]
+      if (slot === undefined || slot < 0 || slot >= group.length) slot = 0
 
-    created = created + (await persistQuestions(db, job, page.id, extracted))
-    processed = processed + 1
+      buckets[slot].push(extracted[index])
+    }
+
+    for (let index = 0; index < group.length; index++) {
+      created = created + (await persistQuestions(db, job, group[index].id, buckets[index]))
+      processed = processed + 1
+    }
+
+    const last = group[group.length - 1]
 
     await checkpointJob(db, job.id, processed / pages.length, {
-      lastPageNumber: page.pageNumber,
+      lastPageNumber: last.pageNumber,
     })
 
-    if (onProgress) onProgress({page: page.pageNumber, total: pages.length})
+    if (onProgress) onProgress({page: last.pageNumber, total: pages.length})
   }
 
   return {pagesProcessed: processed, questionsCreated: created}
