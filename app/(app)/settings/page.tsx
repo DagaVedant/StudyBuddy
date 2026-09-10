@@ -9,6 +9,7 @@ import {
   cloudExtractionEnabled,
   getCredentialSummary,
   getTrialState,
+  operatorCloudEnabled,
 } from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 import {workerStatus} from '@/lib/queue'
@@ -50,6 +51,7 @@ export default async function SettingsPage() {
       <SettingsClient
         showCloud={cloudExtractionEnabled()}
         showOllama={browserTierEnabled()}
+        trialOnCloud={operatorCloudEnabled()}
         credentials={listed}
         trial={{
           worksheetsRemaining: trial.worksheetsRemaining,

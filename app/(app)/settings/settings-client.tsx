@@ -22,6 +22,7 @@ type Credential = {
 type Props = {
   showCloud: boolean
   showOllama: boolean
+  trialOnCloud: boolean
   credentials: Credential[]
   trial: {worksheetsRemaining: number; explanationsRemaining: number}
   workerOnline: boolean
@@ -97,7 +98,36 @@ export default function SettingsClient({
   appUrl,
   showCloud,
   showOllama,
+  trialOnCloud,
 }: Props) {
+  let canConnect = false
+  if (showCloud || showOllama) canConnect = true
+
+  let afterTrial =
+    'When it is used up nothing changes except the reading: you add questions yourself.'
+  if (canConnect) {
+    afterTrial =
+      'When it is used up nothing changes except the reading: you add questions ' +
+      'yourself, or connect your own provider below and there is no cap at all.'
+  }
+
+  let whereTrialRuns =
+    'Trial uploads are processed on hardware we operate. Pages are sent there, ' +
+    'kept only while the job runs, and never used for training.'
+  if (trialOnCloud) {
+    whereTrialRuns =
+      'Trial uploads are read by a hosted model on its provider\'s free tier. Pages ' +
+      'are kept only while the job runs. That provider may use them to improve its ' +
+      'own models.'
+    if (canConnect) whereTrialRuns = whereTrialRuns + ' Your own provider below does not.'
+  }
+
+  let offlineNote = ''
+  if (!trialOnCloud && !workerOnline) {
+    offlineNote =
+      ' That machine is offline right now. Uploads will queue and start when it comes back.'
+  }
+
   const router = useRouter()
   const cloudId = useId()
   const providerId = useId()
@@ -242,13 +272,12 @@ export default function SettingsClient({
           {trial.worksheetsRemaining === 1 ? 'worksheet' : 'worksheets'} and{' '}
           <span className="tabular-nums">{trial.explanationsRemaining}</span>{' '}
           explanations left. This is a one-time allowance, not monthly. A
-          worksheet counts once no matter how many pages are in it.
+          worksheet counts once no matter how many pages are in it.{' '}
+          {afterTrial}
         </p>
         <p className="hint text-pretty">
-          Trial uploads are processed on hardware we operate. Pages are sent
-          there, kept only while the job runs, and never used for training.
-          {!workerOnline &&
-            ' That machine is offline right now. Uploads will queue and start when it comes back.'}
+          {whereTrialRuns}
+          {offlineNote}
         </p>
       </section>
 

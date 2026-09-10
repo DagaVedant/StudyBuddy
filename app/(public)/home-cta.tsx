@@ -29,9 +29,10 @@ export default function HomeCta() {
         </Link>
       </div>
 
-      <p className="hint mt-4">
-        Free to start: {TRIAL_WORKSHEET_LIMIT} full worksheets processed by AI,
-        no card and no setup.
+      <p className="hint mt-4 text-pretty">
+        Free, no card. Your first {TRIAL_WORKSHEET_LIMIT} worksheets are read
+        by AI with no setup. After that it stays free: add questions yourself,
+        or connect your own AI provider and there is no limit.
       </p>
     </>
   )
