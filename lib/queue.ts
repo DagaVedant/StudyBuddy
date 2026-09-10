@@ -16,7 +16,7 @@ import {
 } from 'drizzle-orm'
 import {del, get, put} from '@vercel/blob'
 
-import {gpuWorkers, processingJobs, worksheetPages, worksheets} from '@/lib/schema'
+import {processingJobs, worksheetPages, worksheets} from '@/lib/schema'
 import {auth} from '@/auth'
 import {db, type Db, unwrapDriverRows} from '@/lib/db'
 
@@ -36,7 +36,6 @@ const MAX_ATTEMPTS = 3
 
 export const CLAIM_TTL_MS = 15 * 60000
 
-const HEARTBEAT_TTL_MS = 90000
 
 export type EnqueueArgs = {
   worksheetId: string
@@ -87,52 +86,6 @@ export async function enqueueJob(db: Db, args: EnqueueArgs) {
     })
     .returning({id: processingJobs.id})
 
-  return row.id
-}
-
-export async function pendingWorksheetJob(
-  db: Db,
-  userId: string,
-  stage: JobStage,
-  worksheetId: string,
-) {
-  const [row] = await db
-    .select({id: processingJobs.id})
-    .from(processingJobs)
-    .where(
-      and(
-        eq(processingJobs.userId, userId),
-        eq(processingJobs.stage, stage),
-        eq(processingJobs.worksheetId, worksheetId),
-        inArray(processingJobs.status, IN_FLIGHT),
-      ),
-    )
-    .limit(1)
-
-  if (!row) return null
-  return row.id
-}
-
-export async function pendingTopicJob(
-  db: Db,
-  userId: string,
-  stage: 'lesson' | 'practice',
-  topicId: string,
-) {
-  const [row] = await db
-    .select({id: processingJobs.id})
-    .from(processingJobs)
-    .where(
-      and(
-        eq(processingJobs.userId, userId),
-        eq(processingJobs.stage, stage),
-        inArray(processingJobs.status, IN_FLIGHT),
-        sql`${processingJobs.checkpoint} ->> 'topicId' = ${topicId}`,
-      ),
-    )
-    .limit(1)
-
-  if (!row) return null
   return row.id
 }
 
@@ -253,18 +206,6 @@ export async function checkpointJob(
     .where(eq(processingJobs.id, jobId))
 }
 
-export async function touchJob(db: Db, jobId: string) {
-  await db
-    .update(processingJobs)
-    .set({status: 'running', claimedAt: new Date()})
-    .where(
-      and(
-        eq(processingJobs.id, jobId),
-        inArray(processingJobs.status, ['claimed', 'running']),
-      ),
-    )
-}
-
 export async function completeJob(db: Db, jobId: string) {
   await db
     .update(processingJobs)
@@ -370,83 +311,6 @@ export async function queueDepth(db: Db, executor: JobExecutor): Promise<QueueDe
     running: Number(row.running),
     oldestPendingAt: oldestPendingAt,
   }
-}
-
-export async function heartbeat(
-  db: Db,
-  name: string,
-  modelName: string | null,
-  jobsInFlight = 0,
-) {
-  const [row] = await db
-    .insert(gpuWorkers)
-    .values({name, modelName, status: 'online', jobsInFlight, lastHeartbeatAt: new Date()})
-    .onConflictDoUpdate({
-      target: gpuWorkers.name,
-      set: {modelName, status: 'online', jobsInFlight, lastHeartbeatAt: new Date()},
-    })
-    .returning({id: gpuWorkers.id})
-
-  return row.id
-}
-
-export type WorkerStatus = {
-  online: boolean
-  onlineCount: number
-  name: string | null
-  modelName: string | null
-  lastHeartbeatAt: Date | null
-}
-
-const WORKERS_CONSIDERED = 50
-
-export async function workerStatus(db: Db): Promise<WorkerStatus> {
-  const now = new Date()
-
-  const rows = await db
-    .select()
-    .from(gpuWorkers)
-    .orderBy(sql`${gpuWorkers.lastHeartbeatAt} desc nulls last`)
-    .limit(WORKERS_CONSIDERED)
-
-  let live = []
-
-  for (let row of rows) {
-    if (row.status !== 'online') continue
-    if (row.lastHeartbeatAt === null) continue
-    if (now.getTime() - row.lastHeartbeatAt.getTime() >= HEARTBEAT_TTL_MS) continue
-
-    live.push(row)
-  }
-
-  let representative = null
-  if (live.length > 0) representative = live[0]
-  else if (rows.length > 0) representative = rows[0]
-
-  if (!representative) {
-    return {
-      online: false,
-      onlineCount: 0,
-      name: null,
-      modelName: null,
-      lastHeartbeatAt: null,
-    }
-  }
-
-  return {
-    online: live.length > 0,
-    onlineCount: live.length,
-    name: representative.name,
-    modelName: representative.modelName,
-    lastHeartbeatAt: representative.lastHeartbeatAt,
-  }
-}
-
-export async function markWorkerOffline(db: Db, name: string) {
-  await db
-    .update(gpuWorkers)
-    .set({status: 'offline', jobsInFlight: 0})
-    .where(eq(gpuWorkers.name, name))
 }
 
 export type WorksheetStatus = (typeof worksheets.$inferSelect)['status']

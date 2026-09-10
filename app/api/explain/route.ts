@@ -2,30 +2,19 @@ import {NextResponse} from 'next/server'
 import {and, desc, eq} from 'drizzle-orm'
 import {z} from 'zod'
 
-import {answerChoices, attempts, explanations, processingJobs, questions} from '@/lib/schema'
+import {answerChoices, attempts, explanations, questions} from '@/lib/schema'
 import {CHOICE_ORDER} from '@/lib/questions/queries'
 import {ProviderRefused, ProviderUnavailable} from '@/lib/ai/types'
 import {auth} from '@/auth'
 import {EXPLAIN_LIMIT, guardRateLimit, readJson} from '@/lib/api'
 import {consumeTrial, resolveProvider, storedProvider} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
-import {enqueueJob, pendingExplainJob, workerStatus} from '@/lib/queue'
+import {pendingExplainJob} from '@/lib/queue'
 
 const schema = z.object({questionId: z.string().min(1)})
 
-async function writerStatus(
-  jobId: string,
-): Promise<{runsHere: boolean; writerOnline: boolean}> {
-  const [job] = await db
-    .select({executor: processingJobs.executor})
-    .from(processingJobs)
-    .where(eq(processingJobs.id, jobId))
-    .limit(1)
-
-  if (job && job.executor === 'browser') return {runsHere: true, writerOnline: true}
-
-  return {runsHere: false, writerOnline: (await workerStatus(db)).online}
-}
+const NOT_SET_UP =
+  'Nothing is set up to write explanations for this account. Connect your own AI provider in settings.'
 
 export async function GET(request: Request) {
   const session = await auth()
@@ -63,7 +52,7 @@ export async function GET(request: Request) {
   const pending = await pendingExplainJob(db, session.user.id, question.id)
   if (!pending) return NextResponse.json({status: 'none'})
 
-  return NextResponse.json({status: 'queued', ...(await writerStatus(pending))})
+  return NextResponse.json({status: 'queued'})
 }
 
 export async function POST(request: Request) {
@@ -149,39 +138,15 @@ export async function POST(request: Request) {
   let attemptId = null
   if (lastAttempt) attemptId = lastAttempt.id
 
+  if (executor !== 'server') {
+    return NextResponse.json({error: NOT_SET_UP}, {status: 409})
+  }
+
   if (tier === 'trial' && session.user.role !== 'admin') {
     const charge = await consumeTrial(db, userId, 'explanations', 1)
     if (!charge.ok) {
       return NextResponse.json({error: charge.reason}, {status: 402})
     }
-  }
-
-  if (
-    executor === 'browser' ||
-    (executor === 'operator_gpu' && provider.executionSite === 'none')
-  ) {
-    const existing = await pendingExplainJob(db, userId, question.id)
-
-    let jobExecutor: 'browser' | 'operator_gpu' = 'operator_gpu'
-    if (executor === 'browser') jobExecutor = 'browser'
-
-    let jobId = existing
-
-    if (!jobId) {
-      jobId = await enqueueJob(db, {
-        worksheetId: question.worksheetId,
-        userId,
-        stage: 'explain',
-        executor: jobExecutor,
-        priority: 'high',
-        checkpoint: {questionId: question.id, attemptId: attemptId},
-      })
-    }
-
-    return NextResponse.json(
-      {status: 'queued', jobId, ...(await writerStatus(jobId))},
-      {status: 202},
-    )
   }
 
   let correctAnswer = question.correctAnswer
@@ -224,7 +189,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'The GPU that writes these could not take this on right now. Try again shortly.',
+            'The model that writes these could not take this on right now. Try again shortly.',
         },
         {status: 409},
       )

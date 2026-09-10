@@ -57,21 +57,15 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1 pl-5">
           <li>
             <strong>Free trial.</strong> Page images are read by a hosted vision
-            model the operator provides, or on the operator&rsquo;s own machine
-            when that is unavailable. The hosted model runs on its provider&rsquo;s
-            free tier, and that provider may use what is sent to it to improve
-            its own models. If you would rather it did not, connect your own API
-            key or your own Ollama in settings.
+            model the operator provides. It runs on its provider&rsquo;s free
+            tier, and that provider may use what is sent to it to improve its
+            own models. Pages are kept only while the job runs. If you would
+            rather they were not used that way, connect your own API key in
+            settings.
           </li>
           <li>
             <strong>Your own API key.</strong> Page images and question text go
             to the provider you chose, under your own account and their terms.
-            Nothing goes to the operator&rsquo;s machine.
-          </li>
-          <li>
-            <strong>Your own Ollama.</strong> The model runs in your browser
-            against your own computer. Question text does not leave your machine
-            for any model at all.
           </li>
         </ul>
         <p>

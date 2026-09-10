@@ -156,10 +156,6 @@ export async function runRepairPasses(
   return counts
 }
 
-export const VERIFYING_PASSES = ['join', 'carried', 'math', 'merge'] as const
-
-export const FINAL_PASSES = ORDER
-
 async function applyAnswerKey(db: Db, worksheetId: string) {
   const pages = await db
     .select({ocrText: worksheetPages.ocrText})
@@ -903,17 +899,3 @@ export async function persistQuestions(
   return pending.length
 }
 
-export async function pagesForJob(db: Db, worksheetId: string) {
-  return db
-    .select({
-      id: worksheetPages.id,
-      pageNumber: worksheetPages.pageNumber,
-      imageKey: worksheetPages.imageKey,
-      ocrText: worksheetPages.ocrText,
-      width: worksheetPages.width,
-      height: worksheetPages.height,
-    })
-    .from(worksheetPages)
-    .where(eq(worksheetPages.worksheetId, worksheetId))
-    .orderBy(asc(worksheetPages.pageNumber))
-}

@@ -5,7 +5,6 @@ import {
   CLOUD_PROVIDERS,
   deleteCredential,
   getCredentialSummary,
-  isAllowedOllamaUrl,
   sealApiKey,
   verifyCloudKey,
 } from '@/lib/ai/resolve'
@@ -14,20 +13,11 @@ import {auth} from '@/auth'
 import {db} from '@/lib/db'
 import {userAiCredentials} from '@/lib/schema'
 
-const cloudSchema = z.object({
+const bodySchema = z.object({
   provider: z.enum(CLOUD_PROVIDERS),
   apiKey: z.string().trim().min(10).max(400),
   model: z.string().trim().max(120).nullish(),
 })
-
-const ollamaSchema = z.object({
-  provider: z.literal('ollama'),
-  baseUrl: z.string().trim().min(1).max(300),
-  visionModel: z.string().trim().max(120).default('qwen2.5vl:7b'),
-  textModel: z.string().trim().max(120).default('qwen2.5vl:7b'),
-})
-
-const bodySchema = z.union([cloudSchema, ollamaSchema])
 
 export async function GET() {
   const session = await auth()
@@ -59,36 +49,6 @@ export async function POST(request: Request) {
     'Too many credential changes. Try again shortly.',
   )
   if (limited) return limited
-
-  if (input.provider === 'ollama') {
-    if (!isAllowedOllamaUrl(input.baseUrl)) {
-      return NextResponse.json(
-        {error: 'Ollama must be on localhost. That is the only address your browser can reach.'},
-        {status: 400},
-      )
-    }
-
-    await db
-      .insert(userAiCredentials)
-      .values({
-        userId,
-        provider: 'ollama',
-        ollamaBaseUrl: input.baseUrl,
-        visionModelName: input.visionModel,
-        modelName: input.textModel,
-      })
-      .onConflictDoUpdate({
-        target: [userAiCredentials.userId, userAiCredentials.provider],
-        set: {
-          ollamaBaseUrl: input.baseUrl,
-          visionModelName: input.visionModel,
-          modelName: input.textModel,
-          updatedAt: new Date(),
-        },
-      })
-
-    return NextResponse.json({ok: true})
-  }
 
   let sealed
   try {
@@ -156,7 +116,7 @@ export async function DELETE(request: Request) {
   }
 
   const provider = new URL(request.url).searchParams.get('provider')
-  const deletable = z.enum([...CLOUD_PROVIDERS, 'ollama']).safeParse(provider)
+  const deletable = z.enum(CLOUD_PROVIDERS).safeParse(provider)
   if (!deletable.success) {
     return NextResponse.json({error: 'Unknown provider'}, {status: 400})
   }

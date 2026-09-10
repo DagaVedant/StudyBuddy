@@ -43,10 +43,6 @@ export type ResolvedProvider = {
   executor: ExecutionSite
 }
 
-export function browserTierEnabled() {
-  return process.env.ENABLE_BROWSER_TIER === 'true'
-}
-
 export function cloudExtractionEnabled() {
   return process.env.ENABLE_CLOUD_EXTRACTION === 'true'
 }
@@ -89,7 +85,7 @@ export function operatorCloudEnabled() {
 
 function trialProvider(idle: RawAIProvider): ResolvedProvider {
   if (mockEnabled()) {
-    return {provider: validated(idle), tier: 'trial', executor: 'operator_gpu'}
+    return {provider: validated(idle), tier: 'trial', executor: 'server'}
   }
 
   const key = operatorKey()
@@ -102,7 +98,7 @@ function trialProvider(idle: RawAIProvider): ResolvedProvider {
     }
   }
 
-  return {provider: validated(idle), tier: 'trial', executor: 'operator_gpu'}
+  return {provider: validated(idle), tier: 'trial', executor: 'none'}
 }
 
 export async function resolveProvider(db: Db, userId: string): Promise<ResolvedProvider> {
@@ -140,19 +136,6 @@ export async function resolveProvider(db: Db, userId: string): Promise<ResolvedP
       tier: 'cloud',
       executor: 'server',
     }
-  }
-
-  for (let row of credentials) {
-    if (row.provider !== 'ollama' || !row.ollamaBaseUrl) continue
-
-    if (mockEnabled()) {
-      return {provider: validated(new MockProvider()), tier: 'ollama', executor: 'server'}
-    }
-
-    let executor: ExecutionSite = 'operator_gpu'
-    if (browserTierEnabled()) executor = 'browser'
-
-    return {provider: validated(new NullProvider()), tier: 'ollama', executor: executor}
   }
 
   let idle: RawAIProvider = new NullProvider()
@@ -202,7 +185,6 @@ export type StoredProvider = (typeof aiProvider.enumValues)[number]
 export type CredentialSummary = {
   provider: StoredProvider
   keyLast4: string | null
-  ollamaBaseUrl: string | null
   modelName: string | null
   visionModelName: string | null
   verifiedAt: Date | null
@@ -211,7 +193,6 @@ export type CredentialSummary = {
 export function canSortTopicsHere(credentials: CredentialSummary[]) {
   for (let row of credentials) {
     if (isCloudProvider(row.provider)) return true
-    if (row.provider === 'ollama' && row.ollamaBaseUrl) return true
   }
 
   return false
@@ -225,7 +206,6 @@ export async function getCredentialSummary(
     .select({
       provider: userAiCredentials.provider,
       keyLast4: userAiCredentials.keyLast4,
-      ollamaBaseUrl: userAiCredentials.ollamaBaseUrl,
       modelName: userAiCredentials.modelName,
       visionModelName: userAiCredentials.visionModelName,
       verifiedAt: userAiCredentials.verifiedAt,
@@ -237,7 +217,7 @@ export async function getCredentialSummary(
 export async function deleteCredential(
   db: Db,
   userId: string,
-  provider: CloudProvider | 'ollama',
+  provider: CloudProvider,
 ) {
   await db
     .delete(userAiCredentials)
@@ -498,27 +478,6 @@ function openApiKey(sealed: {ciphertext: string; iv: string; authTag: string}) {
   ])
 
   return opened.toString('utf8')
-}
-
-export function isAllowedOllamaUrl(value: string) {
-  let url
-  try {
-    url = new URL(value)
-  } catch {
-    return false
-  }
-
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
-
-  const host = url.hostname.toLowerCase()
-
-  if (host === 'localhost') return true
-  if (host === '127.0.0.1') return true
-  if (host === '::1') return true
-  if (host === '[::1]') return true
-  if (host.endsWith('.localhost')) return true
-
-  return false
 }
 
 export type KeyVerdict = {

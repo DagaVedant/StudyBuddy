@@ -3,46 +3,23 @@ import {readJson} from '@/lib/api'
 import {and, eq} from 'drizzle-orm'
 import {z} from 'zod'
 import {questions, worksheets} from '@/lib/schema'
-import {applyClassification, isEmbedding, pendingQuestionCount, pendingQuestions, shortlistByVector} from '@/lib/taxonomy'
-import {enqueueJob, guardWorksheet, pendingWorksheetJob, workerStatus} from '@/lib/queue'
+import {applyClassification, isEmbedding, pendingQuestionCount, pendingQuestions, settledByEmbedding, shortlistByVector} from '@/lib/taxonomy'
+import {guardWorksheet} from '@/lib/queue'
 import {resolveProvider} from '@/lib/ai/resolve'
-import {clearUntagged, recordUntagged, UNTAGGED_REASON} from '@/lib/worker/apply'
-import {classificationSchema} from '@/lib/ai/types'
+import {clearUntagged} from '@/lib/worker/apply'
 import {db} from '@/lib/db'
-import {ollamaConfig} from '@/lib/ai/ollama'
 
 export const maxDuration = 300
 
-const BROWSER_CLASSIFY_BATCH = 12
+const CLASSIFY_BATCH = 12
 
-const itemsSchema = z
-  .array(
-    z.object({questionId: z.string().min(1), embedding: z.array(z.number())}),
-  )
-  .max(BROWSER_CLASSIFY_BATCH)
-
-const candidateSchema = z.object({
-  slug: z.string().min(1),
-  name: z.string().min(1),
-  path: z.string().min(1),
+const schema = z.object({
+  items: z
+    .array(
+      z.object({questionId: z.string().min(1), embedding: z.array(z.number())}),
+    )
+    .max(CLASSIFY_BATCH),
 })
-
-const schema = z.union([
-  z.object({action: z.literal('shortlist'), items: itemsSchema}),
-  z.object({
-    action: z.literal('apply'),
-    results: z
-      .array(
-        z.object({
-          questionId: z.string().min(1),
-          classification: classificationSchema,
-          candidates: z.array(candidateSchema).max(64),
-        }),
-      )
-      .max(BROWSER_CLASSIFY_BATCH),
-  }),
-  z.object({items: itemsSchema}),
-])
 
 type Params = {params: Promise<{id: string}>}
 
@@ -82,7 +59,7 @@ export async function GET(_request: Request, {params}: Params) {
 
   const {executor} = await resolveProvider(db, guard.userId)
 
-  const pending = await pendingQuestions(db, worksheetId, BROWSER_CLASSIFY_BATCH)
+  const pending = await pendingQuestions(db, worksheetId, CLASSIFY_BATCH)
   const remaining = await pendingQuestionCount(db, worksheetId)
 
   if (remaining === 0) {
@@ -90,12 +67,11 @@ export async function GET(_request: Request, {params}: Params) {
   }
 
   return NextResponse.json({
-    supported: true,
+    supported: executor === 'server',
     executor,
-    batchSize: BROWSER_CLASSIFY_BATCH,
+    batchSize: CLASSIFY_BATCH,
     remaining,
     questions: pending,
-    ollama: executor === 'browser' ? await ollamaConfig(db, guard.userId) : null,
   })
 }
 
@@ -125,89 +101,13 @@ export async function POST(request: Request, {params}: Params) {
     return NextResponse.json({error: 'Not found'}, {status: 404})
   }
 
-  if ('action' in body) {
-    if (executor !== 'browser') {
-      return NextResponse.json(
-        {
-          error:
-            'Picking the topic on this machine is for accounts running their own Ollama.',
-        },
-        {status: 409},
-      )
-    }
-
-    if (body.action === 'shortlist') {
-      const batch = []
-
-      for (const item of body.items) {
-        if (!isEmbedding(item.embedding)) continue
-
-        const question = await ownedQuestion(worksheetId, guard.userId, item.questionId)
-        if (!question) continue
-
-        await db
-          .update(questions)
-          .set({embedding: item.embedding})
-          .where(eq(questions.id, question.id))
-
-        batch.push({
-          questionId: question.id,
-          promptText: question.promptText,
-          candidates: await shortlistByVector(db, item.embedding, {
-            subjectHint: worksheet.subjectHint,
-          }),
-        })
-      }
-
-      return NextResponse.json({batch})
-    }
-
-    let applied = 0
-    let coarse = 0
-    let failed = 0
-
-    for (const entry of body.results) {
-      const question = await ownedQuestion(worksheetId, guard.userId, entry.questionId)
-      if (!question) continue
-
-      try {
-        const outcome = await applyClassification(
-          db,
-          question,
-          entry.candidates,
-          entry.classification,
-        )
-
-        if (outcome.topicId) applied += 1
-        if (outcome.coarse) coarse += 1
-      } catch (error) {
-        failed += 1
-        console.error(
-          '[classify] question ' + question.id + ' could not be tagged:',
-          (error as Error).message,
-        )
-      }
-    }
-
-    return NextResponse.json({applied, coarse, failed, done: await finish(worksheetId)})
-  }
-
   if (executor !== 'server') {
-    await recordUntagged(db, worksheetId, UNTAGGED_REASON.workerQueued)
-
-    const jobId =
-      (await pendingWorksheetJob(db, guard.userId, 'classify', worksheetId)) ??
-      (await enqueueJob(db, {
-        worksheetId,
-        userId: guard.userId,
-        stage: 'classify',
-        executor: 'operator_gpu',
-        priority: 'high',
-      }))
-
     return NextResponse.json(
-      {status: 'queued', jobId, writerOnline: (await workerStatus(db)).online},
-      {status: 202},
+      {
+        error:
+          'Nothing is set up to sort topics for this account. Connect your own AI provider in settings.',
+      },
+      {status: 409},
     )
   }
 
@@ -239,10 +139,18 @@ export async function POST(request: Request, {params}: Params) {
     }
 
     try {
-      const classification = await provider.classifyTopic(
-        question.promptText,
-        candidates,
-      )
+      let classification = null
+
+      const settled = settledByEmbedding(candidates)
+      if (settled) {
+        classification = {
+          topic_slug: settled.slug,
+          confidence: settled.confidence,
+          abstain: false,
+        }
+      } else {
+        classification = await provider.classifyTopic(question.promptText, candidates)
+      }
 
       const outcome = await applyClassification(
         db,

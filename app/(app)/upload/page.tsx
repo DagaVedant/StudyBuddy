@@ -5,7 +5,6 @@ import {PageHead} from '@/components/page-head'
 import {auth} from '@/auth'
 import {resolveProvider} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
-import {queueDepth, workerStatus} from '@/lib/queue'
 import {flattenTaxonomy} from '@/lib/taxonomy'
 import {findSample} from '@/lib/upload'
 
@@ -46,23 +45,18 @@ export default async function UploadPage({searchParams}: Props) {
   const {sample} = await searchParams
   const resolved = await resolveProvider(db, session.user.id)
 
-  let waiting = false
-  let ahead = 0
-
-  if (resolved.executor === 'operator_gpu') {
-    const [worker, queue] = await Promise.all([
-      workerStatus(db),
-      queueDepth(db, 'operator_gpu'),
-    ])
-
-    if (!worker.online) waiting = true
-    ahead = queue.pending
-  }
-
   const noReader = resolved.executor === 'none'
 
-  let aheadLine = ahead + ' papers are'
-  if (ahead === 1) aheadLine = 'One paper is'
+  let noReaderLine =
+    'Your free trial is used up, so anything you upload now will not be read for you: ' +
+    'you can still add its questions by hand. To have them read again, connect your ' +
+    'own AI provider in'
+  if (resolved.tier === 'trial') {
+    noReaderLine =
+      'Nothing is set up to read worksheets on this deployment right now, so anything ' +
+      'you upload will not be read for you: you can still add its questions by hand. ' +
+      'To have them read, connect your own AI provider in'
+  }
 
   const startingSample = findSample(sample)
 
@@ -87,31 +81,13 @@ export default async function UploadPage({searchParams}: Props) {
       {noReader && (
         <div className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution">
           <p role="status" className="text-pretty">
-            Your free trial is used up, so anything you upload now will not be
-            read for you: you can still add its questions by hand. To have them
-            read again, connect your own AI provider in{' '}
+            {noReaderLine}{' '}
             <Link href="/settings" className="underline">
               settings
             </Link>
             .
           </p>
         </div>
-      )}
-
-      {waiting && (
-        <div className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution">
-          <p role="status" className="text-pretty">
-            The machine that reads papers is not running just now. Upload
-            anyway and your paper waits in the queue, or type the questions in
-            yourself.
-          </p>
-        </div>
-      )}
-
-      {!waiting && ahead > 0 && (
-        <p role="status" className="hint mb-6 text-pretty">
-          {aheadLine} ahead of yours in the queue.
-        </p>
       )}
 
       <UploadClient subjects={subjectGroups()} initialSample={initialSample} />

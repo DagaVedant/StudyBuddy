@@ -307,34 +307,10 @@ export async function deletableQuestionIds(db: Db, ids: string[]) {
   return free
 }
 
-export async function partitionByDeletability<T extends {id: string}>(db: Db, rows: T[]) {
-  const ids = []
-  for (const row of rows) ids.push(row.id)
-
-  const removableIds = new Set(await deletableQuestionIds(db, ids))
-
-  const removable: T[] = []
-  const held: T[] = []
-
-  for (const row of rows) {
-    if (removableIds.has(row.id)) removable.push(row)
-    else held.push(row)
-  }
-
-  return {removable, held}
-}
-
-const READING_SHARE = 0.8
 export const VERIFYING_AT = 0.8
 export const CLASSIFYING_AT = 0.95
 
 export type JobPhase = 'reading' | 'verifying' | 'classifying'
-
-export function readingProgress(pageNumber: number, totalPages: number) {
-  if (totalPages <= 0) return 0
-
-  return (pageNumber / totalPages) * READING_SHARE
-}
 
 export function phaseFor(progress: number): JobPhase {
   if (progress >= CLASSIFYING_AT) return 'classifying'
@@ -346,10 +322,8 @@ export function phaseFor(progress: number): JobPhase {
 export const UNTAGGED_REASON = {
   classifierFailed:
     'Topic classification failed while this worksheet was processed, so no topics were assigned.',
-  browserPending:
-    'These questions are not sorted into topics yet. The model that sorts them cannot run on our server, so it runs in your browser instead, on this screen.',
-  workerQueued:
-    'These questions are not sorted into topics yet. The model that sorts them cannot run on our server, so they are queued for the machine that runs it. Sorting them here instead keeps them on your own machine, and is quicker.',
+  sortPending:
+    'These questions are not sorted into topics yet. Sort them from here and accuracy by topic fills in.',
 } as const
 
 type UntaggedReason = (typeof UNTAGGED_REASON)[keyof typeof UNTAGGED_REASON]
@@ -385,7 +359,7 @@ export async function applyPermanentFailure(db: Db, job: FailedJob) {
   }
 
   if (job.stage === 'classify') {
-    await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.browserPending)
+    await recordUntagged(db, job.worksheetId, UNTAGGED_REASON.sortPending)
     return
   }
 

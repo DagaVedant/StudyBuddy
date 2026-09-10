@@ -4,10 +4,8 @@ import {redirect} from 'next/navigation'
 import {PageHead} from '@/components/page-head'
 
 import {auth} from '@/auth'
-import {resolveProvider} from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
 import {topics} from '@/lib/schema'
-import {workerStatus} from '@/lib/queue'
 import {countReviewQueue, getDueCards} from '@/lib/review'
 
 import ReviewSession from './review-client'
@@ -45,18 +43,10 @@ export default async function ReviewPage({
   let topicId = null
   if (topic) topicId = topic.id
 
-  const [queue, waiting, resolved] = await Promise.all([
+  const [queue, waiting] = await Promise.all([
     getDueCards(db, session.user.id, SITTING, new Date(), topicId),
     countReviewQueue(db, session.user.id, new Date(), topicId),
-    resolveProvider(db, session.user.id),
   ])
-
-  let writerOffline = false
-
-  if (resolved.executor === 'operator_gpu') {
-    const worker = await workerStatus(db)
-    if (!worker.online) writerOffline = true
-  }
 
   let heading = 'Nothing due today'
 
@@ -97,11 +87,7 @@ export default async function ReviewPage({
         </p>
       )}
 
-      <ReviewSession
-        items={queue}
-        topicName={topicName}
-        writerOffline={writerOffline}
-      />
+      <ReviewSession items={queue} topicName={topicName} />
     </main>
   )
 }

@@ -3,16 +3,13 @@ import {redirect} from 'next/navigation'
 import {PageHead} from '@/components/page-head'
 
 import {auth} from '@/auth'
-import {appBaseUrl} from '@/lib/api'
 import {
-  browserTierEnabled,
   cloudExtractionEnabled,
   getCredentialSummary,
   getTrialState,
   operatorCloudEnabled,
 } from '@/lib/ai/resolve'
 import {db} from '@/lib/db'
-import {workerStatus} from '@/lib/queue'
 
 import SettingsClient, {DeleteAccount} from './settings-client'
 
@@ -24,10 +21,9 @@ export default async function SettingsPage() {
 
   const userId = session.user.id
 
-  const [credentials, trial, worker] = await Promise.all([
+  const [credentials, trial] = await Promise.all([
     getCredentialSummary(db, userId),
     getTrialState(db, userId),
-    workerStatus(db),
   ])
 
   const listed = []
@@ -36,7 +32,6 @@ export default async function SettingsPage() {
     listed.push({
       provider: row.provider,
       keyLast4: row.keyLast4,
-      ollamaBaseUrl: row.ollamaBaseUrl,
       visionModelName: row.visionModelName,
       verified: row.verifiedAt !== null,
     })
@@ -50,15 +45,12 @@ export default async function SettingsPage() {
 
       <SettingsClient
         showCloud={cloudExtractionEnabled()}
-        showOllama={browserTierEnabled()}
         trialOnCloud={operatorCloudEnabled()}
         credentials={listed}
         trial={{
           worksheetsRemaining: trial.worksheetsRemaining,
           explanationsRemaining: trial.explanationsRemaining,
         }}
-        workerOnline={worker.online}
-        appUrl={appBaseUrl()}
       />
 
       <section aria-labelledby="profile-heading" className="mt-8">

@@ -635,10 +635,6 @@ async function lessonFor(db: Db, topicId: string, userId: string | null) {
   }
 }
 
-export async function getOwnLesson(db: Db, topicId: string, userId: string) {
-  return lessonFor(db, topicId, userId)
-}
-
 export async function getLesson(db: Db, topicId: string, userId: string | null) {
   const canonical = await lessonFor(db, topicId, null)
   if (canonical) return canonical

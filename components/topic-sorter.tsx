@@ -3,20 +3,11 @@
 import {useRef, useState} from 'react'
 import {useRouter} from 'next/navigation'
 
-import {OllamaProvider} from '@/lib/ai/ollama'
 import {embedInBrowser} from '@/lib/client/ingest'
-import {explainOllamaFailure} from '@/lib/client/http'
-import {type AIProvider, type TopicCandidate, validated} from '@/lib/ai/types'
 
 type SortableWorksheet = {
   id: string
   title: string
-}
-
-type OllamaSettings = {
-  baseUrl: string
-  visionModel: string
-  textModel: string
 }
 
 type PendingResponse = {
@@ -24,15 +15,6 @@ type PendingResponse = {
   executor: string
   remaining: number
   questions: {id: string; promptText: string}[]
-  ollama: OllamaSettings | null
-}
-
-type ShortlistResponse = {
-  batch: {
-    questionId: string
-    promptText: string
-    candidates: TopicCandidate[]
-  }[]
 }
 
 type AppliedResponse = {
@@ -76,36 +58,6 @@ async function send(worksheetId: string, body: unknown) {
   return response.json()
 }
 
-async function pickHere(
-  worksheetId: string,
-  provider: AIProvider,
-  items: {questionId: string; embedding: number[]}[],
-) {
-  const shortlist = (await send(worksheetId, {action: 'shortlist', items})) as ShortlistResponse
-
-  let results = []
-
-  for (let entry of shortlist.batch) {
-    try {
-      const classification = await provider.classifyTopic(entry.promptText, entry.candidates)
-
-      results.push({
-        questionId: entry.questionId,
-        classification,
-        candidates: entry.candidates,
-      })
-    } catch (error) {
-      console.warn('[tier-c] question ' + entry.questionId + ' could not be sorted:', error)
-    }
-  }
-
-  if (results.length === 0) {
-    return {applied: 0, done: false}
-  }
-
-  return (await send(worksheetId, {action: 'apply', results})) as AppliedResponse
-}
-
 export function TopicSorter({
   worksheets,
   label,
@@ -120,25 +72,16 @@ export function TopicSorter({
   const [sortedCount, setSortedCount] = useState(0)
 
   const running = useRef(false)
-  const ollamaBaseUrl = useRef('http://localhost:11434')
   const router = useRouter()
 
   async function run() {
     let totalPending = 0
-    let runsHere = false
-    let onGpu = false
-    let ollama: OllamaSettings | null = null
 
     for (let worksheet of worksheets) {
       const first = await pending(worksheet.id)
 
       if (!first.supported) throw new Error(NO_PROVIDER)
 
-      runsHere = first.executor === 'browser'
-      onGpu = first.executor !== 'browser' && first.executor !== 'server'
-      ollama = first.ollama
-
-      if (ollama) ollamaBaseUrl.current = ollama.baseUrl
       totalPending = totalPending + first.remaining
     }
 
@@ -147,31 +90,6 @@ export function TopicSorter({
       setPhase('done')
       router.refresh()
       return
-    }
-
-    if (onGpu) {
-      for (let worksheet of worksheets) {
-        await send(worksheet.id, {items: []})
-      }
-
-      setPhase('queued')
-      router.refresh()
-      return
-    }
-
-    let provider: AIProvider | null = null
-
-    if (runsHere) {
-      if (!ollama) throw new Error(NO_PROVIDER)
-
-      provider = validated(
-        new OllamaProvider({
-          baseUrl: ollama.baseUrl,
-          visionModel: ollama.visionModel,
-          textModel: ollama.textModel,
-          executionSite: 'browser',
-        }),
-      )
     }
 
     setPhase('sorting')
@@ -203,12 +121,7 @@ export function TopicSorter({
           })
         }
 
-        let applied
-        if (provider) {
-          applied = await pickHere(worksheet.id, provider, items)
-        } else {
-          applied = (await send(worksheet.id, {items})) as AppliedResponse
-        }
+        const applied = (await send(worksheet.id, {items})) as AppliedResponse
 
         sorted = sorted + applied.applied
 
@@ -241,7 +154,7 @@ export function TopicSorter({
     run()
       .catch((error: unknown) => {
         setPhase('error')
-        setMessage(explainOllamaFailure(error, ollamaBaseUrl.current))
+        setMessage((error as Error).message)
       })
       .finally(() => {
         running.current = false
@@ -296,20 +209,11 @@ export function TopicSorter({
           {label}
         </button>
         <p className="hint">
-          Runs here rather than on our servers. The first run downloads a 23MB sorting
-          model, which your browser then keeps. Safe to leave: it picks up where it
-          stopped.
+          The matching runs here rather than on our servers. The first run downloads a
+          23MB sorting model, which your browser then keeps. Safe to leave: it picks up
+          where it stopped.
         </p>
       </div>
-    )
-  }
-
-  if (phase === 'queued') {
-    return (
-      <p role="status" aria-live="polite" className="hint text-pretty">
-        Queued for the GPU that sorts these. Safe to close: the topics appear once it
-        has worked through them.
-      </p>
     )
   }
 

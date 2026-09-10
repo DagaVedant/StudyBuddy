@@ -49,52 +49,12 @@ function minutesSince(start: number): string {
   return minutes + ' ' + noun
 }
 
-const EXPLAIN_DEADLINE_MS = 3 * 60000
-const EXPLAIN_FIRST_WAIT_MS = 1000
-const EXPLAIN_MAX_WAIT_MS = 15000
-const EXPLAIN_BACKOFF = 1.6
-
-const WRITER_OFFLINE =
-  'The machine that writes these is not running right now, so this one has not ' +
-  'started. Your request is saved and the explanation appears here once it is back.'
-
-const WRITER_OFFLINE_AHEAD =
-  'The machine that writes these is offline right now. Asking queues the ' +
-  'explanation rather than writing it, and it appears here once it is back.'
-
-const WRITER_SLOW =
-  'This one is taking longer than usual. It is still queued, and it appears here ' +
-  'once it is written.'
-
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(signal.reason)
-      return
-    }
-
-    const onAbort = () => {
-      clearTimeout(timer)
-      reject(signal.reason)
-    }
-
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
-
-    signal.addEventListener('abort', onAbort, {once: true})
-  })
-}
-
 export default function ReviewSession({
   items,
   topicName,
-  writerOffline = false,
 }: {
   items: ReviewItem[]
   topicName?: string | null
-  writerOffline?: boolean
 }) {
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
@@ -122,43 +82,6 @@ export default function ReviewSession({
     setRevealed(false)
   }
 
-  async function waitForExplanation(
-    questionId: string,
-    signal: AbortSignal,
-  ): Promise<{text: string} | {waiting: string}> {
-    const deadline = Date.now() + EXPLAIN_DEADLINE_MS
-    let wait = EXPLAIN_FIRST_WAIT_MS
-
-    while (Date.now() < deadline) {
-      await sleep(Math.min(wait, deadline - Date.now()), signal)
-      wait = Math.min(wait * EXPLAIN_BACKOFF, EXPLAIN_MAX_WAIT_MS)
-
-      const response = await fetchJson(
-        '/api/explain?questionId=' + encodeURIComponent(questionId),
-        {signal},
-      )
-      const body = (await response.json()) as {
-        status?: 'ready' | 'queued' | 'none'
-        explanation?: {body: string}
-        writerOnline?: boolean
-      }
-
-      if (body.status === 'ready' && body.explanation) {
-        return {text: body.explanation.body}
-      }
-
-      if (body.status === 'none') {
-        throw new Error('That explanation did not come through. Try again.')
-      }
-
-      if (body.status === 'queued' && body.writerOnline === false) {
-        return {waiting: WRITER_OFFLINE}
-      }
-    }
-
-    return {waiting: WRITER_SLOW}
-  }
-
   async function explain(entry: ReviewItem) {
     const previous = explainAbort.current
     if (previous) previous.abort()
@@ -179,32 +102,22 @@ export default function ReviewSession({
       })
       const body = (await response.json()) as {
         explanation?: {body: string}
-        status?: string
         error?: string
-        writerOnline?: boolean
       }
-      if (!response.ok && response.status !== 202) {
+      if (!response.ok) {
         let message = 'Could not generate that.'
         if (body.error) message = body.error
 
         throw new Error(message)
       }
 
-      if (body.status === 'queued' && body.writerOnline === false) {
-        setExplainNotice(WRITER_OFFLINE)
-        return
+      if (!body.explanation) {
+        throw new Error('That explanation did not come through. Try again.')
       }
 
-      const result = body.explanation
-        ? {text: body.explanation.body}
-        : await waitForExplanation(entry.questionId, controller.signal)
+      const text = body.explanation.body
 
-      if ('waiting' in result) {
-        setExplainNotice(result.waiting)
-        return
-      }
-
-      setGenerated((current) => ({...current, [entry.questionId]: result.text}))
+      setGenerated((current) => ({...current, [entry.questionId]: text}))
     } catch (cause) {
       if (controller.signal.aborted) return
       setExplainError((cause as Error).message)
@@ -400,10 +313,8 @@ export default function ReviewSession({
 
   let explainLabel = 'Explain this'
   if (explaining) explainLabel = 'Writing…'
-  else if (writerOffline) explainLabel = 'Ask for one'
 
   let explainHint = 'Generated once, then saved. It uses your answer to target the mistake.'
-  if (writerOffline) explainHint = WRITER_OFFLINE_AHEAD
   if (explainNotice !== null) explainHint = explainNotice
   if (explainError !== null) explainHint = explainError
 

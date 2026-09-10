@@ -321,38 +321,6 @@ function parsePractice(raw: unknown): GeneratedQuestion[] {
   return kept
 }
 
-export type ReviewCandidate = {
-  number: number
-  prompt_text: string
-  choices: {label: string; text: string}[]
-}
-
-const questionReviewSchema = z.object({
-  number: z.coerce
-    .number()
-    .catch(0)
-    .transform((value) => (Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0)),
-  intact: z.boolean(),
-  reason: z.string().max(400).nullable().default(null),
-})
-
-const reviewResultSchema = z.object({
-  verdicts: z.array(questionReviewSchema).max(100).default([]),
-})
-
-export type QuestionReview = z.infer<typeof questionReviewSchema>
-
-function parseReview(raw: unknown): QuestionReview[] {
-  const parsed = reviewResultSchema.safeParse(raw)
-
-  if (!parsed.success) {
-    console.warn('[ai] could not read the review reply, treating as no opinion')
-    return []
-  }
-
-  return parsed.data.verdicts
-}
-
 export type PageInput = {
   image: Uint8Array
   mediaType: string
@@ -432,18 +400,6 @@ export type AIProvider = ProviderIdentity & {
   answerBatch(inputs: BatchAnswerInput[]): Promise<BatchedSolution[]>
   teachTopic(input: LessonInput): Promise<Lesson>
   writePractice(input: PracticeInput): Promise<GeneratedQuestion[]>
-}
-
-export type RawQuestionReviewer = {
-  reviewQuestions(candidates: ReviewCandidate[]): Promise<unknown>
-}
-
-export type QuestionReviewer = {
-  reviewQuestions(candidates: ReviewCandidate[]): Promise<QuestionReview[]>
-}
-
-function canReview<T extends object>(provider: T): provider is T & QuestionReviewer {
-  return typeof (provider as Partial<QuestionReviewer>).reviewQuestions === 'function'
 }
 
 export class ProviderUnavailable extends Error {
@@ -640,11 +596,7 @@ export function parseModelJson(text: string): LenientParse {
   }
 }
 
-type Validated<T> = T extends {reviewQuestions: unknown}
-  ? AIProvider & QuestionReviewer
-  : AIProvider
-
-export function validated<T extends RawAIProvider>(provider: T): Validated<T> {
+export function validated(provider: RawAIProvider): AIProvider {
   const wrapped: AIProvider = {
     name: provider.name,
     model: provider.model,
@@ -737,17 +689,5 @@ export function validated<T extends RawAIProvider>(provider: T): Validated<T> {
     },
   }
 
-  if (canReview(provider)) {
-    const reviewing: AIProvider & QuestionReviewer = {
-      ...wrapped,
-
-      async reviewQuestions(candidates) {
-        return parseReview(await provider.reviewQuestions(candidates))
-      },
-    }
-
-    return reviewing as Validated<T>
-  }
-
-  return wrapped as Validated<T>
+  return wrapped
 }

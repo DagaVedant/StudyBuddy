@@ -399,7 +399,7 @@ async function shortlistTopics(
   return shortlistByVector(db, vector, {subjectHint})
 }
 
-function settledByEmbedding(candidates: TopicCandidate[]) {
+export function settledByEmbedding(candidates: TopicCandidate[]) {
   if (candidates.length === 0) return null
 
   const first = candidates[0]

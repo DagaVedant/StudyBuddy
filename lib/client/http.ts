@@ -58,28 +58,6 @@ export function untilCancelled<T>(work: Promise<T>, signal?: AbortSignal) {
   })
 }
 
-export function explainOllamaFailure(cause: unknown, baseUrl: string) {
-  let message = String(cause)
-  if (cause instanceof Error) message = cause.message
-
-  if (!/failed to fetch|networkerror|load failed|network request failed/i.test(message)) {
-    return message
-  }
-
-  let origin = 'this site'
-  if (typeof window !== 'undefined') origin = window.location.origin
-
-  return (
-    'Your browser could not reach Ollama at ' +
-    baseUrl +
-    '. Either it is not running, or it has not been told to accept requests from ' +
-    origin +
-    ': set OLLAMA_ORIGINS to ' +
-    origin +
-    ' and restart Ollama. Settings has the exact command and a connection test.'
-  )
-}
-
 export type MarkupOutcome = 'correct' | 'unsure' | 'wrong'
 
 export type MarkupDraft = {

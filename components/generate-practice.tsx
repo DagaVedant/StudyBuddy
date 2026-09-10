@@ -3,18 +3,11 @@
 import {useRouter} from 'next/navigation'
 import {useState} from 'react'
 
-import {OllamaProvider} from '@/lib/ai/ollama'
-import {explainOllamaFailure, fetchJson} from '@/lib/client/http'
-import {type PracticeInput, validated} from '@/lib/ai/types'
+import {fetchJson} from '@/lib/client/http'
 
 type PracticeResponse = {
   error?: string
   created?: number
-  runsHere?: boolean
-  input?: PracticeInput
-  ollama?: {baseUrl: string; textModel: string}
-  status?: string
-  writerOnline?: boolean
 }
 
 async function readBody(response: Response) {
@@ -30,43 +23,6 @@ export function GeneratePracticeButton({topicId}: {topicId: string}) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
-  async function writeHere(input: PracticeInput, ollama: {baseUrl: string; textModel: string}) {
-    setMessage('Your machine is writing them. Keep this tab open.')
-
-    const provider = validated(
-      new OllamaProvider({
-        baseUrl: ollama.baseUrl,
-        visionModel: ollama.textModel,
-        textModel: ollama.textModel,
-        executionSite: 'browser',
-      }),
-    )
-
-    let questions
-    try {
-      questions = await provider.writePractice(input)
-    } catch (cause) {
-      throw new Error(explainOllamaFailure(cause, ollama.baseUrl))
-    }
-
-    const stored = await fetchJson('/api/topics/' + topicId + '/practice', {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({questions, count: input.count, model: ollama.textModel}),
-    })
-
-    const body = await readBody(stored)
-
-    if (!stored.ok) {
-      let problem = body.error
-      if (!problem) problem = 'Could not keep those practice questions.'
-      throw new Error(problem)
-    }
-
-    if (!body.created) return 0
-    return body.created
-  }
-
   async function generate() {
     setBusy(true)
     setMessage(null)
@@ -81,25 +37,8 @@ export function GeneratePracticeButton({topicId}: {topicId: string}) {
         throw new Error(problem)
       }
 
-      if (body.status === 'queued') {
-        if (body.writerOnline === false) {
-          setMessage(
-            'The GPU that writes these is not running right now. This is saved, and they land in your review queue once it is back.',
-          )
-        } else {
-          setMessage(
-            'Queued for the GPU that writes these. They land in your review queue once they are written.',
-          )
-        }
-        return
-      }
-
       let created = 0
       if (body.created) created = body.created
-
-      if (body.runsHere && body.input && body.ollama) {
-        created = await writeHere(body.input, body.ollama)
-      }
 
       let word = 'questions'
       if (created === 1) word = 'question'

@@ -14,134 +14,53 @@ import {
 type Credential = {
   provider: string
   keyLast4: string | null
-  ollamaBaseUrl: string | null
   visionModelName: string | null
   verified: boolean
 }
 
 type Props = {
   showCloud: boolean
-  showOllama: boolean
   trialOnCloud: boolean
   credentials: Credential[]
   trial: {worksheetsRemaining: number; explanationsRemaining: number}
-  workerOnline: boolean
-  appUrl: string
-}
-
-type ProbeResult =
-  | {ok: true; models: string[]; hasVisionModel: boolean}
-  | {ok: false; message: string}
-
-const OLLAMA_VISION_MODEL = 'qwen2.5vl:7b'
-
-async function probeOllama(baseUrl: string, appUrl: string): Promise<ProbeResult> {
-  try {
-    const {OllamaProvider} = await import('@/lib/ai/ollama')
-    const models = await new OllamaProvider({
-      baseUrl,
-      visionModel: OLLAMA_VISION_MODEL,
-      textModel: OLLAMA_VISION_MODEL,
-    }).listModels()
-
-    const family = OLLAMA_VISION_MODEL.split(':')[0]
-
-    let hasVisionModel = false
-    for (const name of models) {
-      if (name.startsWith(family)) hasVisionModel = true
-    }
-
-    return {ok: true, models, hasVisionModel}
-  } catch (cause) {
-    const reason = (cause as Error).message
-
-    return {
-      ok: false,
-      message:
-        'Could not reach Ollama at ' +
-        baseUrl +
-        ' (' +
-        reason +
-        '). Check it is running, then check it is allowed to talk to this site: ' +
-        'OLLAMA_ORIGINS must include ' +
-        appUrl +
-        ', and Ollama has to be restarted after setting it.',
-    }
-  }
-}
-
-function probeMessage(probe: ProbeResult): string {
-  if (!probe.ok) return probe.message
-
-  if (!probe.hasVisionModel) {
-    return (
-      'Connected, but ' +
-      OLLAMA_VISION_MODEL +
-      ' is not pulled. Run "ollama pull ' +
-      OLLAMA_VISION_MODEL +
-      '" first: it is the model that reads your pages.'
-    )
-  }
-
-  const count = probe.models.length
-
-  let noun = 'models'
-  if (count === 1) noun = 'model'
-
-  return 'Connected. ' + count + ' ' + noun + ' available.'
 }
 
 export default function SettingsClient({
   credentials,
   trial,
-  workerOnline,
-  appUrl,
   showCloud,
-  showOllama,
   trialOnCloud,
 }: Props) {
-  let canConnect = false
-  if (showCloud || showOllama) canConnect = true
-
   let afterTrial =
     'When it is used up nothing changes except the reading: you add questions yourself.'
-  if (canConnect) {
+  if (showCloud) {
     afterTrial =
       'When it is used up nothing changes except the reading: you add questions ' +
       'yourself, or connect your own provider below and there is no cap at all.'
   }
 
   let whereTrialRuns =
-    'Trial uploads are processed on hardware we operate. Pages are sent there, ' +
-    'kept only while the job runs, and never used for training.'
+    'Nothing is set up to read trial uploads on this deployment right now, so ' +
+    'they are not read for you. You can still add questions by hand.'
   if (trialOnCloud) {
     whereTrialRuns =
       'Trial uploads are read by a hosted model on its provider\'s free tier. Pages ' +
       'are kept only while the job runs. That provider may use them to improve its ' +
       'own models.'
-    if (canConnect) whereTrialRuns = whereTrialRuns + ' Your own provider below does not.'
-  }
-
-  let offlineNote = ''
-  if (!trialOnCloud && !workerOnline) {
-    offlineNote =
-      ' That machine is offline right now. Uploads will queue and start when it comes back.'
+    if (showCloud) whereTrialRuns = whereTrialRuns + ' Your own provider below does not.'
   }
 
   const router = useRouter()
   const cloudId = useId()
   const providerId = useId()
-  const ollamaId = useId()
   const modelId = useId()
 
   const [provider, setProvider] = useState<CloudProvider>('anthropic')
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('')
-  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [probe, setProbe] = useState<ProbeResult | null>(null)
 
   const [justSaved, setJustSaved] = useState<Credential | null>(null)
 
@@ -153,14 +72,6 @@ export default function SettingsClient({
         cloud = row
         break
       }
-    }
-  }
-
-  let ollama = null
-  for (const row of credentials) {
-    if (row.provider === 'ollama') {
-      ollama = row
-      break
     }
   }
 
@@ -202,7 +113,6 @@ export default function SettingsClient({
         setJustSaved({
           provider,
           keyLast4: result.last4,
-          ollamaBaseUrl: null,
           visionModelName: model || null,
           verified: verified,
         })
@@ -277,7 +187,6 @@ export default function SettingsClient({
         </p>
         <p className="hint text-pretty">
           {whereTrialRuns}
-          {offlineNote}
         </p>
       </section>
 
@@ -388,113 +297,6 @@ export default function SettingsClient({
       </section>
       )}
 
-      {showOllama && (
-      <section aria-labelledby="ollama-heading">
-        <h2 id="ollama-heading" className="mb-4 border-b border-fg/20 pb-2 text-sm font-medium">
-          Your own GPU (Ollama)
-        </h2>
-        <p className="hint text-pretty">
-          Free and private: your pages never leave your machine. Our server
-          cannot reach your computer, so the reading runs in this browser
-          instead. That means the tab has to stay open while a worksheet is
-          being read, and it picks up from the last finished page if you close
-          it.
-        </p>
-
-        {ollama ? (
-          <div className="mt-3 flex items-center gap-3">
-            <span className="min-w-0 flex-1 truncate rounded-xl px-3 py-2 text-sm">
-              {ollama.ollamaBaseUrl} · {ollama.visionModelName}
-            </span>
-            <button
-              type="button"
-              className="rounded px-2 py-1 text-sm text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              disabled={busy}
-              onClick={() => void remove('ollama')}
-            >
-              Remove
-            </button>
-          </div>
-        ) : (
-          <div className="mt-3 space-y-3">
-            <div>
-              <label className="label" htmlFor={ollamaId}>
-                Ollama address
-              </label>
-              <input
-                id={ollamaId}
-                type="text"
-                autoComplete="off"
-                spellCheck={false}
-                className="field"
-                value={ollamaUrl}
-                onChange={(event) => setOllamaUrl(event.target.value)}
-              />
-              <p className="hint">Must be localhost.</p>
-            </div>
-
-            <details className="text-sm">
-              <summary className="cursor-pointer text-muted">
-                Ollama needs permission to talk to this site
-              </summary>
-              <p className="hint text-pretty">
-                Set <code>OLLAMA_ORIGINS</code> to <code>{appUrl}</code> and restart
-                Ollama. On Windows:
-              </p>
-              <pre className="mt-2 overflow-x-auto rounded-lg p-2 text-xs">
-                <code>{'setx OLLAMA_ORIGINS "' + appUrl + '"'}</code>
-              </pre>
-            </details>
-
-            {probe && (
-              <p
-                role="status"
-                className={
-                  probe.ok
-                    ? 'rounded-xl bg-surface px-3 py-2 text-sm'
-                    : 'rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger'
-                }
-              >
-                {probeMessage(probe)}
-              </p>
-            )}
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                className="btn btn-primary sm:w-auto sm:px-6"
-                disabled={busy}
-                onClick={() =>
-                  void save({
-                    provider: 'ollama',
-                    baseUrl: ollamaUrl,
-                    visionModel: OLLAMA_VISION_MODEL,
-                    textModel: OLLAMA_VISION_MODEL,
-                  })
-                }
-              >
-                {busy ? 'Saving…' : 'Connect Ollama'}
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary sm:w-auto sm:px-6"
-                disabled={busy}
-                onClick={() => {
-                  setBusy(true)
-                  setProbe(null)
-                  void probeOllama(ollamaUrl, appUrl)
-                    .then(setProbe)
-                    .finally(() => setBusy(false))
-                }}
-              >
-                Test connection
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
-      )}
     </div>
   )
 }

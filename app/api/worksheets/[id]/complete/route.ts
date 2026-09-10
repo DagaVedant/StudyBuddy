@@ -1,9 +1,9 @@
 import {after, NextResponse} from 'next/server'
 import {eq} from 'drizzle-orm'
 import {worksheets} from '@/lib/schema'
-import {claimWorksheetForCompletion, enqueueJob, guardWorksheet, inFlightExtractCount, MAX_IN_FLIGHT_EXTRACTS, transitionWorksheet, workerStatus} from '@/lib/queue'
+import {claimWorksheetForCompletion, enqueueJob, guardWorksheet, inFlightExtractCount, MAX_IN_FLIGHT_EXTRACTS, transitionWorksheet} from '@/lib/queue'
 import {guardRateLimit, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
-import {cloudExtractionEnabled, consumeTrial, resolveProvider, type Tier, trialExtractionsToday} from '@/lib/ai/resolve'
+import {consumeTrial, resolveProvider, type Tier, trialExtractionsToday} from '@/lib/ai/resolve'
 import {trialDailyCeiling} from '@/lib/ai/types'
 import {db} from '@/lib/db'
 import {applyCachedSample, findMatchingSample} from '@/lib/samples'
@@ -106,122 +106,24 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
       return alreadyCompleted(worksheetId)
     }
 
+    let message =
+      'Your free reads are used up. Nothing else changes: StudyBuddy stays free. ' +
+      'Add this one\'s questions by hand, or connect your own AI provider in ' +
+      'settings and upload it again.'
+
+    if (tier === 'trial') {
+      message =
+        'Nothing is set up to read worksheets on this deployment right now, so this ' +
+        'one was not counted against your trial. Add its questions by hand, or ' +
+        'connect your own AI provider in settings and upload it again.'
+    }
+
     return NextResponse.json({
       ok: true,
       tier,
       mode: 'manual',
-      message:
-        'Your free reads are used up. Nothing else changes: StudyBuddy stays free. ' +
-        'Add this one\'s questions by hand, or connect your own AI provider in ' +
-        'settings and upload it again.',
+      message: message,
       next: '/worksheets/' + worksheetId + '/edit',
-    })
-  }
-
-  if (executor === 'operator_gpu') {
-    if (
-      guard.role !== 'admin' &&
-      (await inFlightExtractCount(db, guard.userId)) >= MAX_IN_FLIGHT_EXTRACTS
-    ) {
-      if (!(await claimForCompletion(worksheetId, 'awaiting_review', 'free'))) {
-        return alreadyCompleted(worksheetId)
-      }
-
-      return NextResponse.json({
-        ok: true,
-        tier: 'free',
-        mode: 'manual',
-        message:
-          'Another worksheet of yours is still being read. This one was not counted ' +
-          'against your trial: add its questions here, or come back once the first finishes.',
-        next: '/worksheets/' + worksheetId + '/edit',
-      })
-    }
-
-    if (guard.role !== 'admin' && tier === 'trial') {
-      const ceiling = trialDailyCeiling()
-
-      if ((await trialExtractionsToday(db)) >= ceiling) {
-        if (!(await claimForCompletion(worksheetId, 'awaiting_review', 'free'))) {
-          return alreadyCompleted(worksheetId)
-        }
-
-        return NextResponse.json({
-          ok: true,
-          tier: 'free',
-          mode: 'manual',
-          message:
-            'The free trial has hit its limit for today, so this one was not counted ' +
-            'against yours. Add its questions here, or come back tomorrow.',
-          next: '/worksheets/' + worksheetId + '/edit',
-        })
-      }
-    }
-
-    if (!(await claimForCompletion(worksheetId, 'queued', tier))) {
-      return alreadyCompleted(worksheetId)
-    }
-
-    const charge =
-      guard.role === 'admin' || tier !== 'trial'
-        ? ({ok: true, remaining: Number.POSITIVE_INFINITY} as const)
-        : await consumeTrial(db, guard.userId, 'worksheets', 1)
-
-    if (!charge.ok) {
-      await transitionWorksheet(db, worksheetId, ['queued'], {
-        status: 'awaiting_review',
-        tierUsed: 'free',
-      })
-
-      return NextResponse.json({
-        ok: true,
-        tier: 'free',
-        mode: 'manual',
-        message: charge.reason,
-        next: '/worksheets/' + worksheetId + '/edit',
-      })
-    }
-
-    await enqueueJob(db, {
-      worksheetId,
-      userId: guard.userId,
-      stage: 'extract',
-      executor: 'operator_gpu',
-      priority: guard.role === 'admin' ? 'low' : 'normal',
-    })
-
-    const worker = await workerStatus(db)
-
-    return NextResponse.json({
-      ok: true,
-      tier,
-      mode: 'queued',
-      workerOnline: worker.online,
-      trialWorksheetsRemaining: Number.isFinite(charge.remaining)
-        ? charge.remaining
-        : null,
-      next: '/worksheets/' + worksheetId + '/status',
-    })
-  }
-
-  if (executor === 'browser') {
-    if (!(await claimForCompletion(worksheetId, 'queued', tier))) {
-      return alreadyCompleted(worksheetId)
-    }
-
-    await enqueueJob(db, {
-      worksheetId,
-      userId: guard.userId,
-      stage: 'extract',
-      executor: 'browser',
-      priority: guard.role === 'admin' ? 'low' : 'normal',
-    })
-
-    return NextResponse.json({
-      ok: true,
-      tier,
-      mode: 'browser',
-      next: '/worksheets/' + worksheetId + '/status',
     })
   }
 
@@ -289,24 +191,19 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
     })
   }
 
-  let onServer = cloudExtractionEnabled()
-  if (tier === 'trial') onServer = true
-
   await enqueueJob(db, {
     worksheetId,
     userId: guard.userId,
     stage: 'extract',
-    executor: onServer ? 'server' : 'operator_gpu',
+    executor: 'server',
     priority: guard.role === 'admin' ? 'low' : 'normal',
   })
 
-  if (onServer) {
-    after(() =>
-      drainServerQueue(db).catch((error: unknown) => {
-        console.error('[server-job] drain failed:', (error as Error).message)
-      }),
-    )
-  }
+  after(() =>
+    drainServerQueue(db).catch((error: unknown) => {
+      console.error('[server-job] drain failed:', (error as Error).message)
+    }),
+  )
 
   return NextResponse.json({
     ok: true,

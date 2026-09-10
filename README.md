@@ -13,8 +13,8 @@ get back a record of what you actually know.
 4. The dashboard shows accuracy by topic, and a review queue schedules the ones
    you got wrong.
 
-Three worksheets are free. After that you add your own API key in settings, or
-point it at an Ollama instance on your own machine.
+Three worksheets are read for free. After that it stays free: you add questions
+yourself, or add your own API key in settings and there is no limit.
 
 ## Running it locally
 
@@ -39,15 +39,14 @@ off rather than erroring.
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
 | `npm run check` | Typecheck, lint, and the figures quoted in this file |
-| `npm run worker` | Runs extraction on a local GPU instead of a cloud model |
 | `npm run db:studio` | Browse the database |
 
 ## Built with
 
 Next.js 16, React 19, Drizzle ORM over Postgres with pgvector, Auth.js v5,
 ts-fsrs for review scheduling, and Tailwind. Questions are extracted by
-whichever model you configure: Anthropic, OpenAI, OpenRouter, Google, or a local
-Ollama.
+OpenRouter for the free trial, or by a student's own Anthropic, OpenAI,
+OpenRouter or Google key.
 
 ## What it does not do
 

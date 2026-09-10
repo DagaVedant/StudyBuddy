@@ -5,11 +5,11 @@ import {notFound, redirect} from 'next/navigation'
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
 import {attempts, processingJobs, questions, worksheets} from '@/lib/schema'
-import {queueDepth, workerStatus} from '@/lib/queue'
+import {queueDepth} from '@/lib/queue'
 import {phaseFor} from '@/lib/worker/apply'
 import {destination, findSample} from '@/lib/upload'
 
-import {BrowserRunner, GoManualButton, SampleRunner} from './status-client'
+import {GoManualButton, SampleRunner} from './status-client'
 
 export const metadata = {title: 'Processing · StudyBuddy'}
 
@@ -76,13 +76,7 @@ export default async function StatusPage({
     .orderBy(desc(processingJobs.createdAt))
     .limit(1)
 
-  let executor: 'server' | 'browser' | 'operator_gpu' = 'operator_gpu'
-  if (job) executor = job.executor
-
-  const [worker, depth] = await Promise.all([
-    workerStatus(db),
-    queueDepth(db, executor),
-  ])
+  const depth = await queueDepth(db, 'server')
 
   let failed = worksheet.status === 'failed'
   let progress = 0
@@ -104,11 +98,6 @@ export default async function StatusPage({
   const countIsTrustworthy = !expected || found.length < expected
   const stillReading = phase === 'reading' && countIsTrustworthy
 
-  const runsHere = executor === 'browser'
-
-  let isOnline = worker.online
-  if (executor === 'server' || runsHere) isOnline = true
-
   const stalled = !job && worksheet.status === 'uploading'
 
   let progressNote: string
@@ -116,9 +105,6 @@ export default async function StatusPage({
   if (stalled) {
     progressNote =
       'This upload did not finish, so nothing is reading it. Add its questions by hand, or upload it again.'
-  } else if (!isOnline) {
-    progressNote =
-      'Queued. The processing machine is offline right now, so this will start when it comes back. Safe to close this page; the worksheet will be waiting on your dashboard.'
   } else if (stillReading) {
     let noun = 'questions'
     if (found.length === 1) noun = 'question'
@@ -173,25 +159,19 @@ export default async function StatusPage({
             />
           </div>
 
-          {runsHere ? (
-            <BrowserRunner worksheetId={id} />
-          ) : (
-            <>
-              <p aria-live="polite" className="hint text-pretty">
-                {progressNote}
-                {depth.pending > 1 && ' ' + depth.pending + ' worksheets ahead of yours.'}
-              </p>
+          <p aria-live="polite" className="hint text-pretty">
+            {progressNote}
+            {depth.pending > 1 && ' ' + depth.pending + ' worksheets ahead of yours.'}
+          </p>
 
-              <p className="hint text-pretty">
-                This page updates itself every minute. Safe to close: the
-                worksheet keeps going, and it will be on your dashboard when it
-                is done.
-              </p>
-            </>
-          )}
+          <p className="hint text-pretty">
+            This page updates itself every minute. Safe to close: the
+            worksheet keeps going, and it will be on your dashboard when it
+            is done.
+          </p>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            {(!isOnline || stalled) && <GoManualButton worksheetId={id} />}
+            {stalled && <GoManualButton worksheetId={id} />}
             <Link href="/dashboard" className="btn btn-secondary sm:w-auto sm:px-6">
               Back to dashboard
             </Link>

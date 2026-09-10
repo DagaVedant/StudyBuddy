@@ -1,11 +1,8 @@
 import Link from 'next/link'
 import {auth, signOut} from '@/auth'
-import {BrowserDerivedRunner} from '@/components/browser-runner'
 import {NavLinks} from '@/components/nav-links'
 import {Mark} from '@/components/mark'
 import {MainRegion} from '@/components/page-head'
-import {browserTierEnabled, getCredentialSummary} from '@/lib/ai/resolve'
-import {db} from '@/lib/db'
 
 async function AppTopbar() {
   const session = await auth()
@@ -46,22 +43,10 @@ async function AppTopbar() {
 }
 
 export default async function AppLayout({children}: {children: React.ReactNode}) {
-  const session = await auth()
-
-  let runsHere = false
-  if (browserTierEnabled() && session && session.user && session.user.id) {
-    const credentials = await getCredentialSummary(db, session.user.id)
-
-    for (const row of credentials) {
-      if (row.provider === 'ollama' && row.ollamaBaseUrl) runsHere = true
-    }
-  }
-
   return (
     <>
       <AppTopbar />
       <MainRegion>{children}</MainRegion>
-      {runsHere && <BrowserDerivedRunner />}
     </>
   )
 }
