@@ -1,12 +1,14 @@
 import {and, desc, eq} from 'drizzle-orm'
 import Link from 'next/link'
 import {notFound, redirect} from 'next/navigation'
+import {after} from 'next/server'
 
 import {auth} from '@/auth'
 import {db} from '@/lib/db'
 import {attempts, processingJobs, questions, worksheets} from '@/lib/schema'
 import {queueDepth} from '@/lib/queue'
 import {phaseFor} from '@/lib/worker/apply'
+import {kickDrain} from '@/lib/worker/jobs'
 import {destination, findSample} from '@/lib/upload'
 
 import {GoManualButton, SampleRunner} from './status-client'
@@ -77,6 +79,10 @@ export default async function StatusPage({
     .limit(1)
 
   const depth = await queueDepth(db, 'server')
+
+  if (depth.pending > 0 || depth.staleRunning > 0) {
+    after(() => kickDrain('status page'))
+  }
 
   let failed = worksheet.status === 'failed'
   let progress = 0

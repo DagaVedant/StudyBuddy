@@ -1,4 +1,4 @@
-import {NextResponse} from 'next/server'
+import {after, NextResponse} from 'next/server'
 
 import {applyPermanentFailure} from '@/lib/worker/apply'
 import {authenticateCron} from '@/lib/api'
@@ -16,22 +16,33 @@ export async function GET(request: Request) {
     return NextResponse.json({error: auth.message}, {status: auth.status})
   }
 
-  const reaped = await reapAbandonedJobs(db)
+  const startedAt = Date.now()
 
-  for (const abandoned of reaped) {
-    console.log(
-      '[cron] reaped abandoned ' +
-        abandoned.stage +
-        ' job ' +
-        abandoned.id +
-        ' on worksheet ' +
-        abandoned.worksheetId,
-    )
+  let kick = request.headers.get('x-drain-kick')
+  if (!kick) kick = 'cron'
 
-    await applyPermanentFailure(db, abandoned)
-  }
+  after(async () => {
+    try {
+      const reaped = await reapAbandonedJobs(db)
 
-  await drainServerQueue(db, JOBS_PER_TICK)
+      for (const abandoned of reaped) {
+        console.log(
+          '[drain] reaped abandoned ' +
+            abandoned.stage +
+            ' job ' +
+            abandoned.id +
+            ' on worksheet ' +
+            abandoned.worksheetId,
+        )
 
-  return NextResponse.json({ok: true, reaped: reaped.length})
+        await applyPermanentFailure(db, abandoned)
+      }
+
+      await drainServerQueue(db, JOBS_PER_TICK, startedAt)
+    } catch (error) {
+      console.error('[drain] failed (' + kick + '):', (error as Error).message)
+    }
+  })
+
+  return NextResponse.json({ok: true, scheduled: true, kick: kick}, {status: 202})
 }

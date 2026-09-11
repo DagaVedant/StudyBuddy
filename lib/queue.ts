@@ -206,6 +206,18 @@ export async function checkpointJob(
     .where(eq(processingJobs.id, jobId))
 }
 
+export async function yieldJob(db: Db, jobId: string) {
+  await db
+    .update(processingJobs)
+    .set({
+      status: 'pending',
+      claimedBy: null,
+      claimedAt: null,
+      attemptCount: sql`greatest(${processingJobs.attemptCount} - 1, 0)`,
+    })
+    .where(eq(processingJobs.id, jobId))
+}
+
 export async function completeJob(db: Db, jobId: string) {
   await db
     .update(processingJobs)
@@ -290,14 +302,26 @@ export async function reapAbandonedJobs(db: Db): Promise<AbandonedJob[]> {
 export type QueueDepth = {
   pending: number
   running: number
+  staleRunning: number
   oldestPendingAt: Date | null
 }
 
-export async function queueDepth(db: Db, executor: JobExecutor): Promise<QueueDepth> {
+export async function queueDepth(
+  db: Db,
+  executor: JobExecutor,
+  now: Date = new Date(),
+): Promise<QueueDepth> {
+  const staleBefore = new Date(now.getTime() - CLAIM_TTL_MS).toISOString()
+
   const [row] = await db
     .select({
       pending: sql<number>`count(*) filter (where ${processingJobs.status} = 'pending')::int`,
       running: sql<number>`count(*) filter (where ${processingJobs.status} in ('claimed','running'))::int`,
+      staleRunning: sql<number>`count(*) filter (
+        where ${processingJobs.status} in ('claimed','running')
+          and ${processingJobs.attemptCount} < ${MAX_ATTEMPTS}
+          and ${processingJobs.claimedAt} < ${staleBefore}::timestamptz
+      )::int`,
       oldest: sql<Date | null>`min(${processingJobs.createdAt}) filter (where ${processingJobs.status} = 'pending')`,
     })
     .from(processingJobs)
@@ -309,6 +333,7 @@ export async function queueDepth(db: Db, executor: JobExecutor): Promise<QueueDe
   return {
     pending: Number(row.pending),
     running: Number(row.running),
+    staleRunning: Number(row.staleRunning),
     oldestPendingAt: oldestPendingAt,
   }
 }

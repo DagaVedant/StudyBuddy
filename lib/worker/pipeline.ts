@@ -456,6 +456,7 @@ export type ExtractProgress = {
 export type ExtractOutcome = {
   pagesProcessed: number
   questionsCreated: number
+  finished: boolean
 }
 
 const QUESTIONS_PER_CALL = 25
@@ -555,6 +556,7 @@ export async function runExtraction(
   provider: AIProvider,
   job: {id: string; worksheetId: string; userId: string; checkpoint: Record<string, unknown> | null},
   onProgress?: (progress: ExtractProgress) => void,
+  deadline: number | null = null,
 ): Promise<ExtractOutcome> {
   const pages = await db
     .select()
@@ -606,7 +608,23 @@ export async function runExtraction(
 
   const groups = packPages(pending)
 
+  let groupsDone = 0
+
   for (const group of groups) {
+    if (deadline !== null && groupsDone > 0 && Date.now() > deadline) {
+      console.log(
+        '[extract] out of time on ' +
+          job.worksheetId +
+          ' after ' +
+          groupsDone +
+          ' of ' +
+          groups.length +
+          ' group(s); yielding for the next drain',
+      )
+
+      return {pagesProcessed: processed, questionsCreated: created, finished: false}
+    }
+
     const inputs = []
 
     for (const page of group) {
@@ -674,10 +692,12 @@ export async function runExtraction(
       lastPageNumber: last.pageNumber,
     })
 
+    groupsDone = groupsDone + 1
+
     if (onProgress) onProgress({page: last.pageNumber, total: pages.length})
   }
 
-  return {pagesProcessed: processed, questionsCreated: created}
+  return {pagesProcessed: processed, questionsCreated: created, finished: true}
 }
 
 function mergeSplitQuestions(extracted: ExtractedQuestion[]) {

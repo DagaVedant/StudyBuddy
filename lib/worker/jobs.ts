@@ -9,15 +9,58 @@ import {
   completeJob,
   enqueueJob,
   failJob,
+  queueDepth,
   transitionWorksheet,
+  yieldJob,
 } from '@/lib/queue'
 import {deriveSolutions} from '@/lib/worker/solutions'
 import {classifyWorksheet, EmbeddingUnavailableError} from '@/lib/taxonomy'
+import {appBaseUrl} from '@/lib/api'
 import {type AIProvider} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 import {resolveProvider} from '@/lib/ai/resolve'
 
 const SOLVE_BATCH = 25
+
+export const DRAIN_BUDGET_MS = 200000
+
+export const DRAIN_PATH = '/api/cron/drain-server-queue'
+
+export async function kickDrain(reason: string) {
+  const secret = process.env.CRON_SECRET
+
+  if (!secret) {
+    console.warn(
+      '[server-job] cannot kick the drain (' +
+        reason +
+        '): CRON_SECRET is not set, so the queue waits for the next upload or the daily cron',
+    )
+    return false
+  }
+
+  try {
+    const response = await fetch(appBaseUrl() + DRAIN_PATH, {
+      method: 'GET',
+      headers: {authorization: 'Bearer ' + secret, 'x-drain-kick': reason},
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) {
+      console.error(
+        '[server-job] drain kick (' + reason + ') was refused: HTTP ' + response.status,
+      )
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error(
+      '[server-job] drain kick (' + reason + ') failed:',
+      (error as Error).message,
+    )
+    return false
+  }
+}
 
 async function runSolvingJob(
   db: Db,
@@ -68,7 +111,7 @@ async function runSolvingJob(
   }
 }
 
-async function runOneServerJob(db: Db, job: ClaimedJob) {
+async function runOneServerJob(db: Db, job: ClaimedJob, deadline: number) {
   const resolved = await resolveProvider(db, job.userId)
   const provider = resolved.provider
 
@@ -99,7 +142,12 @@ async function runOneServerJob(db: Db, job: ClaimedJob) {
   }
 
   try {
-    await runExtraction(db, provider, job)
+    const outcome = await runExtraction(db, provider, job, undefined, deadline)
+
+    if (!outcome.finished) {
+      await yieldJob(db, job.id)
+      return
+    }
 
     await runRepairPasses(db, job.worksheetId)
 
@@ -166,8 +214,14 @@ async function runOneServerJob(db: Db, job: ClaimedJob) {
   }
 }
 
-export async function drainServerQueue(db: Db, limit = 1) {
+export async function drainServerQueue(db: Db, limit = 1, startedAt = Date.now()) {
+  const deadline = startedAt + DRAIN_BUDGET_MS
+
+  let ran = 0
+
   for (let i = 0; i < limit; i++) {
+    if (Date.now() > deadline) break
+
     let job
 
     try {
@@ -177,8 +231,26 @@ export async function drainServerQueue(db: Db, limit = 1) {
       return
     }
 
-    if (!job) return
+    if (!job) break
 
-    await runOneServerJob(db, job)
+    await runOneServerJob(db, job, deadline)
+    ran = ran + 1
+  }
+
+  let depth
+
+  try {
+    depth = await queueDepth(db, 'server')
+  } catch (error) {
+    console.error('[server-job] could not read the queue depth:', (error as Error).message)
+    return
+  }
+
+  if (depth.pending > 0 || depth.staleRunning > 0) {
+    let reason = depth.pending + ' pending'
+    if (depth.staleRunning > 0) reason = reason + ', ' + depth.staleRunning + ' stale'
+    if (ran > 0) reason = reason + ' after ' + ran + ' ran'
+
+    await kickDrain(reason)
   }
 }
