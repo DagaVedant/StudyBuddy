@@ -211,6 +211,40 @@ export const classificationSchema = z.object({
 
 export type Classification = z.infer<typeof classificationSchema>
 
+export type ClassifyBatchInput = {
+  index: number
+  promptText: string
+  candidates: TopicCandidate[]
+}
+
+export type BatchedClassification = Classification & {index: number}
+
+const batchedClassificationSchema = classificationSchema.extend({
+  index: z.coerce
+    .number()
+    .catch(-1)
+    .transform((value) => (Number.isFinite(value) ? Math.trunc(value) : -1)),
+})
+
+function parseClassifyBatch(raw: unknown): BatchedClassification[] {
+  const outer = z
+    .object({classifications: z.array(z.unknown()).max(100)})
+    .safeParse(raw)
+  if (!outer.success) return []
+
+  const out: BatchedClassification[] = []
+
+  for (const item of outer.data.classifications) {
+    const parsed = batchedClassificationSchema.safeParse(item)
+    if (!parsed.success) continue
+    if (parsed.data.index < 0) continue
+
+    out.push(parsed.data)
+  }
+
+  return out
+}
+
 const explanationSchema = z.object({
   body_md: z.string().min(1).max(6000),
   misconception_note: z.string().max(400).nullable().default(null),
@@ -384,6 +418,7 @@ export type RawAIProvider = ProviderIdentity & {
   extractQuestions(page: PageInput): Promise<unknown>
   extractPages(pages: PageInput[]): Promise<unknown>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<unknown>
+  classifyBatch(inputs: ClassifyBatchInput[]): Promise<unknown>
   explain(input: ExplainInput): Promise<unknown>
   answerQuestion(input: AnswerInput): Promise<unknown>
   answerBatch(inputs: BatchAnswerInput[]): Promise<unknown>
@@ -395,6 +430,7 @@ export type AIProvider = ProviderIdentity & {
   extractQuestions(page: PageInput): Promise<ExtractedQuestion[]>
   extractPages(pages: PageInput[]): Promise<BatchedQuestion[]>
   classifyTopic(promptText: string, candidates: TopicCandidate[]): Promise<Classification>
+  classifyBatch(inputs: ClassifyBatchInput[]): Promise<BatchedClassification[]>
   explain(input: ExplainInput): Promise<Explanation>
   answerQuestion(input: AnswerInput): Promise<Solution>
   answerBatch(inputs: BatchAnswerInput[]): Promise<BatchedSolution[]>
@@ -681,6 +717,10 @@ export function validated(provider: RawAIProvider): AIProvider {
 
     async classifyTopic(promptText, candidates) {
       return classificationSchema.parse(await provider.classifyTopic(promptText, candidates))
+    },
+
+    async classifyBatch(inputs) {
+      return parseClassifyBatch(await provider.classifyBatch(inputs))
     },
 
     async answerQuestion(input) {

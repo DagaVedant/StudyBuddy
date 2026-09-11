@@ -293,8 +293,6 @@ export async function demoteParentsWithChildren(db: Db) {
 
 const SHORTLIST_SIZE = 25
 
-const CONFIDENT_MARGIN = 0.06
-
 export type ClassifyOutcome = {
   topicId: string | null
   coarse: boolean
@@ -399,50 +397,50 @@ async function shortlistTopics(
   return shortlistByVector(db, vector, {subjectHint})
 }
 
-export function settledByEmbedding(candidates: TopicCandidate[]) {
-  if (candidates.length === 0) return null
+export const CLASSIFY_BATCH = 10
 
-  const first = candidates[0]
-  if (first.distance === undefined) return null
-  if (candidates.length === 1) return {slug: first.slug, confidence: 0.8}
-
-  const second = candidates[1]
-  if (second.distance === undefined) return null
-
-  const margin = second.distance - first.distance
-  if (margin < CONFIDENT_MARGIN) return null
-
-  let confidence = 0.7 + margin
-  if (confidence > 0.95) confidence = 0.95
-
-  return {slug: first.slug, confidence: confidence}
+type Shortlisted = {
+  question: {id: string; promptText: string; userId: string}
+  candidates: TopicCandidate[]
 }
 
-async function classifyQuestion(
+async function classifyBatchOf(
   db: Db,
   provider: AIProvider,
-  question: {id: string; promptText: string; userId: string},
-  subjectHint?: string | null,
-): Promise<ClassifyOutcome> {
-  const candidates = await shortlistTopics(db, question.id, question.promptText, subjectHint)
+  batch: Shortlisted[],
+): Promise<ClassifyOutcome[]> {
+  const inputs = []
 
-  if (candidates.length === 0) {
-    return {topicId: null, coarse: false, confidence: 0}
-  }
-
-  const settled = settledByEmbedding(candidates)
-
-  if (settled) {
-    return applyClassification(db, question, candidates, {
-      topic_slug: settled.slug,
-      confidence: settled.confidence,
-      abstain: false,
+  for (let index = 0; index < batch.length; index++) {
+    inputs.push({
+      index: index,
+      promptText: batch[index].question.promptText,
+      candidates: batch[index].candidates,
     })
   }
 
-  const result = await provider.classifyTopic(question.promptText, candidates)
+  const results = await provider.classifyBatch(inputs)
 
-  return applyClassification(db, question, candidates, result)
+  const byIndex = new Map<number, (typeof results)[number]>()
+  for (const result of results) {
+    if (!byIndex.has(result.index)) byIndex.set(result.index, result)
+  }
+
+  const outcomes: ClassifyOutcome[] = []
+
+  for (let index = 0; index < batch.length; index++) {
+    const entry = batch[index]
+    const result = byIndex.get(index)
+
+    if (!result) {
+      outcomes.push({topicId: null, coarse: false, confidence: 0})
+      continue
+    }
+
+    outcomes.push(await applyClassification(db, entry.question, entry.candidates, result))
+  }
+
+  return outcomes
 }
 
 export async function applyClassification(
@@ -539,21 +537,36 @@ export async function classifyWorksheet(
   let coarse = 0
   let failed = 0
 
+  const shortlisted: Shortlisted[] = []
+
   for (const question of rows) {
     if (tagged.has(question.id)) continue
 
+    const candidates = await shortlistTopics(db, question.id, question.promptText, subjectHint)
+    if (candidates.length === 0) continue
+
+    shortlisted.push({question: question, candidates: candidates})
+  }
+
+  for (let start = 0; start < shortlisted.length; start = start + CLASSIFY_BATCH) {
+    const batch = shortlisted.slice(start, start + CLASSIFY_BATCH)
+
     try {
-      const outcome = await classifyQuestion(db, provider, question, subjectHint)
+      const outcomes = await classifyBatchOf(db, provider, batch)
 
-      if (outcome.topicId) classified = classified + 1
-      if (outcome.coarse) coarse = coarse + 1
+      for (const outcome of outcomes) {
+        if (outcome.topicId) classified = classified + 1
+        if (outcome.coarse) coarse = coarse + 1
+      }
     } catch (error) {
-      if (error instanceof EmbeddingUnavailableError) throw error
-
-      failed = failed + 1
+      failed = failed + batch.length
 
       console.error(
-        '[classify] question ' + question.id + ' could not be classified:',
+        '[classify] a batch of ' +
+          batch.length +
+          ' on ' +
+          worksheetId +
+          ' could not be classified:',
         (error as Error).message,
       )
     }

@@ -9,6 +9,9 @@ import {
   ANSWER_JSON_SCHEMA,
   ANSWER_SYSTEM,
   answerUserText,
+  CLASSIFY_BATCH_ADDENDUM,
+  classifyBatchSchema,
+  classifyBatchUserText,
   CLASSIFY_JSON_SCHEMA,
   CLASSIFY_SYSTEM,
   classifyUserText,
@@ -31,6 +34,7 @@ import {
 import {
   type AnswerInput,
   type BatchAnswerInput,
+  type ClassifyBatchInput,
   type ExecutionSite,
   type ExplainInput,
   type LessonInput,
@@ -160,6 +164,19 @@ abstract class CloudClient implements RawAIProvider {
       schemaName: 'classification',
       schema: CLASSIFY_JSON_SCHEMA,
       maxTokens: 2000,
+    })
+  }
+
+  classifyBatch(inputs: ClassifyBatchInput[]): Promise<unknown> {
+    let maxTokens = 4000 + inputs.length * 600
+    if (maxTokens > 16000) maxTokens = 16000
+
+    return this.ask({
+      system: CLASSIFY_SYSTEM + '\n' + CLASSIFY_BATCH_ADDENDUM,
+      userText: classifyBatchUserText(inputs),
+      schemaName: 'classification_batch',
+      schema: classifyBatchSchema(),
+      maxTokens: maxTokens,
     })
   }
 

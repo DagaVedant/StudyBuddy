@@ -1,6 +1,7 @@
 import type {
   AnswerInput,
   BatchAnswerInput,
+  ClassifyBatchInput,
   ExplainInput,
   LessonInput,
   PageInput,
@@ -219,6 +220,56 @@ export function classifyUserText(
 
   lines.push('', 'Question:')
   pushAll(lines, fence('question', promptText, 4000))
+
+  return lines.join('\n')
+}
+
+export const CLASSIFY_BATCH_ADDENDUM = `
+You are given SEVERAL questions in one request. Each has its own candidate
+list, and the pick for a question must come from THAT question's list, or be an
+abstention. Return exactly one entry per question, carrying the question's
+index as given. Never merge questions, and never answer one you were not given.`
+
+export function classifyBatchSchema() {
+  return {
+    type: 'object',
+    properties: {
+      classifications: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            index: {type: 'integer'},
+            topic_slug: {anyOf: [{type: 'string'}, {type: 'null'}]},
+            confidence: {type: 'number'},
+            abstain: {type: 'boolean'},
+          },
+          required: ['index', 'topic_slug', 'confidence', 'abstain'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['classifications'],
+    additionalProperties: false,
+  }
+}
+
+export function classifyBatchUserText(inputs: ClassifyBatchInput[]): string {
+  const lines: string[] = []
+
+  for (const input of inputs) {
+    lines.push('Question ' + input.index + ':')
+    pushAll(lines, fence('question', input.promptText, 4000))
+    lines.push('Candidate topics for question ' + input.index + ':')
+
+    for (const topic of input.candidates) {
+      lines.push('- ' + topic.slug + ': ' + topic.path)
+    }
+
+    lines.push('')
+  }
+
+  lines.push('Assign a topic to every question above.')
 
   return lines.join('\n')
 }

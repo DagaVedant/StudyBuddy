@@ -3,7 +3,7 @@ import {readJson} from '@/lib/api'
 import {and, eq} from 'drizzle-orm'
 import {z} from 'zod'
 import {questions, worksheets} from '@/lib/schema'
-import {applyClassification, isEmbedding, pendingQuestionCount, pendingQuestions, settledByEmbedding, shortlistByVector} from '@/lib/taxonomy'
+import {applyClassification, isEmbedding, pendingQuestionCount, pendingQuestions, shortlistByVector} from '@/lib/taxonomy'
 import {guardWorksheet} from '@/lib/queue'
 import {resolveProvider} from '@/lib/ai/resolve'
 import {clearUntagged} from '@/lib/worker/apply'
@@ -115,6 +115,8 @@ export async function POST(request: Request, {params}: Params) {
   let coarse = 0
   let failed = 0
 
+  const shortlisted = []
+
   for (const item of body.items) {
     if (!isEmbedding(item.embedding)) {
       failed += 1
@@ -138,33 +140,51 @@ export async function POST(request: Request, {params}: Params) {
       continue
     }
 
-    try {
-      let classification = null
+    shortlisted.push({question: question, candidates: candidates})
+  }
 
-      const settled = settledByEmbedding(candidates)
-      if (settled) {
-        classification = {
-          topic_slug: settled.slug,
-          confidence: settled.confidence,
-          abstain: false,
-        }
-      } else {
-        classification = await provider.classifyTopic(question.promptText, candidates)
+  if (shortlisted.length > 0) {
+    const inputs = []
+
+    for (let index = 0; index < shortlisted.length; index++) {
+      inputs.push({
+        index: index,
+        promptText: shortlisted[index].question.promptText,
+        candidates: shortlisted[index].candidates,
+      })
+    }
+
+    try {
+      const results = await provider.classifyBatch(inputs)
+
+      const byIndex = new Map<number, (typeof results)[number]>()
+      for (const result of results) {
+        if (!byIndex.has(result.index)) byIndex.set(result.index, result)
       }
 
-      const outcome = await applyClassification(
-        db,
-        question,
-        candidates,
-        classification,
-      )
+      for (let index = 0; index < shortlisted.length; index++) {
+        const entry = shortlisted[index]
+        const result = byIndex.get(index)
 
-      if (outcome.topicId) applied += 1
-      if (outcome.coarse) coarse += 1
+        if (!result) {
+          failed += 1
+          continue
+        }
+
+        const outcome = await applyClassification(
+          db,
+          entry.question,
+          entry.candidates,
+          result,
+        )
+
+        if (outcome.topicId) applied += 1
+        if (outcome.coarse) coarse += 1
+      }
     } catch (error) {
-      failed += 1
+      failed += shortlisted.length
       console.error(
-        '[classify] question ' + question.id + ' could not be classified:',
+        '[classify] a batch of ' + shortlisted.length + ' on ' + worksheetId + ' failed:',
         (error as Error).message,
       )
     }

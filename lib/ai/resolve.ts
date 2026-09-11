@@ -16,6 +16,7 @@ import {
   type AIProvider,
   type AnswerInput,
   type BatchAnswerInput,
+  type ClassifyBatchInput,
   CLOUD_PROVIDERS,
   type CloudProvider,
   DEFAULT_CLOUD_MODEL,
@@ -664,6 +665,24 @@ class MockProvider implements RawAIProvider {
     return {topic_slug: best.slug, confidence: confidence, abstain: false}
   }
 
+  async classifyBatch(inputs: ClassifyBatchInput[]): Promise<unknown> {
+    const classifications: unknown[] = []
+
+    for (const input of inputs) {
+      const raw = (await this.classifyTopic(input.promptText, input.candidates)) as Record<
+        string,
+        unknown
+      >
+
+      const row: Record<string, unknown> = {index: input.index}
+      for (const key of Object.keys(raw)) row[key] = raw[key]
+
+      classifications.push(row)
+    }
+
+    return {classifications: classifications}
+  }
+
   async answerQuestion(input: AnswerInput): Promise<unknown> {
     let answer = '42'
     if (input.choices.length > 0) answer = input.choices[0].label
@@ -798,6 +817,10 @@ class NullProvider implements RawAIProvider {
     _promptText: string,
     _candidates: TopicCandidate[],
   ): Promise<unknown> {
+    throw new ProviderUnavailable()
+  }
+
+  async classifyBatch(_inputs: ClassifyBatchInput[]): Promise<unknown> {
     throw new ProviderUnavailable()
   }
 
