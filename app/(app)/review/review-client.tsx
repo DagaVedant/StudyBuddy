@@ -5,7 +5,6 @@ import {useCallback, useEffect, useRef, useState} from 'react'
 
 import {ReportButton} from '@/components/report-button'
 import {Tick} from '@/components/hand'
-import {QuestionCrop} from '@/components/question-crop'
 import {reflowText} from '@/lib/questions/shape'
 import type {ReviewItem} from '@/lib/review'
 import {fetchJson} from '@/lib/client/http'
@@ -356,12 +355,6 @@ export default function ReviewSession({
         )}
 
         <p className="whitespace-pre-line text-pretty">{reflowText(item.promptText)}</p>
-
-        {item.evidence && (
-          <div className="mt-3">
-            <QuestionCrop image={item.evidence} alt="The question as it was printed" />
-          </div>
-        )}
 
         {item.choices.length > 0 && (
           <ul className="mt-4 space-y-1.5">

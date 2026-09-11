@@ -392,41 +392,6 @@ export function reflowText(input: string): string {
   return kept.join('\n\n').trim()
 }
 
-export type QuestionEvidence = {
-  src: string
-  width: number
-  height: number
-  bbox: BBox
-}
-
-export type EvidencePage = {
-  imageKey: string
-  width: number | null
-  height: number | null
-}
-
-export function evidenceFor(
-  bbox: BBox | null,
-  page: EvidencePage | undefined,
-): QuestionEvidence | null {
-  if (!bbox || !page || !page.width || !page.height) return null
-
-  const x0 = bbox[0]
-  const y0 = bbox[1]
-  const x1 = bbox[2]
-  const y1 = bbox[3]
-
-  if (x1 <= x0 || y1 <= y0) return null
-  if (x0 >= page.width || y0 >= page.height || x1 <= 0 || y1 <= 0) return null
-
-  return {
-    src: '/api/files/' + page.imageKey,
-    width: page.width,
-    height: page.height,
-    bbox,
-  }
-}
-
 const LABEL = '[A-Ea-e]'
 
 const SOLUTION_LINE = new RegExp('(?:^|\\s)(\\d{1,3})[.)]\\s*Answer:?\\s*\\(?(' + LABEL + ')\\)?', 'g')

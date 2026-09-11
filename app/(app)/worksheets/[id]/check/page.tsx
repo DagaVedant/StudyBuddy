@@ -5,8 +5,7 @@ import {auth} from '@/auth'
 import {canSortTopicsHere, getCredentialSummary} from '@/lib/ai/resolve'
 import {TopicSorter} from '@/components/topic-sorter'
 import {db} from '@/lib/db'
-import {worksheetPages, worksheets} from '@/lib/schema'
-import {evidenceFor} from '@/lib/questions/shape'
+import {worksheets} from '@/lib/schema'
 import {findLibraryDuplicates, loadQuestionsWithChoices} from '@/lib/questions/queries'
 import {modalChoiceCount, validateQuestion, worthRereading} from '@/lib/questions/numbering'
 
@@ -34,25 +33,15 @@ export default async function CheckPage({params}: Params) {
 
   if (!worksheet) notFound()
 
-  const [shaped, duplicates, pageRows, credentials] = await Promise.all([
+  const [shaped, duplicates, credentials] = await Promise.all([
     loadQuestionsWithChoices(db, id),
     findLibraryDuplicates(db, session.user.id, id),
-    db
-      .select({
-        id: worksheetPages.id,
-        imageKey: worksheetPages.imageKey,
-        width: worksheetPages.width,
-        height: worksheetPages.height,
-      })
-      .from(worksheetPages)
-      .where(eq(worksheetPages.worksheetId, id)),
     getCredentialSummary(db, session.user.id),
   ])
 
   const canSortHere = canSortTopicsHere(credentials)
 
   const duplicateFor = new Map(duplicates.map((row) => [row.questionId, row]))
-  const pageFor = new Map(pageRows.map((page) => [page.id, page]))
 
   const expectedChoiceCount = modalChoiceCount(shaped)
 
@@ -76,10 +65,6 @@ export default async function CheckPage({params}: Params) {
             exact: duplicate.exact,
           }
         : null,
-      evidence: evidenceFor(
-        row.bbox,
-        row.pageId ? pageFor.get(row.pageId) : undefined,
-      ),
     }
   })
 

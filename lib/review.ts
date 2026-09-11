@@ -2,9 +2,8 @@ import {and, asc, desc, eq, inArray, isNull, lte, or, sql} from 'drizzle-orm'
 import {createEmptyCard, fsrs, Rating, type Card, type Grade, type State} from 'ts-fsrs'
 
 import {CHOICE_ORDER} from '@/lib/questions/queries'
-import {answerChoices, attempts, explanations, questionTopics, questions, reviewCards, topics, worksheetPages} from '@/lib/schema'
+import {answerChoices, attempts, explanations, questionTopics, questions, reviewCards, topics} from '@/lib/schema'
 import {type Db} from '@/lib/db'
-import {type QuestionEvidence, evidenceFor} from '@/lib/questions/shape'
 
 function inTopic(topicId?: string | null) {
   if (!topicId) return undefined
@@ -71,7 +70,6 @@ export type ReviewItem = {
   lastChoiceId: string | null
   lastFreeText: string | null
   explanation: {body: string; reportedWrong: boolean} | null
-  evidence: QuestionEvidence | null
   dueAt: string
   intervals: ReviewIntervals
 }
@@ -117,14 +115,9 @@ export async function getDueCards(
       questionType: questions.questionType,
       correctAnswer: questions.correctAnswer,
       answerSource: questions.answerSource,
-      bbox: questions.bbox,
-      pageImageKey: worksheetPages.imageKey,
-      pageWidth: worksheetPages.width,
-      pageHeight: worksheetPages.height,
     })
     .from(reviewCards)
     .innerJoin(questions, eq(questions.id, reviewCards.questionId))
-    .leftJoin(worksheetPages, eq(worksheetPages.id, questions.pageId))
     .where(
       and(eq(reviewCards.userId, userId), inReviewQueue(userId, now), inTopic(topicId)),
     )
@@ -243,15 +236,6 @@ export async function getDueCards(
       explanationOut = {body: explanation.bodyMd, reportedWrong: explanation.reportedWrong}
     }
 
-    let evidence = null
-    if (card.pageImageKey) {
-      evidence = evidenceFor(card.bbox, {
-        imageKey: card.pageImageKey,
-        width: card.pageWidth,
-        height: card.pageHeight,
-      })
-    }
-
     items.push({
       cardId: card.cardId,
       questionId: card.questionId,
@@ -265,7 +249,6 @@ export async function getDueCards(
       lastChoiceId: lastChoiceId,
       lastFreeText: lastFreeText,
       explanation: explanationOut,
-      evidence: evidence,
       dueAt: card.dueAt.toISOString(),
       intervals: {
         again: formatInterval(preview.again, now),

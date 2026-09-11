@@ -4,7 +4,9 @@ import {PageHead} from '@/components/page-head'
 
 import {auth} from '@/auth'
 import {resolveProvider} from '@/lib/ai/resolve'
+import {operatorUsage} from '@/lib/ai/usage'
 import {db} from '@/lib/db'
+import {UsageNotice} from '@/components/usage-notice'
 import {flattenTaxonomy} from '@/lib/taxonomy'
 import {findSample} from '@/lib/upload'
 
@@ -45,6 +47,11 @@ export default async function UploadPage({searchParams}: Props) {
   const {sample} = await searchParams
   const resolved = await resolveProvider(db, session.user.id)
 
+  let usage = null
+  if (resolved.tier === 'trial' && resolved.executor === 'server') {
+    usage = await operatorUsage(db)
+  }
+
   const noReader = resolved.executor === 'none'
 
   let noReaderLine =
@@ -77,6 +84,12 @@ export default async function UploadPage({searchParams}: Props) {
       <div className="mb-8">
         <PageHead title="Upload a worksheet" />
       </div>
+
+      {usage && usage.level !== 'ok' && (
+        <div className="mb-6">
+          <UsageNotice usage={usage} samplesHref="#samples" />
+        </div>
+      )}
 
       {noReader && (
         <div className="mb-6 rounded-xl border border-caution/40 bg-caution/10 px-3 py-2 text-sm text-caution">

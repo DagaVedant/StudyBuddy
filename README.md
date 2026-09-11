@@ -7,7 +7,7 @@ get back a record of what you actually know.
 
 ## What it does
 
-1. You upload a worksheet as a PDF or as photos of the pages.
+1. You upload a worksheet as a PDF.
 2. A vision model pulls out each question and its options.
 3. You check what it read, then mark which ones you missed.
 4. The dashboard shows accuracy by topic, and a review queue schedules the ones

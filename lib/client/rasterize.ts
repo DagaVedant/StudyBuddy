@@ -274,51 +274,6 @@ export async function rasterizePdf(
   return {pages: pages, totalPages: pdf.numPages}
 }
 
-export async function rasterizeImage(
-  file: File,
-  pageNumber: number,
-  signal?: AbortSignal,
-): Promise<RasterPage> {
-  throwIfCancelled(signal)
-
-  const bitmap = await createImageBitmap(file, {imageOrientation: 'from-image'})
-
-  try {
-    let longestEdge = bitmap.width
-    if (bitmap.height > longestEdge) longestEdge = bitmap.height
-
-    let scale = 1
-    if (longestEdge > RASTER_MAX_EDGE) scale = RASTER_MAX_EDGE / longestEdge
-
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.round(bitmap.width * scale)
-    canvas.height = Math.round(bitmap.height * scale)
-
-    const context = canvas.getContext('2d')
-    if (!context) throw new Error('This browser could not process the image.')
-
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-
-    const blob = await canvasToBlob(canvas)
-    const width = canvas.width
-    const height = canvas.height
-
-    canvas.width = 0
-    canvas.height = 0
-
-    return {
-      pageNumber: pageNumber,
-      blob: blob,
-      width: width,
-      height: height,
-      embeddedText: '',
-      embeddedLines: [],
-    }
-  } finally {
-    bitmap.close()
-  }
-}
-
 const MIN_CHARS_PER_PAGE = 120
 
 export function hasUsableTextLayer(pages: RasterPage[]) {

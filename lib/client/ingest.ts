@@ -6,7 +6,6 @@ import {
   EMBEDDING_INPUT_LIMIT,
   EMBEDDING_MODEL,
   MAX_SOURCE_BYTES,
-  pageInRange,
   type PageRange,
 } from '@/lib/upload'
 
@@ -14,7 +13,6 @@ import {
   hasUsableTextLayer,
   ocrPage,
   preloadOcr,
-  rasterizeImage,
   rasterizePdf,
   type RasterPage,
 } from './rasterize'
@@ -101,23 +99,18 @@ export async function ingestWorksheet(options: IngestOptions): Promise<IngestRes
   onProgress({stage: 'reading', completed: 0, total: 1, detail: 'Reading files'})
 
   let pdfs = []
-  let images = []
 
   for (let file of files) {
-    if (file.type === 'application/pdf') {
-      pdfs.push(file)
-    } else {
-      images.push(file)
-    }
+    if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) pdfs.push(file)
   }
 
+  if (pdfs.length === 0) throw ingestError('Only PDFs are read. Scan the pages to a PDF first.')
+
   const pages: RasterPage[] = []
-  let sawPdf = false
   let offset = 0
 
   for (let file of pdfs) {
     throwIfCancelled(signal)
-    sawPdf = true
 
     const rendered = await rasterizePdf(
       file,
@@ -134,21 +127,6 @@ export async function ingestWorksheet(options: IngestOptions): Promise<IngestRes
 
     for (let page of rendered.pages) pages.push(page)
     offset = offset + rendered.totalPages
-  }
-
-  for (let file of images) {
-    throwIfCancelled(signal)
-    offset = offset + 1
-    if (!pageInRange(offset, pageRange)) continue
-
-    onProgress({
-      stage: 'rasterizing',
-      completed: pages.length + 1,
-      total: pages.length + 1,
-      detail: 'Processing ' + file.name,
-    })
-
-    pages.push(await rasterizeImage(file, offset, signal))
   }
 
   if (pages.length === 0) {
@@ -169,17 +147,10 @@ export async function ingestWorksheet(options: IngestOptions): Promise<IngestRes
   }
 
   let digital = false
-  if (sawPdf && hasUsableTextLayer(pages)) digital = true
+  if (hasUsableTextLayer(pages)) digital = true
 
-  let fromCamera = false
-  for (let file of images) {
-    if (file.type === 'image/heic' || file.type === 'image/heif') fromCamera = true
-  }
-
-  let sourceType = 'image'
+  let sourceType = 'pdf_scanned'
   if (digital) sourceType = 'pdf_digital'
-  else if (sawPdf) sourceType = 'pdf_scanned'
-  else if (fromCamera) sourceType = 'photo'
 
   if (!digital) preloadOcr()
 
@@ -284,51 +255,6 @@ export async function ingestWorksheet(options: IngestOptions): Promise<IngestRes
     next: finished.next,
     message: finished.message,
   }
-}
-
-export type PageImage = {
-  image: Uint8Array
-  mediaType: string
-}
-
-export async function toPngBytes(blob: Blob): Promise<PageImage> {
-  if (blob.type === 'image/png' || blob.type === 'image/jpeg') {
-    const bytes = new Uint8Array(await blob.arrayBuffer())
-    return {image: bytes, mediaType: blob.type}
-  }
-
-  const bitmap = await createImageBitmap(blob)
-
-  try {
-    const canvas = document.createElement('canvas')
-    canvas.width = bitmap.width
-    canvas.height = bitmap.height
-
-    const context = canvas.getContext('2d')
-    if (!context) {
-      throw new Error('This browser would not give us a canvas to convert the page on.')
-    }
-
-    context.drawImage(bitmap, 0, 0)
-
-    const png = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/png')
-    })
-
-    if (!png) throw new Error('The page image could not be converted to PNG.')
-
-    const bytes = new Uint8Array(await png.arrayBuffer())
-    return {image: bytes, mediaType: 'image/png'}
-  } finally {
-    bitmap.close()
-  }
-}
-
-export async function fetchPageImage(imageKey: string) {
-  const response = await fetch('/api/files/' + imageKey)
-  if (!response.ok) throw new Error('Could not load the page image.')
-
-  return toPngBytes(await response.blob())
 }
 
 let extractorPromise: Promise<FeatureExtractionPipeline> | null = null

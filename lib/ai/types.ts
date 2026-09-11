@@ -469,6 +469,21 @@ export const TRIAL_WORKSHEET_LIMIT = 3
 
 export const TRIAL_EXPLANATION_LIMIT = 20
 
+export function operatorCallsPerDay(): number {
+  const value = process.env.OPENROUTER_CALLS_PER_DAY
+  if (!value) return 50
+
+  const parsed = Number(value.trim())
+  if (!Number.isFinite(parsed)) return 50
+  if (parsed < 1) return 50
+
+  return Math.floor(parsed)
+}
+
+export function operatorCallsWarnAt(): number {
+  return Math.floor(operatorCallsPerDay() * 0.8)
+}
+
 export function trialDailyCeiling(): number {
   const value = process.env.TRIAL_DAILY_WORKSHEETS
   if (!value) return 25

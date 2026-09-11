@@ -4,6 +4,7 @@ import {and, desc, eq, gte, inArray, sql} from 'drizzle-orm'
 
 import {aiProvider, processingJobs, usageEvents, userAiCredentials, users, worksheets} from '@/lib/schema'
 import {type Db} from '@/lib/db'
+import {recordOperatorCall} from '@/lib/ai/usage'
 
 import {
   AnthropicProvider,
@@ -83,7 +84,7 @@ export function operatorCloudEnabled() {
   return operatorKey().length > 0
 }
 
-function trialProvider(idle: RawAIProvider): ResolvedProvider {
+function trialProvider(db: Db, idle: RawAIProvider): ResolvedProvider {
   if (mockEnabled()) {
     return {provider: validated(idle), tier: 'trial', executor: 'server'}
   }
@@ -91,8 +92,14 @@ function trialProvider(idle: RawAIProvider): ResolvedProvider {
   const key = operatorKey()
 
   if (key) {
+    function count() {
+      return recordOperatorCall(db)
+    }
+
     return {
-      provider: cloudProvider('openrouter', key, operatorModel(), operatorFallbackModels()),
+      provider: validated(
+        new OpenRouterProvider(key, operatorModel(), operatorFallbackModels(), count),
+      ),
       tier: 'trial',
       executor: 'server',
     }
@@ -142,14 +149,14 @@ export async function resolveProvider(db: Db, userId: string): Promise<ResolvedP
   if (mockEnabled()) idle = new MockProvider()
 
   if (user && user.role === 'admin') {
-    return trialProvider(idle)
+    return trialProvider(db, idle)
   }
 
   let worksheetsUsed = 0
   if (user && user.trialWorksheetsUsed) worksheetsUsed = user.trialWorksheetsUsed
 
   if (worksheetsUsed < TRIAL_WORKSHEET_LIMIT) {
-    return trialProvider(idle)
+    return trialProvider(db, idle)
   }
 
   return {provider: validated(new NullProvider()), tier: 'free', executor: 'none'}

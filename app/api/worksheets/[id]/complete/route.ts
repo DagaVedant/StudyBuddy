@@ -4,6 +4,7 @@ import {worksheets} from '@/lib/schema'
 import {claimWorksheetForCompletion, enqueueJob, guardWorksheet, inFlightExtractCount, MAX_IN_FLIGHT_EXTRACTS, transitionWorksheet} from '@/lib/queue'
 import {guardRateLimit, WORKSHEET_WRITE_LIMIT} from '@/lib/api'
 import {consumeTrial, resolveProvider, type Tier, trialExtractionsToday} from '@/lib/ai/resolve'
+import {operatorUsage} from '@/lib/ai/usage'
 import {trialDailyCeiling} from '@/lib/ai/types'
 import {db} from '@/lib/db'
 import {applyCachedSample, findMatchingSample} from '@/lib/samples'
@@ -148,6 +149,25 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
   }
 
   if (guard.role !== 'admin' && tier === 'trial') {
+    const usage = await operatorUsage(db)
+
+    if (usage.level === 'exhausted') {
+      if (!(await claimForCompletion(worksheetId, 'awaiting_review', 'free'))) {
+        return alreadyCompleted(worksheetId)
+      }
+
+      return NextResponse.json({
+        ok: true,
+        tier: 'free',
+        mode: 'manual',
+        message:
+          'The free model that reads worksheets is out of reads until midnight UTC, so ' +
+          'this one was not counted against your trial. Add its questions here, or ' +
+          'upload it again tomorrow.',
+        next: '/worksheets/' + worksheetId + '/edit',
+      })
+    }
+
     const ceiling = trialDailyCeiling()
 
     if ((await trialExtractionsToday(db)) >= ceiling) {

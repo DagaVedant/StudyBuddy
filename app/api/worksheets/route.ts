@@ -11,7 +11,7 @@ import {db} from '@/lib/db'
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(200),
-  sourceType: z.enum(['pdf_digital', 'pdf_scanned', 'photo', 'image']),
+  sourceType: z.enum(['pdf_digital', 'pdf_scanned']),
   subjectHint: z.string().trim().max(100).nullish(),
   pageCount: z.number().int().min(1).max(2000),
   expectedQuestionCount: z.number().int().min(1).max(2000).nullish(),

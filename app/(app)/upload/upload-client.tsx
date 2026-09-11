@@ -34,9 +34,9 @@ const STAGE_LABEL: Record<IngestProgress['stage'], string> = {
 const BYTES = new Intl.NumberFormat(undefined, {maximumFractionDigits: 1})
 
 function formatSize(bytes: number): string {
-  if (bytes < 1000) return bytes + ' B'
-  if (bytes < 1_000_000) return BYTES.format(bytes / 1000) + ' KB'
-  return BYTES.format(bytes / 1_000_000) + ' MB'
+  if (bytes < 1000) return bytes + ' B'
+  if (bytes < 1_000_000) return BYTES.format(bytes / 1000) + ' KB'
+  return BYTES.format(bytes / 1_000_000) + ' MB'
 }
 
 function defaultTitle(files: File[]): string {
@@ -100,8 +100,31 @@ export default function UploadClient({subjects, initialSample}: Props) {
     if (!incoming || incoming.length === 0) return
     setError(null)
 
+    const accepted: File[] = []
+    let refused = 0
+
+    for (const file of Array.from(incoming)) {
+      if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) accepted.push(file)
+      else refused = refused + 1
+    }
+
+    if (refused > 0) {
+      let noun = 'file'
+      if (refused > 1) noun = 'files'
+
+      setError(
+        'Skipped ' +
+          refused +
+          ' ' +
+          noun +
+          '. Only PDFs are read. If you have photos of a worksheet, scan them to a PDF first.',
+      )
+    }
+
+    if (accepted.length === 0) return
+
     setFiles((current) => {
-      const next = [...current, ...Array.from(incoming)]
+      const next = [...current, ...accepted]
       if (!titleTouchedRef.current) setTitle(defaultTitle(next))
       return next
     })
@@ -270,14 +293,14 @@ export default function UploadClient({subjects, initialSample}: Props) {
         className={dropClass}
       >
         <h2 id="add-heading" className="text-pretty font-medium">
-          Drop your pages here, or choose a file
+          Drop a PDF here, or choose a file
         </h2>
         <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2">
           <div className="sm:flex-1">
             <input
               id={filesId}
               type="file"
-              accept="application/pdf,image/*"
+              accept="application/pdf,.pdf"
               multiple
               className="peer sr-only"
               disabled={busy}
@@ -295,7 +318,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
           </div>
         </div>
 
-        <p className="hint mt-4">
+        <p id="samples" className="hint mt-4">
           No worksheet to hand? Try a sample:{' '}
           {SAMPLE_WORKSHEETS.map((sample, index) => (
             <span key={sample.slug}>

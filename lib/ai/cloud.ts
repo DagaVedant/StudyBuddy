@@ -292,6 +292,7 @@ type ChatCompletionsOptions = {
   fetchImpl?: typeof fetch
   name?: ProviderName
   extraBody?: Record<string, unknown>
+  onRequest?: () => Promise<void>
 }
 
 export class OpenAIProvider extends CloudClient {
@@ -303,6 +304,7 @@ export class OpenAIProvider extends CloudClient {
   private readonly label: string
   private readonly headers: Record<string, string>
   private readonly extraBody: Record<string, unknown>
+  private readonly onRequest: (() => Promise<void>) | null
 
   constructor(apiKey: string, model = 'gpt-4.1', options: ChatCompletionsOptions = {}) {
     super(model)
@@ -326,6 +328,9 @@ export class OpenAIProvider extends CloudClient {
 
     this.extraBody = {}
     if (options.extraBody) this.extraBody = options.extraBody
+
+    this.onRequest = null
+    if (options.onRequest) this.onRequest = options.onRequest
   }
 
   protected async send(request: ModelRequest) {
@@ -365,6 +370,8 @@ export class OpenAIProvider extends CloudClient {
 
     for (const key of Object.keys(this.extraBody)) sent[key] = this.extraBody[key]
 
+    if (this.onRequest) await this.onRequest()
+
     let response
 
     try {
@@ -400,7 +407,12 @@ export class OpenAIProvider extends CloudClient {
 }
 
 export class OpenRouterProvider extends OpenAIProvider {
-  constructor(apiKey: string, model = 'google/gemini-2.5-flash', fallbacks: string[] = []) {
+  constructor(
+    apiKey: string,
+    model = 'google/gemini-2.5-flash',
+    fallbacks: string[] = [],
+    onRequest?: () => Promise<void>,
+  ) {
     const extraBody: Record<string, unknown> = {}
 
     if (fallbacks.length > 0) {
@@ -418,6 +430,7 @@ export class OpenRouterProvider extends OpenAIProvider {
       name: 'openrouter',
       headers: {'HTTP-Referer': appBaseUrl(), 'X-Title': 'StudyBuddy'},
       extraBody: extraBody,
+      onRequest: onRequest,
     })
   }
 }

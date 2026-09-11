@@ -3,10 +3,9 @@
 import Link from 'next/link'
 import {useCallback, useEffect, useState} from 'react'
 
-import {QuestionCrop} from '@/components/question-crop'
 import {ReportButton} from '@/components/report-button'
 import {fetchJson} from '@/lib/client/http'
-import {type QuestionEvidence, reflowText} from '@/lib/questions/shape'
+import {reflowText} from '@/lib/questions/shape'
 
 const BULK_UNDO_WINDOW_MS = 12_000
 
@@ -24,7 +23,6 @@ export type CheckableQuestion = {
     worksheetTitle: string
     exact: boolean
   } | null
-  evidence: QuestionEvidence | null
 }
 
 export function CheckClient({
@@ -283,10 +281,7 @@ export function CheckClient({
               {reflowText(question.promptText)}
             </p>
             {question.pageNumber !== null && (
-              <p className="hint mt-1">
-                Read from page {question.pageNumber}
-                {question.evidence ? ', shown below.' : '.'}
-              </p>
+              <p className="hint mt-1">Read from page {question.pageNumber}.</p>
             )}
           </div>
           {verified.has(question.id) && (
@@ -303,13 +298,6 @@ export function CheckClient({
               </li>
             ))}
           </ul>
-        )}
-
-        {question.evidence && (
-          <QuestionCrop
-            image={question.evidence}
-            alt={'Question ' + label + ' as it appears on the page'}
-          />
         )}
 
         {question.concerns.length > 0 && (
