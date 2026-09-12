@@ -1,11 +1,14 @@
 import {and, eq} from 'drizzle-orm'
 import {notFound, redirect} from 'next/navigation'
+import {after} from 'next/server'
 
 import {auth} from '@/auth'
 import {canSortTopicsHere} from '@/lib/ai/resolve'
 import {TopicSorter} from '@/components/topic-sorter'
 import {db} from '@/lib/db'
 import {worksheets} from '@/lib/schema'
+import {queueDepth} from '@/lib/queue'
+import {kickDrain} from '@/lib/worker/jobs'
 import {findLibraryDuplicates, loadQuestionsWithChoices} from '@/lib/questions/queries'
 import {modalChoiceCount, validateQuestion, worthRereading} from '@/lib/questions/numbering'
 
@@ -33,11 +36,16 @@ export default async function CheckPage({params}: Params) {
 
   if (!worksheet) notFound()
 
-  const [shaped, duplicates, canSortHere] = await Promise.all([
+  const [shaped, duplicates, canSortHere, depth] = await Promise.all([
     loadQuestionsWithChoices(db, id),
     findLibraryDuplicates(db, session.user.id, id),
     canSortTopicsHere(db, session.user.id),
+    queueDepth(db, 'server'),
   ])
+
+  if (depth.pending > 0 || depth.staleRunning > 0) {
+    after(() => kickDrain('check page'))
+  }
 
   const duplicateFor = new Map(duplicates.map((row) => [row.questionId, row]))
 

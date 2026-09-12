@@ -5,6 +5,7 @@ import {eq} from 'drizzle-orm'
 import {type Db} from '@/lib/db'
 import {checkpointJob, CLAIM_TTL_MS, claimJob, queueDepth, yieldJob} from '@/lib/queue'
 import {processingJobs} from '@/lib/schema'
+import {CLAIM_WINDOW_MS, drainServerQueue} from '@/lib/worker/jobs'
 
 import {freshDb, makeUser, makeWorksheet, uid} from './support/db'
 
@@ -78,4 +79,46 @@ test('queue depth tells a live claim from a stale one', async () => {
   const stale = await queueDepth(db, 'server', later)
   assert.equal(stale.running, 1)
   assert.equal(stale.staleRunning, 1)
+})
+
+async function pendingAnswerKeys(db: Db, count: number) {
+  const userId = await makeUser(db)
+  const worksheetId = await makeWorksheet(db, userId)
+  const ids: string[] = []
+
+  for (let i = 0; i < count; i++) {
+    const id = uid('job')
+    await db.insert(processingJobs).values({
+      id,
+      worksheetId,
+      userId,
+      stage: 'answer_key',
+      executor: 'server',
+    })
+    ids.push(id)
+  }
+
+  return ids
+}
+
+async function statuses(db: Db, ids: string[]) {
+  const out: string[] = []
+  for (const id of ids) {
+    const row = await jobRow(db, id)
+    out.push(row.status)
+  }
+  return out
+}
+
+test('a hop claims a second job only while there is time to finish it', async () => {
+  const db = await freshDb()
+  process.env.ENABLE_MOCK_AI = 'true'
+
+  const early = await pendingAnswerKeys(db, 2)
+  await drainServerQueue(db, 5, Date.now())
+  assert.deepEqual(await statuses(db, early), ['completed', 'completed'])
+
+  const late = await pendingAnswerKeys(db, 2)
+  await drainServerQueue(db, 5, Date.now() - CLAIM_WINDOW_MS - 1000)
+  assert.deepEqual(await statuses(db, late), ['completed', 'pending'])
 })

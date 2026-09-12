@@ -24,6 +24,8 @@ const SOLVE_BATCH = 25
 
 export const DRAIN_BUDGET_MS = 200000
 
+export const CLAIM_WINDOW_MS = 45000
+
 export const DRAIN_PATH = '/api/cron/drain-server-queue'
 
 export async function kickDrain(reason: string) {
@@ -221,6 +223,7 @@ export async function drainServerQueue(db: Db, limit = 1, startedAt = Date.now()
 
   for (let i = 0; i < limit; i++) {
     if (Date.now() > deadline) break
+    if (ran > 0 && Date.now() > startedAt + CLAIM_WINDOW_MS) break
 
     let job
 
