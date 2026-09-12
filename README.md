@@ -48,6 +48,11 @@ ts-fsrs for review scheduling, and Tailwind. Questions are extracted by
 OpenRouter for the free trial, or by a student's own Anthropic, OpenAI,
 OpenRouter or Google key.
 
+A PDF with a text layer is read from that layer; only a scanned one goes
+through OCR, in the browser, before anything is uploaded. The page image still
+goes to the model alongside the text, because question numbers, choice letters
+and where a diagram sits are layout, and the text layer alone loses them.
+
 ## What it does not do
 
 - It cannot read handwriting, so your own working is not picked up.
