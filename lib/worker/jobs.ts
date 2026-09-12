@@ -64,10 +64,10 @@ export async function kickDrain(reason: string) {
   }
 }
 
-async function runSolvingJob(
+export async function runSolvingJob(
   db: Db,
   provider: AIProvider,
-  job: {id: string; worksheetId: string; userId: string},
+  job: {id: string; worksheetId: string; userId: string; checkpoint: Record<string, unknown> | null},
 ) {
   try {
     const progress = await deriveSolutions(db, provider, job.worksheetId, SOLVE_BATCH)
@@ -101,6 +101,21 @@ async function runSolvingJob(
         stage: 'answer_key',
         executor: 'server',
         priority: 'low',
+      })
+      return
+    }
+
+    let isRetry = false
+    if (job.checkpoint && job.checkpoint.retry) isRetry = true
+
+    if (progress.failed > 0 && !isRetry) {
+      await enqueueJob(db, {
+        worksheetId: job.worksheetId,
+        userId: job.userId,
+        stage: 'answer_key',
+        executor: 'server',
+        priority: 'low',
+        checkpoint: {retry: 1},
       })
     }
   } catch (error) {

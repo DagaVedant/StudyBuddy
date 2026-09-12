@@ -4,8 +4,9 @@ import {eq} from 'drizzle-orm'
 
 import {type Db} from '@/lib/db'
 import {checkpointJob, CLAIM_TTL_MS, claimJob, queueDepth, yieldJob} from '@/lib/queue'
-import {processingJobs} from '@/lib/schema'
-import {CLAIM_WINDOW_MS, drainServerQueue} from '@/lib/worker/jobs'
+import {processingJobs, questions} from '@/lib/schema'
+import {CLAIM_WINDOW_MS, drainServerQueue, runSolvingJob} from '@/lib/worker/jobs'
+import {type AIProvider} from '@/lib/ai/types'
 
 import {freshDb, makeUser, makeWorksheet, uid} from './support/db'
 
@@ -121,4 +122,61 @@ test('a hop claims a second job only while there is time to finish it', async ()
   const late = await pendingAnswerKeys(db, 2)
   await drainServerQueue(db, 5, Date.now() - CLAIM_WINDOW_MS - 1000)
   assert.deepEqual(await statuses(db, late), ['completed', 'pending'])
+})
+
+function silentProvider() {
+  return {
+    name: 'mock',
+    answeringModel: 'silent',
+    async answerBatch() {
+      return []
+    },
+  } as unknown as AIProvider
+}
+
+async function solvingJobs(db: Db, worksheetId: string) {
+  return db
+    .select({id: processingJobs.id, status: processingJobs.status, checkpoint: processingJobs.checkpoint})
+    .from(processingJobs)
+    .where(eq(processingJobs.worksheetId, worksheetId))
+    .orderBy(processingJobs.createdAt)
+}
+
+test('a batch that comes back empty is retried once and only once', async () => {
+  const db = await freshDb()
+  const userId = await makeUser(db)
+  const worksheetId = await makeWorksheet(db, userId)
+
+  await db.insert(questions).values({
+    id: uid('q'),
+    userId,
+    worksheetId,
+    ordinal: 1,
+    promptText: 'What is 2 + 2?',
+    questionType: 'multiple_choice',
+  })
+
+  const firstId = uid('job')
+  await db.insert(processingJobs).values({
+    id: firstId,
+    worksheetId,
+    userId,
+    stage: 'answer_key',
+    executor: 'server',
+  })
+
+  await runSolvingJob(db, silentProvider(), {id: firstId, worksheetId, userId, checkpoint: null})
+
+  const afterFirst = await solvingJobs(db, worksheetId)
+  assert.equal(afterFirst.length, 2)
+  assert.equal(afterFirst[0].status, 'completed')
+  assert.equal(afterFirst[1].status, 'pending')
+  assert.deepEqual(afterFirst[1].checkpoint, {retry: 1})
+
+  const retry = afterFirst[1]
+  await runSolvingJob(db, silentProvider(), {id: retry.id, worksheetId, userId, checkpoint: retry.checkpoint})
+
+  const afterRetry = await solvingJobs(db, worksheetId)
+  assert.equal(afterRetry.length, 2)
+  assert.equal(afterRetry[1].status, 'completed')
 })
