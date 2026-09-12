@@ -290,7 +290,7 @@ export default function UploadClient({subjects, initialSample, sharedReads}: Pro
           type="button"
           disabled={busy || loadingSample !== null}
           onClick={() => void loadSample(sample.slug, true)}
-          className="card flex min-h-11 w-full flex-col items-start gap-1 p-4 text-left hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+          className="card flex min-h-11 w-full touch-manipulation flex-col items-start gap-1 p-4 text-left hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
         >
           <span className="font-medium">{sample.title}</span>
           <span className="text-sm text-muted">
