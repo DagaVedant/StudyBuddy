@@ -167,6 +167,84 @@ async function main() {
     )
   }
 
+  if (process.argv.includes('--tag-samples')) {
+    const {resolveProvider} = await import('../lib/ai/resolve')
+    const {users} = await import('../lib/schema')
+    const {CACHED_SAMPLES} = await import('../lib/samples')
+
+    const [admin] = await db
+      .select({id: users.id})
+      .from(users)
+      .where(eq(users.role, 'admin'))
+      .limit(1)
+
+    if (!admin) throw new Error('No admin account to resolve the operator provider with.')
+
+    const resolved = await resolveProvider(db, admin.id)
+    if (resolved.executor !== 'server') {
+      throw new Error('The operator provider did not resolve. Is OPENROUTER_API_KEY set?')
+    }
+
+    console.log('')
+    console.log('Per-question topics for every cached sample, through ' + resolved.provider.model)
+
+    for (const sample of CACHED_SAMPLES) {
+      const flat: {ordinal: number; promptText: string}[] = []
+      for (const page of sample.pages) {
+        for (const question of page) {
+          flat.push({ordinal: question.ordinal, promptText: question.prompt_text})
+        }
+      }
+
+      const shortlisted = []
+      for (const question of flat) {
+        const vector = await embed(question.promptText)
+        const candidates = await shortlistByVector(db, vector, {subjectHint: 'competition-math'})
+        shortlisted.push({ordinal: question.ordinal, promptText: question.promptText, candidates})
+      }
+
+      const picked = new Map<number, string>()
+
+      for (let start = 0; start < shortlisted.length; start = start + CLASSIFY_BATCH) {
+        const batch = shortlisted.slice(start, start + CLASSIFY_BATCH)
+
+        const inputs = []
+        for (let index = 0; index < batch.length; index++) {
+          inputs.push({
+            index: index,
+            promptText: batch[index].promptText,
+            candidates: batch[index].candidates,
+          })
+        }
+
+        const results = await resolved.provider.classifyBatch(inputs)
+
+        for (const result of results) {
+          const entry = batch[result.index]
+          if (!entry) continue
+          if (result.abstain || result.topic_slug === null) continue
+
+          picked.set(entry.ordinal, result.topic_slug)
+        }
+      }
+
+      console.log('')
+      console.log('  ' + sample.slug + ' (' + flat.length + ' questions, ' + picked.size + ' tagged):')
+      console.log('    topics: {')
+
+      for (const question of flat) {
+        const slug = picked.get(question.ordinal)
+        let line = '      ' + question.ordinal + ': ' + (slug ? "'" + slug + "'," : 'null,')
+        line = line.padEnd(84) + '// ' + question.promptText.replace(/\s+/g, ' ').slice(0, 44)
+        console.log(line)
+      }
+
+      console.log('    },')
+    }
+
+    process.exit(0)
+  }
+
   const live = readFlag('--live')
   if (!live) {
     console.log('')

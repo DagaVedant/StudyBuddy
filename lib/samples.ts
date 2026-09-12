@@ -8,7 +8,7 @@ import {answerChoices, questions, questionTopics, topics, worksheetPages, worksh
 export type CachedSample = {
   slug: string
   title: string
-  topicSlug: string
+  topics: Record<number, string>
   answers: Record<number, string>
   pages: ExtractedQuestion[][]
 }
@@ -17,7 +17,33 @@ export const CACHED_SAMPLES: CachedSample[] = [
   {
     slug: 'algebra-25',
     title: 'Algebra practice A',
-    topicSlug: 'competition-math.algebra',
+    topics: {
+      1: 'competition-math.algebra.linear-equations',
+      2: 'competition-math.ratio-proportion-and-percent.percent-of-a-number',
+      3: 'competition-math.algebra.linear-equations',
+      4: 'competition-math.algebra.linear-equations',
+      5: 'competition-math.algebra.slope-intercepts-and-linear-graphs',
+      6: 'competition-math.algebra.linear-equations',
+      7: 'competition-math.algebra.exponents-and-exponential-change',
+      8: 'competition-math.algebra.linear-equations',
+      9: 'competition-math.geometry.triangles',
+      10: 'competition-math.algebra.quadratics-and-factoring',
+      11: 'competition-math.ratio-proportion-and-percent.discount-markup-and-tax',
+      12: 'competition-math.statistics-and-data.mean-median-mode-and-range',
+      13: 'competition-math.algebra.linear-equations',
+      14: 'competition-math.geometry.area-and-perimeter',
+      15: 'competition-math.arithmetic-and-number-sense.squares-cubes-and-roots',
+      16: 'competition-math.number-theory.greatest-common-divisor-and-least-common-multiple',
+      17: 'competition-math.ratio-proportion-and-percent.speed-distance-and-time',
+      18: 'competition-math.algebra.linear-equations',
+      19: 'competition-math.geometry.area-and-perimeter',
+      20: 'competition-math.ratio-proportion-and-percent.ratios-and-rates',
+      21: 'competition-math.algebra.functions-and-function-notation',
+      22: 'competition-math.arithmetic-and-number-sense.fraction-and-decimal-operations',
+      23: 'competition-math.statistics-and-data.mean-median-mode-and-range',
+      24: 'competition-math.algebra.linear-equations',
+      25: 'competition-math.number-theory.greatest-common-divisor-and-least-common-multiple',
+    },
     answers: {
       1: 'B', 2: 'C', 3: 'B', 4: 'A', 5: 'B', 6: 'C', 7: 'D', 8: 'C', 9: 'B',
       10: 'B', 11: 'B', 12: 'B', 13: 'C', 14: 'C', 15: 'C', 16: 'C', 17: 'C',
@@ -233,7 +259,18 @@ export const CACHED_SAMPLES: CachedSample[] = [
   {
     slug: 'algebra-10',
     title: 'Algebra practice B',
-    topicSlug: 'competition-math.algebra',
+    topics: {
+      1: 'competition-math.algebra.linear-equations',
+      2: 'competition-math.ratio-proportion-and-percent.percent-of-a-number',
+      3: 'competition-math.algebra.linear-equations',
+      4: 'competition-math.arithmetic-and-number-sense.squares-cubes-and-roots',
+      5: 'competition-math.algebra.linear-equations',
+      6: 'competition-math.geometry.area-and-perimeter',
+      7: 'competition-math.number-theory.primes-and-divisibility',
+      8: 'competition-math.arithmetic-and-number-sense.integers-negatives-and-absolute-value',
+      9: 'competition-math.arithmetic-and-number-sense.fraction-and-decimal-operations',
+      10: 'competition-math.geometry.area-and-perimeter',
+    },
     answers: {
       1: 'B', 2: 'B', 3: 'C', 4: 'B', 5: 'B', 6: 'B', 7: 'C', 8: 'C', 9: 'B', 10: 'B',
     },
@@ -325,7 +362,13 @@ export const CACHED_SAMPLES: CachedSample[] = [
   {
     slug: 'algebra-5',
     title: 'Algebra warm-up',
-    topicSlug: 'competition-math.arithmetic-and-number-sense',
+    topics: {
+      1: 'competition-math.arithmetic-and-number-sense.integers-negatives-and-absolute-value',
+      2: 'competition-math.algebra.linear-equations',
+      3: 'competition-math.arithmetic-and-number-sense.squares-cubes-and-roots',
+      4: 'competition-math.arithmetic-and-number-sense.fraction-and-decimal-operations',
+      5: 'competition-math.arithmetic-and-number-sense.fraction-and-decimal-operations',
+    },
     answers: {1: 'C', 2: 'C', 3: 'C', 4: 'C', 5: 'A'},
     pages: [
       [
@@ -465,35 +508,58 @@ export async function applyCachedSample(
   }
 
   await applySampleKey(db, worksheetId, sample.answers)
+  await applySampleTopics(db, worksheetId, sample.topics)
 
-  const [topic] = await db
-    .select({id: topics.id})
+  return total
+}
+
+export async function applySampleTopics(
+  db: Db,
+  worksheetId: string,
+  topicByOrdinal: Record<number, string>,
+) {
+  const wanted = new Set<string>()
+  for (const ordinal of Object.keys(topicByOrdinal)) wanted.add(topicByOrdinal[Number(ordinal)])
+
+  if (wanted.size === 0) return 0
+
+  const slugs: string[] = []
+  for (const slug of wanted) slugs.push(slug)
+
+  const topicRows = await db
+    .select({id: topics.id, slug: topics.slug})
     .from(topics)
-    .where(eq(topics.slug, sample.topicSlug))
-    .limit(1)
+    .where(inArray(topics.slug, slugs))
 
-  if (!topic) return total
+  const topicIdBySlug = new Map<string, string>()
+  for (const row of topicRows) topicIdBySlug.set(row.slug, row.id)
 
   const rows = await db
-    .select({id: questions.id})
+    .select({id: questions.id, ordinal: questions.ordinal})
     .from(questions)
     .where(eq(questions.worksheetId, worksheetId))
-
-  if (rows.length === 0) return total
 
   const tags = []
 
   for (const row of rows) {
+    const slug = topicByOrdinal[row.ordinal]
+    if (!slug) continue
+
+    const topicId = topicIdBySlug.get(slug)
+    if (!topicId) continue
+
     tags.push({
       questionId: row.id,
-      topicId: topic.id,
+      topicId: topicId,
       confidence: 1,
       assignedBy: 'ai' as const,
       isPrimary: true,
     })
   }
 
+  if (tags.length === 0) return 0
+
   await db.insert(questionTopics).values(tags).onConflictDoNothing()
 
-  return total
+  return tags.length
 }

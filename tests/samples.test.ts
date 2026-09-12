@@ -5,7 +5,8 @@ import {and, eq} from 'drizzle-orm'
 
 import {countExportableQuestions} from '@/lib/blooket'
 import {applyCachedSample, CACHED_SAMPLES, findMatchingSample} from '@/lib/samples'
-import {answerChoices, attempts, questions, worksheetPages, worksheets} from '@/lib/schema'
+import {answerChoices, attempts, questions, questionTopics, topics, worksheetPages, worksheets} from '@/lib/schema'
+import {flattenTaxonomy} from '@/lib/taxonomy'
 
 import {freshDb, makeUser, makeWorksheet, uid} from './support/db'
 
@@ -195,3 +196,88 @@ test('a missed sample question can actually be exported', async () => {
 
   assert.equal(await countExportableQuestions(db, userId), rows.length)
 })
+
+test('every sample question has a topic, and it is a real leaf', () => {
+  const leaves = new Set<string>()
+  for (const node of flattenTaxonomy()) {
+    if (node.isLeaf) leaves.add(node.slug)
+  }
+
+  for (const sample of CACHED_SAMPLES) {
+    const flat = sample.pages.flat()
+
+    assert.equal(
+      Object.keys(sample.topics).length,
+      flat.length,
+      `${sample.slug} tags ${Object.keys(sample.topics).length} of ${flat.length} questions`,
+    )
+
+    for (const question of flat) {
+      const slug = sample.topics[question.ordinal]
+      assert.ok(slug, `${sample.slug} #${question.ordinal} has no topic`)
+      assert.ok(leaves.has(slug), `${sample.slug} #${question.ordinal} -> ${slug} is not a leaf topic`)
+    }
+  }
+})
+
+async function seedLeafTopics(db: Awaited<ReturnType<typeof freshDb>>) {
+  const idBySlug = new Map<string, string>()
+
+  for (const node of flattenTaxonomy()) {
+    let parentId: string | null = null
+    if (node.parentSlug) {
+      const found = idBySlug.get(node.parentSlug)
+      if (found) parentId = found
+    }
+
+    const [row] = await db
+      .insert(topics)
+      .values({
+        slug: node.slug,
+        name: node.name,
+        parentId,
+        depth: node.depth,
+        subjectRoot: node.subjectRoot,
+        isLeaf: node.isLeaf,
+        isCanonical: true,
+      })
+      .returning({id: topics.id})
+
+    idBySlug.set(node.slug, row.id)
+  }
+}
+
+for (const sample of CACHED_SAMPLES) {
+  test(`${sample.slug} lands every topic on the question it belongs to`, async () => {
+    const db = await freshDb()
+    await seedLeafTopics(db)
+
+    const userId = await makeUser(db)
+    const {worksheetId, pages} = await uploadPagesFor(db, userId, sample)
+
+    await applyCachedSample(db, worksheetId, userId, sample, pages)
+
+    const rows = await db
+      .select({
+        ordinal: questions.ordinal,
+        promptText: questions.promptText,
+        slug: topics.slug,
+      })
+      .from(questions)
+      .innerJoin(
+        questionTopics,
+        and(eq(questionTopics.questionId, questions.id), eq(questionTopics.isPrimary, true)),
+      )
+      .innerJoin(topics, eq(topics.id, questionTopics.topicId))
+      .where(eq(questions.worksheetId, worksheetId))
+
+    assert.equal(rows.length, sample.pages.flat().length, 'not every question was tagged')
+
+    for (const row of rows) {
+      const source = sample.pages.flat().find((entry) => entry.ordinal === row.ordinal)
+      assert.ok(source, `nothing in ${sample.slug} was numbered ${row.ordinal}`)
+      assert.equal(row.promptText, source.prompt_text, `#${row.ordinal} is the wrong question`)
+      assert.equal(row.slug, sample.topics[row.ordinal], `#${row.ordinal} got the wrong topic`)
+    }
+  })
+}
