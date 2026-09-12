@@ -65,6 +65,9 @@ export default async function UploadPage({searchParams}: Props) {
       'To have them read, connect your own AI provider in'
   }
 
+  let sharedReads = undefined
+  if (usage) sharedReads = {calls: usage.calls, cap: usage.cap}
+
   const startingSample = findSample(sample)
 
   let initialSample = undefined
@@ -103,7 +106,11 @@ export default async function UploadPage({searchParams}: Props) {
         </div>
       )}
 
-      <UploadClient subjects={subjectGroups()} initialSample={initialSample} />
+      <UploadClient
+        subjects={subjectGroups()}
+        initialSample={initialSample}
+        sharedReads={sharedReads}
+      />
     </main>
   )
 }

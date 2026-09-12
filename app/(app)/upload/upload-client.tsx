@@ -20,6 +20,7 @@ export type SubjectGroup = {
 type Props = {
   subjects: SubjectGroup[]
   initialSample?: string
+  sharedReads?: {calls: number; cap: number}
 }
 
 const STAGE_LABEL: Record<IngestProgress['stage'], string> = {
@@ -45,7 +46,7 @@ function defaultTitle(files: File[]): string {
   return first.name.replace(/\.[^.]+$/, '').slice(0, 120)
 }
 
-export default function UploadClient({subjects, initialSample}: Props) {
+export default function UploadClient({subjects, initialSample, sharedReads}: Props) {
   const router = useRouter()
   const titleId = useId()
   const subjectId = useId()
@@ -130,45 +131,36 @@ export default function UploadClient({subjects, initialSample}: Props) {
     })
   }, [])
 
-  const loadSample = useCallback(
-    async (slug: string, keepACopy: boolean) => {
-      const sample = findSample(slug)
-      if (!sample) return
+  const startWhenLoaded = useRef(false)
 
-      setError(null)
-      setLoadingSample(slug)
+  const loadSample = useCallback(async (slug: string, startAtOnce: boolean) => {
+    const sample = findSample(slug)
+    if (!sample) return
 
-      try {
-        const response = await fetch('/samples/' + slug + '.pdf')
-        if (!response.ok) throw new Error(String(response.status))
+    setError(null)
+    setNotice(null)
+    setLoadingSample(slug)
 
-        const blob = await response.blob()
-        const name = sample.title + '.pdf'
+    try {
+      const response = await fetch('/samples/' + slug + '.pdf')
+      if (!response.ok) throw new Error(String(response.status))
 
-        addFiles([new File([blob], name, {type: 'application/pdf'})])
+      const blob = await response.blob()
+      const name = sample.title + '.pdf'
 
-        setPageFrom('1')
-        setPageTo(String(sample.pages))
-        setQuestionCount(String(sample.questions))
+      startWhenLoaded.current = startAtOnce
 
-        if (keepACopy) {
-          const href = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = href
-          link.download = name
-          document.body.append(link)
-          link.click()
-          link.remove()
-          setTimeout(() => URL.revokeObjectURL(href), 60_000)
-        }
-      } catch {
-        setError('Could not load that sample worksheet. Try again.')
-      } finally {
-        setLoadingSample(null)
-      }
-    },
-    [addFiles],
-  )
+      setFiles([new File([blob], name, {type: 'application/pdf'})])
+      if (!titleTouchedRef.current) setTitle(sample.title)
+      setPageFrom('1')
+      setPageTo(String(sample.pages))
+      setQuestionCount(String(sample.questions))
+    } catch {
+      setError('Could not load that sample worksheet. Try again.')
+    } finally {
+      setLoadingSample(null)
+    }
+  }, [])
 
   const requested = useRef(false)
 
@@ -207,7 +199,7 @@ export default function UploadClient({subjects, initialSample}: Props) {
       .catch(() => setNotice('Upload cancelled.'))
   }
 
-  async function start() {
+  const start = useCallback(async () => {
     if (runningRef.current) return
 
     setError(null)
@@ -272,12 +264,57 @@ export default function UploadClient({subjects, initialSample}: Props) {
       runningRef.current = false
       if (abortRef.current === controller) abortRef.current = null
     }
-  }
+  }, [files, title, subject, pageFrom, pageTo, questionCount, router])
+
+  useEffect(() => {
+    if (!startWhenLoaded.current || files.length === 0) return
+    startWhenLoaded.current = false
+    void start()
+  }, [files, start])
 
   const pct = progress ? Math.round((progress.completed / Math.max(progress.total, 1)) * 100) : 0
 
+  let readsLine = null
+  if (sharedReads) {
+    readsLine = sharedReads.calls + ' of ' + sharedReads.cap + ' shared free reads used today.'
+  }
+
+  const sampleCards = []
+  for (const sample of SAMPLE_WORKSHEETS) {
+    let state = 'Starts straight away'
+    if (loadingSample === sample.slug) state = 'Loading...'
+
+    sampleCards.push(
+      <li key={sample.slug}>
+        <button
+          type="button"
+          disabled={busy || loadingSample !== null}
+          onClick={() => void loadSample(sample.slug, true)}
+          className="card flex min-h-11 w-full flex-col items-start gap-1 p-4 text-left hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+        >
+          <span className="font-medium">{sample.title}</span>
+          <span className="text-sm text-muted">
+            {sample.questions} questions on {sample.pages === 1 ? 'one page' : sample.pages + ' pages'}
+          </span>
+          <span className="text-sm text-muted">{state}</span>
+        </button>
+      </li>,
+    )
+  }
+
   return (
     <div className="space-y-8">
+      <section id="samples" aria-labelledby="samples-heading">
+        <h2 id="samples-heading" className="text-pretty font-medium">
+          Start with a sample
+        </h2>
+        <p className="hint text-pretty">
+          These are already read, so they cost nothing and finish in under a minute. Pick one
+          and it starts.
+        </p>
+        <ul className="mt-4 grid gap-3 sm:grid-cols-3">{sampleCards}</ul>
+      </section>
+
       <section
         onDragOver={(event) => {
           event.preventDefault()
@@ -293,8 +330,12 @@ export default function UploadClient({subjects, initialSample}: Props) {
         className={dropClass}
       >
         <h2 id="add-heading" className="text-pretty font-medium">
-          Drop a PDF here, or choose a file
+          Or upload your own PDF
         </h2>
+        <p className="hint text-pretty">
+          Your own worksheet is read by the shared free model, which has a daily limit.
+          {readsLine && ' ' + readsLine}
+        </p>
         <div className="mx-auto mt-4 flex max-w-xs flex-col gap-2">
           <div className="sm:flex-1">
             <input
@@ -317,24 +358,6 @@ export default function UploadClient({subjects, initialSample}: Props) {
             </label>
           </div>
         </div>
-
-        <p id="samples" className="hint mt-4">
-          No worksheet to hand? Try a sample:{' '}
-          {SAMPLE_WORKSHEETS.map((sample, index) => (
-            <span key={sample.slug}>
-              {index > 0 && ', '}
-              <button
-                type="button"
-                disabled={busy || loadingSample !== null}
-                onClick={() => void loadSample(sample.slug, true)}
-                className="underline underline-offset-2 hover:text-fg disabled:opacity-60"
-              >
-                {sample.questions} questions
-              </button>
-            </span>
-          ))}
-          {loadingSample !== null && ' loading...'}
-        </p>
       </section>
 
       {files.length > 0 && (
