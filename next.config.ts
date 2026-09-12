@@ -7,9 +7,15 @@ const reportOnlyCsp = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+const sharpOnLinux = [
+  "./node_modules/@img/sharp-linux-x64/**/*",
+  "./node_modules/@img/sharp-libvips-linux-x64/**/*",
+];
+
 const embedder = [
   "./models/**/*",
   "./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/**/*",
+  ...sharpOnLinux,
 ];
 
 const nextConfig: NextConfig = {
@@ -17,10 +23,7 @@ const nextConfig: NextConfig = {
     "/api/worksheets/*/complete": embedder,
     "/api/worksheets/*/classify": embedder,
     "/api/cron/drain-server-queue": embedder,
-    "/api/worksheets/*/pages": [
-      "./node_modules/@img/sharp-linux-x64/**/*",
-      "./node_modules/@img/sharp-libvips-linux-x64/**/*",
-    ],
+    "/api/worksheets/*/pages": sharpOnLinux,
   },
 
   serverExternalPackages: ["nodemailer"],
