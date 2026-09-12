@@ -2,7 +2,7 @@ import Link from 'next/link'
 import {redirect} from 'next/navigation'
 
 import {auth} from '@/auth'
-import {canSortTopicsHere, getCredentialSummary} from '@/lib/ai/resolve'
+import {canSortTopicsHere} from '@/lib/ai/resolve'
 import {TopicSorter} from '@/components/topic-sorter'
 import {AccuracyLabel, Meter} from '@/components/meter'
 import {countExportableQuestions} from '@/lib/blooket'
@@ -111,16 +111,14 @@ export default async function DashboardPage() {
     streak,
     calendar,
     untagged,
-    credentials,
+    canSortHere,
   ] = await Promise.all([
     getOverview(db, userId), getTopicStats(db, userId),
     getRecentWorksheets(db, userId, 3), getDistractorPatterns(db, userId),
     countExportableQuestions(db, userId), getStudyStreak(db, userId),
     getStudyCalendar(db, userId),
-    listUntaggedWorksheets(db, userId), getCredentialSummary(db, userId),
+    listUntaggedWorksheets(db, userId), canSortTopicsHere(db, userId),
   ])
-
-  const canSortHere = canSortTopicsHere(credentials)
 
   const paths = pathBySlug()
 

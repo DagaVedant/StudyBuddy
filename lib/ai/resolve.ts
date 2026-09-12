@@ -198,12 +198,10 @@ export type CredentialSummary = {
   verifiedAt: Date | null
 }
 
-export function canSortTopicsHere(credentials: CredentialSummary[]) {
-  for (let row of credentials) {
-    if (isCloudProvider(row.provider)) return true
-  }
+export async function canSortTopicsHere(db: Db, userId: string) {
+  const {executor} = await resolveProvider(db, userId)
 
-  return false
+  return executor === 'server'
 }
 
 export async function getCredentialSummary(

@@ -2,7 +2,7 @@ import {and, eq} from 'drizzle-orm'
 import {notFound, redirect} from 'next/navigation'
 
 import {auth} from '@/auth'
-import {canSortTopicsHere, getCredentialSummary} from '@/lib/ai/resolve'
+import {canSortTopicsHere} from '@/lib/ai/resolve'
 import {TopicSorter} from '@/components/topic-sorter'
 import {db} from '@/lib/db'
 import {worksheets} from '@/lib/schema'
@@ -33,13 +33,11 @@ export default async function CheckPage({params}: Params) {
 
   if (!worksheet) notFound()
 
-  const [shaped, duplicates, credentials] = await Promise.all([
+  const [shaped, duplicates, canSortHere] = await Promise.all([
     loadQuestionsWithChoices(db, id),
     findLibraryDuplicates(db, session.user.id, id),
-    getCredentialSummary(db, session.user.id),
+    canSortTopicsHere(db, session.user.id),
   ])
-
-  const canSortHere = canSortTopicsHere(credentials)
 
   const duplicateFor = new Map(duplicates.map((row) => [row.questionId, row]))
 
