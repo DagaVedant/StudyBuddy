@@ -7,10 +7,16 @@ const reportOnlyCsp = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+const embedder = [
+  "./models/**/*",
+  "./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/**/*",
+];
+
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
-    "/api/worksheets/*/complete": ["./models/**/*"],
-    "/api/worksheets/*/classify": ["./models/**/*"],
+    "/api/worksheets/*/complete": embedder,
+    "/api/worksheets/*/classify": embedder,
+    "/api/cron/drain-server-queue": embedder,
     "/api/worksheets/*/pages": [
       "./node_modules/@img/sharp-linux-x64/**/*",
       "./node_modules/@img/sharp-libvips-linux-x64/**/*",

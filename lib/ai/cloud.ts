@@ -191,7 +191,7 @@ abstract class CloudClient implements RawAIProvider {
   }
 
   answerBatch(inputs: BatchAnswerInput[]): Promise<unknown> {
-    let maxTokens = 1000 + inputs.length * 700
+    let maxTokens = 4000 + inputs.length * 2500
     if (maxTokens > 64000) maxTokens = 64000
 
     return this.ask({
@@ -407,14 +407,26 @@ export class OpenAIProvider extends CloudClient {
     }
 
     const body = (await response.json()) as {
-      choices?: {message?: {content?: string}}[]
+      choices?: {message?: {content?: string}; finish_reason?: string}[]
     }
 
     let text = ''
 
     if (body.choices && body.choices[0]) {
-      const message = body.choices[0].message
-      if (message && message.content) text = message.content
+      const choice = body.choices[0]
+      if (choice.message && choice.message.content) text = choice.message.content
+
+      if (choice.finish_reason === 'length') {
+        console.log(
+          '[' +
+            this.label +
+            '] ' +
+            request.schemaName +
+            ' hit max_tokens (' +
+            request.maxTokens +
+            '); the reply is truncated',
+        )
+      }
     }
 
     if (!text) throw new Error(this.label + ' returned an empty response.')
