@@ -3,7 +3,7 @@ import {and, asc, eq, inArray} from 'drizzle-orm'
 import {type ExtractedQuestion} from '@/lib/ai/types'
 import {type Db} from '@/lib/db'
 import {persistQuestions} from '@/lib/worker/pipeline'
-import {answerChoices, questions, questionTopics, topics, worksheetPages, worksheets} from '@/lib/schema'
+import {answerChoices, questions, questionTopics, topics, worksheetPages} from '@/lib/schema'
 
 export type CachedSample = {
   slug: string
@@ -421,7 +421,7 @@ function squash(text: string) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
-export async function findMatchingSample(db: Db, worksheetId: string, userId: string) {
+export async function findMatchingSample(db: Db, worksheetId: string) {
   const pages = await db
     .select({id: worksheetPages.id, ocrText: worksheetPages.ocrText})
     .from(worksheetPages)
@@ -438,14 +438,6 @@ export async function findMatchingSample(db: Db, worksheetId: string, userId: st
   for (const sample of CACHED_SAMPLES) {
     if (pages.length !== sample.pages.length) continue
     if (!firstPage.includes(squash(sample.title))) continue
-
-    const [used] = await db
-      .select({id: worksheets.id})
-      .from(worksheets)
-      .where(and(eq(worksheets.userId, userId), eq(worksheets.sampleSlug, sample.slug)))
-      .limit(1)
-
-    if (used) return null
 
     return {sample, pages}
   }

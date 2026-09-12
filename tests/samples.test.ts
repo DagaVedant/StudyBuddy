@@ -36,18 +36,18 @@ test('the cached sample is free the first time', async () => {
   const userId = await makeUser(db)
   const worksheetId = await uploadSample(db, userId)
 
-  const match = await findMatchingSample(db, worksheetId, userId)
+  const match = await findMatchingSample(db, worksheetId)
 
   assert.ok(match)
   assert.equal(match.sample.slug, SAMPLE.slug)
 })
 
-test('the same sample twice does not keep skipping the trial', async () => {
+test('the same sample twice is served from the cache both times', async () => {
   const db = await freshDb()
   const userId = await makeUser(db)
 
   const first = await uploadSample(db, userId)
-  assert.ok(await findMatchingSample(db, first, userId), 'the first run was not free')
+  assert.ok(await findMatchingSample(db, first), 'the first run was not free')
 
   await db
     .update(worksheets)
@@ -55,12 +55,10 @@ test('the same sample twice does not keep skipping the trial', async () => {
     .where(eq(worksheets.id, first))
 
   const second = await uploadSample(db, userId)
-  const match = await findMatchingSample(db, second, userId)
 
-  assert.equal(
-    match,
-    null,
-    'the sample matched again, so the trial can be skipped indefinitely',
+  assert.ok(
+    await findMatchingSample(db, second),
+    'the second run of a sample went to the model, which is what the samples exist to avoid',
   )
 })
 
@@ -78,7 +76,7 @@ test('one account using a sample does not spend it for everyone', async () => {
   const fresh = await uploadSample(db, theirs)
 
   assert.ok(
-    await findMatchingSample(db, fresh, theirs),
+    await findMatchingSample(db, fresh),
     'a different account was charged for someone else using the sample',
   )
 })

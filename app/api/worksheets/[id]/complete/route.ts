@@ -60,7 +60,7 @@ async function postIdComplete(_request: Request, {params}: {params: Promise<Reco
   )
   if (limited) return limited
 
-  const match = await findMatchingSample(db, worksheetId, guard.userId)
+  const match = await findMatchingSample(db, worksheetId)
 
   if (match) {
     if (!(await claimForCompletion(worksheetId, 'queued', 'free'))) {
