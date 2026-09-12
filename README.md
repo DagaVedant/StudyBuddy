@@ -7,14 +7,25 @@ get back a record of what you actually know.
 
 ## What it does
 
-1. You upload a worksheet as a PDF.
-2. A vision model pulls out each question and its options.
-3. You check what it read, then mark which ones you missed.
-4. The dashboard shows accuracy by topic, and a review queue schedules the ones
-   you got wrong.
+1. You upload a worksheet or practice test as a PDF.
+2. A model reads every question and its options off the pages, and files each
+   one under a topic.
+3. You check what it read, then mark which ones you got wrong.
+4. The dashboard ranks your topics across every worksheet you have ever
+   uploaded, and a review queue brings the missed questions back on an FSRS
+   schedule, the spaced-repetition algorithm Anki uses.
 
-Three worksheets are read for free. After that it stays free: you add questions
-yourself, or add your own API key in settings and there is no limit.
+The point is the ranking. One worksheet tells you "12 wrong"; five tell you
+"ratios", with the papers to back it up.
+
+Reading runs on OpenRouter's free models, so it costs nothing to run and
+nothing to use. A whole worksheet is a handful of requests: one to read the
+pages, one or two to sort the questions, one to work out the answer key. Three
+worksheets are read for free per account. After that it stays free: you add
+questions yourself, or add your own API key in settings and there is no limit.
+The three sample worksheets on the upload page never touch a model, so they
+work even on a day the free allowance has run out, and the homepage says when
+that day is.
 
 ## Running it locally
 
@@ -44,9 +55,10 @@ off rather than erroring.
 ## Built with
 
 Next.js 16, React 19, Drizzle ORM over Postgres with pgvector, Auth.js v5,
-ts-fsrs for review scheduling, and Tailwind. Questions are extracted by
-OpenRouter for the free trial, or by a student's own Anthropic, OpenAI,
-OpenRouter or Google key.
+ts-fsrs for review scheduling, and Tailwind. Questions are read by OpenRouter
+on the operator's key for the free trial, or by a student's own Anthropic,
+OpenAI, OpenRouter or Google key. Topics are shortlisted with a small
+embedding model that runs on the server and picked by the reading model.
 
 A PDF with a text layer is read from that layer; only a scanned one goes
 through OCR, in the browser, before anything is uploaded. The page image still
