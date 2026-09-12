@@ -281,9 +281,6 @@ export default function UploadClient({subjects, initialSample, sharedReads}: Pro
 
   const sampleCards = []
   for (const sample of SAMPLE_WORKSHEETS) {
-    let state = 'Starts straight away'
-    if (loadingSample === sample.slug) state = 'Loading...'
-
     sampleCards.push(
       <li key={sample.slug}>
         <button
@@ -296,7 +293,6 @@ export default function UploadClient({subjects, initialSample, sharedReads}: Pro
           <span className="text-sm text-muted">
             {sample.questions} questions on {sample.pages === 1 ? 'one page' : sample.pages + ' pages'}
           </span>
-          <span className="text-sm text-muted">{state}</span>
         </button>
       </li>,
     )
@@ -311,6 +307,7 @@ export default function UploadClient({subjects, initialSample, sharedReads}: Pro
         <p className="hint text-pretty">
           These are already read, so they cost nothing and finish in under a minute. Pick one
           and it starts.
+          {loadingSample !== null && ' Loading...'}
         </p>
         <ul className="mt-4 grid gap-3 sm:grid-cols-3">{sampleCards}</ul>
       </section>
